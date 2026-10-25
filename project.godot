@@ -1,0 +1,26 @@
+; Engine configuration file.
+; Track Rush: Godot 4.7 port (see HANDOFF.md).
+
+config_version=5
+
+[application]
+
+config/name="Track Rush"
+config/version="6.0.0-dev"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[physics]
+
+common/physics_ticks_per_second=60
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/msaa_3d=2
