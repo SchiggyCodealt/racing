@@ -1,0 +1,13 @@
+# dependencies (none are needed, but npx/npm may create these)
+node_modules/
+package-lock.json
+
+# networks written by tools/headlessTrain.mjs (default name)
+best-network.json
+
+# editor / OS clutter
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

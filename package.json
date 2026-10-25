@@ -1,0 +1,19 @@
+{
+  "name": "track-rush",
+  "version": "5.0.0",
+  "private": true,
+  "description": "Trackmania-style racer with four cars, nitro, style points, realistic car physics and a neuroevolution AI driver (Three.js, runs locally)",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "npx --yes serve .",
+    "test": "node tools/selfTest.mjs",
+    "tracks": "node tools/generateTracks.mjs",
+    "medals": "node tools/medals.mjs",
+    "cars": "node tools/carStats.mjs",
+    "train": "node tools/headlessTrain.mjs",
+    "bench": "node tools/physicsBench.mjs"
+  }
+}

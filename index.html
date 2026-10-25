@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Track Rush</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- The vendored three.js add-ons (vendor/addons/) import the bare name "three".
+       Map it to the same file the game imports by relative path, so there is one module instance. -->
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <!-- icons (the vendored fonts have no arrow glyphs): <svg class="ico"><use href="#i-arrow"/></svg> points up -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-arrow" viewBox="0 0 12 12"><path d="M6 10.5V2.4M2.4 5.8 6 2.2l3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"/></symbol>
+  </svg>
+
+  <!-- 3D view (the canvas is inserted here) -->
+  <div id="view"></div>
+
+  <!-- ===== Main menu: 1 track, 2 car, 3 drive (menu.js; layout in css/style.css) ===== -->
+  <div id="menu" class="hidden">
+    <div class="menu-main">
+      <header class="menu-head">
+        <h1 class="wordmark"><i aria-hidden="true"></i>Track Rush</h1>
+        <p id="menu-hint" class="hint-line"></p> <!-- one short line of keys (the gamepad's while it is in use) -->
+        <button id="btn-controls" class="btn small" title="Every keyboard and gamepad control">Controls <kbd>H</kbd></button>
+      </header>
+      <section class="pick-track" aria-labelledby="step-track">
+        <h2 class="step" id="step-track"><span>1</span>Track</h2>
+        <!-- the 12 tracks: number, map of the centre line, name, difficulty, your medal and best with the picked car -->
+        <div id="track-grid" role="radiogroup" aria-labelledby="step-track"></div>
+      </section>
+      <section class="pick-car" aria-labelledby="step-car">
+        <h2 class="step" id="step-car"><span>2</span>Car</h2>
+        <!-- car picker: the four cars of src/physics/cars.js -->
+        <div id="car-picker" role="radiogroup" aria-labelledby="step-car"></div>
+        <div id="car-desc"></div>
+      </section>
+      <div class="menu-side">
+        <!-- the selected track: description, length, and the records and medal times with the picked car -->
+        <section id="track-detail" aria-live="polite">
+          <div class="td-head"><span class="td-num"></span><h3 class="td-name"></h3></div>
+          <div class="td-meta"></div>
+          <p class="td-desc"></p>
+          <div class="td-map" aria-hidden="true"></div>
+          <div class="td-car"></div>
+          <dl class="td-stats"></dl>
+          <div id="menu-medals"></div>
+        </section>
+        <section class="menu-go" aria-labelledby="step-go">
+          <h2 class="step" id="step-go"><span>3</span>Drive</h2>
+          <!-- (sticks to the bottom of narrow windows) -->
+          <div class="menu-actions">
+            <button id="btn-drive" class="btn primary">Drive</button>
+            <label class="check" title="In Drive, a see-through copy of your best run on the track with the car you drive races with you (G switches it during a race)">
+              <input type="checkbox" id="opt-ghost" /> Race my best-run ghost</label>
+          </div>
+          <div class="ai-box">
+            <div class="ai-head">
+              <span class="cap">AI driver</span>
+              <button id="btn-load-net" class="btn small quiet">Load network…</button>
+              <button id="btn-save-net" class="btn small quiet">Save network…</button>
+            </div>
+            <div id="ai-status"></div>
+            <div class="ai-actions">
+              <button id="btn-ghost" class="btn">Race the AI ghost</button>
+              <button id="btn-watch" class="btn">Watch the AI</button>
+              <button id="btn-train" class="btn">Train the AI</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Controls (H or ? on the menu, View on a gamepad; menu.js) ===== -->
+  <div id="controls" class="hidden" role="dialog" aria-modal="true" aria-labelledby="controls-title">
+    <div class="controls-panel">
+      <header>
+        <h2 id="controls-title">Controls</h2>
+        <button id="btn-controls-close" class="btn small">Close <kbd>Esc</kbd></button>
+      </header>
+      <div class="controls-cols">
+        <section>
+          <h3>Driving</h3>
+          <table class="keys">
+            <thead><tr><th scope="col"><span class="vh">Action</span></th><th scope="col">Keyboard</th><th scope="col">Gamepad</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Accelerate</th><td><kbd class="arrow" aria-label="Up arrow"><svg class="ico"><use href="#i-arrow"/></svg></kbd> <kbd>W</kbd></td><td><kbd>RT</kbd></td></tr>
+              <tr><th scope="row">Brake, then reverse</th><td><kbd class="arrow down" aria-label="Down arrow"><svg class="ico"><use href="#i-arrow"/></svg></kbd> <kbd>S</kbd></td><td><kbd>LT</kbd></td></tr>
+              <tr><th scope="row">Steer</th><td><kbd class="arrow left" aria-label="Left arrow"><svg class="ico"><use href="#i-arrow"/></svg></kbd> <kbd class="arrow right" aria-label="Right arrow"><svg class="ico"><use href="#i-arrow"/></svg></kbd> <kbd>A</kbd> <kbd>D</kbd></td><td>Left stick</td></tr>
+              <tr><th scope="row">Handbrake (drift)</th><td><kbd>Space</kbd></td><td><kbd>A</kbd></td></tr>
+              <tr><th scope="row">Nitro (hold)</th><td><kbd>Shift</kbd></td><td><kbd>X</kbd> <kbd>RB</kbd></td></tr>
+            </tbody>
+          </table>
+          <h3>Race</h3>
+          <table class="keys">
+            <tbody>
+              <tr><th scope="row">Restart</th><td><kbd>R</kbd></td><td><kbd>View</kbd></td></tr>
+              <tr><th scope="row">Respawn at the last checkpoint</th><td><kbd>Enter</kbd> <kbd>Backspace</kbd></td><td><kbd>B</kbd></td></tr>
+              <tr><th scope="row">Ghost on / off</th><td><kbd>G</kbd></td><td><kbd>Y</kbd></td></tr>
+              <tr><th scope="row">Back to the menu</th><td><kbd>Esc</kbd></td><td><kbd>Menu</kbd></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section>
+          <h3>Menu</h3>
+          <table class="keys">
+            <thead><tr><th scope="col"><span class="vh">Action</span></th><th scope="col">Keyboard</th><th scope="col">Gamepad</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Pick a track</th><td><kbd>Arrows</kbd> <kbd>1</kbd>–<kbd>9</kbd> <kbd>0</kbd> <kbd>-</kbd> <kbd>=</kbd></td><td>D-pad</td></tr>
+              <tr><th scope="row">Next / previous car</th><td><kbd>C</kbd> <kbd>Shift</kbd>+<kbd>C</kbd></td><td><kbd>RB</kbd> <kbd>LB</kbd></td></tr>
+              <tr><th scope="row">Drive</th><td><kbd>Enter</kbd></td><td><kbd>A</kbd></td></tr>
+              <tr><th scope="row">Other buttons</th><td>Mouse</td><td>D-pad, then <kbd>A</kbd></td></tr>
+              <tr><th scope="row">Back to the tracks</th><td></td><td><kbd>B</kbd></td></tr>
+              <tr><th scope="row">This screen</th><td><kbd>H</kbd> <kbd>?</kbd> <kbd>Esc</kbd></td><td><kbd>View</kbd> <kbd>B</kbd></td></tr>
+            </tbody>
+          </table>
+          <h3>Tips</h3>
+          <ul class="tips">
+            <li>Drift: pull the handbrake into a corner, then countersteer and use the throttle to hold the slide.</li>
+            <li>Clean checkpoints build a combo up to x5; a wall or a respawn resets it. Points refill the nitro.</li>
+            <li>Any standard gamepad works. On a PlayStation pad A is Cross, B Circle, X Square and Y Triangle.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== In-race HUD ===== -->
+  <div id="hud" class="hidden">
+    <div id="hud-mode"></div>
+    <div id="hud-time">0:00.000</div>
+    <div id="hud-left">
+      <div class="hud-race"><div id="hud-lap"></div><div id="hud-cp"></div></div>
+      <!-- style score (src/game/score.js, hud.js): total + combo, the drift / jump / wall contact in progress, popups -->
+      <div id="hud-score"><span class="lbl">Score</span><b id="hud-points">0</b><span id="hud-combo">x1</span></div>
+      <div id="hud-live"></div>
+      <div id="hud-pops"></div>
+    </div>
+    <div id="hud-right"><div id="hud-best"></div><div id="hud-medal"></div><div id="hud-ghost"></div></div>
+    <div id="hud-speed"></div>
+    <div id="hud-countdown"></div>
+    <div id="hud-split"><span id="hud-split-time"></span><span id="hud-split-delta"></span></div>
+    <div id="hud-panel"></div>
+    <div id="hud-keys"><kbd>R</kbd> restart <kbd>Enter</kbd> respawn <kbd>Esc</kbd> menu</div> <!-- set per mode by HUD.setKeys -->
+  </div>
+
+  <!-- ===== Live network while watching the AI ===== -->
+  <div id="watch-panel" class="hidden">
+    <div class="title">AI network, live</div>
+    <canvas id="watch-net"></canvas>
+  </div>
+
+  <!-- ===== Training dashboard ===== -->
+  <aside id="dashboard" class="hidden">
+    <header>
+      <h2>AI training</h2>
+      <button id="tr-menu" class="btn small">Menu</button>
+    </header>
+
+    <section id="tr-setup">
+      <p class="hint">Each generation, every car drives the selected track(s). The best networks are kept,
+        mixed and mutated to make the next generation.</p>
+      <div class="form">
+        <label>Population size <input id="tr-pop" type="number" min="4" max="400" value="80" /></label>
+        <label>Mutation rate <input id="tr-mut" type="number" min="0.005" max="1" step="0.01" value="0.1" /></label>
+        <label>Hidden layer size(s) <input id="tr-hidden" value="12" title="One number per hidden layer, e.g. 12 or 16,8" /></label>
+        <label>Laps per circuit <select id="tr-laps"><option>1</option><option>2</option><option>3</option></select></label>
+        <!-- the options come from WALL_RULES in src/ai/trainer.js -->
+        <label class="wide">Walls <select id="tr-walls" title="Ride: a car that hits a wall keeps going, so the AI can learn to use walls instead of braking. Crash: a wall hit puts the car out, so it learns clean lines."></select></label>
+      </div>
+      <div class="sublabel">Train on</div>
+      <div id="tr-tracks"></div>
+      <label class="check"><input type="checkbox" id="tr-seed" /> Continue from saved network <span id="tr-seed-info"></span></label>
+      <div class="row">
+        <button id="tr-start" class="btn primary">Start training</button>
+        <button id="tr-load" class="btn">Load network file…</button>
+      </div>
+    </section>
+
+    <section id="tr-run" class="hidden">
+      <div class="row">
+        <button id="tr-pause" class="btn">Pause</button>
+        <div class="seg" id="tr-speed" role="group" aria-label="Speed">
+          <button class="btn" data-speed="1">1×</button><button class="btn" data-speed="6">Fast ×6</button><button class="btn" data-speed="max">Max</button>
+        </div>
+      </div>
+      <div class="row">
+        <button id="tr-follow" class="btn">Follow leader</button>
+        <button id="tr-cam" class="btn">Overview camera</button>
+      </div>
+      <canvas id="tr-net"></canvas>
+      <div id="tr-viewing" class="viewing"></div>
+      <div id="tr-stats" class="stats"></div>
+      <canvas id="tr-chart"></canvas>
+      <div class="row">
+        <button id="tr-save" class="btn">Save best network</button>
+        <button id="tr-load2" class="btn">Load network…</button>
+      </div>
+      <div class="row">
+        <button id="tr-watch" class="btn">Watch best</button>
+        <button id="tr-race" class="btn">Race best (ghost)</button>
+        <button id="tr-stop" class="btn">Stop</button>
+      </div>
+      <div id="tr-note" class="note"></div>
+      <p class="hint">Click any car in the 3D view to see its network.</p>
+    </section>
+  </aside>
+
+  <div id="max-overlay" class="hidden">
+    <div class="tag">Max speed</div>
+    <small>3D rendering paused to train as fast as possible</small>
+    <b id="max-rate"></b>
+  </div>
+
+  <!-- gamepad connected / disconnected notice (input.js) -->
+  <div id="pad-note" role="status"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
