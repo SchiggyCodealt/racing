@@ -18,7 +18,7 @@ func _initialize() -> void:
 		var race := RaceState.new(track)
 		var score := ScoreState.new(track)
 		var auto := Autopilot.medal(track, 24.0, 0.75, true)
-		var tape := _Tape.new(int(r.seed))
+		var tape := ParityTape.new(int(r.seed))
 		var tape_run: bool = r.driver == "tape"
 		var steps: int = 5400 if tape_run else 54000
 		var events: Array = []
@@ -110,42 +110,3 @@ func _eq(a: Variant, b: Variant) -> bool:
 	if (typeof(a) == TYPE_INT or typeof(a) == TYPE_FLOAT or typeof(a) == TYPE_BOOL) and (typeof(b) == TYPE_INT or typeof(b) == TYPE_FLOAT or typeof(b) == TYPE_BOOL):
 		return float(a) == float(b)
 	return a == b
-
-
-## The random keyboard tape of score_runs.mjs (mulberry32), in GDScript.
-class _Tape:
-	var seed: int
-	var hold: int = 0
-	var ctrl := Car.Controls.new()
-
-	func _init(s: int) -> void:
-		seed = s
-
-	## JS Math.imul without 64-bit overflow: (a * b) mod 2^32 as a signed 32-bit int.
-	func _imul(a: int, b: int) -> int:
-		var bb: int = b & 0xffffffff
-		var lo: int = (a & 0xffff) * bb
-		var hi: int = (((a >> 16) & 0xffff) * bb) & 0xffff
-		return _i32(lo + (hi << 16))
-
-	func _i32(v: int) -> int:
-		v &= 0xffffffff
-		return v - 0x100000000 if v >= 0x80000000 else v
-
-	func _rnd() -> float:
-		seed = _i32(seed + 0x6d2b79f5)
-		var t: int = _imul(seed ^ ((seed & 0xffffffff) >> 15), 1 | seed)
-		t = _i32(_i32(t + _imul(t ^ ((t & 0xffffffff) >> 7), 61 | t)) ^ t)
-		return float((t ^ ((t & 0xffffffff) >> 14)) & 0xffffffff) / 4294967296.0
-
-	func next() -> Car.Controls:
-		hold -= 1
-		if hold <= 0:
-			hold = 6 + int(floor(_rnd() * 54))
-			var keys: Array[float] = [-1.0, 0.0, 1.0]
-			var key: float = keys[int(floor(_rnd() * 3))]
-			ctrl.steer = key * (1.0 if _rnd() < 0.7 else _rnd())
-			ctrl.throttle = maxf(-1.0, minf(1.0, _rnd() * 2.4 - 0.9))
-			ctrl.handbrake = _rnd() < 0.15
-			ctrl.nitro = 1.0 if _rnd() < 0.2 else 0.0
-		return ctrl

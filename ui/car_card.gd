@@ -21,7 +21,12 @@ var selected := false:
 			selected = v
 			queue_redraw()
 ## Narrow cards (two a row in a narrow picker): the bars go under the side view and name.
-var stacked := false
+var stacked := false:
+	set(v):
+		if v != stacked:
+			stacked = v
+			update_minimum_size()
+			queue_redraw()
 var _hover := false
 
 

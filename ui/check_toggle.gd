@@ -23,6 +23,12 @@ var disabled := false:
 		disabled = v
 		queue_redraw()
 var font_size := UiStyle.FS_S
+## Wrap the label at this width (0: one line), e.g. beside the Drive button in a narrow column.
+var wrap_width := 0.0:
+	set(v):
+		wrap_width = v
+		update_minimum_size()
+		queue_redraw()
 var _hover := false
 
 
@@ -36,8 +42,19 @@ func _init() -> void:
 
 
 func _get_minimum_size() -> Vector2:
-	var w := UiStyle.text_width(text, "text", font_size) if text != "" else 0.0
-	return Vector2(18 + (UiStyle.S2 + w if text != "" else 0.0), maxf(18, roundf(font_size * 1.4)))
+	if text == "":
+		return Vector2(18, 18)
+	var w := 0.0
+	var lines := _lines()
+	for l in lines:
+		w = maxf(w, UiStyle.text_width(l, "text", font_size))
+	return Vector2(18 + UiStyle.S2 + w, maxf(18, roundf(font_size * 1.4) * lines.size()))
+
+
+func _lines() -> PackedStringArray:
+	if wrap_width <= 0.0:
+		return PackedStringArray([text])
+	return UiStyle.wrap_text(text, UiStyle.font("text", font_size), font_size, wrap_width).split("\n")
 
 
 func box_rect() -> Rect2:
@@ -70,5 +87,8 @@ func _draw() -> void:
 		UiStyle.draw_skewed_rect(self, b.grow(-2), Color(UiStyle.BG_3, a))
 	if text != "":
 		var col := UiStyle.TEXT if _hover and not disabled else UiStyle.TEXT_2
-		W.text(self, UiStyle.face("text"), font_size, 18 + UiStyle.S2, (size.y - roundf(font_size * 1.4)) * 0.5,
-			roundf(font_size * 1.4), text, Color(col, a))
+		var lh := roundf(font_size * 1.4)
+		var lines := _lines()
+		var top := (size.y - lh * lines.size()) * 0.5
+		for k in lines.size():
+			W.text(self, UiStyle.face("text"), font_size, 18 + UiStyle.S2, top + k * lh, lh, lines[k], Color(col, a))

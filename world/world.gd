@@ -296,7 +296,16 @@ func render_stats() -> Dictionary:
 		"calls": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
 		"primitives": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 		"objects": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
+		# the same split into the camera pass and the sun's shadow maps
+		"visible_calls": _vp_info(Viewport.RENDER_INFO_TYPE_VISIBLE, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME),
+		"visible_primitives": _vp_info(Viewport.RENDER_INFO_TYPE_VISIBLE, Viewport.RENDER_INFO_PRIMITIVES_IN_FRAME),
+		"shadow_calls": _vp_info(Viewport.RENDER_INFO_TYPE_SHADOW, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME),
+		"shadow_primitives": _vp_info(Viewport.RENDER_INFO_TYPE_SHADOW, Viewport.RENDER_INFO_PRIMITIVES_IN_FRAME),
 		"quality": quality,
 		"build_ms": _build_ms,
 		"track_stats": track_node.stats if track_node != null else {},
 	}
+
+
+func _vp_info(type: Viewport.RenderInfoType, info: Viewport.RenderInfo) -> int:
+	return get_viewport().get_render_info(type, info) if is_inside_tree() else 0

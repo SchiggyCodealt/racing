@@ -13,7 +13,8 @@ extends RefCounted
 ##   cars         sim/ Cars (names, descriptions, colours, measured stats, stat bars, CarSpec rev
 ##                limits); the fixture only when sim/ is missing.
 ##   silhouettes  CarModel.profile(id) (world/) when it exists, else the fixture (the web's carProfile).
-##   medals       the fixture's medal times (web medals.js).        WIRE: sim medals.
+##   medals       sim/ Medals (data/medals.json, made by tools/medals.gd) once that file exists;
+##                until then the fixture's medal times (the web's medals.json).
 ##   records, best scores, ghosts, settings, the AI network: an in-memory store (`store`),
 ##                which previews and tests fill.        WIRE: sim save data / ai.
 ##
@@ -29,10 +30,11 @@ extends RefCounted
 
 const FIXTURE_PATH := "res://ui/fixtures/web_v5.json"
 const TRACKS_JSON := "res://data/tracks.json"
+const MEDALS_JSON := "res://data/medals.json"
 const TrackMapView := preload("res://ui/track_map_view.gd")
 
 ## Settings and their defaults (the web's trackrush.settings plus the Godot port's display settings).
-const SETTING_DEFAULTS := {"car": "racer", "ghost": true, "quality": "high", "fullscreen": false, "vsync": true}
+const SETTING_DEFAULTS := {"car": "racer", "ghost": true, "quality": "high", "fullscreen": false, "vsync": true, "ui_scale": "auto"}
 ## Score rules the menu's tooltips quote (score.js SCORE.comboMax).
 const COMBO_MAX := 5
 
@@ -224,12 +226,36 @@ static func has_ghost(track: String, car: String) -> bool:
 	return record(track, car) != null and bool(store.ghosts.get(_key(track, car), false))
 
 
-## The four medal times of a track for a car (s), or {} when none were made.       WIRE: sim medals.
+## The four medal times of a track for a car (s), or {} when none were made: sim/ Medals
+## (data/medals.json) for the real tracks once that file is made, else the fixture's.
 static func medal_times(track: String, car: String) -> Dictionary:
+	var real: Variant = _sim_medals(track, car)
+	if real != null:
+		return real
 	for t in fixture().tracks:
 		if t.id == track:
 			return t.medals.get(car, {})
 	return {}
+
+
+## sim/ Medals' times for a real track ({} when none fit this car, layout, laps and physics),
+## or null when there is no such data (no sim/, no data/medals.json yet, a fixture track).
+static func _sim_medals(track: String, car: String) -> Variant:
+	_ensure_tracks()
+	if _tracks.is_empty() or not FileAccess.file_exists(MEDALS_JSON):
+		return null
+	var medals := _global_script("Medals")
+	if medals == null or not medals.can_instantiate():
+		return null
+	for t in _tracks:
+		if str(t.get("id")) == track:
+			var m: Dictionary = medals.call("medal_times", t, car)
+			var out := {}
+			for k in UiStyle.MEDAL_ORDER:
+				if m.has(k):
+					out[k] = float(m[k])
+			return out if out.size() == UiStyle.MEDAL_ORDER.size() else {}
+	return null
 
 
 ## The medal a time earns ("author" ... "bronze"), or "" (none, no time or no medal times).

@@ -31,6 +31,9 @@ const ROWS := [
 		"hint": "Fill the whole screen instead of a window."},
 	{"key": "vsync", "label": "Vertical sync", "type": "toggle",
 		"hint": "Match the monitor's refresh rate: no tearing, a little more input lag."},
+	{"key": "ui_scale", "label": "Interface size", "type": "choice",
+		"options": [["auto", "Auto"], [1.0, "100%"], [1.25, "125%"], [1.5, "150%"], [2.0, "200%"]],
+		"hint": "The size of the menus and the HUD. Auto: 100% up to 1920x1080, bigger on larger screens."},
 	{"section": "Race", "key": "ghost", "label": "Race my best-run ghost", "type": "toggle",
 		"hint": "In Drive, a see-through copy of your best run with the same car races with you (G or Y switches it during a race)."},
 ]
@@ -40,6 +43,8 @@ var apply_display := true
 var selected_row := 0
 var _rows: Array = []        # [{def, box, segs: [Button], label}]
 var _list: VBoxContainer
+var _section_gaps: Array = []
+var _row_pad := UiStyle.S2 + 2   # a row's padding above and below (less in short windows)
 
 
 func _init() -> void:
@@ -55,7 +60,9 @@ func _init() -> void:
 ## Add a setting row (see the header for `def`). Returns the row's Control.
 func add_row(def: Dictionary) -> Control:
 	if def.has("section"):
-		_list.add_child(UiStyle.gap(0, UiStyle.S4))
+		var g := UiStyle.gap(0, UiStyle.S4)
+		_section_gaps.append(g)
+		_list.add_child(g)
 		var h := UiStyle.label(def.section, "display_bold", UiStyle.FS_M, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_M)
 		_list.add_child(h)
 		_list.add_child(UiStyle.gap(0, UiStyle.S2))
@@ -106,6 +113,15 @@ func add_row(def: Dictionary) -> Control:
 	return row
 
 
+## Values of any type compared without an error ("auto" against 1.25, 1 against 1.0).
+static func _same(a: Variant, b: Variant) -> bool:
+	var na := a is float or a is int
+	var nb := b is float or b is int
+	if na and nb:
+		return is_equal_approx(float(a), float(b))
+	return typeof(a) == typeof(b) and a == b
+
+
 static func _options(def: Dictionary) -> Array:
 	if str(def.type) == "toggle":
 		return [[true, "On"], [false, "Off"]]
@@ -132,7 +148,7 @@ func step_row(i: int, dir: int) -> void:
 			var opts := _options(def)
 			var at := -1
 			for k in opts.size():
-				if opts[k][0] == UiData.get_setting(str(def.key)):
+				if _same(opts[k][0], UiData.get_setting(str(def.key))):
 					at = k
 			set_value(str(def.key), opts[(at + dir + opts.size()) % opts.size()][0])
 		"action":
@@ -150,7 +166,7 @@ func _render() -> void:
 		var r: Dictionary = _rows[i]
 		# the selected row: a card with the accent edge (the segments keep their own plates)
 		var sb := UiStyle.box(UiStyle.BG_2 if i == selected_row else Color(0, 0, 0, 0), false,
-			[UiStyle.S3, UiStyle.S2 + 2, UiStyle.S3, UiStyle.S2 + 2])
+			[UiStyle.S3, _row_pad, UiStyle.S3, _row_pad])
 		if i == selected_row:
 			sb.border_width_left = 3
 			sb.border_color = UiStyle.ACCENT
@@ -159,7 +175,7 @@ func _render() -> void:
 			var opts := _options(r.def)
 			var v: Variant = UiData.get_setting(str(r.def.key))
 			for k in opts.size():
-				r.segs[k].theme_type_variation = "SegOnButton" if opts[k][0] == v else "SmallButton"
+				r.segs[k].theme_type_variation = "SegOnButton" if _same(opts[k][0], v) else "SmallButton"
 
 
 func open() -> void:
@@ -183,3 +199,12 @@ func handle_keys(inp: Object) -> void:
 		step_row(selected_row, 1)
 	elif inp.consume(["Enter", "Space", "NumpadEnter", "PadA"]):
 		step_row(selected_row, 1)
+
+
+## Short windows (1024x600): rows and sections closer together, so every setting fits.
+func _on_layout(_w: float) -> void:
+	var short := size.y <= 700
+	_row_pad = UiStyle.S1 + 2 if short else UiStyle.S2 + 2
+	for g in _section_gaps:
+		g.custom_minimum_size.y = UiStyle.S2 if short else UiStyle.S4
+	_render()

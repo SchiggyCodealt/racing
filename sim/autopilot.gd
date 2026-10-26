@@ -111,3 +111,42 @@ func drive(car: Car) -> Car.Controls:
 	ctrl.handbrake = false
 	ctrl.nitro = 1.0 if use_nitro and ctrl.throttle == 1.0 and absf(ctrl.steer) < NITRO_STEER else 0.0
 	return ctrl
+
+
+const MAX_STEPS: int = 60 * 60 * 15 # 15 min: a medal run that takes longer doesn't count
+const STUCK_STEPS: int = 180 # 3 s without gaining 3 samples (~6 m): stuck, the run doesn't count
+
+
+## One Drive race with the medal autopilot (web/tools/medals.mjs driveRace): car `car_id`
+## from a standing start at GO with a full tank, burning nitro on the straights with the
+## style score's refills (nitro false: no nitro, no score). Returns {finished, time, steps,
+## wall (steps touching a wall), laps, score (points), burned, refilled (nitro, in tanks)}.
+static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = Cars.DEFAULT_CAR, nitro: bool = true) -> Dictionary:
+	var dt: float = 1.0 / 60.0
+	var car := Car.new(t, -1, Cars.spec(car_id))
+	var race := RaceState.new(t)
+	var pilot := Autopilot.medal(t, a_lat, k, nitro)
+	var score: ScoreState = ScoreState.new(t, true) if nitro else null
+	var steps: int = 0
+	var wall: int = 0
+	var best: float = car.prog
+	var gained: int = 0
+	var burned: float = 0.0
+	while not race.finished and steps < MAX_STEPS and steps - gained <= STUCK_STEPS:
+		var tank: float = car.nitro
+		car.step(t, pilot.drive(car), dt)
+		if car.nitro < tank:
+			burned += tank - car.nitro
+		race.update(car, dt)
+		if score != null:
+			score.update(car, race, dt) # after race.update, as in Drive: banked points refill the tank
+		steps += 1
+		if car.hit_wall:
+			wall += 1
+		if car.prog > best + 3.0:
+			best = car.prog
+			gained = steps
+	return {
+		finished = race.finished, time = race.finish_time, steps = steps, wall = wall, laps = race.laps,
+		score = score.total if score != null else 0.0, burned = burned, refilled = score.nitro if score != null else 0.0,
+	}

@@ -12,8 +12,8 @@ extends RefCounted
 ##   nitro blue only while the nitro burns.
 ## - Shape: sharp cards, and buttons, tags and HUD plates slanted by SKEW (StyleBoxFlat.skew,
 ##   so the text stays upright). Spacing on a 4 px grid (S1..S6).
-## Sizes are in the 1280x720 base viewport's pixels (project stretch mode canvas_items:
-## a bigger window scales everything).
+## Sizes are in interface pixels, the web's CSS pixels: UiRoot lays the interface out at the
+## window's size (divided by the Interface size setting, Auto = 1 up to 1920x1080).
 
 # ---- colours (style.css :root) ----
 const BG_0 := Color("#0a0b0d")            # page, canvases
@@ -169,6 +169,9 @@ static func theme() -> Theme:
 	_button_type(t, "PrimaryButton", {"normal": ACCENT, "hover": ACCENT_HI, "pressed": ACCENT, "disabled": BG_2, "hover_pressed": ACCENT},
 		FS_L, "display_bold", 0.08, [S6, 0, S6, 0], ACCENT_INK)
 	_button_type(t, "SmallButton", states, FS_S, "text_semi", 0.0, [S3, 0, S3, 0], TEXT)
+	# a plain button with less room beside its text (two side by side in a narrow column)
+	_button_type(t, "TightButton", states, FS_M, "text_semi", 0.0, [S2, 0, S2, 0], TEXT)
+	t.set_color("font_disabled_color", "TightButton", TEXT_3)
 	var quiet := {"normal": Color(0, 0, 0, 0), "hover": Color(0, 0, 0, 0), "pressed": Color(0, 0, 0, 0), "disabled": Color(0, 0, 0, 0), "hover_pressed": Color(0, 0, 0, 0)}
 	_button_type(t, "SmallQuietButton", quiet, FS_S, "text_semi", 0.0, [S3, 0, S3, 0], TEXT_2)
 	t.set_color("font_hover_color", "SmallQuietButton", TEXT)
@@ -324,6 +327,24 @@ static func baseline_row(items: Array, sep: int = S2) -> HBoxContainer:
 		m.add_child(items[k])
 		row.add_child(m)
 	return row
+
+
+## `text` broken into lines (with "\n") no wider than `width` in `font` / `size`, word by word
+## (a word wider than a line keeps a line of its own). For labels whose size must be known before
+## their container lays them out (an autowrapped Label measures its height at its old width).
+static func wrap_text(text: String, f: Font, size: int, width: float) -> String:
+	var lines: PackedStringArray = []
+	var line := ""
+	for word in text.split(" ", false):
+		var t := word if line == "" else line + " " + word
+		if line != "" and f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width:
+			lines.append(line)
+			line = word
+		else:
+			line = t
+	if line != "":
+		lines.append(line)
+	return "\n".join(lines)
 
 
 ## Width of `text` in `kind` / `size` (for layouts that need it before drawing).

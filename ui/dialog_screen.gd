@@ -114,10 +114,14 @@ func inner_width(w: float) -> float:
 func _layout() -> void:
 	var w := size.x
 	var narrow := w < 760
+	var short := size.y <= 700 # (1024x600 and the like: less padding above and below)
 	_panel_box.content_margin_left = UiStyle.S4 if narrow else UiStyle.S6
 	_panel_box.content_margin_right = _panel_box.content_margin_left
-	_panel_box.content_margin_top = UiStyle.S4 if narrow else UiStyle.S5
-	_panel_box.content_margin_bottom = UiStyle.S4 if narrow else UiStyle.S6
+	_panel_box.content_margin_top = UiStyle.S4 if narrow or short else UiStyle.S5
+	_panel_box.content_margin_bottom = UiStyle.S4 if narrow or short else UiStyle.S6
+	var m := UiStyle.S3 if short else UiStyle.S5
+	for side in ["margin_top", "margin_bottom"]:
+		_margin.add_theme_constant_override(side, m)
 	panel.custom_minimum_size.x = panel_width(w)
 	_on_layout(w)
 

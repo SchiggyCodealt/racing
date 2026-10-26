@@ -26,6 +26,9 @@ extends PanelContainer
 ## The panel adapts to the window: full width and a one-column breakdown in narrow windows,
 ## denser under 700 px of height and smallest under 520 px (set_window_size).
 
+## Emitted after the panel is sized and centred (its rect changed).
+signal placed
+
 const KeyCap := preload("res://ui/key_cap.gd")
 const MedalDot := preload("res://ui/medal_dot.gd")
 
@@ -37,6 +40,7 @@ var _short := false
 var _tiny := false
 var _narrow := false
 var _one_col := false
+var _bd_rows: Array = []   # the score breakdown's rows (equal widths)
 
 
 func _init() -> void:
@@ -45,6 +49,8 @@ func _init() -> void:
 	_box = UiStyle.vbox(0)
 	add_child(_box)
 	_apply_box()
+	# (labels measure their final fonts only once in the tree: place again when the content's size settles)
+	_box.minimum_size_changed.connect(_place)
 
 
 ## Tell the panel the window (HUD) size it is centred in; rebuilds when the size class changes.
@@ -138,6 +144,7 @@ func _rebuild() -> void:
 	for c in _box.get_children():
 		_box.remove_child(c)
 		c.queue_free()
+	_bd_rows = []
 	var s := state
 	var small := _fs_small()
 	var lh := roundf(small * 1.4)
@@ -160,15 +167,17 @@ func _rebuild() -> void:
 		if got == "":
 			var bronze := float(medal.get("bronze", 0.0))
 			_box.add_child(_line([["No medal: bronze is %s" % UiFormat.time(bronze), "text", small, UiStyle.TEXT_2], _sp(), _delta(t - bronze)],
-				UiStyle.S1 if _short else UiStyle.S2))
+				UiStyle.S1 if _short else UiStyle.S2 - UiStyle.S1))
 		else:
 			var size := small if _tiny else (UiStyle.FS_M if _short else UiStyle.FS_L)
-			var pieces: Array = [MedalDot.make(got, roundf(size * 0.9 * 0.78)), UiStyle.gap(UiStyle.S1),
+			# (the medal is .78em of 18 px with a .35em margin, then the line's S1 gap; the time's S1 bottom
+			# margin collapses into the line's S2 top margin)
+			var pieces: Array = [MedalDot.make(got, roundf(size * 0.9 * 0.78)), UiStyle.gap(roundi(UiStyle.S1 + 0.35 * size * 0.9)),
 				[UiStyle.MEDAL_NAMES[got] + " medal", "display_bold", size, UiStyle.TEXT, 0.06, true, roundf(size * 1.2)]]
 			if medal.get("new", false) and not s.get("ai", false):
 				pieces.append(UiStyle.gap(UiStyle.S2 + UiStyle.S1))
 				pieces.append(_tag("New", small, [UiStyle.S2, 1, UiStyle.S2, 1], 0.1))
-			_box.add_child(_line(pieces, UiStyle.S1 if _short else UiStyle.S2))
+			_box.add_child(_line(pieces, UiStyle.S1 if _short else UiStyle.S2 - UiStyle.S1))
 		if not _short:
 			_box.add_child(UiStyle.gap(0, UiStyle.S1))
 	# a new personal best, or how this run compares with the best
@@ -285,12 +294,8 @@ func _score(sc: Dictionary) -> Control:
 		m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(m)
 		rows.append(m)
-	# both columns as wide as the widest row (CSS 1fr 1fr)
-	var widest := 0.0
-	for m in rows:
-		widest = maxf(widest, m.get_combined_minimum_size().x)
-	for m in rows:
-		m.custom_minimum_size.x = widest
+	# both columns as wide as the widest row (CSS 1fr 1fr): _place measures them once they are in the tree
+	_bd_rows = rows
 	var gm := UiStyle.margin([0, UiStyle.S1 if _short else UiStyle.S3, 0, 0])
 	gm.add_child(grid)
 	col.add_child(gm)
@@ -312,6 +317,14 @@ func _score(sc: Dictionary) -> Control:
 func _place() -> void:
 	if not visible:
 		return
+	var widest := 0.0
+	for m in _bd_rows:
+		if is_instance_valid(m):
+			m.custom_minimum_size.x = 0
+			widest = maxf(widest, m.get_combined_minimum_size().x)
+	for m in _bd_rows:
+		if is_instance_valid(m):
+			m.custom_minimum_size.x = widest
 	var min_w := 0.0 if _narrow else 360.0
 	var max_w := _win.x - (24.0 if _narrow else 32.0)
 	var want := get_combined_minimum_size()
@@ -320,3 +333,4 @@ func _place() -> void:
 		w = max_w
 	size = Vector2(w, want.y)
 	position = ((_win - size) * 0.5).round()
+	placed.emit()

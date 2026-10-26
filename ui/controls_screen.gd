@@ -73,7 +73,7 @@ func _add_heading(box: VBoxContainer, text: String, first: bool) -> void:
 
 func _add_table(box: VBoxContainer, table: Array, first: bool) -> void:
 	_add_heading(box, table[0], first)
-	var t := {"keys": [], "pads": []}
+	var t := {"keys": [], "pads": [], "actions": []}
 	_tables.append(t)
 	if table[1]:
 		# thead th: 600 13/1, padding-bottom S2
@@ -99,6 +99,7 @@ func _add_table(box: VBoxContainer, table: Array, first: bool) -> void:
 		var am := UiStyle.margin([0, 5, UiStyle.S3, 5])
 		am.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		am.custom_minimum_size.x = 1
+		t.actions.append(rows[k][0])
 		var action := _cell_text(rows[k][0], UiStyle.TEXT, "text", 19)
 		action.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		am.add_child(action)
@@ -169,18 +170,37 @@ func _tip(text: String) -> Control:
 	return m
 
 
-## Two columns (one under 760 px); each table's Keyboard / Gamepad columns as wide as the
-## web's auto table layout makes them.
+## Two columns (one under 760 px, or when a table's caps and its longest action word don't fit
+## half the panel); each table's Keyboard / Gamepad columns as wide as the web's auto table
+## layout makes them.
 func _on_layout(w: float) -> void:
-	_cols.vertical = w < 760
 	var inner := inner_width(w)
+	var two := w >= 760 and _fits((inner - UiStyle.S6) / 2.0)
+	_cols.vertical = not two
 	var col_w := inner if _cols.vertical else (inner - UiStyle.S6) / 2.0
 	for t in _tables:
 		for part in [["keys", 0.34], ["pads", 0.27]]:
-			var cells: Array = t[part[0]]
-			var need := roundf(col_w * part[1])
-			for c in cells:
-				c.custom_minimum_size.x = 0
-				need = maxf(need, c.get_combined_minimum_size().x)
-			for c in cells:
+			var need := _need(t[part[0]], col_w * part[1])
+			for c in t[part[0]]:
 				c.custom_minimum_size.x = need
+
+
+## A column's width: its share of the table, or its widest row of caps.
+func _need(cells: Array, share: float) -> float:
+	var need := roundf(share)
+	for c in cells:
+		c.custom_minimum_size.x = 0
+		need = maxf(need, c.get_combined_minimum_size().x)
+	return need
+
+
+## True when every table fits a column `col_w` wide without breaking an action's words.
+func _fits(col_w: float) -> bool:
+	for t in _tables:
+		var word := 0.0
+		for a in t.actions:
+			for part in str(a).split(" "):
+				word = maxf(word, UiStyle.text_width(part, "text", UiStyle.FS_S))
+		if word + UiStyle.S3 + _need(t.keys, col_w * 0.34) + _need(t.pads, col_w * 0.27) > col_w:
+			return false
+	return true

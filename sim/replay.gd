@@ -221,7 +221,7 @@ static func encode_samples(rec: GhostRecorder) -> PackedByteArray:
 
 ## Decode encode_samples' bytes to {steps: PackedInt32Array, ch: [PackedFloat64Array × CH]}, or {} on bad data.
 static func decode_samples(n: int, bytes: PackedByteArray) -> Dictionary:
-	if n < 1 or n > GHOST_MAX_STEPS + 64:
+	if n < 1 or n > GHOST_MAX_STEPS + 64 or n * (CH + 1) > bytes.size(): # (a sample takes 9 bytes or more)
 		return {}
 	var r := _Reader.new(bytes)
 	var steps := PackedInt32Array()
@@ -293,9 +293,10 @@ static func pack_ghost(rec: GhostRecorder, info: Dictionary) -> Dictionary:
 	return out
 
 
-## The car that drove saved ghost data (its car tag; none: the racer).
+## The car that drove saved ghost data (its car tag; none: the racer; not a string: "").
 static func ghost_car_of(saved: Dictionary) -> String:
-	return String(saved.get("car", Cars.DEFAULT_CAR))
+	var c: Variant = saved.get("car", Cars.DEFAULT_CAR)
+	return c if c is String else ""
 
 
 ## True when saved ghost data is tagged for this format, physics, track layout and lap
@@ -310,10 +311,21 @@ static func ghost_fits(saved: Variant, track: BuiltTrack, laps: int, car_id: Str
 	if not (s.time is float or s.time is int) or not (s.laps is float or s.laps is int):
 		return false
 	var car: String = ghost_car_of(s)
-	return s.format == GHOST_FORMAT and s.physics == Car.PHYSICS_VERSION and \
-		s.track == track.id and s.sig == track_signature(track) and s.laps == laps and \
+	return JsMath.same(s.format, GHOST_FORMAT) and JsMath.same(s.physics, Car.PHYSICS_VERSION) and \
+		JsMath.same(s.track, track.id) and JsMath.same(s.sig, track_signature(track)) and JsMath.same(s.laps, laps) and \
 		Cars.has_car(car) and (car_id == "" or car == car_id) and \
 		float(s.time) > 0.0 and float(s.time) < GHOST_MAX_STEPS / 60.0
+
+
+static var _b64_re: RegEx = RegEx.create_from_string("^[A-Za-z0-9+/]*={0,2}$")
+
+
+## base64 text to bytes; empty for text that isn't base64 (checked first: the engine's
+## decoder prints an error for it).
+static func _from_base64(text: String) -> PackedByteArray:
+	if text.length() % 4 != 0 or _b64_re.search(text) == null:
+		return PackedByteArray()
+	return Marshalls.base64_to_raw(text)
 
 
 ## A playable ghost from saved data ({time, date, steps, ch, end, car, boost}), or {} when
@@ -327,7 +339,7 @@ static func unpack_ghost(saved: Variant, track: BuiltTrack, laps: int, car_id: S
 		return {}
 	var n: int = int(s.n)
 	var end: int = int(s.steps)
-	var d: Dictionary = decode_samples(n, Marshalls.base64_to_raw(s.data))
+	var d: Dictionary = decode_samples(n, _from_base64(s.data))
 	if d.is_empty():
 		return {}
 	var steps: PackedInt32Array = d.steps
@@ -343,10 +355,11 @@ static func unpack_ghost(saved: Variant, track: BuiltTrack, laps: int, car_id: S
 	if s.has("boost"):
 		if not (s.boost is String):
 			return {}
-		boost = decode_boost(Marshalls.base64_to_raw(s.boost), end)
+		var bytes: PackedByteArray = _from_base64(s.boost)
+		boost = decode_boost(bytes, end) if bytes.size() else {} # (saved only when there are changes)
 		if boost.is_empty():
 			return {}
-	return {time = float(s.time), date = String(s.get("date", "")), steps = steps, ch = d.ch, end = end, car = ghost_car_of(s), boost = boost}
+	return {time = float(s.time), date = str(s.get("date", "")), steps = steps, ch = d.ch, end = end, car = ghost_car_of(s), boost = boost}
 
 
 ## Plays an unpacked ghost: pose(step) for any (fractional) step since GO.

@@ -8,10 +8,13 @@ extends RefCounted
 ## Bad, missing or foreign data is ignored, never fatal: an unreadable file is
 ## kept next to the save as "<file>.bad" and the game starts from defaults. Writes
 ## go to "<file>.tmp" first and then replace the file, so a crash mid-write can't
-## leave half a save. Browser (localStorage) saves cannot be carried over.
+## leave half a save. When the file can't be written (disk full, read-only), what
+## was saved is still kept for this session. Browser (localStorage) saves cannot
+## be carried over.
 ##
 ##   SaveData.get_record(track_id, car_id)            -> {time, splits, date} or {}
-##   SaveData.submit_record(track_id, car_id, time, splits) -> true when it is a new best
+##   SaveData.submit_record(track_id, car_id, time, splits) -> true when it is a new best (unknown car: false;
+##                                                    splits: Array or race.splits)
 ##   SaveData.load_ghost(track_id, car_id)            -> the saved ghost (Replay.pack_ghost) or null, unchecked
 ##   SaveData.save_ghost(track_id, car_id, ghost)     -> false when the file can't be written
 ##   SaveData.get_best_score(track_id, car_id)        -> {score, date} or {}
@@ -73,12 +76,30 @@ static func _write() -> bool:
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		return false
-	f.store_string(JSON.stringify(_data, "", false, true))
+	f.store_string(JSON.stringify(_json_safe(_data), "", false, true))
 	var ok: bool = f.get_error() == OK
 	f.close()
 	if not ok:
 		return false
 	return DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), ProjectSettings.globalize_path(path)) == OK
+
+
+## A copy of `v` that JSON can hold: inf and nan become null (Godot would write them as
+## "inf" / "nan" and make the whole file unreadable), packed arrays plain arrays.
+static func _json_safe(v: Variant) -> Variant:
+	if v is float:
+		return v if is_finite(v) else null
+	if v is Dictionary:
+		var out: Dictionary = {}
+		for k: Variant in v:
+			out[str(k)] = _json_safe(v[k])
+		return out
+	if v is Array or v is PackedFloat64Array or v is PackedFloat32Array or v is PackedInt32Array or v is PackedInt64Array:
+		var out: Array = []
+		for x: Variant in v:
+			out.append(_json_safe(x))
+		return out
+	return v
 
 
 ## data[section][a][b] when every level is a Dictionary, else null.
@@ -112,7 +133,7 @@ static func get_record(track_id: String, car_id: String = Cars.DEFAULT_CAR) -> D
 	_mutex.lock()
 	var r: Variant = _entry("records", track_id, car_id)
 	var out: Dictionary = {}
-	if r is Dictionary and r.get("physics") == Car.PHYSICS_VERSION and _is_num(r.get("time")) and float(r.time) > 0.0:
+	if r is Dictionary and JsMath.same(r.get("physics"), Car.PHYSICS_VERSION) and _is_num(r.get("time")) and float(r.time) > 0.0:
 		var splits: Array = []
 		if r.get("splits") is Array:
 			for s: Variant in r.splits:
@@ -123,16 +144,17 @@ static func get_record(track_id: String, car_id: String = Cars.DEFAULT_CAR) -> D
 
 
 ## Save a time on a track with a car if it beats the best. Returns true when it is a new record.
-static func submit_record(track_id: String, car_id: String, time: float, splits: Array) -> bool:
+static func submit_record(track_id: String, car_id: String, time: float, splits: Variant = []) -> bool:
 	if not Cars.has_car(car_id) or not (time > 0.0) or not is_finite(time):
 		return false
 	var prev: Dictionary = get_record(track_id, car_id)
 	if not prev.is_empty() and prev.time <= time:
 		return false
 	_mutex.lock()
-	var ok: bool = _set_entry("records", track_id, car_id, {time = time, splits = splits, physics = Car.PHYSICS_VERSION, date = _now()})
+	_set_entry("records", track_id, car_id, {time = time, splits = _json_safe(splits) if splits is Array or splits is PackedFloat64Array else [],
+		physics = Car.PHYSICS_VERSION, date = _now()})
 	_mutex.unlock()
-	return ok
+	return true
 
 
 # ---- ghosts ------------------------------------------------------------------------
@@ -183,7 +205,7 @@ static func get_best_score(track_id: String, car_id: String) -> Dictionary:
 	_mutex.lock()
 	var e: Variant = _entry("scores", track_id, car_id)
 	var out: Dictionary = {}
-	if e is Dictionary and e.get("rules") == ScoreState.SCORE_RULES and e.get("physics") == Car.PHYSICS_VERSION and \
+	if e is Dictionary and JsMath.same(e.get("rules"), ScoreState.SCORE_RULES) and JsMath.same(e.get("physics"), Car.PHYSICS_VERSION) and \
 			_is_num(e.get("score")) and float(e.score) > 0.0:
 		out = {score = float(e.score), date = str(e.get("date", ""))}
 	_mutex.unlock()
@@ -198,9 +220,9 @@ static func submit_score(track_id: String, car_id: String, score: float) -> bool
 	if not prev.is_empty() and prev.score >= score:
 		return false
 	_mutex.lock()
-	var ok: bool = _set_entry("scores", track_id, car_id, {score = score, date = _now(), rules = ScoreState.SCORE_RULES, physics = Car.PHYSICS_VERSION})
+	_set_entry("scores", track_id, car_id, {score = score, date = _now(), rules = ScoreState.SCORE_RULES, physics = Car.PHYSICS_VERSION})
 	_mutex.unlock()
-	return ok
+	return true
 
 
 # ---- AI network ---------------------------------------------------------------------------

@@ -74,6 +74,8 @@ var detail_nodes: Array[Dictionary] = []
 ## real lights under the lamps (high quality), and the additive pools that stand in for them
 var lamp_lights: Array[Light3D] = []
 var lamp_pool: GeometryInstance3D = null
+## the terrain chunks (they cast shadows on high only: hills and banks in a low sun)
+var terrain_nodes: Array[MeshInstance3D] = []
 
 
 static func build(track: BuiltTrack) -> TrackMesh:
@@ -151,6 +153,9 @@ func apply_quality(q: Dictionary) -> void:
 	var lights: bool = q.get("lamp_lights", false)
 	for l in lamp_lights:
 		l.visible = lights
+	var ts: bool = q.get("terrain_shadows", false)
+	for n in terrain_nodes:
+		n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if ts else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 # =============================================================================
@@ -287,9 +292,10 @@ func _add_terrain() -> void:
 			var mi := MeshInstance3D.new()
 			mi.name = "terrain-%d" % (cz * 3 + cx)
 			mi.mesh = m
-			# the terrain casts shadows too (hills, mountains and road-side banks in the low sun)
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			# the terrain casts shadows on high (hills and road-side banks in a low sun), see apply_quality
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(mi)
+			terrain_nodes.append(mi)
 	t.arrays = []  # free the big source arrays
 	add_child(t.far_plane)
 	if t.water != null:
@@ -763,6 +769,7 @@ func _build_gates() -> void:
 	bm.emission_enabled = true
 	bm.emission = Color.WHITE
 	bm.emission_texture = atlas
+	bm.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY  # the texture glows (the default adds the colour)
 	bm.emission_energy_multiplier = 0.55 if theme.get("lamps", false) else 0.12
 	fade_near_camera(bm)
 	_add_geo(banner, bm, "gate-banners")

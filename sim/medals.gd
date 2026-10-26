@@ -48,10 +48,10 @@ static func medal_times(track: BuiltTrack, car_id: String = Cars.DEFAULT_CAR, la
 	if not (m is Dictionary):
 		return {}
 	var n_laps: int = (track.laps if laps < 0 else laps) if track.closed else 1
-	var fits: bool = d.get("physics") == Car.PHYSICS_VERSION and d.get("scoreRules") == ScoreState.SCORE_RULES and \
-		m.get("sig") == track.signature() and m.get("laps") == n_laps
+	var fits: bool = JsMath.same(d.get("physics"), Car.PHYSICS_VERSION) and JsMath.same(d.get("scoreRules"), ScoreState.SCORE_RULES) and \
+		JsMath.same(m.get("sig"), track.signature()) and JsMath.same(m.get("laps"), n_laps)
 	var cars: Variant = m.get("cars")
-	if not fits or not (cars is Dictionary) or not (cars as Dictionary).has(car_id):
+	if not fits or not (cars is Dictionary) or not ((cars as Dictionary).get(car_id) is Dictionary):
 		return {}
 	return cars[car_id]
 
@@ -62,7 +62,7 @@ static func _ms(t: float) -> int:
 
 ## The medal a time earns ("author" | "gold" | "silver" | "bronze"), or "" (none, or no time / medal times).
 static func medal_for(medals: Dictionary, time: float) -> String:
-	if medals.is_empty() or not (time > 0.0):
+	if medals.is_empty() or not (time > 0.0) or not is_finite(time): # (no time yet: INF)
 		return ""
 	for m: String in ORDER:
 		if medals.has(m) and _ms(time) <= _ms(float(medals[m])):

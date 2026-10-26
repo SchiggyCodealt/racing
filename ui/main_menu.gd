@@ -75,6 +75,7 @@ var _left: VBoxContainer
 var _side: VBoxContainer
 var _head: HBoxContainer
 var _hint: HBoxContainer
+var _hint_holder: Control
 var _hint_mode := ""
 var _grid: GridContainer
 var _tiles: Array = []
@@ -193,11 +194,20 @@ func _build_head() -> void:
 	mark.add_child(bar)
 	mark.add_child(UiStyle.label("Track Rush", "display_bold", UiStyle.FS_XL, UiStyle.TEXT, 0.04, true, false, false, UiStyle.FS_XL))
 	_head.add_child(mark)
+	# the hint line takes the room the buttons leave; items it has no room for go, last first
+	# (the web hides it under 760 px; the Godot header also has the Settings button)
+	_hint_holder = Control.new()
+	_hint_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hint_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_hint_holder.custom_minimum_size.y = 18
+	_hint_holder.clip_contents = true
+	_hint_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hint_holder.resized.connect(_fit_hint)
 	_hint = UiStyle.hbox(UiStyle.S4, BoxContainer.ALIGNMENT_END)
-	_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_hint.clip_contents = true
-	_head.add_child(_hint)
+	_hint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_hint_holder.add_child(_hint)
+	_head.add_child(_hint_holder)
 	_settings_btn = Dialog.button_with_cap("Settings", "O")
 	_settings_btn.tooltip_text = "Graphics, ghost, fullscreen and vsync"
 	_settings_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -703,12 +713,25 @@ func _update_hint(pad: bool) -> void:
 		return
 	_hint_mode = h
 	for c in _hint.get_children():
+		_hint.remove_child(c)
 		c.queue_free()
 	for pair in HINTS[h]:
 		var p := UiStyle.hbox(3)
 		p.add_child(UiStyle.label(pair[0], "text_semi", UiStyle.FS_S, UiStyle.TEXT_2))
 		p.add_child(UiStyle.label(pair[1], "text", UiStyle.FS_S, UiStyle.TEXT_3))
 		_hint.add_child(p)
+	_fit_hint()
+
+
+## Show as many hint items as the header has room for (from the first).
+func _fit_hint() -> void:
+	var items := _hint.get_children()
+	for c in items:
+		c.visible = true
+	var k := items.size()
+	while k > 0 and _hint.get_combined_minimum_size().x > _hint_holder.size.x + 0.5:
+		k -= 1
+		items[k].visible = false
 
 
 ## The controls the pad highlight can go to (shown and enabled), in the web's order.
@@ -829,8 +852,8 @@ func pad_target() -> Control:
 
 # ================================================================= layout
 
-## Apply the window-size rules of style.css (all in the logical viewport's pixels; the
-## project's canvas_items stretch keeps that at least 1280 x 720):
+## Apply the window-size rules of style.css (in interface pixels: UiRoot lays the interface
+## out at the window's size divided by the interface scale, like CSS pixels):
 ##   six tiles a row from 1200 px wide, four below; map 56 px in short windows (≤ 800 px),
 ##   64 px, 80 px from 860 px tall, 104 px from 1600 x 940 (with roomier tiles); the side
 ##   column 30 % of the width (360-440 px); denser spacing when the window is short.
@@ -873,6 +896,20 @@ func _layout() -> void:
 		[UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5, UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5]))
 	_td_desc.custom_minimum_size.y = 0.0 if compact else ceilf(UiStyle.FS_M * 1.45 * 3)
 	_drive_btn.custom_minimum_size.y = 46.0 if compact else 52.0
+	# the car cards stack (bars under the side view and name) when the picker is 500-760 px wide
+	# (style.css @container car-picker)
+	var pad_x := float(UiStyle.S6) if w >= 1000 else float(UiStyle.S4)
+	var mw := minf(1480.0, w - 2 * pad_x)
+	var picker_w := mw if one_col else mw - side_w - _main.get_theme_constant("separation")
+	for c in _cards:
+		c.stacked = picker_w >= 500.0 and picker_w <= 760.0
+	# the ghost check box wraps its label beside the Drive button when the side column is narrow
+	var row_sep := float(_ghost_check.get_parent().get_theme_constant("separation"))
+	var room := side_w - _drive_btn.custom_minimum_size.x - row_sep - 18 - UiStyle.S2
+	_ghost_check.wrap_width = room if (not one_col and room < UiStyle.text_width(_ghost_check.text, "text", UiStyle.FS_S)) else 0.0
+	# the AI's two buttons side by side in the 340 px side column: tighter padding
+	for b in [_ghost_btn, _watch_btn]:
+		b.theme_type_variation = "TightButton" if (side_w < 360.0 and not one_col) else ""
 	# the stats two a row in the narrower side column (1000-1199 px)
 	_stats[0].box.get_parent().columns = 2 if (w < 1200 and w >= 1000) else 4
 	_place()

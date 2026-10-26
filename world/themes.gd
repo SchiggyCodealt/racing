@@ -124,14 +124,17 @@ const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seasid
 ## Quality levels (scene.js QUALITY, plus what Godot does with them): render scale
 ## (the web's pixel-ratio cap at 1x DPI), bloom (glow), sun shadow map size and
 ## distance, share of scenery drawn, grass tufts, scenery shadows, share of wall
-## sparks and nitro glow; msaa, ssao and lamp lights are Godot extras.
+## sparks and nitro glow; msaa, ssao, lamp lights and terrain shadows are Godot extras.
 const QUALITY := {
 	"high": {"scale": 1.0, "bloom": true, "shadow": 4096, "shadow_dist": 320.0, "splits": 4, "scenery": 1.0, "tufts": true,
-		"scenery_shadows": true, "sparks": 1.0, "msaa": 2, "ssao": true, "lamp_lights": true},
+		"scenery_shadows": true, "sparks": 1.0, "msaa": 2, "ssao": true, "lamp_lights": true,
+		"terrain_shadows": true},
 	"medium": {"scale": 1.0, "bloom": false, "shadow": 2048, "shadow_dist": 200.0, "splits": 2, "scenery": 0.75, "tufts": true,
-		"scenery_shadows": true, "sparks": 0.65, "msaa": 2, "ssao": false, "lamp_lights": false},
+		"scenery_shadows": true, "sparks": 0.65, "msaa": 2, "ssao": false, "lamp_lights": false,
+		"terrain_shadows": false},
 	"low": {"scale": 0.85, "bloom": false, "shadow": 1024, "shadow_dist": 110.0, "splits": 1, "scenery": 0.4, "tufts": false,
-		"scenery_shadows": false, "sparks": 0.3, "msaa": 0, "ssao": false, "lamp_lights": false},
+		"scenery_shadows": false, "sparks": 0.3, "msaa": 0, "ssao": false, "lamp_lights": false,
+		"terrain_shadows": false},
 }
 const QUALITY_ORDER := ["high", "medium", "low"]
 

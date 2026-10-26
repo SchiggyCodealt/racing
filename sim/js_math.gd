@@ -116,3 +116,14 @@ static func _trim(s: String) -> String:
 	if s.ends_with("."):
 		s = s.substr(0, s.length() - 1)
 	return s
+
+
+## JS `a === b` for data read from JSON: numbers compare by value (Godot's JSON gives
+## every number as a float), anything else only to a value of the same type. (Godot's
+## `==` raises a script error for, say, a String and an int, which saved junk can be.)
+static func same(a: Variant, b: Variant) -> bool:
+	var na: bool = a is int or a is float
+	var nb: bool = b is int or b is float
+	if na or nb:
+		return na and nb and float(a) == float(b)
+	return typeof(a) == typeof(b) and a == b

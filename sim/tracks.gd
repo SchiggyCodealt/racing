@@ -76,12 +76,18 @@ static func build(id: String) -> BuiltTrack:
 	_load()
 	var t: BuiltTrack = _built.get(id)
 	if t == null and _by_id.has(id):
-		t = TrackBuilder.build_track(_by_id[id])
+		t = build_def(_by_id[id])
 		_built[id] = t
 	_mutex.unlock()
 	return t
 
 
 ## A fresh BuiltTrack from any definition (not cached), e.g. a test road.
+## Its lazily cached data (car physics slope/curvature, the gates of a full race and of
+## one lap) is filled here, so threads can share the track read-only.
 static func build_def(d: Dictionary) -> BuiltTrack:
-	return TrackBuilder.build_track(d)
+	var t: BuiltTrack = TrackBuilder.build_track(d)
+	Car.track_phys(t)
+	TrackBuilder.get_gates(t, t.laps if t.closed else 1)
+	TrackBuilder.get_gates(t, 1)
+	return t

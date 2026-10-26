@@ -169,6 +169,7 @@ static func add_props(node: Node3D, c: TrackCtx) -> void:
 		cm.emission_enabled = true
 		cm.emission = Color.WHITE
 		cm.emission_texture = Tex.chevron()
+		cm.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY  # the texture glows (the default adds the colour)
 		cm.emission_energy_multiplier = 0.5 if lit else 0.08
 		_fade(cm)
 		var mi := MeshInstance3D.new()
@@ -237,6 +238,7 @@ static func add_props(node: Node3D, c: TrackCtx) -> void:
 		bm.emission_enabled = true
 		bm.emission = Color.WHITE
 		bm.emission_texture = tex
+		bm.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
 		bm.emission_energy_multiplier = 0.45 if lit else 0.06
 		_fade(bm)
 		var mi := MeshInstance3D.new()
@@ -496,7 +498,8 @@ static func _place_chunk(node: Node3D, mesh: Mesh, list: Array, sp: Dictionary, 
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	node.add_child(mmi)
 	# the graphics quality level thins these out (TrackMesh.apply_quality)
-	(node.get("detail_nodes") as Array).append({"node": mmi, "full": list.size(), "kind": "scenery" if shadow else "tuft"})
+	# (buffer: the instance data, 16 floats each, kept for tests: a headless server keeps none)
+	(node.get("detail_nodes") as Array).append({"node": mmi, "full": list.size(), "kind": "scenery" if shadow else "tuft", "buffer": buf})
 
 
 ## Writes one instance (transform rows + colour) into a MultiMesh buffer at offset o.

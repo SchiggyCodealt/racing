@@ -18,6 +18,7 @@ var only: PackedStringArray = []
 var problems: Array[String] = []
 var _bg: TextureRect
 var _tag := ""
+var _view := Vector2(1280, 720)   # the interface's size (UiRoot.frame) in its own pixels
 
 
 func _initialize() -> void:
@@ -83,13 +84,33 @@ func _shot(name: String) -> void:
 
 # ================================================================= the menu
 
+## The interface as the game adds it (UiRoot: its own pixels, the menu or the HUD).
+func _make_ui(track: int) -> UiRoot:
+	var ui := UiRoot.new()
+	ui.menu.selected_track = track
+	ui.menu.input = null # (the shots drive the menu with fake presses)
+	get_root().add_child(ui)
+	_view = ui.frame.size
+	return ui
+
+
+## Rename track `i` for the stress shots (the built track when sim/ is there, else the fixture).
+func _rename(i: int, name_: String) -> void:
+	UiData.track_count()
+	if not UiData._tracks.is_empty():
+		UiData._tracks[i].name = name_
+	else:
+		UiData.fixture().tracks[i].name = name_
+
+
 func _menu_screens() -> void:
 	_backdrop("menu")
 	Fx.save_data_v5()
-	var menu := MainMenu.new()
-	menu.selected_track = 9
-	get_root().add_child(menu)
+	var ui := _make_ui(9)
+	ui.show_menu(true)
+	var menu := ui.menu
 	await process_frame
+	print("interface %s at scale %.2f" % [_view, ui.ui_scale])
 	if _want("menu"):
 		await _shot("menu")
 		_check_menu(menu, "menu")
@@ -108,37 +129,40 @@ func _menu_screens() -> void:
 	if _want("controls"):
 		menu.show_controls(true)
 		await _shot("controls")
-		_check_inside(menu.controls.panel, "controls panel")
+		_check_inside(menu.controls.panel, "controls panel", true)
 		menu.show_controls(false)
 	if _want("settings"):
 		menu.show_settings(true)
 		await _shot("settings")
-		_check_inside(menu.settings.panel, "settings panel")
+		_check_inside(menu.settings.panel, "settings panel", true)
 		menu.show_settings(false)
 	if _want("menu-stress"):
 		# long names, 12-minute times, a seven-digit score, a long AI status, the Thunder picked, no network buttons
 		Fx.save_data_stress()
 		var names: Array = []
-		for t in UiData.fixture().tracks:
-			names.append(t.name)
-		UiData.fixture().tracks[9].name = "Night Highway Extended Grand Prix Circuit"
-		UiData.fixture().tracks[3].name = "Banked Speedway Of The Seven Hills"
-		menu.queue_free()
-		menu = MainMenu.new()
-		menu.selected_track = 9
-		get_root().add_child(menu)
+		for i in UiData.track_count():
+			names.append(UiData.track_info(i).name)
+		_rename(9, "Night Highway Extended Grand Prix Circuit")
+		_rename(3, "Banked Speedway Of The Seven Hills")
+		ui.queue_free()
+		ui = _make_ui(9)
+		ui.show_menu(true)
+		menu = ui.menu
 		await process_frame
 		await _shot("menu-stress")
 		_check_menu(menu, "menu-stress")
 		for i in names.size():
-			UiData.fixture().tracks[i].name = names[i]
+			_rename(i, names[i])
 		UiData.store.network = null
 		UiData.set_setting("car", "drifter")
-		menu.selected_track = 5
-		menu.refresh()
+		ui.queue_free()
+		ui = _make_ui(5)
+		ui.show_menu(true)
+		menu = ui.menu
+		await process_frame
 		await _shot("menu-nonet")
 		_check_menu(menu, "menu-nonet")
-	menu.queue_free()
+	ui.queue_free()
 	await process_frame
 
 
@@ -154,8 +178,13 @@ func _check_menu(menu: MainMenu, name: String) -> void:
 	var main: Control = menu.get("_main")
 	var r := main.get_global_rect()
 	var view := Rect2(Vector2.ZERO, menu.size)
-	if r.end.y > view.end.y + 0.5 or r.position.y < -0.5:
+	var scrolls := r.end.y > view.end.y + 0.5 or r.position.y < -0.5
+	if scrolls and view.size.x >= 1280 and view.size.y >= 720:
 		problems.append("%s %s: the menu is %d px tall in a %d px window (it scrolls)" % [name, _tag, r.size.y, view.size.y])
+	if scrolls:
+		# (smaller windows scroll the menu, as the web's does: only the width must fit)
+		print("%s %s: the menu scrolls (%d px in %d)" % [name, _tag, r.size.y, view.size.y])
+		view = Rect2(0, -100000, view.size.x, 200000)
 	_check_tree(main, name, view)
 
 
@@ -184,8 +213,10 @@ func _describe(c: Control) -> String:
 	return str(c.name)
 
 
-func _check_inside(c: Control, what: String) -> void:
-	var view := Rect2(Vector2.ZERO, Vector2(get_root().get_visible_rect().size))
+func _check_inside(c: Control, what: String, may_scroll: bool = false) -> void:
+	var view := Rect2(Vector2.ZERO, _view)
+	if may_scroll and (_view.x < 1280 or _view.y < 720):
+		view = Rect2(0, -100000, _view.x, 200000) # (a dialog scrolls in a small window, as the web's does)
 	var r := c.get_global_rect()
 	if not view.grow(1.0).encloses(r):
 		problems.append("%s %s: %s outside the window (%s)" % [what, _tag, what, r])
@@ -196,8 +227,9 @@ func _check_inside(c: Control, what: String) -> void:
 func _hud_screens() -> void:
 	_backdrop("drive")
 	Fx.save_data_v5()
-	var hud := RaceHud.new()
-	get_root().add_child(hud)
+	var ui := _make_ui(9)
+	ui.show_menu(false)
+	var hud := ui.hud
 	hud.show_hud(true)
 	hud.set_mode("Night Highway · Racer")
 	hud.set_keys(Fx.STATE_KEYS, false)
@@ -289,16 +321,14 @@ func _hud_screens() -> void:
 		hud.show_watch(false)
 	if _want("notice"):
 		hud.hide_panel()
-		var n := PadNotice.new()
-		get_root().add_child(n)
+		var n := ui.notice
 		n.show_text("Gamepad connected: Xbox Wireless Controller · RT accelerate · LT brake · A handbrake · X nitro · View on the menu lists every button")
 		for i in 20:
 			await process_frame
 		n._process(1.0)
 		await _shot("notice")
 		_check_inside(n.get("_plate"), "notice")
-		n.queue_free()
-	hud.queue_free()
+	ui.queue_free()
 	await process_frame
 
 
@@ -338,4 +368,9 @@ func _content_rect(c: Control) -> Rect2:
 	if c is MarginContainer and c.get_child_count() == 1:
 		return _content_rect(c.get_child(0))
 	var g := c.get_global_rect()
-	return g.grow_individual(g.size.y * UiStyle.SKEW * 0.5, 0, g.size.y * UiStyle.SKEW * 0.5, 0)
+	# a slanted plate reaches half its skew past its rect on each side
+	var sb: StyleBox = c.get_theme_stylebox("panel") if c is PanelContainer else null
+	if sb is StyleBoxFlat and (sb as StyleBoxFlat).skew.x != 0.0:
+		var d := g.size.y * absf((sb as StyleBoxFlat).skew.x) * 0.5
+		return g.grow_individual(d, 0, d, 0)
+	return g

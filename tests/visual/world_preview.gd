@@ -14,6 +14,7 @@ extends SceneTree
 ##   lat       metres left of the centre line
 ##   car       racer | kestrel | thunder | drifter | none
 ##   ghost     1: a ghost car 6 m ahead
+##   fleet     N: an AI fleet of N cars over the lap (the first one viewed), rays=1: its sensor rays
 ##   boost     1: nitro on
 ##   speed     km/h shown by the camera (field of view) and the effects, default 120
 ##   angle     orbit angle (rad)
@@ -73,6 +74,25 @@ func _initialize() -> void:
 	cam.make_current()
 	var gi := track.wrap(i + 3)
 	var gstate := {"x": track.px[gi], "y": track.py[gi], "z": track.pz[gi], "yaw": track.heading(gi), "idx": gi}
+	# training view: a fleet spread over the lap (the first is the viewed car, at the car's spot) and its sensor rays
+	var fleet: AIFleet = null
+	var agents: Array = []
+	var nf := int(o.get("fleet", "0"))
+	if nf > 0:
+		fleet = AIFleet.new(nf)
+		world.add_child(fleet)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		for k in nf:
+			var j := i if k == 0 else track.wrap(i + rng.randi_range(-60, 400))
+			var la := 0.0 if k == 0 else rng.randf_range(-0.7, 0.7) * track.hw[j]
+			var hy := track.heading(j)
+			agents.append({"alive": k % 9 != 4, "prev": null, "car": {"x": track.px[j] + track.nx[j] * la, "y": track.py[j] - la * tan(track.bank[j]),
+				"z": track.pz[j] + track.nz[j] * la, "yaw": hy + rng.randf_range(-0.15, 0.15), "idx": j, "speed": 30.0}})
+	var rays: SensorRays = null
+	if o.get("rays", "0") == "1":
+		rays = SensorRays.new()
+		world.add_child(rays)
 
 	for f in frames:
 		var dt := 1.0 / 60.0
@@ -80,6 +100,18 @@ func _initialize() -> void:
 			car.update(state, null, 1.0, dt, track)
 		if ghost != null:
 			ghost.update(gstate, null, 1.0, dt, track)
+		if fleet != null:
+			fleet.update(agents, track, 0, f * dt, 1.0)
+		if rays != null:
+			var d := PackedFloat32Array()
+			var fx := sin(yaw)
+			var fz := cos(yaw)
+			for a: float in rays.angles:
+				var r := deg_to_rad(a)
+				var dx := fx * cos(r) + fz * sin(r)
+				var dz := fz * cos(r) - fx * sin(r)
+				d.append(Collision.raycast(track.grid, float(state["x"]) + fx * 1.5, float(state["z"]) + fz * 1.5, dx, dz, 100.0))
+			rays.update(state, d, 100.0)
 		match cam_mode:
 			"chase":
 				if f == 0:

@@ -97,6 +97,7 @@ var _kmh := -1
 var _narrow := false
 var _tiny := false
 var _time_tpl := ""
+var _watch_on := false
 
 
 func _init() -> void:
@@ -262,6 +263,7 @@ func _build() -> void:
 	add_child(watch_panel)
 	# the finish panel, above everything
 	finish = FinishPanel.new()
+	finish.placed.connect(_apply_panel_visibility)
 	add_child(finish)
 
 
@@ -317,6 +319,7 @@ func update(s: Dictionary, dt: float) -> void:
 	var sprint: bool = s.get("sprint", false)
 	_lap_lbl.text = "Sprint" if sprint else "Lap"
 	_lap_val.text = "" if sprint else "%d/%d" % [int(s.get("lap", 1)), int(s.get("laps", 1))]
+	_lap_val.get_parent().visible = not sprint # (its baseline holder)
 	_cp_val.text = "%d/%d" % [int(s.get("cp", 0)), int(s.get("cps", 0))]
 	var kmh := roundi(float(s.get("speed", 0.0)) * 3.6)
 	if kmh != _kmh:
@@ -496,8 +499,11 @@ func score_pops(events: Array) -> void:
 		var holder := Control.new()
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(p)
-		p.reset_size()
-		holder.custom_minimum_size = p.get_combined_minimum_size()
+		var fit := func() -> void:
+			p.reset_size()
+			holder.custom_minimum_size = p.get_combined_minimum_size()
+		fit.call()
+		p.minimum_size_changed.connect(fit) # (labels measure their final fonts once in the tree)
 		holder.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		_pops_box.add_child(holder)
 		_pops.append({"node": holder, "pop": p, "t": POP_TIME})
@@ -589,18 +595,35 @@ func _apply_panel_visibility() -> void:
 	if panel_open:
 		_rev.visible = false
 		_nitro.visible = false
-	var narrow_hide := panel_open and _narrow
+	# the parts the panel would cover go (as the web does in narrow windows, and here also when a
+	# short window's panel reaches the score column or the best-time column): the panel shows them all
+	var fr := Rect2(finish.position, finish.size)
+	var left_w := 0.0 # (every part's width, hidden or not, so hiding them doesn't change the answer)
+	for c in [_race_plate, _score_plate, _pops_box]:
+		left_w = maxf(left_w, c.get_combined_minimum_size().x)
+	var left_end := _left.position.x + left_w + UiStyle.S2
+	var covers_left := panel_open and fr.position.x < left_end
+	var covers_right := panel_open and fr.end.x > _right.position.x - UiStyle.S2 and fr.position.y < _right.position.y + _right.size.y
+	var narrow_hide := panel_open and (_narrow or covers_left)
 	_pops_box.visible = not narrow_hide
-	_right.visible = not narrow_hide and not (panel_open and _tiny)
-	_split.visible = not narrow_hide and not (panel_open and _tiny)
+	_right.visible = not (panel_open and (_narrow or covers_right or _tiny))
+	# (the split goes under a tall panel: hidden then, the panel shows the time)
+	var split_y := 80.0 if not _narrow else 118.0
+	_split.visible = not narrow_hide and not (panel_open and (_tiny or finish.position.y < split_y + _split.size.y + UiStyle.S2))
 	if _score_state != "off":
 		_score_plate.visible = not narrow_hide
 		_live_line.visible = not narrow_hide
 	for c in [_mode, _time_plate, _left]:
 		c.visible = not (panel_open and _tiny)
+	# the lap plate too, when the (full-width) panel reaches up to it
+	var race_r := Rect2(_left.position, _race_plate.get_combined_minimum_size())
+	_race_plate.visible = not (panel_open and race_r.grow(UiStyle.S1).intersects(fr))
+	# the AI's network goes under the finish panel in small windows: hidden while they would overlap
+	watch_panel.visible = _watch_on and not (panel_open and Rect2(watch_panel.position, watch_panel.size).intersects(fr))
 
 
 func show_watch(on: bool) -> void:
+	_watch_on = on
 	watch_panel.visible = on
 	_layout()
 
