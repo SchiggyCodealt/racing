@@ -2,7 +2,7 @@ extends SceneTree
 ## bench.gd: how fast the car physics runs in GDScript (the speed parts of the web
 ## game's web/tools/physicsBench.mjs; compare with `node web/tools/physicsBench.mjs`).
 ## ------------------------------------------------------------------
-##   godot --headless --path <copy> --script res://tools/bench.gd [-- cars=80 seconds=10 threads=4 parts=123]
+##   godot --headless --path <copy> --script res://tools/bench.gd [-- cars=80 seconds=10 threads=4 parts=1234]
 ##
 ## 1. One car, every track: an autopilot drives one lap and its controls are recorded,
 ##    then the same lap is replayed and only Car.step() is timed: µs per step.
@@ -12,7 +12,17 @@ extends SceneTree
 ##    second and "× real time" (simulated seconds per wall-clock second for all of them).
 ##    (The AI's sensors and network are not included: they belong to the AI code.)
 ## 3. The same on `threads` threads (each thread owns a slice of the cars; the sim is
-##    deterministic and thread-safe as long as each car stays on one thread).
+##    deterministic and thread-safe as long as each car stays on one thread). GDScript
+##    scales badly here: reading another object's properties and calling another script
+##    class's functions get slower when several threads do it at once (shared reference
+##    counts, it seems), and the car step does both; measured 1.0-1.7x on 4 threads.
+## 4. What typing and one more GDScript optimisation buy: the same laps (4 tracks) with
+##    sim/car.gd as it is (typed), with a copy of it with every type annotation removed
+##    (untyped), and with a typed copy that keeps the ~80 spec numbers the step reads in
+##    the car's own members instead of reading them from the CarSpec object every time
+##    (another object's property costs ~36 ns more than a member or a local). Both copies
+##    are made from sim/car.gd's text at run time; their final states must equal the
+##    shipped car's, bit for bit.
 ## Times are wall-clock on whatever else the machine is doing: run it twice.
 
 const DT: float = 1.0 / 60.0
@@ -57,7 +67,7 @@ class Agent:
 var n_cars: int = 80
 var seconds: float = 10.0
 var n_threads: int = 4
-var parts: String = "123"
+var parts: String = "1234"
 var bad: int = 0
 var outside: int = 0
 
@@ -85,7 +95,9 @@ func _initialize() -> void:
 		part2(tracks)
 	if parts.contains("3") and n_threads > 1:
 		part3(tracks)
-	print("\n4) sanity: non-finite car states %d, cars outside the walls %d" % [bad, outside])
+	if parts.contains("4"):
+		part4()
+	print("\n5) sanity: non-finite car states %d, cars outside the walls %d" % [bad, outside])
 	quit(1 if bad or outside else 0)
 
 
@@ -253,3 +265,97 @@ func check_car(car: Car) -> void:
 		bad += 1
 	if absf(car.lat) > car._hw + 0.01:
 		outside += 1
+
+
+## 4: typed (as shipped) vs untyped vs spec fields cached in the car; best of 3 passes.
+func part4() -> void:
+	print("\n4) Car.step as shipped (typed GDScript) vs an untyped copy vs a copy with the spec fields cached in the car; one lap of 4 tracks, best of 3 passes")
+	var src: String = FileAccess.get_file_as_string("res://sim/car.gd")
+	var variants: Dictionary = {"typed": null, "untyped": _compile(_untyped_source(src)), "spec cached": _compile(_cached_source(src))}
+	var ids: PackedStringArray = ["rookie-oval", "hairpin-valley", "canyon-run", "seaside-stunts"]
+	var tapes: Dictionary = {}
+	for id: String in ids:
+		var t: BuiltTrack = Tracks.build(id)
+		var car := Car.new(t)
+		var pilot := BenchPilot.new(t)
+		var tape: Array[Car.Controls] = []
+		for i in 3600:
+			var c := Car.Controls.new()
+			pilot.drive(car, c)
+			tape.append(c)
+			car.step(t, c, DT)
+		tapes[id] = tape
+	var best: Dictionary = {}
+	var same: Dictionary = {}
+	var ref: Dictionary = {}
+	for pass_i in 3:
+		for name: String in variants:
+			if name != "typed" and variants[name] == null:
+				continue
+			var us: float = 0.0
+			var n: int = 0
+			for id: String in ids:
+				var t: BuiltTrack = Tracks.build(id)
+				var car: Variant = Car.new(t) if name == "typed" else (variants[name] as GDScript).new(t)
+				var tape: Array[Car.Controls] = tapes[id]
+				var t0: int = Time.get_ticks_usec()
+				for c: Car.Controls in tape:
+					car.step(t, c, DT)
+				us += Time.get_ticks_usec() - t0
+				n += tape.size()
+				var st: String = str(car.to_state())
+				if name == "typed":
+					ref[id] = st
+				elif st != ref[id]:
+					same[name] = false
+			best[name] = minf(best.get(name, INF), us / n)
+	for name: String in variants:
+		if not best.has(name):
+			print("   %-12s did not compile" % name)
+			continue
+		print("   %-12s %6.2f µs per step  (%.2f× the typed time)%s" % [name, best[name], best[name] / best.typed,
+			"" if name == "typed" else ("; same states as the shipped car" if same.get(name, true) else "; states DIFFER from the shipped car")])
+
+
+static func _compile(source: String) -> GDScript:
+	var s := GDScript.new()
+	s.source_code = source
+	return s if s.reload() == OK else null
+
+
+## sim/car.gd with every type annotation removed.
+static func _untyped_source(src: String) -> String:
+	var u: String = src.replace("class_name Car\n", "")
+	u = RegEx.create_from_string("\\b(var \\w+): [\\w\\.]+(\\[[\\w\\.]+\\])? =").sub(u, "$1 =", true)
+	u = RegEx.create_from_string("(?m)\\b(var \\w+): [\\w\\.]+(\\[[\\w\\.]+\\])?$").sub(u, "$1", true)
+	u = RegEx.create_from_string("\\b(var \\w+) :=").sub(u, "$1 =", true)
+	u = RegEx.create_from_string("\\bfor (\\w+): [\\w\\.]+ in").sub(u, "for $1 in", true)
+	var param := RegEx.create_from_string("(\\w+): [\\w\\.]+(\\[[\\w\\.]+\\])?")
+	var ret := RegEx.create_from_string(" -> [\\w\\.]+(\\[[\\w\\.]+\\])?:$")
+	var lines: PackedStringArray = u.split("\n")
+	for i in lines.size():
+		if lines[i].strip_edges().begins_with("func ") or lines[i].strip_edges().begins_with("static func "):
+			lines[i] = ret.sub(param.sub(lines[i], "$1", true), ":")
+	return "\n".join(lines)
+
+
+## sim/car.gd with every spec field the step reads (P.name) kept in the car's own members.
+static func _cached_source(src: String) -> String:
+	var c: String = src.replace("class_name Car\n", "").replace("ctrl: Controls", "ctrl: Car.Controls")
+	c = RegEx.create_from_string("\\bP\\.(\\w+)\\(").sub(c, "spec.$1(", true) # (methods stay calls on the spec)
+	var names: Dictionary = {}
+	for m: RegExMatch in RegEx.create_from_string("\\bP\\.(\\w+)").search_all(c):
+		names[m.get_string(1)] = true
+	c = RegEx.create_from_string("\\bP\\.(\\w+)").sub(c, "_sp_$1", true)
+	c = c.replace("static func _mu_at(", "func _mu_at(").replace("static func _secant(", "func _secant(")
+	var spec: CarSpec = Cars.default_spec()
+	var decl: PackedStringArray = []
+	var fill: PackedStringArray = []
+	for f: String in names:
+		var type_name: String = {TYPE_INT: "int", TYPE_FLOAT: "float", TYPE_BOOL: "bool", TYPE_ARRAY: "Array",
+			TYPE_PACKED_FLOAT64_ARRAY: "PackedFloat64Array"}.get(typeof(spec.get(f)), "Variant")
+		decl.append("var _sp_%s: %s" % [f, type_name])
+		fill.append("\t_sp_%s = spec.%s" % [f, f])
+	c = c.replace("\nfunc _init(", "\n%s\n\nfunc cache_spec() -> void:\n%s\n\n\nfunc _init(" % ["\n".join(decl), "\n".join(fill)])
+	return c.replace("\tspec = car_spec if car_spec != null else Cars.default_spec()\n",
+		"\tspec = car_spec if car_spec != null else Cars.default_spec()\n\tcache_spec()\n")

@@ -48,6 +48,11 @@ const GATE_STATE := {
 	"start": {"color": 0xfff1c8, "glow": 2.6},
 }
 
+## Gate light strips glow this much more than in the JS: Godot's glow spreads a thin bright strip
+## far less than UnrealBloom (the strip itself looks the same, its halo was missing). 2.2 matches
+## the web's halo at the dusk gate (measured, tests/visual/world_preview.gd vs the v5 shot).
+const STRIP_GLOW := 2.2
+
 # Barrier cross-section: [outward offset from the road edge, height]; part 0 = concrete,
 # 1 = coloured panel, 2 = top cap (per profile segment)
 const BARRIER_PROFILE := [
@@ -221,7 +226,7 @@ func _strip_style(m: StandardMaterial3D, s: Dictionary) -> void:
 	var c := Themes.col(s["color"])
 	m.albedo_color = c
 	m.emission = c
-	m.emission_energy_multiplier = float(s["glow"]) * (1.25 if theme.get("lamps", false) else 1.0)
+	m.emission_energy_multiplier = float(s["glow"]) * (1.25 if theme.get("lamps", false) else 1.0) * STRIP_GLOW
 
 
 func _strip_material(s: Dictionary) -> StandardMaterial3D:
