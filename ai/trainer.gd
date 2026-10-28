@@ -154,6 +154,7 @@ var _mirrored := PackedFloat32Array()
 ## opts: tracks (Array of BuiltTrack, at least one), population_size, mutation_rate,
 ## hidden (Array of hidden layer sizes), laps, walls ("ride" | "crash"), car_id,
 ## seed (NeuralNetwork to continue from), seed_meta (the saved file's data),
+## population (a Population to train as it is, instead of a new one),
 ## native (true = use FleetSim when it is available (default), false = GDScript),
 ## threads (FleetSim threads, default 1; 0 = one per core, at most 8).
 func _init(opts: Dictionary) -> void:
@@ -195,8 +196,14 @@ func _init(opts: Dictionary) -> void:
 	var seed_fitness: Variant = null
 	if same_task and _is_num(meta.get("fitness")):
 		seed_fitness = float(meta.fitness)
-	population = Population.new({size = cfg.population_size, sizes = sizes, mutation_rate = cfg.mutation_rate,
-		seed = seed, seed_fitness = seed_fitness})
+	if opts.get("population") is Population:
+		# continue with this population (tests: the same networks on both simulation paths)
+		population = opts.population
+		sizes = population.sizes.duplicate()
+		cfg.population_size = population.size()
+	else:
+		population = Population.new({size = cfg.population_size, sizes = sizes, mutation_rate = cfg.mutation_rate,
+			seed = seed, seed_fitness = seed_fitness})
 	if meta is Dictionary:
 		generation = int(meta.get("generation", 0)) if _is_num(meta.get("generation")) else 0
 		if meta.get("history") is Array:

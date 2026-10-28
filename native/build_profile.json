@@ -1,6 +1,7 @@
 {
 	"enabled_classes": [
 		"Object",
-		"RefCounted"
+		"RefCounted",
+		"OS"
 	]
 }

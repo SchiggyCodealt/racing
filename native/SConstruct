@@ -22,7 +22,7 @@ else:
     env.Append(CCFLAGS=["-ffp-contract=off"])
 
 sources = Glob("src/*.cpp")
-out_dir = ARGUMENTS.get("out", "../bin")
+out_dir = ARGUMENTS.get("out", "../bin")  # (out= is also reported as unknown by godot-cpp: harmless)
 library = env.SharedLibrary(
     os.path.join(out_dir, "libtrackrush{}{}".format(env["suffix"], env["SHLIBSUFFIX"])),
     source=sources,

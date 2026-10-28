@@ -139,6 +139,9 @@ public:
 	godot::Dictionary get_car_state(int k) const;
 	godot::Dictionary get_agent(int k) const;
 	godot::String version() const;
+	// the sensors' track queries, for tests
+	double debug_sharpest(int l, int r) const;
+	double debug_heading(double s) const;
 };
 
 } // namespace trackrush

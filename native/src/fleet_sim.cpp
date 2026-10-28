@@ -843,6 +843,14 @@ Dictionary FleetSim::get_agent(int k) const {
 	return d;
 }
 
+double FleetSim::debug_sharpest(int l, int r) const {
+	return sharpest(track, l, r);
+}
+
+double FleetSim::debug_heading(double s) const {
+	return heading_at(track, s);
+}
+
 String FleetSim::version() const {
 	return "trackrush-native 1";
 }
@@ -876,6 +884,8 @@ void FleetSim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_car_state", "k"), &FleetSim::get_car_state);
 	ClassDB::bind_method(D_METHOD("get_agent", "k"), &FleetSim::get_agent);
 	ClassDB::bind_method(D_METHOD("version"), &FleetSim::version);
+	ClassDB::bind_method(D_METHOD("debug_sharpest", "l", "r"), &FleetSim::debug_sharpest);
+	ClassDB::bind_method(D_METHOD("debug_heading", "s"), &FleetSim::debug_heading);
 }
 
 } // namespace trackrush

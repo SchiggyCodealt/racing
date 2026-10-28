@@ -49,9 +49,11 @@ const GATE_STATE := {
 }
 
 ## Gate light strips glow this much more than in the JS: Godot's glow spreads a thin bright strip
-## far less than UnrealBloom (the strip itself looks the same, its halo was missing). 2.2 matches
-## the web's halo at the dusk gate (measured, tests/visual/world_preview.gd vs the v5 shot).
-const STRIP_GLOW := 2.2
+## far less than UnrealBloom (the strip itself looks the same, its halo was missing). Measured
+## against v5 shots of a checkpoint gate 25 m ahead (tests/visual/world_preview.gd): 2.2 matches
+## the halo at dusk, 1.4 at night; the daytime start gate looks the same with 2.2.
+const STRIP_GLOW := {"night": 1.4}
+const STRIP_GLOW_DEFAULT := 2.2
 
 # Barrier cross-section: [outward offset from the road edge, height]; part 0 = concrete,
 # 1 = coloured panel, 2 = top cap (per profile segment)
@@ -71,6 +73,7 @@ const CHUNK := 500.0
 var stats: Dictionary = {}
 var ctx: TrackCtx
 var theme: Dictionary
+var theme_name := ""
 var terrain: Terrain
 ## checkpoint gate light materials, by checkpoint index
 var cp_materials: Array[StandardMaterial3D] = []
@@ -88,6 +91,7 @@ static func build(track: BuiltTrack) -> TrackMesh:
 	var node := TrackMesh.new()
 	node.name = "Track"
 	node.theme = Themes.get_theme(track.theme)
+	node.theme_name = track.theme if Themes.THEMES.has(track.theme) else "meadow"
 	node.ctx = TrackCtx.analyse(track, node.theme)
 	var c := node.ctx
 	var t1 := Time.get_ticks_usec()
@@ -226,7 +230,8 @@ func _strip_style(m: StandardMaterial3D, s: Dictionary) -> void:
 	var c := Themes.col(s["color"])
 	m.albedo_color = c
 	m.emission = c
-	m.emission_energy_multiplier = float(s["glow"]) * (1.25 if theme.get("lamps", false) else 1.0) * STRIP_GLOW
+	m.emission_energy_multiplier = (float(s["glow"]) * (1.25 if theme.get("lamps", false) else 1.0)
+		* float(STRIP_GLOW.get(theme_name, STRIP_GLOW_DEFAULT)))
 
 
 func _strip_material(s: Dictionary) -> StandardMaterial3D:

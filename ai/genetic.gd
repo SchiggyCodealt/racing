@@ -73,6 +73,16 @@ func size() -> int:
 	return genomes.size()
 
 
+## A deep copy (every network cloned); draws no random numbers.
+func copy() -> Population:
+	var p := Population.new({sizes = sizes, mutation_rate = mutation_rate})
+	for g in genomes:
+		p.genomes.append(Genome.new(g.net.clone(), g.fitness))
+	if best_ever != null:
+		p.best_ever = Best.new(best_ever.net.clone(), best_ever.fitness)
+	return p
+
+
 ## Breed the next generation from the current fitness values. Returns {best, avg}.
 func evolve() -> Dictionary:
 	var sorted: Array[Genome] = genomes.duplicate()
