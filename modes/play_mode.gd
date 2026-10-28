@@ -10,8 +10,9 @@ extends Node
 ## B respawn, Y ghost, Menu back; the HUD names them while the pad is the last input used).
 ##
 ## The player drives the car picked on the menu (the "car" setting); Shift / X / RB burns its
-## nitro tank, full at every start and kept on respawn. The watched AI and the AI ghost are
-## always the Racer they were trained with, and never use nitro.
+## nitro tank, full at every start and kept on respawn. The watched AI and the AI ghost drive
+## the car their network belongs to (opts.ai_car: the menu's car, whose network it is, or the
+## training session's car), in that car's own colours, and never use nitro.
 ##
 ## Best times, ghosts and medals are per track and car: the player's runs are recorded
 ## (sim/replay.gd); a new personal best with the car is saved (sim/save.gd) with its ghost.
@@ -37,7 +38,8 @@ extends Node
 ## Mode protocol (game/app.gd): setup(app, opts) before it joins the tree, enter() when it
 ## becomes the active mode, update(dt) every frame, exit() when it is left (then freed).
 ## opts: {track: BuiltTrack, driver: "human" | "ai", net: NeuralNetwork (AI and the AI ghost),
-## ghost: bool (race the AI ghost), car: car id (default: the picked car), return_to: Callable}
+## ai_car: the car id the network drives (default the racer), ghost: bool (race the AI ghost),
+## car: the player's car id (default: the picked car), return_to: Callable}
 
 const AiLink := preload("res://game/ai_link.gd")
 
@@ -46,7 +48,6 @@ const COUNTDOWN := 3.0
 const STUCK_TIME := 3.0 # s without progress before an AI car is respawned
 const PB_COLOR := Color("#8fd6ff") # the best-run ghost (the AI ghost is purple)
 const AI_GHOST_COLOR := Color("#b36bff")
-const AI_COLOR := Color("#ffc83d") # the watched AI: the Racer in yellow
 const NOTE_TIME := 2.5 # s a HUD note (ghost on / off) stays up
 const POPS_KEPT := 8 # score events kept for the HUD between two frames
 const RESPAWN_AHEAD := 6 # samples a respawned car is moved past its checkpoint (12 m)
@@ -57,6 +58,8 @@ var app: GameApp
 var track: BuiltTrack
 var driver := "human"
 var net: Object = null
+## The car the AI network drives (Watch the AI: car_def is this car; the AI ghost).
+var ai_def: Dictionary = {}
 var with_ghost := false
 var car_def: Dictionary = {}
 var rec: Replay.GhostRecorder = null
@@ -113,8 +116,9 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	driver = str(opts.get("driver", "human"))
 	net = opts.get("net")
 	with_ghost = bool(opts.get("ghost", false)) and net != null and driver == "human"
-	# the player's car (opts.car or the one picked on the menu); the AI always drives the racer
-	var cid: String = str(opts.get("car", UiData.picked_car())) if driver == "human" else Cars.DEFAULT_CAR
+	# the player's car (opts.car or the one picked on the menu); the AI drives its network's car
+	ai_def = Cars.get_car(str(opts.get("ai_car", Cars.DEFAULT_CAR)))
+	var cid: String = str(opts.get("car", UiData.picked_car())) if driver == "human" else String(ai_def.id)
 	car_def = Cars.get_car(cid)
 	rec = Replay.GhostRecorder.new() if driver == "human" else null
 	pb_shown = bool(UiData.get_setting("ghost"))
@@ -129,11 +133,11 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 func enter() -> void:
 	app.show_track(track)
 	var world := app.world
-	# the player's car in its own colours; the watched AI is the racer in yellow
-	model = CarModel.new(car_def.id, {"color": AI_COLOR} if driver == "ai" else {})
+	# the player's car (or the watched AI's) in its own colours; the AI ghost is its car in purple
+	model = CarModel.new(car_def.id)
 	world.add_child(model)
 	if with_ghost:
-		ghost_model = CarModel.new(Cars.DEFAULT_CAR, {"ghost": true, "color": AI_GHOST_COLOR})
+		ghost_model = CarModel.new(ai_def.id, {"ghost": true, "color": AI_GHOST_COLOR})
 		world.add_child(ghost_model)
 	elif driver == "human":
 		# your best run on this track with this car (if there is one yet), drawn as that car
@@ -166,7 +170,8 @@ func enter() -> void:
 ## The HUD's top line.
 func _mode_text(cname: String) -> String:
 	if with_ghost:
-		return "VS AI GHOST · %s · %s" % [track.name, cname]
+		var vs := "VS AI GHOST" if ai_def.id == car_def.id else "VS AI GHOST (%s)" % ai_def.name
+		return "%s · %s · %s" % [vs, track.name, cname]
 	return "%s · %s" % [track.name, cname]
 
 
@@ -206,7 +211,7 @@ func restart() -> void:
 	best_score = SaveData.get_best_score(track.id, car_def.id) if score != null else {}
 	note = {}
 	if with_ghost:
-		ghost = {"car": Car.new(track), "race": RaceState.new(track), "ai": AiLink.driver(net)}
+		ghost = {"car": Car.new(track, track.start_idx, ai_def.spec), "race": RaceState.new(track), "ai": AiLink.driver(net)}
 		ghost.watch = _new_watch(ghost.car, 0.0)
 	watch = _new_watch(car, 0.0)
 	ai_note = 0.0

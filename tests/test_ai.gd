@@ -4,14 +4,18 @@ extends RefCounted
 ## - the network: shapes, forward pass, clone / mutate / crossover, flat parameters, the JSON
 ##   format (round trips, a network saved by the browser version, refused old / wrong files)
 ## - the sensors and the driver: the browser version's numbers for the saved network driving
-##   from the start of two tracks (inputs, controls, the car after 2 s), the mirror symmetry
+##   from the start of two tracks (inputs, controls, the car after 2 s), the mirror symmetry,
+##   every car's speed scale (its own top speed; the Racer's unchanged)
 ## - the rules: crash / ride walls, stalled, backwards, the score of a finished car
-## - FleetSim (the native GDExtension) against the GDScript simulation: every car's state,
-##   inputs, fitness and reason, the generation and the best times; 1 thread = 4 threads;
-##   the fallback to GDScript (with its note) when the extension is missing
-## - a short training run improves the best fitness (native and GDScript)
-## - the training screen with a stand-in game: setup, 1×, Fast, Max on its thread, pause,
-##   Save best network, Stop
+## - FleetSim (the native GDExtension) against the GDScript simulation, for all six cars: every
+##   car's state, inputs, fitness and reason, the generation and the best times; every car's
+##   spec reaches FleetSim as data; 1 thread = 4 threads; the fallback to GDScript (with its
+##   note) when the extension is missing
+## - a short training run improves the best fitness (native and GDScript), with every car
+## - network files record their car; seeds from another car start a new history
+## - the training screen with a stand-in game: setup, the car choice, 1×, Fast, Max on its
+##   thread, pause, Save best network (the car's own network), switching car (asking first when
+##   a better network is not saved), loading another car's network, Stop
 ## About 30 s with the extension (most of it the GDScript simulation), longer without.
 
 const FIXTURE := "res://tests/fixtures/ai_web_network.json"
@@ -43,11 +47,16 @@ func run(checker: Variant) -> bool:
 	fixture_text = FileAccess.get_file_as_string(FIXTURE)
 	_network()
 	_network_files()
+	_network_cars()
 	_sensors()
+	_sensors_cars()
 	_rules()
 	_fleet_parity()
+	_fleet_cars()
 	_training()
+	_training_cars()
 	_train_screen()
+	_train_screen_cars()
 	return true
 
 
@@ -400,13 +409,15 @@ func _fleet_parity() -> void:
 
 ## Both simulations side by side, step by step: every car's state and inputs compared every
 ## 15 steps, then each car's fitness and reason, the generation and the best times.
-func _lockstep(tid: String, walls: String, n: int, seed: int) -> void:
+func _lockstep(tid: String, walls: String, n: int, seed: int, car: String = "racer") -> void:
 	var nets := mutated_fixture(n, seed)
-	var gd := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets), walls = walls, native = false})
+	var gd := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets), walls = walls, native = false, car_id = car})
 	var nets2: Array = []
 	for x: NeuralNetwork in nets:
 		nets2.append(x.clone())
-	var nat := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets2), walls = walls, native = true, threads = 1})
+	var nat := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets2), walls = walls, native = true, threads = 1,
+		car_id = car})
+	tid = "%s, %s" % [tid, Cars.get_car(car).name] if car != "racer" else tid
 	var runs: Array = [[], []]
 	gd.on_run_end = func(_t: BuiltTrack, d: Dictionary) -> void:
 		runs[0].append(_run_record(gd, d))
@@ -522,13 +533,14 @@ func _train_screen() -> void:
 	var app := FakeApp.new()
 	t.tree.root.add_child(app)
 	var saved: Array = []
+	var cars_saved: Array = []
 	var asked: Array = []
 	var make := func() -> Node:
 		var m: Node = TrainModeScript.new()
 		m.setup(app, {track_index = 0, network = {}})
 		m.file_dir = "user://test_ai_networks"
-		m.network_saved.connect(func(n: Dictionary) -> void: saved.append(n))
-		m.watch_requested.connect(func(tr: BuiltTrack, net: NeuralNetwork) -> void: asked.append(["watch", tr.id, net.sizes]))
+		m.network_saved.connect(func(n: Dictionary, car: String) -> void: saved.append(n); cars_saved.append(car))
+		m.watch_requested.connect(func(tr: BuiltTrack, net: NeuralNetwork, car: String) -> void: asked.append(["watch", tr.id, net.sizes, car]))
 		app.add_child(m)
 		m.enter()
 		return m
@@ -541,8 +553,9 @@ func _train_screen() -> void:
 	var s: Object = TrainModeScript.session
 	var tr: Trainer = s.get("trainer")
 	t.check(tr != null and tr.population.size() == 12 and d.run_box.visible, "Start training: a population of 12 and the run's dashboard")
-	t.check(String(s.get("note")).begins_with("New population of 12") and (tr.is_native() or String(s.get("note")).contains("GDScript")),
-		"the note says what started (and that it runs in GDScript when the extension is missing)")
+	t.check(String(s.get("note")).begins_with("New population of 12 random drivers in the Racer") and (tr.is_native() or String(s.get("note")).contains("GDScript")),
+		"the note says what started, with which car (and that it runs in GDScript when the extension is missing)")
+	t.check(tr.cfg.car_id == "racer" and d.car == "racer" and d.title.text == "AI training · Racer", "the menu's car (the Racer) is the session's car, named in the title")
 	for k in 30:
 		mode.update(1.0 / 60.0)
 	t.check(tr.steps_done() == 30, "1×: one physics step per 1/60 s frame")
@@ -572,10 +585,11 @@ func _train_screen() -> void:
 		and d.run_line.text.begins_with("This run:"),
 		"the stats show the session (generation %s at the pause, %s after a frame, the session's %d)" % [shown_now, d.stat_values.generation.text, tr.generation])
 	d.press(d.save_btn)
-	t.check(SaveData.load_network() is Dictionary and saved.size() >= 1 and not Trainer.parse_network_file(SaveData.load_network()).has("error"),
-		"Save best network: in the save file, and the game is told (network_saved)")
+	t.check(SaveData.load_network() is Dictionary and saved.size() >= 1 and not Trainer.parse_network_file(SaveData.load_network()).has("error")
+		and cars_saved[cars_saved.size() - 1] == "racer" and String(SaveData.load_network().get("car")) == "racer",
+		"Save best network: in the save file as the Racer's network (the file says car: racer), and the game is told (network_saved)")
 	d.press(d.watch_btn)
-	t.check(asked.size() == 1 and asked[0][0] == "watch", "Watch best asks the game to show the best network driving")
+	t.check(asked.size() == 1 and asked[0][0] == "watch" and asked[0][3] == "racer", "Watch best asks the game to show the best network driving (in the Racer)")
 	mode.exit()
 	mode.queue_free()
 	# a new screen resumes the session
@@ -591,6 +605,8 @@ func _train_screen() -> void:
 	var tr2: Trainer = TrainModeScript.session.trainer
 	t.check(tr2 != null and Array(tr2.sizes) == [18, 12, 2] and saved.size() == before + 1
 		and String(TrainModeScript.session.note).begins_with("Loaded network (18-12-2)"), "loading a network file: kept as the saved network, training continues from it")
+	t.check(tr2 != null and tr2.cfg.car_id == "racer" and tr2.generation == 6 and not String(TrainModeScript.session.note).contains("trained with"),
+		"a Racer file on a Racer session: its generation (6) and history carry on, no car note")
 	d2.press(d2.stop_btn)
 	# the gamepad: the highlight starts on Start training, A presses it
 	app.input.pad_active = true
@@ -613,4 +629,285 @@ func _train_screen() -> void:
 	if dir != null:
 		for f in dir.get_files():
 			dir.remove(f)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_ai_networks"))
+
+
+# ================================================================= other cars (v6.2)
+
+## Network files and the car they were trained with; seeds from another car.
+func _network_cars() -> void:
+	t.section("network files: the car")
+	var fx := Trainer.parse_network_file(fixture_text)
+	t.check(not (fx.meta as Dictionary).has("car") and Trainer.network_car(fx.meta) == "racer",
+		"a file without a car (the browser version's) is a Racer network")
+	t.check(Trainer.network_car({car = "dune"}) == "dune" and Trainer.network_car({car = "rally9"}) == "racer"
+		and Trainer.network_car(null) == "racer" and Trainer.network_car({car = 3}) == "racer",
+		"network_car: a known car id as it is; an unknown one, none or not a string: the Racer")
+	var tr := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, native = false, car_id = "kestrel"})
+	var ex := tr.export_best()
+	var back := Trainer.parse_network_file(JSON.stringify(ex))
+	t.check(ex.car == "kestrel" and tr.spec == Cars.spec("kestrel") and not back.has("error") and Trainer.network_car(back.meta) == "kestrel"
+		and int(ex.sensorVersion) == Sensors.SENSOR_VERSION and int(ex.version) == Trainer.NETWORK_FILE_VERSION,
+		"a Kestrel session drives the Kestrel's spec and its file says car: kestrel (same format, version and sensor version)")
+	var odd := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, native = false, car_id = "nope"})
+	t.check(odd.cfg.car_id == "racer" and odd.spec == Cars.default_spec(), "an unknown car id trains the Racer")
+	# the browser version reads such a file: extra keys are ignored, version and sensor version are its own
+	var web_ok: bool = ex.format == "trackmania-lite-network" and (ex.network as Dictionary).has("sizes") and int(ex.version) >= 2 \
+		and int(ex.sensorVersion) == 2 and (ex.inputs as Array).size() == 18
+	t.check(web_ok, "the file stays in the browser version's format (it only adds \"car\", which the browser ignores)")
+	# a seed trained with another car: a new history for this car; with the same car it carries on
+	var same := Trainer.new({tracks = [Tracks.build("rookie-oval"), Tracks.build("hairpin-valley")], population_size = 6, native = false,
+		walls = "ride", seed = fx.net, seed_meta = fx.meta})
+	var other := Trainer.new({tracks = [Tracks.build("rookie-oval"), Tracks.build("hairpin-valley")], population_size = 6, native = false,
+		walls = "ride", seed = fx.net, seed_meta = fx.meta, car_id = "thunder"})
+	t.check(same.generation == 6 and same.history.size() > 0 and absf(same.best_fitness - 1512.46) < 0.01,
+		"the Racer file seeding a Racer session on its own tracks and rule: generation 6, its chart history and best fitness carry on")
+	t.check(other.generation == 0 and other.history.is_empty() and other.best_fitness == 0.0 and same_floats(other.population.genomes[0].net.params(), fx.net.params()),
+		"the same file seeding a Thunder session: the network is the seed, but generation 0, no history and no best fitness (another car)")
+
+
+## Every car's sensor scale: its own top speed; the Racer's unchanged.
+func _sensors_cars() -> void:
+	t.section("sensors: every car")
+	t.check(Sensors.speed_scale(Cars.spec("racer")) == Sensors.SPEED_SCALE and Sensors.SPEED_SCALE == 77.0,
+		"the Racer's speed scale is still 77 m/s (its inputs are bit for bit the same: the browser checks above)")
+	var track := Tracks.build("rookie-oval")
+	var inputs := PackedFloat32Array()
+	inputs.resize(18)
+	var all_ok := true
+	var scales: PackedStringArray = []
+	for id in Cars.ids():
+		var spec := Cars.spec(id)
+		var top := Sensors.speed_scale(spec)
+		scales.append("%s %.1f" % [id, top])
+		var car := Car.new(track, track.start_idx, spec)
+		car.forward_speed = top
+		car.vx = sin(car.yaw) * top
+		car.vz = cos(car.yaw) * top
+		Sensors.sense(track, car, inputs)
+		var at_top := inputs[9] == 1.0 and inputs[15] <= 0.0 and inputs[16] <= 0.0 and inputs[17] <= 0.0
+		car.forward_speed = top * 0.5
+		Sensors.sense(track, car, inputs)
+		var half := inputs[9] == 0.5
+		all_ok = all_ok and top == spec.max_speed and at_top and half
+	t.check(all_ok, "every car's speed input is its speed / its own top speed: 1 flat out, 0.5 at half (%s m/s)" % ", ".join(scales))
+	# the Vortex at 85 m/s: under 1 with its own scale (with the Racer's it would read 1.10 and
+	# every corner margin would be negative on a straight)
+	var vortex := Car.new(track, track.start_idx, Cars.spec("vortex"))
+	vortex.forward_speed = 85.0
+	Sensors.sense(track, vortex, inputs)
+	var straight_margin := inputs[15]
+	t.check(inputs[9] < 1.0 and is_equal_approx(inputs[9], 85.0 / 91.0) and straight_margin > 0.0,
+		"the Vortex at 85 m/s on the start straight: speed input %.3f (< 1) and the corner margin ahead %.2f (> 0)" % [inputs[9], straight_margin])
+	# the driver works with any car: the fixture network drives each car's spec
+	var drives := true
+	for id in Cars.ids():
+		var c := Car.new(track, track.start_idx, Cars.spec(id))
+		var p0 := c.prog
+		var drv := Sensors.AIDriver.new(fixture_net())
+		for s in 120:
+			c.step(track, drv.drive(track, c), 1.0 / 60.0)
+		drives = drives and c.prog > p0 + 5.0 and c.speed > 10.0
+	t.check(drives, "the saved (Racer) network drives every car off the line (2 s, over 36 km/h)")
+
+
+## FleetSim with every car: the spec arrives whole, and every car runs bit for bit like GDScript.
+func _fleet_cars() -> void:
+	t.section("FleetSim: every car")
+	if not Trainer.native_available():
+		t.check(true, "FleetSim not loaded: only the GDScript simulation is checked")
+		return
+	# every spec number the physics uses reaches FleetSim (dirtGrip: data for later, no physics reads it yet)
+	const NOT_READ := ["dirtGrip"]
+	var all_same := true
+	var missing: PackedStringArray = []
+	var differ: PackedStringArray = []
+	for id in Cars.ids():
+		var fs: Object = ClassDB.instantiate("FleetSim")
+		var sd := Trainer.spec_data(Cars.spec(id))
+		fs.call("set_spec", sd)
+		var got: Dictionary = fs.call("get_spec")
+		for k: String in sd:
+			if NOT_READ.has(k):
+				continue
+			if not got.has(k):
+				if not missing.has(k):
+					missing.append(k)
+				all_same = false
+				continue
+			var a: Variant = sd[k]
+			var b: Variant = got[k]
+			var eq: bool
+			if a is PackedFloat64Array or a is Array:
+				eq = PackedFloat64Array(a) == PackedFloat64Array(b)
+			else:
+				eq = float(a) == float(b)
+			if not eq:
+				differ.append("%s.%s" % [id, k])
+				all_same = false
+	t.check(all_same, "every car's spec reaches FleetSim as data, every number the same (%d keys; not read: %s)%s%s" % [
+		Trainer.spec_data(Cars.default_spec()).size() - NOT_READ.size(), ", ".join(NOT_READ),
+		"" if missing.is_empty() else "; missing: " + ", ".join(missing), "" if differ.is_empty() else "; differ: " + ", ".join(differ)])
+	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 2", "the native library is version 2 (sensors scaled by the car's top speed)")
+	# lockstep, the other five cars on different tracks and rules
+	for c: Array in [["kestrel", "hairpin-valley", "crash"], ["thunder", "banked-speedway", "crash"], ["drifter", "ramp-rally", "crash"],
+			["dune", "rookie-oval", "ride"], ["vortex", "seaside-stunts", "crash"]]:
+		_lockstep(c[1], c[2], 6, 40 + c[0].length(), c[0])
+
+
+## Training improves with every car (FleetSim; the GDScript path is the same simulation).
+func _training_cars() -> void:
+	t.section("training improves with every car")
+	if not Trainer.native_available():
+		t.check(true, "FleetSim not loaded: skipped (GDScript training is checked above)")
+		return
+	for id in Cars.ids():
+		if id == "racer":
+			continue # (above)
+		NeuralNetwork.rng.seed = 4
+		var tr := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 40, walls = "crash", native = true, threads = 0, car_id = id})
+		var t0 := Time.get_ticks_msec()
+		while tr.generation < 12:
+			tr.step_many(600)
+		var h := tr.history
+		var fin: Variant = tr.best_times.get("rookie-oval", {}).get("finish")
+		var last: Dictionary = h[h.size() - 1]
+		# (the same random first generation for every car: one of them may finish by luck, so the
+		# whole population's average is the measure, with a finish and a best that never drops)
+		t.check(tr.best_fitness > 1500.0 and tr.best_fitness >= float(h[0].best) and float(last.avg) > float(h[0].avg) + 200.0 and fin != null,
+			"%s: 40 random drivers on rookie-oval (walls: crash), 12 generations: best %.0f -> %.0f, average %.0f -> %.0f, best finish %s (%.1f s)" % [
+				Cars.get_car(id).name, h[0].best, tr.best_fitness, h[0].avg, last.avg, UiFormat.time(fin) if fin != null else "none",
+				(Time.get_ticks_msec() - t0) / 1000.0])
+
+
+## The training screen's car choice: the session's car, its own saved network, switching car
+## (asking first when a better network is not saved), another car's network loaded.
+func _train_screen_cars() -> void:
+	t.section("training screen: cars")
+	var prev_save := SaveData.path
+	SaveData.use_file("user://test_ai_cars_save.json")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_ai_cars_save.json"))
+	SaveData.use_file("user://test_ai_cars_save.json")
+	var app := FakeApp.new()
+	t.tree.root.add_child(app)
+	var saved: Array = []
+	var asked: Array = []
+	TrainModeScript.session = null
+	var mode: Node = TrainModeScript.new()
+	mode.setup(app, {track_index = 0, car = "kestrel"})
+	mode.file_dir = "user://test_ai_networks"
+	mode.network_saved.connect(func(n: Dictionary, car: String) -> void: saved.append([car, n]))
+	mode.watch_requested.connect(func(tr: BuiltTrack, _net: NeuralNetwork, car: String) -> void: asked.append(["watch", tr.id, car]))
+	mode.race_requested.connect(func(tr: BuiltTrack, _net: NeuralNetwork, car: String) -> void: asked.append(["race", tr.id, car]))
+	app.add_child(mode)
+	mode.enter()
+	var d: Control = mode.get("dash")
+	var s: Object = TrainModeScript.session
+	t.check(d.car_chips.size() == 6 and d.run_chips.size() == 6 and d.car == "kestrel" and d.car_chips[1].selected and not d.car_chips[0].selected,
+		"the form has six car tiles, the menu's car (the Kestrel) picked")
+	t.check(String(d.seed_info.text).contains("none yet for the Kestrel") and d.seed_check.disabled,
+		"no saved Kestrel network: Continue from saved network is off (%s)" % d.seed_info.text)
+	d.press(d.car_chips[2]) # Thunder
+	t.check(d.car == "thunder" and String(s.get("car")) == "thunder" and d.title.text == "AI training · Thunder" and d.car_chips[2].selected,
+		"a tile picks the car to train (no session yet): the Thunder")
+	t.check(d.pad_controls().has(d.car_chips[0]), "the gamepad reaches the car tiles")
+	d.pop.value = 10
+	d.press(d.start_btn)
+	var tr: Trainer = s.get("trainer")
+	t.check(tr != null and tr.cfg.car_id == "thunder" and tr.spec == Cars.spec("thunder") and String(s.get("note")).contains("in the Thunder"),
+		"Start training: the session trains the Thunder (%s)" % s.get("note"))
+	var fleet: Node = mode.get("fleet")
+	t.check(fleet != null and d.chart.caption == "Thunder", "the fleet and the chart are the Thunder's")
+	while tr.generation < 1:
+		tr.step_many(600)
+	mode.update(1.0 / 60.0)
+	var th: Variant = SaveData.load_network("thunder")
+	t.check(th is Dictionary and String(th.get("car")) == "thunder" and SaveData.load_network("racer") == null and saved.size() >= 1 and saved[saved.size() - 1][0] == "thunder",
+		"the autosave keeps it as the Thunder's network (the Racer's is untouched) and tells the game")
+	mode.update(1.0 / 60.0)
+	t.check(d.run_chips[2].badge.begins_with("gen") and d.run_chips[0].badge == "", "the Thunder's tile notes its saved network's generation (%s)" % d.run_chips[2].badge)
+	d.press(d.watch_btn)
+	d.press(d.race_btn)
+	t.check(asked.size() == 2 and asked[0][2] == "thunder" and asked[1][2] == "thunder", "Watch best and Race best ask for the AI in the Thunder")
+	# switching car: nothing unsaved -> at once
+	var leader_beats: bool = mode.call("unsaved_reason") != ""
+	if leader_beats:
+		# (a car of the run already beats the best: let the generation end, which saves it)
+		var g := tr.generation
+		while tr.generation == g:
+			tr.step_many(600)
+		mode.update(1.0 / 60.0)
+	var reason: String = mode.call("unsaved_reason")
+	d.press(d.run_chips[4]) # Dune
+	var tr2: Trainer = s.get("trainer")
+	t.check(reason == "" and tr2 != tr and tr2.cfg.car_id == "dune" and String(s.get("car")) == "dune" and d.run_box.visible
+		and String(s.get("note")).begins_with("The Thunder session ended.") and not d.asking(),
+		"picking the Dune while nothing is unsaved: a new session with the Dune at once (%s)" % s.get("note"))
+	t.check(d.title.text == "AI training · Dune" and d.run_chips[4].selected and tr2.generation == 0 and (s.get("history") as Array).is_empty(),
+		"the new session is the Dune's: title, tile, generation 0 and an empty chart")
+	# a better network not saved (as after a failed autosave): it asks
+	while tr2.generation < 1:
+		tr2.step_many(600)
+	mode.update(1.0 / 60.0)
+	s.set("last_saved", -INF)
+	var dune_before: Variant = SaveData.load_network("dune")
+	d.press(d.run_chips[5]) # Vortex
+	t.check(d.asking() and s.get("trainer") == tr2 and String(s.get("pending_car")) == "vortex" and d.ask_label.text.contains("not saved")
+		and d.pad_controls().has(d.ask_buttons[0]) and not d.pad_controls().has(d.pause_btn),
+		"a better Dune network not saved: picking the Vortex asks first (%s)" % d.ask_label.text)
+	d.press(d.ask_buttons[2]) # Keep training
+	t.check(not d.asking() and s.get("trainer") == tr2 and String(s.get("car")) == "dune", "Keep training: still the Dune session")
+	d.press(d.run_chips[5])
+	d.press(d.ask_buttons[1]) # Switch without saving
+	var tr3: Trainer = s.get("trainer")
+	t.check(tr3 != tr2 and tr3.cfg.car_id == "vortex" and var_to_bytes(SaveData.load_network("dune")) == var_to_bytes(dune_before),
+		"Switch without saving: the Vortex session starts, the saved Dune network is left as it was")
+	while tr3.generation < 1:
+		tr3.step_many(600)
+	mode.update(1.0 / 60.0)
+	s.set("last_saved", -INF)
+	d.press(d.run_chips[2]) # back to the Thunder
+	d.press(d.ask_buttons[0]) # Save it, then switch
+	var vx: Variant = SaveData.load_network("vortex")
+	var tr4: Trainer = s.get("trainer")
+	t.check(vx is Dictionary and String(vx.get("car")) == "vortex" and absf(float(vx.get("fitness")) - tr3.best_fitness) < 1e-6 and tr4.cfg.car_id == "thunder",
+		"Save it, then switch: the Vortex network is saved, then the Thunder session starts")
+	t.check(tr4.generation >= 1 and String(s.get("note")).contains("Continuing from a saved network"),
+		"the Thunder has a saved network: its new session continues it (generation %d)" % tr4.generation)
+	# a Racer network loaded into the Thunder session: allowed, with a note, a new history
+	mode.load_network_text(fixture_text)
+	var tr5: Trainer = s.get("trainer")
+	var kept: Variant = SaveData.load_network("thunder")
+	t.check(tr5 != null and tr5.cfg.car_id == "thunder" and tr5.generation == 0 and String(s.get("note")).contains("trained with the Racer")
+		and kept is Dictionary and Trainer.network_car(kept) == "racer",
+		"loading a Racer network while training the Thunder: kept as the Thunder's network (its file still says Racer), trained on from generation 0, with a note")
+	mode.exit()
+	mode.queue_free()
+	# a new screen (from the menu) with another menu car resumes the session and says whose it is
+	var mode2: Node = TrainModeScript.new()
+	mode2.setup(app, {track_index = 0, car = "racer"})
+	app.add_child(mode2)
+	mode2.enter()
+	var d2: Control = mode2.get("dash")
+	t.check(TrainModeScript.session.trainer == tr5 and d2.car == "thunder" and String(TrainModeScript.session.note).contains("This session trains the Thunder"),
+		"back from the menu with the Racer picked: the Thunder session goes on, and the note says how to train the Racer")
+	d2.press(d2.stop_btn)
+	t.check(d2.setup_box.visible and d2.car == "thunder" and d2.seed_check.checked, "Stop: the form keeps the Thunder, with its saved network to continue")
+	mode2.exit()
+	mode2.queue_free()
+	var mode3: Node = TrainModeScript.new()
+	mode3.setup(app, {track_index = 0, car = "drifter"})
+	app.add_child(mode3)
+	mode3.enter()
+	t.check(mode3.get("dash").car == "drifter", "a car picked on the menu since then is the form's car (the Drifter)")
+	mode3.exit()
+	mode3.queue_free()
+	app.queue_free()
+	TrainModeScript.session = null
+	SaveData.use_file(prev_save)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_ai_cars_save.json"))
+	var dir := DirAccess.open("user://test_ai_networks")
+	if dir != null:
+		for fl in dir.get_files():
+			dir.remove(fl)
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_ai_networks"))

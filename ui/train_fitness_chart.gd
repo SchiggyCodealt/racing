@@ -5,6 +5,7 @@ extends Control
 ## the menu's type and colours (best in the accent, average in grey), four grid lines with
 ## their values, the first and last generation under the plot, a small legend on top.
 ##   chart.draw_history(trainer.history)   # [{gen, best, avg}], redrawn on the next frame
+##   chart.caption = "Kestrel"             # the training car, at the right of the legend
 ## Before the first generation it says "Fitness per generation appears here".
 
 const C_LABEL := Color("#6f7278")
@@ -18,6 +19,12 @@ const PAD_T := 18.0
 const PAD_B := 20.0
 
 var history: Array = []
+## Shown at the right end of the legend row (the training screen: the car being trained).
+var caption := "":
+	set(v):
+		if v != caption:
+			caption = v
+			queue_redraw()
 
 
 func _init() -> void:
@@ -39,6 +46,8 @@ func _draw() -> void:
 	var f := UiStyle.face("text")
 	var pw := w - PAD_L - PAD_R
 	var ph := h - PAD_T - PAD_B
+	if caption != "":
+		_text(f, Vector2(w - PAD_R, 8.0), caption, C_AVG, HORIZONTAL_ALIGNMENT_RIGHT, "middle")
 	if history.is_empty():
 		_text(f, Vector2(w / 2.0, h / 2.0), "Fitness per generation appears here", C_LABEL, HORIZONTAL_ALIGNMENT_CENTER, "middle")
 		return

@@ -18,8 +18,9 @@ extends Node
 ## "quality" setting: High = start high with the frame-time governor stepping down to medium
 ## and low when frames are slow, as the web game; Low = pinned low) and the display settings
 ## (fullscreen, vsync; the interface size is UiRoot's), the save data wiring (UiData reads
-## sim/save.gd's file), the AI network (loaded from the save at start, Load / Save network
-## through file dialogs in the web game's JSON format), and short messages.
+## sim/save.gd's file), the AI networks (one per car, from the save file; the menu's AI block,
+## Watch the AI and Race the AI ghost use the picked car's; Load / Save network through file
+## dialogs in the web game's JSON format), and short messages.
 ##
 ## Command line (after "--"; tools and the end-to-end tests): gfx=high|medium|low pins the
 ## quality (governor off), save=<path> uses another save file, track=<id> starts on that track.
@@ -39,8 +40,11 @@ var input: GameInput
 var menu_camera: Camera3D
 var tracks: Array[BuiltTrack] = []
 var selected_track := 0
-## The AI network in use: {net: NeuralNetwork, meta: the file's Dictionary}, or {} for none.
+## The picked car's AI network (the menu's AI block, Watch the AI and Race the AI ghost):
+## {net: NeuralNetwork, meta: the file's Dictionary}, or {} when that car has none yet.
 var network: Dictionary = {}
+## Every car's network, parsed from the save file when first asked: car id -> {net, meta} or {}.
+var _networks: Dictionary = {}
 var mode: Node = null
 var menu_mode: Node
 var train_mode: Node = null       # the last training screen made (a new one each visit)
@@ -89,7 +93,7 @@ func _ready() -> void:
 	UiData.on_setting_changed = _on_setting_changed
 	var start: int = Tracks.ids().find(str(options.get("track", "")))
 	selected_track = maxi(0, start)
-	_load_saved_network()
+	_sync_network()
 
 	# the 3D world and the menu camera
 	world = World.new()
@@ -125,6 +129,7 @@ func _ready() -> void:
 		selected_track = i
 		if mode == menu_mode:
 			show_track_async(tracks[i]))
+	ui.menu.car_selected.connect(func(_id: String) -> void: _sync_network())
 
 	world.show_track(tracks[selected_track])
 	menu_mode = MenuMode.new()
@@ -208,15 +213,19 @@ func show_menu() -> void:
 
 
 ## Drive (driver "human"), Race the AI ghost (ghost) or Watch the AI (driver "ai") on the
-## selected track.
+## selected track. The AI is the picked car's network, driving that car.
 func play(driver: String, ghost: bool) -> void:
+	var car := UiData.picked_car()
 	if driver == "ai" or ghost:
 		if not AiLink.ready():
 			show_message("AI not ready", AiLink.not_ready_text())
 			return
+		_sync_network()
 		if network.is_empty():
+			show_message("No AI network", "The %s has no trained AI network yet. Train the AI teaches one (it starts with the %s), or Load network… uses a saved file." % [
+				Cars.get_car(car).name, Cars.get_car(car).name])
 			return
-	start_play({"track": tracks[selected_track], "driver": driver, "ghost": ghost,
+	start_play({"track": tracks[selected_track], "driver": driver, "ghost": ghost, "ai_car": car,
 		"net": AiLink.clone_net(network.net) if not network.is_empty() else null})
 
 
@@ -242,7 +251,7 @@ func train() -> void:
 		show_message("AI not ready", "The training screen failed to load.")
 		return
 	var m: Node = (s as GDScript).new()
-	m.call("setup", self, {"track_index": selected_track, "network": network})
+	m.call("setup", self, {"track_index": selected_track, "car": UiData.picked_car()})
 	m.connect("exit_requested", show_menu)
 	m.connect("watch_requested", _on_train_play.bind("ai", false))
 	m.connect("race_requested", _on_train_play.bind("human", true))
@@ -251,9 +260,10 @@ func train() -> void:
 	set_mode(m)
 
 
-## Watch best / Race best on the training screen: the race goes back to training.
-func _on_train_play(t: BuiltTrack, net: Object, driver: String, ghost: bool) -> void:
-	start_play({"track": t, "driver": driver, "ghost": ghost, "net": AiLink.clone_net(net),
+## Watch best / Race best on the training screen: the race goes back to training. The AI drives
+## the session's car (car_id); racing it, the player drives the menu's car.
+func _on_train_play(t: BuiltTrack, net: Object, car_id: String, driver: String, ghost: bool) -> void:
+	start_play({"track": t, "driver": driver, "ghost": ghost, "net": AiLink.clone_net(net), "ai_car": car_id,
 		"return_to": train})
 
 
@@ -346,34 +356,45 @@ func _apply_display() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if bool(UiData.get_setting("vsync")) else DisplayServer.VSYNC_DISABLED)
 
 
-# ---------------------------------------------------------------- the AI network
+# ---------------------------------------------------------------- the AI networks
 
-func _load_saved_network() -> void:
-	var saved: Variant = SaveData.load_network()
-	if saved == null or not AiLink.ready():
-		_set_network({})
-		return
-	var parsed := AiLink.parse_network_file(saved)
-	if parsed.has("error"):
-		push_warning("Saved network could not be read: %s" % parsed.error)
-		parsed = {}
-	_set_network(parsed)
+## Car `car_id`'s AI network {net, meta}, or {} when it has none (parsed from the save file once).
+func network_for(car_id: String) -> Dictionary:
+	if not _networks.has(car_id):
+		var parsed: Dictionary = {}
+		var saved: Variant = SaveData.load_network(car_id)
+		if saved != null and AiLink.ready():
+			parsed = AiLink.parse_network_file(saved)
+			if parsed.has("error"):
+				push_warning("The %s's saved network could not be read: %s" % [car_id, parsed.error])
+				parsed = {}
+		_networks[car_id] = parsed
+	return _networks[car_id]
 
 
-## Use network `parsed` ({net, meta} or {}): the menu's AI status follows.
-func _set_network(parsed: Dictionary) -> void:
-	network = parsed
-	UiData.set_ai_status(AiLink.status_of(network))
+## `network` and the menu's AI status follow the picked car.
+func _sync_network() -> void:
+	var car := UiData.picked_car()
+	network = network_for(car)
+	UiData.set_ai_status(AiLink.status_of(network, car))
 	if ui != null:
 		ui.menu.refresh()
 
 
-## A network chosen or trained elsewhere (the training screen): use it and remember it.
-## `data` is its file (the web format).
-func adopt_network(parsed: Dictionary, data: Dictionary = {}) -> void:
-	_set_network(parsed)
+## Car `car_id`'s network is now `parsed` ({net, meta} or {}; already in the save file, e.g. by
+## the training screen). Default: the picked car's.
+func _set_network(parsed: Dictionary, car_id: String = "") -> void:
+	_networks[car_id if car_id != "" else UiData.picked_car()] = parsed
+	_sync_network()
+
+
+## A network chosen or trained elsewhere: car `car_id`'s network from now on (default: the
+## picked car's), remembered in the save file. `data` is its file (the web format).
+func adopt_network(parsed: Dictionary, data: Dictionary = {}, car_id: String = "") -> void:
+	var car := car_id if car_id != "" else UiData.picked_car()
+	_set_network(parsed, car)
 	if not parsed.is_empty():
-		SaveData.save_network(data if data.has("network") else AiLink.network_file(parsed.net, parsed.get("meta", {})))
+		SaveData.save_network(data if data.has("network") else AiLink.network_file(parsed.net, parsed.get("meta", {})), car)
 
 
 ## Load network… : a JSON file picked in a file dialog (the web game's format).
@@ -384,7 +405,9 @@ func load_network_dialog() -> void:
 	_open_dialog(FileDialog.FILE_MODE_OPEN_FILE, "Load network", "", load_network_file)
 
 
-## Load the network file at `path`. Returns "" or the error shown to the player.
+## Load the network file at `path` as the picked car's network. A network trained with another
+## car is allowed: it drives the picked car from now on, and a message says so. Returns "" or
+## the error shown to the player.
 func load_network_file(path: String) -> String:
 	var text := FileAccess.get_file_as_string(path)
 	var json := JSON.new()
@@ -396,10 +419,22 @@ func load_network_file(path: String) -> String:
 		if parsed.has("error"):
 			err = str(parsed.error)
 		else:
-			adopt_network(parsed, json.data if json.data is Dictionary else {})
+			var car := UiData.picked_car()
+			adopt_network(parsed, json.data if json.data is Dictionary else {}, car)
+			var trained := AiLink.network_car(parsed.get("meta", {}))
+			if trained != car:
+				show_message("Network loaded", other_car_note(trained, car))
 	if err != "":
 		show_message("Load network", "Could not load network: %s" % err)
 	return err
+
+
+## What to say about a network trained with car `trained` that now drives car `car`.
+static func other_car_note(trained: String, car: String) -> String:
+	var t: String = Cars.get_car(trained).name
+	var c: String = Cars.get_car(car).name
+	return "This network was trained with the %s. It is now the %s's AI network and drives the %s, a car it has not learned, so it may brake too early or too late and hit walls. To adapt it, train it with the %s (Train the AI, Continue from saved network)." % [
+		t, c, c, c]
 
 
 ## Save network… : the loaded network as a JSON file (with its training info when it has it).
@@ -407,7 +442,8 @@ func save_network_dialog() -> void:
 	if network.is_empty():
 		return
 	var data := network_file_data()
-	_open_dialog(FileDialog.FILE_MODE_SAVE_FILE, "Save network", "ai-driver-gen%d.json" % int(data.get("generation", 0)), save_network_file)
+	_open_dialog(FileDialog.FILE_MODE_SAVE_FILE, "Save network", "ai-%s-gen%d.json" % [AiLink.network_car(data), int(data.get("generation", 0))],
+		save_network_file)
 
 
 ## The loaded network's file: its own file when it has one, else a new one around the network.

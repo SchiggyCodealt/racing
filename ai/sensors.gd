@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ##   0-8   distance rays fanning out from the car's nose (-90°..+90°),
 ##         distance / SENSOR_RANGE (1 = no wall within 100 m)
-##   9     forward speed / SPEED_SCALE (the Racer's top speed, CAR.maxSpeed in the JS)
+##   9     forward speed / the car's top speed (CarSpec.max_speed: 1 = flat out in any car;
+##         the Racer's is 77 m/s, CAR.maxSpeed in the JS, so Racer inputs are unchanged)
 ##   10    side slip: sideways speed (+ = sliding to the left) / 8 m/s
 ##   11    yaw rate (+ = turning left) / 1.5 rad/s
 ##   12    aim near: direction to the point on the centre line
@@ -18,7 +19,22 @@ extends RefCounted
 ##   15-17 corner margin: (corner speed - car speed) / 20 m/s for the
 ##         tightest bend 0-50 m, 50-110 m and 110-200 m ahead, where the
 ##         corner speed is sqrt(CORNER_GRIP × radius) (~55 km/h for a 16 m
-##         hairpin). Negative = faster than that corner allows.
+##         hairpin), at most the car's top speed. Negative = faster than that
+##         corner allows.
+##
+## Other cars (v6.2): the speed input and the corner speed cap use the driven
+## car's own top speed (CarSpec.max_speed), so a network sees the same range
+## of numbers whatever it drives: about 1 is flat out, and on a straight the
+## corner margins are (top speed - speed) / 20 m/s, about 0 at top speed. (With
+## the Racer's 77 m/s for every car, the Vortex's speed input would reach 1.18
+## and its margins would read "too fast for the next corner" on every straight
+## above 277 km/h.) CORNER_GRIP stays the same for every car: the cars' cornering
+## grip is within 13 % of the Racer's (the Thunder's in slow corners is the
+## lowest), which moves a corner speed by at most about 6 % (under 1 m/s in a
+## hairpin, about 0.05 of the input's range), and the network learns its own
+## braking points anyway. The Racer's top speed is SPEED_SCALE, so its inputs
+## are bit for bit what they always were and SENSOR_VERSION stays 2: networks
+## saved before (and by the browser version) drive exactly as before.
 ##
 ## (The JS header explains why these inputs.) Everything except the rays is O(1)
 ## per car: the per-track data (headings and a range-maximum table of the road
@@ -41,8 +57,8 @@ extends RefCounted
 const SENSOR_ANGLES: PackedFloat64Array = [90, 60, 35, 15, 0, -15, -35, -60, -90]
 ## metres
 const SENSOR_RANGE: float = 100.0
-## Speed that the speed input divides by (and the corner speed cap): the Racer's
-## max_speed (CAR.maxSpeed in the JS). The AI's inputs mean the same whatever car drives.
+## The Racer's top speed (max_speed, CAR.maxSpeed in the JS): what the speed input divides
+## by (and the corner speed cap) for the Racer. Every car uses its own: speed_scale(spec).
 const SPEED_SCALE: float = 77.0
 ## Aim points: near = AIM_BASE + AIM_TIME × speed metres ahead, far = AIM_FAR × that.
 const AIM_BASE: float = 10.0
@@ -82,6 +98,12 @@ const MIRROR_NEGATE: PackedInt32Array = [NR + 1, NR + 2, NR + 3, NR + 4, NR + 5]
 static var _ray_cos: PackedFloat64Array = _ray_table(true)
 static var _ray_sin: PackedFloat64Array = _ray_table(false)
 static var _head_mutex: Mutex = Mutex.new()
+
+
+## What the speed input divides by (and the corner speeds' cap) for a car: its top speed on
+## the flat (CarSpec.max_speed; the Racer's is SPEED_SCALE, 77 m/s). See the header.
+static func speed_scale(spec: CarSpec) -> float:
+	return spec.max_speed
 
 
 static func _ray_table(want_cos: bool) -> PackedFloat64Array:
@@ -255,7 +277,8 @@ static func sense(track: BuiltTrack, car: Car, inputs: PackedFloat32Array, rays:
 		if rays != null:
 			ray_out[k] = d
 	var u: float = car.forward_speed
-	inputs[NR] = u / SPEED_SCALE
+	var top: float = car.spec.max_speed # speed_scale(car.spec), inlined
+	inputs[NR] = u / top
 	inputs[NR + 1] = clamp1(car.side_speed / 8.0) # side_speed: + = moving to the car's left
 	inputs[NR + 2] = clamp1(car.yaw_rate / 1.5)
 
@@ -271,9 +294,9 @@ static func sense(track: BuiltTrack, car: Car, inputs: PackedFloat32Array, rays:
 	var i0: int = JsMath.roundi(s0)
 	for w in CORNER_FROM.size():
 		var kappa: float = sharpest(h, i0 + JsMath.roundi(CORNER_FROM[w] * inv), i0 + JsMath.roundi(CORNER_TO[w] * inv))
-		var vc: float = sqrt(CORNER_GRIP / kappa) if kappa > 1e-6 else SPEED_SCALE
-		if vc > SPEED_SCALE:
-			vc = SPEED_SCALE
+		var vc: float = sqrt(CORNER_GRIP / kappa) if kappa > 1e-6 else top
+		if vc > top:
+			vc = top
 		inputs[NR + 6 + w] = clamp1((vc - u) / MARGIN_SCALE)
 	return inputs
 

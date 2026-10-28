@@ -19,8 +19,17 @@ extends Node
 ##
 ## Multi-track training: every car drives every ticked track in turn and its fitness is the
 ## average (ai/trainer.gd). Walls: "ride" (default) or "crash" (Trainer.WALL_RULES). The best
-## network is saved (SaveData.save_network, the save file's "network") whenever it improves,
-## and with Save best network, which also writes a copy as a file the browser version can load.
+## network is saved (SaveData.save_network, the car's network in the save file) whenever it
+## improves, and with Save best network, which also writes a copy as a file the browser
+## version can load.
+##
+## Cars: the form's car tiles pick the car the AI trains with (the menu's car when the screen
+## opens without a session); every car has its own saved network, which "Continue from saved
+## network" continues. The session remembers its car (the title, the chart and the AI best
+## table name it). Picking another car while a session runs ends it and starts a new one with
+## that car (continuing that car's saved network when it has one); when the session holds a
+## better network than the one saved (a failed autosave, or on a one-track run a car already
+## beating the best so far), it asks first: save it, switch without saving, or keep training.
 ##
 ## The training session (its Trainer, the chart, the speed and camera, the form) survives
 ## Watch best / Race best / the menu and back: it lives in the static `session`, so a new
@@ -28,26 +37,27 @@ extends Node
 ##
 ## Mode protocol (as modes/play_mode.gd, game/app.gd):
 ##   var mode = preload("res://modes/train_mode.gd").new()
-##   mode.setup(app, {track_index = <the menu's track>, network = <{net, meta} or {}>})
+##   mode.setup(app, {track_index = <the menu's track>, car = <the menu's car>})
 ##   app.add_child(mode); mode.enter()     # then mode.update(dt) every frame
 ##   mode.exit()                           # when it is left (then free it, or keep it)
 ## app: `world` (World), `ui` (UiRoot: the dashboard goes into ui.frame, the HUD and the menu
 ## are hidden while it is shown), `input` (MenuInput: consume, nav_dir, clear_pressed,
-## pad_active) and optionally show_track(track) (else world.show_track), selected_track and
-## network (read on every enter(), else setup()'s opts are used). The mode makes its own
+## pad_active) and optionally show_track(track) (else world.show_track), selected_track (read
+## on every enter(), else setup()'s opts are used) and network_for(car_id) -> {net, meta} (a
+## car's saved network; else the screen reads the save file itself). The mode makes its own
 ## ChaseCamera, AIFleet and SensorRays under app.world and frees them in exit().
 ## Signals for the app:
 ##   exit_requested                       Menu, Esc, pad B / Start: back to the menu
-##   watch_requested(track, net)          Watch best: the AI drives `track` (modes/watch_mode.gd)
-##   race_requested(track, net)           Race best (ghost): the player races the AI ghost
-##   network_saved(network)               {net, meta}: the saved network changed (autosave, Save,
-##                                        Load); already written with SaveData.save_network
+##   watch_requested(track, net, car_id)  Watch best: the AI drives `track` in the session's car
+##   race_requested(track, net, car_id)   Race best (ghost): the player races the AI ghost (that car)
+##   network_saved(network, car_id)       {net, meta}: car car_id's saved network changed (autosave,
+##                                        Save, Load); already written with SaveData.save_network
 ## Uses the ai/ classes (Trainer...): load this script only when the AI scripts load (AiLink).
 
 signal exit_requested
-signal watch_requested(track: BuiltTrack, net: NeuralNetwork)
-signal race_requested(track: BuiltTrack, net: NeuralNetwork)
-signal network_saved(network: Dictionary)
+signal watch_requested(track: BuiltTrack, net: NeuralNetwork, car_id: String)
+signal race_requested(track: BuiltTrack, net: NeuralNetwork, car_id: String)
+signal network_saved(network: Dictionary, car_id: String)
 
 const Dashboard := preload("res://ui/train_dashboard.gd")
 
@@ -73,6 +83,10 @@ class Session:
 	var note := ""
 	var list_for := -1           # the menu track the track ticks were last set for
 	var form: Dictionary = {}    # the setup form's values while the screen is away
+	var car := ""                # the session's car (the form's while there is no session)
+	var car_for := ""            # the menu car the form's car was last set for
+	var pending_car := ""        # the car picked while asking whether to save first
+	var save_failed := false     # the last write of the session's network failed
 
 
 ## Max speed: the session's Trainer stepped on a background thread. The thread owns the
@@ -183,8 +197,9 @@ var camera: ChaseCamera = null
 var rays: SensorRays = null
 var fleet: AIFleet = null
 
-var _network: Dictionary = {}    # the saved network {net, meta} ({} none): "Continue from saved network"
 var _track_index := 0            # the menu's track
+var _menu_car := "racer"         # the menu's car
+var _nets: Dictionary = {}       # car id -> its saved network {net, meta} or {} (without app.network_for)
 var _active := false
 var _max: MaxRun = null
 var _max_broken := false         # the Max thread failed: Max simulates on the main thread instead
@@ -211,8 +226,9 @@ func setup(p_app: Object, opts: Dictionary = {}) -> void:
 	app = p_app
 	name = "TrainMode"
 	_track_index = clampi(int(opts.get("track_index", 0)), 0, maxi(0, Tracks.ids().size() - 1))
-	var n: Variant = opts.get("network", {})
-	_network = n if n is Dictionary and (n as Dictionary).has("net") else {}
+	_menu_car = String(opts.get("car", UiData.picked_car()))
+	if not Cars.has_car(_menu_car):
+		_menu_car = Cars.DEFAULT_CAR
 	if session == null:
 		session = Session.new()
 
@@ -224,9 +240,6 @@ func enter() -> void:
 	var sel: Variant = app.get("selected_track")
 	if sel is int:
 		_track_index = clampi(sel, 0, maxi(0, Tracks.ids().size() - 1))
-	var net: Variant = app.get("network")
-	if net is Dictionary:
-		_network = net if (net as Dictionary).has("net") else {}
 	var world: World = app.get("world")
 	var ui: Object = app.get("ui")
 	if ui != null:
@@ -244,6 +257,7 @@ func enter() -> void:
 		add_child(dash)
 	dash.action.connect(_on_action)
 	dash.settings_changed.connect(_on_settings_changed)
+	dash.car_picked.connect(_on_car_picked)
 	camera = ChaseCamera.new()
 	camera.name = "TrainCamera"
 	camera.distance = CHASE_DISTANCE
@@ -255,10 +269,22 @@ func enter() -> void:
 	world.add_child(rays)
 	_restore_form()
 	var s := session
+	if s.trainer == null and s.car_for != _menu_car:
+		# a car picked on the menu since the last visit becomes the form's car (the player's own
+		# pick on the form is kept while the menu's car is unchanged)
+		s.car_for = _menu_car
+		s.car = _menu_car
+	if s.car == "":
+		s.car = _menu_car
+	dash.set_car(s.car)
+	_refresh_badges()
 	if s.trainer != null:
 		_adopt(s.trainer)
 		_show_run()
 		_attach_track(s.trainer.track)
+		if _menu_car != s.car:
+			s.note = "This session trains the %s. To train the %s (the menu's car), pick it under Car below: that starts a new session." % [
+				Cars.get_car(s.car).name, Cars.get_car(_menu_car).name]
 	else:
 		_show_setup()
 	dash.set_note(s.note)
@@ -303,27 +329,68 @@ func _show_setup() -> void:
 	if s.list_for != _track_index:
 		s.list_for = _track_index
 		dash.tick_tracks([_track_index])
-	dash.set_seed(not _network.is_empty(), "")
-	dash.seed_check.checked = not _network.is_empty()
-	_show_seed_info()
+	_seed_for_car()
 	_preview_track()
 
 
-## What "Continue from saved network" continues from, with the wall rule it was trained with.
-func _show_seed_info() -> void:
-	if _network.is_empty():
-		dash.set_seed_info("(none yet)")
+## "Continue from saved network": the form car's saved network, ticked when it has one.
+func _seed_for_car() -> void:
+	var net := _network_of(session.car)
+	dash.set_seed(not net.is_empty(), "")
+	dash.seed_check.checked = not net.is_empty()
+	_show_seed_info()
+
+
+## Car `car_id`'s saved network {net, meta}, or {} (the game's, else read from the save file).
+func _network_of(car_id: String) -> Dictionary:
+	if app != null and app.has_method("network_for"):
+		var n: Variant = app.call("network_for", car_id)
+		return n if n is Dictionary and (n as Dictionary).has("net") else {}
+	if not _nets.has(car_id):
+		var parsed: Dictionary = {}
+		var saved: Variant = SaveData.load_network(car_id)
+		if saved != null:
+			parsed = Trainer.parse_network_file(saved)
+			if parsed.has("error"):
+				parsed = {}
+		_nets[car_id] = parsed
+	return _nets[car_id]
+
+
+## Each car tile notes the generation of that car's saved network.
+func _refresh_badges() -> void:
+	if dash == null:
 		return
-	var meta: Dictionary = _network.get("meta", {})
+	var badges: Dictionary = {}
+	for id in Cars.ids():
+		var n := _network_of(id)
+		if not n.is_empty():
+			var gen: Variant = (n.get("meta", {}) as Dictionary).get("generation")
+			badges[id] = "gen %d" % int(gen) if (gen is int or gen is float) else "AI"
+	dash.set_car_badges(badges)
+
+
+## What "Continue from saved network" continues from, with the wall rule (and the car, when
+## another) it was trained with.
+func _show_seed_info() -> void:
+	var car := session.car
+	var network := _network_of(car)
+	if network.is_empty():
+		dash.set_seed_info("(none yet for the %s)" % Cars.get_car(car).name)
+		return
+	var meta: Dictionary = network.get("meta", {})
 	var rule := Trainer.saved_wall_rule(meta)
+	var trained := Trainer.network_car(meta)
 	var chosen: String = dash.walls
 	var gen: Variant = meta.get("generation")
 	var fit: Variant = meta.get("fitness")
-	dash.set_seed_info("(gen %s, fitness %d, %s%s)%s" % [
+	dash.set_seed_info("(%s: gen %s, fitness %d, %s%s%s)%s" % [
+		Cars.get_car(car).name,
 		str(int(gen)) if (gen is int or gen is float) else "?",
 		roundi(float(fit)) if (fit is int or fit is float) else 0,
-		_sizes_text((_network.net as NeuralNetwork).sizes),
+		_sizes_text((network.net as NeuralNetwork).sizes),
 		", walls: %s" % rule if rule != "" else "",
+		", trained with the %s" % Cars.get_car(trained).name if trained != car else "",
 		" – would continue with walls: %s" % chosen if rule != "" and rule != chosen else ""])
 
 
@@ -371,14 +438,17 @@ func start(seed_override: Dictionary = {}) -> void:
 		tracks.append(Tracks.build(ids[i]))
 	if tracks.is_empty():
 		tracks.append(Tracks.build(ids[_track_index]))
+	var s := session
+	var car := s.car if Cars.has_car(s.car) else Cars.DEFAULT_CAR
+	var saved := _network_of(car)
 	var seed: NeuralNetwork = null
 	var seed_meta: Variant = null
 	if not seed_override.is_empty():
 		seed = seed_override.net
 		seed_meta = seed_override.get("meta")
-	elif dash.seed_check.checked and not _network.is_empty():
-		seed = _network.net
-		seed_meta = _network.get("meta")
+	elif dash.seed_check.checked and not saved.is_empty():
+		seed = saved.net
+		seed_meta = saved.get("meta")
 	_stop_max()
 	_remove_fleet()
 	var cfg := f.duplicate()
@@ -386,8 +456,8 @@ func start(seed_override: Dictionary = {}) -> void:
 	cfg.seed = seed
 	cfg.seed_meta = seed_meta
 	cfg.threads = 0
+	cfg.car_id = car
 	var tr := Trainer.new(cfg)
-	var s := session
 	s.trainer = tr
 	s.history = []
 	for h in tr.history:
@@ -401,8 +471,10 @@ func start(seed_override: Dictionary = {}) -> void:
 	_attach_track(tr.track)
 	_render_dashboard()
 	_sim_rate = 0.0
-	var note := ("Continuing from a saved network (%s).%s" % [_sizes_text(seed.sizes), _rule_change(seed_meta)]) if seed != null \
-		else "New population of %d random drivers." % tr.population.size()
+	var cname: String = Cars.get_car(car).name
+	var note := ("Continuing from a saved network (%s) with the %s.%s%s" % [_sizes_text(seed.sizes), cname, _car_change(seed_meta, car),
+		_rule_change(seed_meta)]) if seed != null \
+		else "New population of %d random drivers in the %s." % [tr.population.size(), cname]
 	if tr.native_note != "":
 		note += " " + tr.native_note
 	_note(note)
@@ -413,8 +485,15 @@ func _adopt(tr: Trainer) -> void:
 	tr.on_track_change = _on_track_change
 	tr.on_generation = _on_generation
 	if fleet == null:
-		fleet = AIFleet.new(tr.population.size())
+		fleet = AIFleet.new(tr.population.size(), tr.cfg.car_id) # (the training car's shape)
 		(app.get("world") as Node).add_child(fleet)
+
+
+## A note for when a network trained with another car continues with `car`.
+func _car_change(meta: Variant, car: String) -> String:
+	var was := Trainer.network_car(meta)
+	return " It was trained with the %s: the %s starts its own history from it (generation 0)." % [
+		Cars.get_car(was).name, Cars.get_car(car).name] if was != car else ""
 
 
 ## A note for when a network trained with one wall rule continues with the other.
@@ -491,7 +570,7 @@ func _on_generation(entry: Dictionary) -> void:
 		session.last_saved = tr.best_fitness
 		data = tr.export_best()
 	_ev_mutex.lock()
-	_events.append(["generation", entry.duplicate(), data, tr.generation - 1, tr.best_fitness])
+	_events.append(["generation", entry.duplicate(), data, tr.generation - 1, tr.best_fitness, tr.cfg.car_id])
 	_ev_mutex.unlock()
 
 
@@ -517,22 +596,26 @@ func _drain_events() -> void:
 				_max.set_selected(-1)
 			_chart_dirty = true # (drawn once per frame: Max can end several generations in one)
 			if ev[2] != null:
-				var parsed := _keep_network(ev[2])
-				if not parsed.is_empty():
+				var parsed := _keep_network(ev[2], ev[5])
+				if not parsed.is_empty() and not s.save_failed:
 					_note("Gen %d: new best (%d), autosaved." % [int(ev[3]), roundi(float(ev[4]))])
 		elif ev[0] == "track" and s.trainer != null:
 			_attach_track(ev[1])
 
 
-## Write `data` (a network file) to the save file and make it the saved network. {net, meta}.
-func _keep_network(data: Dictionary) -> Dictionary:
-	if not SaveData.save_network(data):
+## Write `data` (a network file) to the save file as car `car_id`'s network (default: the
+## session's car) and tell the game. {net, meta}.
+func _keep_network(data: Dictionary, car_id: String = "") -> Dictionary:
+	var car := car_id if car_id != "" else session.car
+	session.save_failed = not SaveData.save_network(data, car)
+	if session.save_failed:
 		_note("The network could not be saved (the save file can't be written).")
 	var parsed := Trainer.parse_network_file(data)
 	if parsed.has("error"):
 		return {}
-	_network = parsed
-	network_saved.emit(parsed)
+	_nets[car] = parsed
+	network_saved.emit(parsed, car)
+	_refresh_badges()
 	return parsed
 
 
@@ -807,6 +890,120 @@ func _on_action(act: String) -> void:
 			_play_best(act == "race")
 		"stop":
 			stop()
+		"switch_save":
+			if _save_unsaved():
+				_switch_car(s.pending_car)
+		"switch_drop":
+			_switch_car(s.pending_car)
+		"switch_cancel":
+			s.pending_car = ""
+			dash.hide_ask()
+			_note("Still training the %s." % Cars.get_car(s.car).name)
+
+
+# ================================================================= the car
+
+## A car tile: the form's car; while a session runs, a new session with that car (asking first
+## when the session holds a better network than the one saved).
+func _on_car_picked(id: String) -> void:
+	var s := session
+	if not Cars.has_car(id):
+		return
+	if s.trainer == null:
+		s.car = id
+		dash.set_car(id)
+		_seed_for_car()
+		return
+	if id == s.car:
+		s.pending_car = ""
+		dash.hide_ask()
+		return
+	_stop_max() # (the session is this screen's again; Max resumes on the next frame when it goes on)
+	var why := unsaved_reason()
+	if why == "":
+		_switch_car(id)
+		return
+	s.pending_car = id
+	dash.ask("%s Switching to the %s ends this session." % [why, Cars.get_car(id).name],
+		[["Save it, then switch", "switch_save"], ["Switch without saving", "switch_drop"], ["Keep training", "switch_cancel"]])
+
+
+## Why switching car now would throw a better network away ("" when it would not): the best
+## network is not written yet (a failed autosave), or (one-track runs) a car of the run in
+## progress already scores more than the best so far (it would be saved when the generation ends).
+func unsaved_reason() -> String:
+	var tr := session.trainer
+	if tr == null:
+		return ""
+	_stop_max()
+	if tr.best_net == null:
+		return ""
+	var cname: String = Cars.get_car(session.car).name
+	if tr.best_fitness > session.last_saved or session.save_failed:
+		return "The %s's best network (fitness %d) is not saved." % [cname, roundi(tr.best_fitness)]
+	var lead := _run_leader()
+	if lead != null:
+		return "Car #%d of this run already beats the %s's best network (fitness %d against %d) and is not saved yet." % [
+			lead.index + 1, cname, roundi(lead.fitness), roundi(tr.best_fitness)]
+	return ""
+
+
+## On a one-track run: the car of the run in progress that scores more than the best so far, or
+## null. (Its score can only grow, so it would be the new best; with several tracks a car's
+## score on one track says nothing about its average.)
+func _run_leader() -> Trainer.Agent:
+	var tr := session.trainer
+	if tr == null or tr.best_net == null or tr.tracks.size() != 1:
+		return null
+	_stop_max()
+	tr.sync_agents(false)
+	var best: Trainer.Agent = null
+	for a in tr.agents:
+		if a.fitness > tr.best_fitness and (best == null or a.fitness > best.fitness):
+			best = a
+	return best
+
+
+## Save what unsaved_reason() is about. False (with a note) when it could not be written.
+func _save_unsaved() -> bool:
+	var s := session
+	var tr := s.trainer
+	if tr == null:
+		return true
+	var lead := _run_leader()
+	var data := tr.export_network(lead.net, lead.fitness) if lead != null else tr.export_best()
+	_keep_network(data, s.car)
+	if s.save_failed:
+		dash.hide_ask()
+		s.pending_car = ""
+		_note("The network could not be saved (the save file can't be written): still training the %s." % Cars.get_car(s.car).name)
+		return false
+	s.last_saved = maxf(s.last_saved, float(data.fitness))
+	return true
+
+
+## End the session and start a new one with car `id` (same settings; continuing that car's saved
+## network when it has one).
+func _switch_car(id: String) -> void:
+	var s := session
+	if not Cars.has_car(id):
+		return
+	var old: String = Cars.get_car(s.car).name
+	s.pending_car = ""
+	dash.hide_ask()
+	_stop_max()
+	if s.trainer != null:
+		s.trainer.on_generation = Callable()
+		s.trainer.on_track_change = Callable()
+	s.trainer = null
+	s.history = []
+	_pending_track = null
+	s.car = id
+	s.car_for = _menu_car
+	dash.set_car(id)
+	_seed_for_car()
+	start()
+	_note("The %s session ended. %s" % [old, s.note])
 
 
 func _leave() -> void:
@@ -844,7 +1041,7 @@ func _save_best() -> void:
 	_stop_max()
 	var data := tr.export_best()
 	_keep_network(data)
-	var path := _write_file(data, "ai-driver-gen%d.json" % int(data.generation))
+	var path := _write_file(data, "ai-%s-gen%d.json" % [session.car, int(data.generation)])
 	_note("Best network saved (generation %d)%s." % [int(data.generation),
 		", and as a file: %s" % ProjectSettings.globalize_path(path) if path != "" else ""])
 
@@ -868,9 +1065,9 @@ func _play_best(ghost: bool) -> void:
 	_stop_max()
 	var net: NeuralNetwork = tr.best_net if tr.best_net != null else tr.population.genomes[0].net
 	if ghost:
-		race_requested.emit(tr.track, net.clone())
+		race_requested.emit(tr.track, net.clone(), tr.cfg.car_id)
 	else:
-		watch_requested.emit(tr.track, net.clone())
+		watch_requested.emit(tr.track, net.clone(), tr.cfg.car_id)
 
 
 ## Load network file…: pick a JSON file; training starts again from it.
@@ -892,16 +1089,18 @@ func _load_file() -> void:
 	fd.popup_centered_ratio(0.6)
 
 
-## A network file's text (Load network…): kept as the saved network and trained on.
+## A network file's text (Load network…): kept as the training car's saved network and trained
+## on with that car (a network trained with another car is allowed: the note says so).
 func load_network_text(text: String) -> void:
 	var parsed := Trainer.parse_network_file(text)
 	if parsed.has("error"):
 		_note("Could not load: %s" % parsed.error)
 		return
 	var meta: Dictionary = parsed.meta
-	_keep_network(meta if meta.has("network") else Trainer.network_file(parsed.net))
+	_keep_network(meta if meta.has("network") else Trainer.network_file(parsed.net), session.car)
 	start(parsed)
-	_note("Loaded network (%s), training continues from it.%s" % [_sizes_text(parsed.net.sizes), _rule_change(meta)])
+	_note("Loaded network (%s), training continues from it with the %s.%s%s" % [_sizes_text(parsed.net.sizes),
+		Cars.get_car(session.car).name, _car_change(meta, session.car), _rule_change(meta)])
 
 
 static func _sizes_text(sizes: PackedInt32Array) -> String:

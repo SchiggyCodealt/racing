@@ -3,7 +3,7 @@ extends RefCounted
 ## save.gd: everything the game keeps between sessions, in one JSON file in user://
 ## (the web game's web/src/game/storage.js kept the same things in localStorage):
 ## best times + splits and the ghost of the best run per track and car, the best
-## score per track and car, settings, and the latest trained AI network.
+## score per track and car, settings, and the trained AI network of every car.
 ## ------------------------------------------------------------------
 ## Bad, missing or foreign data is ignored, never fatal: an unreadable file is
 ## kept next to the save as "<file>.bad" and the game starts from defaults. Writes
@@ -20,17 +20,26 @@ extends RefCounted
 ##   SaveData.get_best_score(track_id, car_id)        -> {score, date} or {}
 ##   SaveData.submit_score(track_id, car_id, score)   -> true when it is a new best
 ##   SaveData.get_setting(name) / set_setting(name, value)   (SETTINGS: names, defaults and types)
-##   SaveData.load_network() / save_network(data)     the trained AI network (a JSON-safe Dictionary)
+##   SaveData.load_network(car_id) / save_network(data, car_id)   a car's trained AI network (the network
+##                                                    file, a JSON-safe Dictionary; default the racer's)
+##   SaveData.network_cars()                          -> the cars that have a trained network
 ##   SaveData.use_file(path)                          another file (tests); SaveData.path is the current one
 ##
 ## File layout: {version, records: {track: {car: {time, splits, date, physics}}},
 ## ghosts: {track: {car: ghost}}, scores: {track: {car: {score, date, rules, physics}}},
-## settings: {...}, network: {...} or null}. Records and ghosts made under another
+## settings: {...}, networks: {car: {slot: network file}}}. Records and ghosts made under another
 ## Car.PHYSICS_VERSION, and scores under other ScoreState.SCORE_RULES, are not read.
+## Networks: one slot per car today, "best" (the network the player trains: autosaved by
+## training, Save best network, Load network…); more slots per car can sit beside it later
+## (AI opponents of several skill levels).
+## Versions: 1 (v6.0-6.1) kept one network, {network: {...}}: it was the Racer's (the AI only
+## drove the Racer), so loading a version 1 file moves it to networks.racer.best (_migrate).
 ## Times are written with 17 significant digits; Godot's JSON reader may return a
 ## stored time one unit in the last place (~1e-14 s) off, which no screen shows.
 
-const VERSION: int = 1
+const VERSION: int = 2
+## The network slot the player's training fills (see the header).
+const BEST_SLOT: String = "best"
 const DEFAULT_PATH: String = "user://trackrush_save.json"
 ## Settings, their defaults and (by the default's type) the type a stored value must have.
 ## car: the car picked on the menu (Cars.get_car() turns an unknown id into the racer);
@@ -64,11 +73,27 @@ static func _all() -> Dictionary:
 			else:
 				# keep what we couldn't read, then start over
 				DirAccess.copy_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path + ".bad"))
-		for k: String in ["records", "ghosts", "scores", "settings"]:
+		for k: String in ["records", "ghosts", "scores", "settings", "networks"]:
 			if not (_data.get(k) is Dictionary):
 				_data[k] = {}
+		_migrate(_data)
 		_data.version = VERSION
 	return _data
+
+
+## Bring older layouts up to date (in memory; the next write stores them). Version 1's single
+## network was the Racer's: it becomes networks.racer.best (unless that slot is already filled,
+## e.g. by a newer version before an older one wrote the file again).
+static func _migrate(d: Dictionary) -> void:
+	var old: Variant = d.get("network")
+	if d.has("network"):
+		d.erase("network")
+	if old is Dictionary:
+		var nets: Dictionary = d.networks
+		if not (nets.get(Cars.DEFAULT_CAR) is Dictionary):
+			nets[Cars.DEFAULT_CAR] = {}
+		if not ((nets[Cars.DEFAULT_CAR] as Dictionary).get(BEST_SLOT) is Dictionary):
+			nets[Cars.DEFAULT_CAR][BEST_SLOT] = old
 
 
 static func _write() -> bool:
@@ -225,22 +250,34 @@ static func submit_score(track_id: String, car_id: String, score: float) -> bool
 	return true
 
 
-# ---- AI network ---------------------------------------------------------------------------
+# ---- AI networks ---------------------------------------------------------------------------
 
-## The saved network data, or null.
-static func load_network() -> Variant:
+## A car's saved network file (slot: BEST_SLOT, the one training fills), or null.
+static func load_network(car_id: String = Cars.DEFAULT_CAR, slot: String = BEST_SLOT) -> Variant:
 	_mutex.lock()
-	var n: Variant = _all().get("network")
+	var n: Variant = _entry("networks", car_id, slot)
 	_mutex.unlock()
 	return n if n is Dictionary else null
 
 
-static func save_network(data: Dictionary) -> bool:
+## Keep `data` (a network file) as car `car_id`'s network (slot: BEST_SLOT). False when the file
+## can't be written (it is kept for this session all the same) or the car is unknown.
+static func save_network(data: Dictionary, car_id: String = Cars.DEFAULT_CAR, slot: String = BEST_SLOT) -> bool:
+	if not Cars.has_car(car_id):
+		return false
 	_mutex.lock()
-	_all().network = data
-	var ok: bool = _write()
+	var ok: bool = _set_entry("networks", car_id, slot, data)
 	_mutex.unlock()
 	return ok
+
+
+## The cars (picker order) that have a saved network in `slot`.
+static func network_cars(slot: String = BEST_SLOT) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for id: String in Cars.ids():
+		if load_network(id, slot) != null:
+			out.append(id)
+	return out
 
 
 static func _now() -> String:

@@ -9,7 +9,7 @@ extends Node3D
 ## on the road; wall sparks come from one pool shared by the whole fleet.
 ##
 ## Use:
-##   var fleet := AIFleet.new(80)
+##   var fleet := AIFleet.new(80, "dune")                # up to 80 cars, all drawn as that car
 ##   world.add_child(fleet)
 ##   fleet.update(agents, track, selected, time, alpha)   # every drawn frame
 ##   fleet.selected_view                                  # interpolated copy of the viewed car (chase camera)
@@ -25,6 +25,8 @@ const FLEET_SPARKS := 240      # spark pool shared by every car of the fleet
 const FLEET_SPARK_FRAME := 40  # most new sparks per frame for the whole fleet (high quality)
 
 var count := 0
+## The car the fleet is drawn as (Cars.ids(); the training session's car).
+var car_id := "racer"
 var body: MultiMeshInstance3D
 var dark: MultiMeshInstance3D
 var marker: MeshInstance3D
@@ -48,10 +50,11 @@ var _buf_body := PackedFloat32Array()
 var _buf_dark := PackedFloat32Array()
 
 
-## car_id: the shape every car of the fleet has (the AI trains with the racer).
-func _init(max_count := 80, car_id := "racer") -> void:
+## p_car_id: the car every car of the fleet is drawn as (the training session's car).
+func _init(max_count := 80, p_car_id := "racer") -> void:
 	name = "ai-fleet"
 	count = max_count
+	car_id = p_car_id
 	# the light level of detail: the low-detail body, plain wheels, no driver animation
 	var geos := CarBuild.fleet_geometry(car_id)
 	var paint: Geo = geos["paint"]

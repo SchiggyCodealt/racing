@@ -76,8 +76,8 @@ Built here with gcc 13.3 (Linux) and MinGW-w64 gcc 13 posix (Windows), godot-cpp
 
 ```gdscript
 var fs := ClassDB.instantiate("FleetSim")       # (by name: the game runs without the extension)
-fs.set_spec(Trainer.spec_data(Cars.spec("racer")))
-fs.set_rules(trainer.rules_data())               # RULES + walls_crash, laps, speed_scale
+fs.set_spec(Trainer.spec_data(Cars.spec("dune"))) # the car every agent drives (any car of sim/cars.gd)
+fs.set_rules(trainer.rules_data())               # RULES + walls_crash, laps
 fs.set_track(Trainer.track_data(track, laps))    # geometry, wall grid, gates, heading tables
 fs.set_networks(sizes, population.all_params(), population.size())
 fs.set_threads(4)
@@ -85,9 +85,18 @@ fs.begin_run()
 while not fs.is_run_over():
     fs.step(600, 1.0 / 60.0)                     # returns the steps done (stops at the run's end)
 fs.get_fitness(); fs.get_reasons(); fs.get_deaths(); fs.get_best_lap(); fs.get_best_finish()
+fs.get_any_gate()                                # an agent passed a gate this run (the best-times entry)
 fs.get_view_states()                             # every car's pose and effect fields (view_stride() each)
 fs.get_inputs(k); fs.get_rays(k); fs.get_acts(k); fs.get_car_state(k)
+fs.get_spec(); fs.version()                      # the spec as set (tests), "trackrush-native 2"
 ```
+
+The car is data: `set_spec` takes every field of `CarSpec` (`Trainer.spec_data`: the numbers,
+the gears and the torque curve), so a car added to `sim/cars.gd` trains natively without a
+change here. The sensors scale the speed input and the corner speeds by the spec's
+`max_speed` (version 2; version 1 took one `speed_scale` for every car in `set_rules`), as
+`ai/sensors.gd` does. `tests/test_ai.gd` compares `get_spec()` with every car's spec and
+runs every car in lockstep against the GDScript simulation.
 
 `ai/trainer.gd` does all of this; the game never calls FleetSim directly. Threads: the steps
 of a call run in chunks of 60, each thread stepping every T-th car; the run's shared numbers

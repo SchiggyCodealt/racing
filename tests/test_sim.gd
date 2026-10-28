@@ -1274,6 +1274,36 @@ func _save() -> void:
 	ok = ok and on_disk is Dictionary and JsMath.same(on_disk.get("version"), SaveData.VERSION) and not FileAccess.file_exists(p + ".tmp")
 	t.check(ok, "ghosts (one per track and car) and the AI network round-trip through the file; writes leave no .tmp behind")
 
+	# AI networks per car (version 2): one per car; a version 1 file's single network was the Racer's
+	var net := func(gen: int) -> Dictionary: return {format = "trackmania-lite-network", generation = gen, network = {layers = [1, 2, 3]}}
+	write.call(JSON.stringify({version = 1, records = {"rookie-oval": {racer = {time = 60.0, splits = [], physics = pv}}}, network = net.call(7)}))
+	SaveData.use_file(p)
+	var racer_net: Variant = SaveData.load_network("racer")
+	ok = racer_net is Dictionary and int((racer_net as Dictionary).get("generation")) == 7 and SaveData.load_network() == racer_net and \
+		SaveData.load_network("kestrel") == null and SaveData.network_cars() == PackedStringArray(["racer"]) and SaveData.get_record("rookie-oval").get("time") == 60.0
+	ok = ok and SaveData.save_network(net.call(3), "kestrel") and SaveData.save_network(net.call(9), "vortex") and not SaveData.save_network(net.call(1), "bus")
+	SaveData.use_file(p)
+	on_disk = JSON.parse_string(FileAccess.get_file_as_string(p))
+	ok = ok and int(SaveData.load_network("racer").generation) == 7 and int(SaveData.load_network("kestrel").generation) == 3 and \
+		int(SaveData.load_network("vortex").generation) == 9 and SaveData.load_network("thunder") == null and SaveData.load_network("bus") == null and \
+		SaveData.network_cars() == PackedStringArray(["racer", "kestrel", "vortex"]) and on_disk is Dictionary and not (on_disk as Dictionary).has("network") and \
+		JsMath.same(on_disk.get("version"), 2) and int(on_disk.networks.racer.best.generation) == 7 and int(on_disk.networks.kestrel.best.generation) == 3
+	t.check(ok, "AI networks per car: a version 1 file's network becomes the Racer's (networks.racer.best); each car keeps its own, read back from the file; an unknown car is refused")
+	# a file with both (a version 1 game wrote the old key into a version 2 file): the newer per-car one stays
+	write.call(JSON.stringify({version = 1, network = net.call(1), networks = {racer = {best = net.call(5)}}}))
+	SaveData.use_file(p)
+	ok = int(SaveData.load_network("racer").generation) == 5
+	var njunk: Array[String] = ["{\"networks\": 5}", "{\"networks\": []}", "{\"networks\": {\"racer\": 5}}", "{\"networks\": {\"racer\": {\"best\": \"x\"}}}",
+		"{\"network\": 5}", "{\"network\": [1]}", "{\"network\": null, \"networks\": {\"racer\": []}}"]
+	var n_ok: int = 0
+	for j: String in njunk:
+		write.call(j)
+		SaveData.use_file(p)
+		if SaveData.load_network("racer") == null and SaveData.network_cars().is_empty() and SaveData.save_network(net.call(2), "racer") and \
+				int(SaveData.load_network().generation) == 2:
+			n_ok += 1
+	t.check(ok and n_ok == njunk.size(), "AI networks: a newer per-car network is not replaced by an old single one; %d of %d kinds of junk read as no network and are replaced by the next save" % [n_ok, njunk.size()])
+
 	# a save file that can't be written: nothing fails, the session keeps what was saved
 	SaveData.use_file("user://no_such_folder/save.json")
 	ok = SaveData.submit_record("rookie-oval", "racer", 50.0, []) and SaveData.get_record("rookie-oval").time == 50.0 and \

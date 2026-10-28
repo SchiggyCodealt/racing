@@ -197,36 +197,43 @@ FleetSim::FleetSim() {
 
 // ---- setup -------------------------------------------------------------------------------
 
-// Trainer.spec_data(): the CarSpec fields with their JS names + the derived constants.
+// Every number of the spec (sim/car_spec.gd CarSpec) as (field, JS name): what set_spec reads
+// and get_spec gives back. A new CarSpec field that the physics uses goes here too.
+#define TRACKRUSH_SPEC_FIELDS(X) \
+	X(mass, "mass") X(inertia, "inertia") X(cg_to_front, "cgToFront") X(cg_to_rear, "cgToRear") \
+	X(cg_height, "cgHeight") X(wheel_radius, "wheelRadius") \
+	X(mu, "mu") X(handbrake, "handbrake") X(handbrake_fast, "handbrakeFast") X(handbrake_rate, "handbrakeRate") \
+	X(load_sensitivity, "loadSensitivity") X(pac_b, "pacB") X(pac_c, "pacC") X(pac_e, "pacE") \
+	X(drag, "drag") X(downforce, "downforce") X(aero_front, "aeroFront") X(roll_resist, "rollResist") \
+	X(idle_rpm, "idleRpm") X(redline, "redline") X(upshift_rpm, "upshiftRpm") X(downshift_rpm, "downshiftRpm") \
+	X(launch_rpm, "launchRpm") X(final_drive, "finalDrive") X(reverse_ratio, "reverseRatio") \
+	X(efficiency, "efficiency") X(shift_time, "shiftTime") X(drive_front, "driveFront") X(slide_drive, "slideDrive") \
+	X(max_reverse, "maxReverse") X(brake_force, "brakeForce") X(brake_front, "brakeFront") \
+	X(steer_lock, "steerLock") X(steer_rate, "steerRate") X(steer_ref_accel, "steerRefAccel") \
+	X(steer_slip_gain, "steerSlipGain") X(steer_extra_fast, "steerExtraFast") X(steer_slow_speed, "steerSlowSpeed") \
+	X(steer_fast_speed, "steerFastSpeed") X(steer_assist, "steerAssist") X(assist_from, "assistFrom") \
+	X(assist_full, "assistFull") \
+	X(esc, "esc") X(esc_gain, "escGain") X(esc_moment, "escMoment") X(esc_under, "escUnder") \
+	X(esc_deadband, "escDeadband") X(esc_slow, "escSlow") X(esc_from, "escFrom") X(esc_handbrake_hold, "escHandbrakeHold") \
+	X(radius, "radius") X(half_length, "halfLength") X(wall_restitution, "wallRestitution") X(max_rebound, "maxRebound") \
+	X(wall_friction, "wallFriction") X(wall_crush, "wallCrush") X(wall_slide, "wallSlide") X(wall_rub, "wallRub") \
+	X(wall_rub_build, "wallRubBuild") X(wall_align, "wallAlign") X(wall_align_gain, "wallAlignGain") \
+	X(wall_align_accel, "wallAlignAccel") X(wall_yaw_stop, "wallYawStop") X(wall_latch, "wallLatch") \
+	X(wall_latch_steps, "wallLatchSteps") X(wall_height, "wallHeight") \
+	X(gravity, "gravity") X(lift_separation, "liftSeparation") X(min_flight, "minFlight") X(hard_landing, "hardLanding") \
+	X(landing_loss, "landingLoss") X(air_steer, "airSteer") X(air_steer_tau, "airSteerTau") X(air_yaw_damp, "airYawDamp") \
+	X(nitro_time, "nitroTime") X(nitro_force, "nitroForce") X(nitro_power, "nitroPower") X(nitro_top, "nitroTop") \
+	X(nitro_fade, "nitroFade") X(max_speed, "maxSpeed") \
+	X(wheelbase, "wheelbase") X(core, "core") X(peak_slip, "peakSlip") X(pac_slope0, "pacSlope0") \
+	X(peak_steer, "peakSteer")
+
+// Trainer.spec_data(): the CarSpec fields with their JS names + the derived constants. Every
+// car is just data (sim/cars.gd): a new car needs no change here. max_speed (the car's top
+// speed) also scales the speed sensor (Sensors.speed_scale).
 void FleetSim::set_spec(const Dictionary &d) {
 	Spec &s = spec;
-#define SPEC(field, key) s.field = num(d, key, s.field)
-	SPEC(mass, "mass"); SPEC(inertia, "inertia"); SPEC(cg_to_front, "cgToFront"); SPEC(cg_to_rear, "cgToRear");
-	SPEC(cg_height, "cgHeight"); SPEC(wheel_radius, "wheelRadius");
-	SPEC(mu, "mu"); SPEC(handbrake, "handbrake"); SPEC(handbrake_fast, "handbrakeFast"); SPEC(handbrake_rate, "handbrakeRate");
-	SPEC(load_sensitivity, "loadSensitivity"); SPEC(pac_b, "pacB"); SPEC(pac_c, "pacC"); SPEC(pac_e, "pacE");
-	SPEC(drag, "drag"); SPEC(downforce, "downforce"); SPEC(aero_front, "aeroFront"); SPEC(roll_resist, "rollResist");
-	SPEC(idle_rpm, "idleRpm"); SPEC(redline, "redline"); SPEC(upshift_rpm, "upshiftRpm"); SPEC(downshift_rpm, "downshiftRpm");
-	SPEC(launch_rpm, "launchRpm"); SPEC(final_drive, "finalDrive"); SPEC(reverse_ratio, "reverseRatio");
-	SPEC(efficiency, "efficiency"); SPEC(shift_time, "shiftTime"); SPEC(drive_front, "driveFront"); SPEC(slide_drive, "slideDrive");
-	SPEC(max_reverse, "maxReverse"); SPEC(brake_force, "brakeForce"); SPEC(brake_front, "brakeFront");
-	SPEC(steer_lock, "steerLock"); SPEC(steer_rate, "steerRate"); SPEC(steer_ref_accel, "steerRefAccel");
-	SPEC(steer_slip_gain, "steerSlipGain"); SPEC(steer_extra_fast, "steerExtraFast"); SPEC(steer_slow_speed, "steerSlowSpeed");
-	SPEC(steer_fast_speed, "steerFastSpeed"); SPEC(steer_assist, "steerAssist"); SPEC(assist_from, "assistFrom");
-	SPEC(assist_full, "assistFull");
-	SPEC(esc, "esc"); SPEC(esc_gain, "escGain"); SPEC(esc_moment, "escMoment"); SPEC(esc_under, "escUnder");
-	SPEC(esc_deadband, "escDeadband"); SPEC(esc_slow, "escSlow"); SPEC(esc_from, "escFrom"); SPEC(esc_handbrake_hold, "escHandbrakeHold");
-	SPEC(radius, "radius"); SPEC(half_length, "halfLength"); SPEC(wall_restitution, "wallRestitution"); SPEC(max_rebound, "maxRebound");
-	SPEC(wall_friction, "wallFriction"); SPEC(wall_crush, "wallCrush"); SPEC(wall_slide, "wallSlide"); SPEC(wall_rub, "wallRub");
-	SPEC(wall_rub_build, "wallRubBuild"); SPEC(wall_align, "wallAlign"); SPEC(wall_align_gain, "wallAlignGain");
-	SPEC(wall_align_accel, "wallAlignAccel"); SPEC(wall_yaw_stop, "wallYawStop"); SPEC(wall_latch, "wallLatch");
-	SPEC(wall_latch_steps, "wallLatchSteps"); SPEC(wall_height, "wallHeight");
-	SPEC(gravity, "gravity"); SPEC(lift_separation, "liftSeparation"); SPEC(min_flight, "minFlight"); SPEC(hard_landing, "hardLanding");
-	SPEC(landing_loss, "landingLoss"); SPEC(air_steer, "airSteer"); SPEC(air_steer_tau, "airSteerTau"); SPEC(air_yaw_damp, "airYawDamp");
-	SPEC(nitro_time, "nitroTime"); SPEC(nitro_force, "nitroForce"); SPEC(nitro_power, "nitroPower"); SPEC(nitro_top, "nitroTop");
-	SPEC(nitro_fade, "nitroFade"); SPEC(max_speed, "maxSpeed");
-	SPEC(wheelbase, "wheelbase"); SPEC(core, "core"); SPEC(peak_slip, "peakSlip"); SPEC(pac_slope0, "pacSlope0");
-	SPEC(peak_steer, "peakSteer");
+#define SPEC(field, key) s.field = num(d, key, s.field);
+	TRACKRUSH_SPEC_FIELDS(SPEC)
 #undef SPEC
 	s.substeps = (int)num(d, "substeps", s.substeps);
 	if (s.substeps < 1) {
@@ -237,6 +244,30 @@ void FleetSim::set_spec(const Dictionary &d) {
 	s.torque_nm = doubles(d.get("torqueNm", Variant()));
 	have_spec = !s.gears.empty() && !s.torque_rpm.empty() && s.torque_rpm.size() == s.torque_nm.size();
 	run_over = true;
+}
+
+// The spec as set_spec read it (the same keys as Trainer.spec_data; tests compare them).
+Dictionary FleetSim::get_spec() const {
+	Dictionary d;
+	const Spec &s = spec;
+#define SPEC(field, key) d[key] = s.field;
+	TRACKRUSH_SPEC_FIELDS(SPEC)
+#undef SPEC
+	d["substeps"] = s.substeps;
+	PackedFloat64Array gears, rpm, nm;
+	for (double v : s.gears) {
+		gears.push_back(v);
+	}
+	for (double v : s.torque_rpm) {
+		rpm.push_back(v);
+	}
+	for (double v : s.torque_nm) {
+		nm.push_back(v);
+	}
+	d["gears"] = gears;
+	d["torqueRpm"] = rpm;
+	d["torqueNm"] = nm;
+	return d;
 }
 
 // Trainer.track_data(): the built track with every table the GDScript computed.
@@ -303,7 +334,6 @@ void FleetSim::set_rules(const Dictionary &d) {
 	r.ref_speed = num(d, "ref_speed", r.ref_speed);
 	r.walls_crash = (bool)d.get("walls_crash", false);
 	r.laps = (int)(int64_t)d.get("laps", 1);
-	r.speed_scale = num(d, "speed_scale", r.speed_scale);
 }
 
 // The networks of the population: layer sizes and every network's weights and biases,
@@ -359,6 +389,7 @@ void FleetSim::begin_run() {
 	wall_cars = 0;
 	best_lap = INFINITY;
 	best_finish = INFINITY;
+	any_gate = false;
 	agents.resize(net_count);
 	for (int k = 0; k < net_count; k++) {
 		Agent &a = agents[k];
@@ -414,7 +445,8 @@ void FleetSim::sense(Agent &a) const {
 		a.rays[k] = (float)d;
 	}
 	double u = car.forward_speed;
-	inputs[NR] = (float)(u / rules.speed_scale);
+	double top = spec.max_speed; // Sensors.speed_scale(): the car's own top speed
+	inputs[NR] = (float)(u / top);
 	inputs[NR + 1] = (float)clamp1(car.side_speed / 8.0); // side_speed: + = moving to the car's left
 	inputs[NR + 2] = (float)clamp1(car.yaw_rate / 1.5);
 
@@ -429,9 +461,9 @@ void FleetSim::sense(Agent &a) const {
 	int i0 = js_roundi(s0);
 	for (int w = 0; w < 3; w++) {
 		double kappa = sharpest(track, i0 + js_roundi(CORNER_WINDOWS[w][0] * inv), i0 + js_roundi(CORNER_WINDOWS[w][1] * inv));
-		double vc = kappa > 1e-6 ? std::sqrt(CORNER_GRIP / kappa) : rules.speed_scale;
-		if (vc > rules.speed_scale) {
-			vc = rules.speed_scale;
+		double vc = kappa > 1e-6 ? std::sqrt(CORNER_GRIP / kappa) : top;
+		if (vc > top) {
+			vc = top;
 		}
 		inputs[NR + 6 + w] = (float)clamp1((vc - u) / MARGIN_SCALE);
 	}
@@ -526,6 +558,7 @@ void FleetSim::step_agent(Agent &a, int k, double dt, double now, double cutoff,
 			}
 			a.next_gate += 1;
 			events = true;
+			st.any_gate = true; // (Trainer.record_time makes the track's entry on any event)
 		}
 	}
 	if (events && !a.race_finished) {
@@ -654,6 +687,7 @@ int FleetSim::step(int max_steps, double dt) {
 			wall_cars += st.wall_cars;
 			best_lap = std::min(best_lap, st.best_lap);
 			best_finish = std::min(best_finish, st.best_finish);
+			any_gate = any_gate || st.any_gate;
 			first_finish = std::min(first_finish, st.first_finish);
 			car_steps += st.car_steps;
 		}
@@ -714,6 +748,10 @@ double FleetSim::get_best_lap() const {
 
 double FleetSim::get_best_finish() const {
 	return best_finish;
+}
+
+bool FleetSim::get_any_gate() const {
+	return any_gate;
 }
 
 int64_t FleetSim::get_car_steps() const {
@@ -852,11 +890,12 @@ double FleetSim::debug_heading(double s) const {
 }
 
 String FleetSim::version() const {
-	return "trackrush-native 1";
+	return "trackrush-native 2";
 }
 
 void FleetSim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_spec", "spec"), &FleetSim::set_spec);
+	ClassDB::bind_method(D_METHOD("get_spec"), &FleetSim::get_spec);
 	ClassDB::bind_method(D_METHOD("set_track", "track"), &FleetSim::set_track);
 	ClassDB::bind_method(D_METHOD("set_rules", "rules"), &FleetSim::set_rules);
 	ClassDB::bind_method(D_METHOD("set_networks", "sizes", "params", "count"), &FleetSim::set_networks);
@@ -873,6 +912,7 @@ void FleetSim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_deaths"), &FleetSim::get_deaths);
 	ClassDB::bind_method(D_METHOD("get_best_lap"), &FleetSim::get_best_lap);
 	ClassDB::bind_method(D_METHOD("get_best_finish"), &FleetSim::get_best_finish);
+	ClassDB::bind_method(D_METHOD("get_any_gate"), &FleetSim::get_any_gate);
 	ClassDB::bind_method(D_METHOD("get_car_steps"), &FleetSim::get_car_steps);
 	ClassDB::bind_method(D_METHOD("get_fitness"), &FleetSim::get_fitness);
 	ClassDB::bind_method(D_METHOD("get_reasons"), &FleetSim::get_reasons);

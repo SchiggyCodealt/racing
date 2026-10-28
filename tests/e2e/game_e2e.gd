@@ -19,11 +19,21 @@ extends SceneTree
 ##   modes     loads an AI network file (Load network's code path), Race the AI ghost and Watch the
 ##             AI by clicking their buttons, respawn (Enter) and restart (R) in Drive, pad buttons
 ##             in a race (joypad events through the InputMap actions), G toggles the ghost.
+##   cars      the AI network of each car (start from an empty save file): car=<id> (default dune)
+##             has none yet (the menu's AI block says so, Watch / Race the AI off), the training
+##             screen starts with it (the form's car tiles), trains it at Max until it autosaves,
+##             Watch best drives it, another car in the run view ends the session (asking first
+##             when its best is unsaved); back on the menu its network is ready, Watch the AI and
+##             Race the AI ghost drive it, the Racer still has none. net=<file>: then loads that
+##             network for the car (Load network's code path) before watching it (screenshots
+##             of a trained AI). Shots: cars_menu_none, cars_train_form, cars_train, cars_train_cars
+##             (the run view scrolled to its Car tiles), cars_menu_ready, cars_watch.
 ##   menu      keyboard and gamepad navigation of the menu, Controls and Settings screens.
 ##   settings1 / settings2   change settings with the keyboard on the Settings screen; the second
 ##             run (a new process on the same save file) checks they persisted and were applied.
 ##   shots     out=<dir>: menu, driving with nitro, finish panel, the menu after it and (train=0
-##             skips it) the AI training screen after train_seconds=40 of Max training (PNGs);
+##             skips it) the AI training screen after train_seconds=40 of Max training with
+##             train_car=<id> (default racer) on train_track=<id> (default lighthouse-bay) (PNGs);
 ##             net=<file> loads that network first (the menu's AI block, training continues it).
 ##   perf      script time per frame of a race (Drive with the autopilot, real time).
 ## Prints "ok"/"FAIL" lines and "E2E <scenario>: n passed, m failed"; quits with 1 on a failure.
@@ -64,6 +74,8 @@ func _main() -> void:
 			await races()
 		"modes":
 			await modes()
+		"cars":
+			await cars()
 		"menu":
 			await menu_nav()
 		"settings1":
@@ -150,12 +162,7 @@ func pad_axis(axis: JoyAxis, v: float) -> void:
 ## Click the middle of a Control with the left mouse button (scrolled into view first, as a
 ## player would).
 func click(c: Control) -> void:
-	var up := c.get_parent()
-	while up != null and not (up is ScrollContainer):
-		up = up.get_parent()
-	if up != null:
-		(up as ScrollContainer).ensure_control_visible(c)
-		await frames(2)
+	await scroll_to(c)
 	# (the interface layer is scaled: the screen transform maps the control to window pixels)
 	var p := c.get_screen_transform() * (c.size * 0.5)
 	for down: bool in [true, false]:
@@ -165,6 +172,16 @@ func click(c: Control) -> void:
 		e.position = p
 		e.global_position = p
 		Input.parse_input_event(e)
+		await frames(2)
+
+
+## Scroll the ScrollContainer around `c` (if any) so that `c` shows.
+func scroll_to(c: Control) -> void:
+	var up := c.get_parent()
+	while up != null and not (up is ScrollContainer):
+		up = up.get_parent()
+	if up != null:
+		(up as ScrollContainer).ensure_control_visible(c)
 		await frames(2)
 
 
@@ -440,6 +457,112 @@ func modes() -> void:
 		await key(KEY_ESCAPE)
 
 
+# ---------------------------------------------------------------- an AI network per car
+
+func cars() -> void:
+	var tid := str(opts.get("track", "rookie-oval"))
+	var car := str(opts.get("car", "dune"))
+	var cname: String = Cars.get_car(car).name
+	var other := "kestrel" if car != "kestrel" else "thunder"
+	var menu: MainMenu = app.ui.menu
+	await pick(tid, car)
+	await frames(10)
+	check(UiData.picked_car() == car and app.network.is_empty() and menu.get("_watch_btn").disabled and menu.get("_ghost_btn").disabled and
+		str(menu.get("_ai_status_text")).contains("No %s network yet" % cname) and (menu.get("_ai_cap") as Label).text.ends_with(cname),
+		"the %s has no AI network: the menu's AI block says so and offers to train one; Watch / Race the AI are off" % cname)
+	await shot("cars_menu_none")
+	await click(menu.get("_train_btn"))
+	await frames(3)
+	var tm := app.train_mode
+	if not check(tm != null and app.mode == tm, "Train the AI opens the training screen"):
+		return
+	var dash: Control = tm.get("dash")
+	var s: Object = tm.get("session")
+	var chips: Array = dash.get("car_chips")
+	var k := Cars.ids().find(car)
+	check(str(dash.get("car")) == car and chips.size() == Cars.ids().size() and chips[k].selected and (dash.get("title") as Label).text.ends_with(cname),
+		"the training screen starts with the menu's car (%s): its tile is picked" % cname)
+	await click(chips[Cars.ids().find(other)])
+	check(str(dash.get("car")) == other and str(s.get("car")) == other, "a click on the %s's tile picks it" % Cars.get_car(other).name)
+	await click(chips[k])
+	check(str(dash.get("car")) == car, "and back to the %s" % cname)
+	await frames(3)
+	await shot("cars_train_form")
+	await click(dash.get("start_btn"))
+	await frames(10)
+	var tr: Variant = s.get("trainer")
+	var fleet: Node = tm.get("fleet")
+	if not check(tr != null and str(tr.get("cfg").get("car_id")) == car and fleet != null, "START TRAINING trains the %s" % cname):
+		return
+	check(str(fleet.get("car_id")) == car, "the training fleet on the track is drawn as the %s" % cname)
+	await click((dash.get("speed_segs") as Dictionary)["max"])
+	await wait_until(func() -> bool: return float(s.get("last_saved")) > -INF and int(s.get("trainer").get("generation")) >= int(opts.get("gens", "3")), 300.0)
+	await click((dash.get("speed_segs") as Dictionary)["1"])
+	await frames(int(opts.get("train_frames", "150")))
+	tr = s.get("trainer")
+	var saved: Variant = SaveData.load_network(car)
+	check(saved is Dictionary and str((saved as Dictionary).get("car")) == car and SaveData.load_network("racer") == null,
+		"training autosaved the %s's network (generation %s), with its car; the Racer has none" % [cname, str((saved as Dictionary).get("generation")) if saved is Dictionary else "-"])
+	await shot("cars_train")
+	await click(dash.get("watch_btn"))
+	await frames(3)
+	var m: Node = app.mode
+	check(m != tm and m.get("driver") == "ai" and (m.get("car") as Car).spec == Cars.get_car(car).spec and (m.get("model") as CarModel).car_id == car,
+		"Watch best: the AI drives the %s" % cname)
+	await key(KEY_ESCAPE)
+	await frames(3)
+	tm = app.train_mode
+	dash = tm.get("dash")
+	check(app.mode == tm and tm.get("session").get("trainer") == tr and str(dash.get("car")) == car, "Esc: back to the %s's session" % cname)
+	# another car ends the session: asked first when the best is not saved yet
+	await scroll_to(dash.get("run_chips")[-1])
+	await frames(int(opts.get("train_frames", "150")))
+	await shot("cars_train_cars")
+	await click(dash.get("run_chips")[Cars.ids().find(other)])
+	await frames(3)
+	var asked: bool = dash.call("asking")
+	if asked:
+		await click(dash.get("ask_buttons")[0]) # Save it, then switch
+		await frames(3)
+	var s2: Object = tm.get("session")
+	check(str(s2.get("car")) == other and s2.get("trainer") != null and s2.get("trainer") != tr and str(s2.get("trainer").get("cfg").get("car_id")) == other,
+		"the %s's tile in the run view: a new session with it (%s)" % [Cars.get_car(other).name, "asked first, saved" if asked else "nothing unsaved"])
+	await click(dash.get("stop_btn"))
+	await frames(3)
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(app.mode == app.menu_mode and UiData.picked_car() == car and not app.network.is_empty() and not menu.get("_watch_btn").disabled and
+		str(menu.get("_ai_status_text")).contains("Ready"), "back on the menu: the %s's AI network is ready" % cname)
+	if opts.has("net"):
+		var err := app.load_network_file(str(opts.net))
+		var trained := AiLink.network_car(app.network.get("meta", {}))
+		check(err == "" and (trained == car) != app.message.visible, "net=%s loaded as the %s's network (trained with the %s%s)" % [
+			str(opts.net).get_file(), cname, Cars.get_car(trained).name, ", a note says so" if app.message.visible else ""])
+		if app.message.visible:
+			await key(KEY_ENTER)
+		await frames(10)
+	await shot("cars_menu_ready")
+	await click(menu.get("_watch_btn"))
+	m = app.mode
+	if check(m != app.menu_mode and m.get("driver") == "ai" and (m.get("car") as Car).spec == Cars.get_car(car).spec and (m.get("model") as CarModel).car_id == car,
+			"Watch the AI (clicked): the %s's network drives the %s" % [cname, cname]):
+		fast(true)
+		await wait_until(func() -> bool: return (m.get("race") as RaceState).time > float(opts.get("watch_at", "12")), 120.0)
+		fast(false)
+		await frames(20)
+		check((m.get("car") as Car).prog > 50.0 and str(app.ui.hud.get("_mode").text).contains(cname), "it drives (%.0f samples), the HUD names the %s" % [(m.get("car") as Car).prog, cname])
+		await shot("cars_watch")
+		await key(KEY_ESCAPE)
+	await click(menu.get("_ghost_btn"))
+	m = app.mode
+	check(m != app.menu_mode and m.get("with_ghost") == true and (m.get("ghost_model") as CarModel).car_id == car and ((m.get("ghost") as Dictionary).car as Car).spec == Cars.get_car(car).spec,
+		"Race the AI ghost: the %s AI's ghost is a %s" % [cname, cname])
+	await key(KEY_ESCAPE)
+	await pick(tid, "racer")
+	await frames(3)
+	check(app.network.is_empty() and menu.get("_watch_btn").disabled and str(menu.get("_ai_status_text")).contains("No Racer network yet"), "the Racer still has no network")
+
+
 # ---------------------------------------------------------------- the menu
 
 func menu_nav() -> void:
@@ -606,7 +729,7 @@ func shots() -> void:
 ## The training screen for the screenshot: a new session on the menu's track, trained at Max
 ## for train_seconds (no 3D drawing meanwhile), then 1x for a moment so the cars are drawn.
 func train_shot(tag: String) -> void:
-	await pick(str(opts.get("train_track", "lighthouse-bay")), "racer")
+	await pick(str(opts.get("train_track", "lighthouse-bay")), str(opts.get("train_car", "racer")))
 	await click(app.ui.menu.get("_train_btn"))
 	await frames(3)
 	var tm := app.train_mode

@@ -255,7 +255,10 @@ func _app(t) -> void:
 	t.check(app.ui.input == app.input and app.ui.menu.input == app.input, "the interface reads the game's input")
 	t.check(app.ui.menu.get("_ghost_btn").disabled and app.network.is_empty(), "no AI network yet: Race the AI ghost is off")
 	app.play("ai", false)
-	t.check(app.mode == app.menu_mode, "Watch the AI without a network stays on the menu")
+	var msg: Label = app.message.get("_text")
+	t.check(app.mode == app.menu_mode and (not AiLink.ready() or (app.message.visible and msg.text.contains("Racer has no trained AI network") and
+		msg.text.contains("Train the AI"))), "Watch the AI without a network stays on the menu, saying so (and how to train one)")
+	app.message.close()
 	var m: Node = app.start_play({"track": app.tracks[0], "driver": "human"})
 	t.check(app.mode == m and m.get("phase") == "countdown" and app.ui.hud.visible and not app.ui.menu.visible, "Drive: the race mode with the HUD")
 	app.input.held = {"accelerate": true}
@@ -292,21 +295,25 @@ func _app(t) -> void:
 		t.check(not app.ui.menu.visible and not app.ui.hud.visible, "the menu and the HUD are hidden there")
 		tm.update(1.0 / 60.0)
 		if not app.network.is_empty():
-			tm.emit_signal("watch_requested", app.tracks[1], app.network.net)
+			tm.emit_signal("watch_requested", app.tracks[1], app.network.net, "racer")
 			t.check(app.mode != tm and app.mode.get("driver") == "ai" and app.mode.get("track") == app.tracks[1],
 				"Watch best: the AI drives the training track")
 			t.check(tm.is_queued_for_deletion(), "the training screen is freed (its session is static)")
 			(app.mode.get("return_to") as Callable).call()
 			t.check(app.mode == app.train_mode and app.train_mode != tm, "Esc after Watch best: back to (a new) training screen")
-			app.train_mode.emit_signal("race_requested", app.tracks[1], app.network.net)
+			app.train_mode.emit_signal("race_requested", app.tracks[1], app.network.net, "racer")
 			t.check(app.mode.get("driver") == "human" and app.mode.get("with_ghost") == true, "Race best: the player races the AI ghost")
 			(app.mode.get("return_to") as Callable).call()
 			t.check(app.mode == app.train_mode, "and back to training")
 			var gen0: Variant = UiData.ai_status().get("generation")
 			var kept := {"net": app.network.net, "meta": {"generation": 42, "fitness": 2000.0}}
-			app.train_mode.emit_signal("network_saved", kept)
+			app.train_mode.emit_signal("network_saved", kept, "racer")
 			t.check(app.network == kept and UiData.ai_status().get("generation") == 42,
 				"a network saved by training becomes the menu's (generation %s -> 42)" % str(gen0))
+			var kept_t := {"net": app.network.net, "meta": {"generation": 5, "fitness": 900.0, "car": "thunder"}}
+			app.train_mode.emit_signal("network_saved", kept_t, "thunder")
+			t.check(app.network == kept and UiData.ai_status().get("generation") == 42 and app.network_for("thunder") == kept_t,
+				"a network trained with another car (the Thunder) is that car's: the menu's Racer AI stays")
 		# Max speed: the screen's overlay shows and the app stops drawing the 3D view
 		var ov: CanvasItem = app.train_mode.get("dash").get("overlay")
 		ov.visible = true
@@ -322,5 +329,55 @@ func _app(t) -> void:
 		t.check(not app.get_viewport().disable_3d, "leaving the training screen at Max: the 3D view draws again")
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	if AiLink.ready() and FileAccess.file_exists(fixture):
+		_app_cars(t, app, fixture)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	app.free()
 	UiData.reset()
+
+
+## The AI networks per car: the menu's AI block, Watch the AI, Race the AI ghost and Load
+## network… use the picked car's network, which drives that car.
+func _app_cars(t, app: GameApp, fixture: String) -> void:
+	t.section("the app: an AI network per car")
+	var menu: Node = app.ui.menu
+	var msg: Label = app.message.get("_text")
+	menu.select_car("racer")
+	var racer_net: Dictionary = app.network
+	menu.select_car("dune")
+	var st := UiData.ai_status()
+	t.check(app.network.is_empty() and not st.ready and menu.get("_ghost_btn").disabled and menu.get("_watch_btn").disabled and
+		(menu.get("_ai_cap") as Label).text == "AI driver · Dune" and str(menu.get("_ai_status_text")).contains("No Dune network yet") and
+		str(menu.get("_ai_status_text")).contains("Train the AI"), "pick the Dune (no network): the AI block says so and offers to train one; Watch and Race the AI ghost are off")
+	app.play("human", true)
+	t.check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("The Dune has no trained AI network yet"), "Race the AI ghost with the Dune: a note, still on the menu")
+	app.message.close()
+	t.check(app.load_network_file(ProjectSettings.globalize_path(fixture)) == "" and app.message.visible and msg.text.contains("trained with the Racer") and
+		msg.text.contains("drives the Dune"), "loading a Racer network with the Dune picked: allowed, with a note")
+	app.message.close()
+	st = UiData.ai_status()
+	var dune_saved: Variant = SaveData.load_network("dune")
+	t.check(not app.network.is_empty() and app.network != racer_net and st.ready and st.get("car") == "dune" and st.get("trained_car") == "racer" and
+		str(menu.get("_ai_status_text")).contains("trained with the Racer") and dune_saved is Dictionary and SaveData.load_network("racer") is Dictionary and
+		not menu.get("_watch_btn").disabled, "it is the Dune's network now (in the save file); the AI block says it was trained with the Racer")
+	app.play("ai", false)
+	var car: Car = app.mode.get("car")
+	t.check(app.mode != app.menu_mode and app.mode.get("driver") == "ai" and car.spec == Cars.get_car("dune").spec and
+		(app.mode.get("model") as CarModel).car_id == "dune" and app.ui.hud.get("_mode").text.contains("Dune"), "Watch the AI: the Dune's network drives the Dune")
+	for i in 60 * 6:
+		app.mode.update(1.0 / 60.0)
+	t.check(car.prog > 20.0, "and drives it (%.0f m)" % car.prog)
+	app.show_menu()
+	app.play("human", true)
+	var gh: Dictionary = app.mode.get("ghost")
+	t.check(app.mode.get("with_ghost") == true and (gh.car as Car).spec == Cars.get_car("dune").spec and (app.mode.get("ghost_model") as CarModel).car_id == "dune" and
+		(app.mode.get("car") as Car).spec == Cars.get_car("dune").spec, "Race the AI ghost: the Dune against the Dune AI's ghost")
+	app.show_menu()
+	menu.select_car("racer")
+	t.check(app.network == racer_net and UiData.ai_status().get("car") == "racer" and UiData.ai_status().get("trained_car") == "racer" and
+		not str(menu.get("_ai_status_text")).contains("trained with"), "back to the Racer: its own network again")
+	menu.select_car("kestrel")
+	t.check(app.network.is_empty() and SaveData.network_cars() == PackedStringArray(["racer", "dune"]), "the Kestrel has none; the save file holds the Racer's and the Dune's")
+	menu.select_car("racer")
+

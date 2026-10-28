@@ -48,8 +48,11 @@ extends RefCounted
 ##   var tr := Trainer.new({tracks = [Tracks.build("rookie-oval")]})   # see DEFAULT_TRAINING
 ##   tr.on_generation = func(entry): ...        # {gen, best, avg}, after each generation
 ##   tr.step_many(6)                            # fixed 1/60 s steps
-##   tr.export_best()                           # the network file (web format)
-## The car: opts.car_id (default "racer", like the web game) picks the spec every car drives.
+##   tr.export_best()                           # the network file (web format, with its car)
+## The car: opts.car_id (default "racer", like the web game; any id of sim/cars.gd) picks the
+## spec every car drives, on both simulation paths (FleetSim gets the spec as data). The
+## sensors scale the speed by that car's top speed (ai/sensors.gd). Network files record the
+## car they were trained with ("car"; a file without one is a Racer network: network_car()).
 
 const STEP: float = 1.0 / 60.0
 
@@ -169,6 +172,8 @@ func _init(opts: Dictionary) -> void:
 	cfg.population_size = int(cfg.population_size)
 	cfg.mutation_rate = float(cfg.mutation_rate)
 	cfg.car_id = String(cfg.car_id)
+	if not Cars.has_car(cfg.car_id):
+		cfg.car_id = Cars.DEFAULT_CAR
 	for t: Variant in opts.tracks:
 		tracks.append(t as BuiltTrack)
 	spec = Cars.spec(cfg.car_id)
@@ -183,7 +188,10 @@ func _init(opts: Dictionary) -> void:
 		for h: Variant in hidden:
 			sizes.append(int(h))
 		sizes.append(Sensors.OUTPUT_COUNT)
-	# A saved fitness only counts as "best ever" when it was scored on the same tracks, laps and wall rule.
+	# A saved fitness only counts as "best ever" when it was scored with the same car, on the same
+	# tracks, laps and wall rule. A network trained with another car starts a new history (the
+	# chart, the generation count) for this car; with the same car it carries on.
+	var same_car: bool = network_car(meta) == cfg.car_id
 	var same_task: bool = false
 	if meta is Dictionary and (meta as Dictionary).get("trainedOn") is Array:
 		var ids: PackedStringArray = []
@@ -194,7 +202,7 @@ func _init(opts: Dictionary) -> void:
 			on.append(str(v))
 		var settings: Variant = meta.get("settings")
 		var laps: Variant = settings.get("laps", 1) if settings is Dictionary else 1
-		same_task = ",".join(on) == ",".join(ids) and JsMath.same(laps, cfg.laps) and saved_wall_rule(meta) == cfg.walls
+		same_task = same_car and ",".join(on) == ",".join(ids) and JsMath.same(laps, cfg.laps) and saved_wall_rule(meta) == cfg.walls
 	var seed_fitness: Variant = null
 	if same_task and _is_num(meta.get("fitness")):
 		seed_fitness = float(meta.fitness)
@@ -206,7 +214,7 @@ func _init(opts: Dictionary) -> void:
 	else:
 		population = Population.new({size = cfg.population_size, sizes = sizes, mutation_rate = cfg.mutation_rate,
 			seed = seed, seed_fitness = seed_fitness})
-	if meta is Dictionary:
+	if meta is Dictionary and same_car:
 		generation = int(meta.get("generation", 0)) if _is_num(meta.get("generation")) else 0
 		if meta.get("history") is Array:
 			for h: Variant in meta.history:
@@ -265,12 +273,12 @@ func car_steps() -> int:
 	return int(fleet.call("get_car_steps")) if fleet != null else _gd_car_steps
 
 
-## The numbers FleetSim needs from the rules and settings.
+## The numbers FleetSim needs from the rules and settings (the sensors' speed scale is the
+## car's own top speed, part of its spec).
 func rules_data() -> Dictionary:
 	var d: Dictionary = RULES.duplicate()
 	d.walls_crash = cfg.walls == "crash"
 	d.laps = cfg.laps
-	d.speed_scale = Sensors.SPEED_SCALE
 	return d
 
 
@@ -558,13 +566,16 @@ func _end_native_run() -> void:
 	end_track_run()
 
 
-## Best lap / finish times of the native run so far into best_times.
+## Best lap / finish times of the native run so far into best_times (like record_time, the
+## track's entry exists once a car passed any gate, even without a lap or finish yet).
 func _merge_native_times() -> void:
 	if fleet == null:
 		return
 	var lap: float = float(fleet.call("get_best_lap"))
 	var fin: float = float(fleet.call("get_best_finish"))
 	if lap == INF and fin == INF:
+		if not best_times.has(track.id) and bool(fleet.call("get_any_gate")):
+			best_times[track.id] = {lap = null, finish = null}
 		return
 	if not best_times.has(track.id):
 		best_times[track.id] = {lap = null, finish = null}
@@ -701,9 +712,15 @@ func live_stats() -> Dictionary:
 
 # ---- network files --------------------------------------------------------------------------
 
-## Everything needed to continue later, as JSON-safe data (the web game's file format).
+## Everything needed to continue later, as JSON-safe data (the web game's file format, with
+## the car it was trained with).
 func export_best() -> Dictionary:
-	var net: NeuralNetwork = best_net if best_net != null else population.genomes[0].net
+	return export_network(best_net if best_net != null else population.genomes[0].net, best_fitness)
+
+
+## export_best() for another network of the session (`fitness`: what it scored), e.g. a car of
+## the run in progress that already beats the best so far.
+func export_network(net: NeuralNetwork, fitness: float) -> Dictionary:
 	var ids: Array = []
 	for t in tracks:
 		ids.append(t.id)
@@ -715,15 +732,26 @@ func export_best() -> Dictionary:
 		version = NETWORK_FILE_VERSION,
 		sensorVersion = Sensors.SENSOR_VERSION,
 		inputs = Array(Sensors.INPUT_LABELS),
+		car = cfg.car_id,
 		savedAt = Time.get_datetime_string_from_system(true) + "Z",
 		generation = generation,
-		fitness = best_fitness,
+		fitness = fitness,
 		trainedOn = ids,
 		settings = {populationSize = cfg.population_size, mutationRate = cfg.mutation_rate, laps = cfg.laps, walls = cfg.walls},
 		bestTimes = best_times.duplicate(true),
 		history = hist,
 		network = net.to_json(),
 	}
+
+
+## The car a network file was trained with (its "car", a sim/cars.gd id). Files without one
+## (older files, the browser version's, bare networks) and unknown cars are Racer networks.
+static func network_car(meta: Variant) -> String:
+	if meta is Dictionary:
+		var c: Variant = (meta as Dictionary).get("car")
+		if c is String and Cars.has_car(c):
+			return c
+	return Cars.DEFAULT_CAR
 
 
 ## The wall rule a saved network file was trained with: a WALL_RULES key, or "" for a bare

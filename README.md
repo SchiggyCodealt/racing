@@ -12,6 +12,8 @@ still playable. Everything runs on your own computer: no accounts, no internet, 
 Version 6.1.0 adds two cars, the Dune buggy and the Vortex hypercar, and new detailed car models
 with spinning, steering wheels, working suspension, lights and a driver who steers, leans into the
 corners and celebrates at the finish (see [The cars](#the-cars)).
+Version 6.2.0 lets you train the AI with any of the six cars: every car keeps its own AI network, which
+Watch the AI and Race the AI ghost use when that car is picked (see [Training the AI](#training-the-ai)).
 
 ![The menu: track tiles with minimaps, the selected track's panel with records and medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
 
@@ -19,13 +21,13 @@ corners and celebrates at the finish (see [The cars](#the-cars)).
 | --- | --- |
 | ![Driving on Night Highway with the headlights on and the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel: time, medal, score breakdown](docs/screenshots/finish.png) |
 
-![Training the AI: the population on Lighthouse Bay with the leader's sensor rays, its live network and the stats](docs/screenshots/training.png)
+![Training the AI with the Vortex: the population on Lighthouse Bay with the leader's sensor rays, its live network and the stats](docs/screenshots/training.png)
 
 ## Play it on Windows
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.1.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.2.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -99,7 +101,7 @@ outline (the dot is the start; sprints have a second dot at the finish), its num
 (1-5 bars), and the medal and best time you have with the picked car. The panel on the right is the
 selected track: its description, length and laps, then with the picked car your best time, best
 score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive**, the
-**Race my best-run ghost** option and the **AI driver** block (the network in use, Load / Save
+**Race my best-run ghost** option and the **AI driver** block (the picked car's AI network, Load / Save
 network, Race the AI ghost, Watch the AI, Train the AI). The header line shows a few key hints; the
 **Controls** button lists the rest, and the **Settings** button opens the settings.
 
@@ -150,8 +152,8 @@ as five bars (speed, acceleration, grip, drift, nitro).
 **Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
 **Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The cards sit three to a row (two in a narrow
 window); the line under them describes the picked car. The choice is remembered, and Drive and Race the AI ghost
-use it. The track tiles, the records and the medal times follow the picked car. The AI always drives the Racer
-(it was trained with it).
+use it. The track tiles, the records and the medal times follow the picked car, and so does the AI driver block:
+each car has its own AI network (see [Training the AI](#training-the-ai)).
 
 **The models.** Every car is drawn in detail: tyres with tread grooves, spoked rims in the car's own style, brake
 discs and calipers, suspension arms (and coil springs on the Dune) that you can see working, head and tail lights,
@@ -310,6 +312,8 @@ Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map o
 
 1. On the menu, click **Train the AI**.
 2. Pick the settings, then **START TRAINING**:
+   - **Car**: the car the AI learns to drive. The car picked on the menu is preselected; click another tile to
+     train that one. The small "gen N" on a tile means that car already has a trained network.
    - **Population size**: cars per generation (default 80). More cars learn faster per generation but each generation takes longer.
    - **Mutation rate**: chance that each weight is nudged when breeding (default 0.1).
    - **Hidden layer size(s)**: neurons in the hidden layer, e.g. `12`, or `16,8` for two hidden layers.
@@ -319,8 +323,7 @@ Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map o
      out of the run the moment it touches a wall, so it learns clean racing lines instead.
    - **Train on**: one or more tracks (the menu's track is ticked). With several, every car drives each track in
      turn and its fitness is averaged, which gives a driver that generalises better.
-   - **Continue from saved network**: keep training the network you already have instead of starting from
-     random drivers.
+   - **Continue from saved network**: keep training the car's network instead of starting from random drivers.
 3. Use the speed buttons: **1×** (real time), **Fast ×6** (six physics steps per drawn frame), or **Max**, which
    stops drawing the 3D view and simulates as fast as your computer allows. Max runs on a background thread with
    the native trainer (FleetSim, a small C++ library in `bin/` that steps the whole population on several CPU
@@ -330,15 +333,25 @@ Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map o
    doesn't load, training runs in GDScript instead, at only about real time with 80 cars, and the screen says so.
    **Pause**, another speed, **Watch best** or **Race best** take the session back from the thread exactly where it was.
 
-The AI always drives the **Racer**, never uses nitro and scores no points.
+The AI never uses nitro and scores no points.
+
+**Cars.** Every car has its own AI network: training with the Thunder autosaves the Thunder's network and leaves the
+Racer's alone. A training session belongs to its car (the title says which, e.g. **AI TRAINING · THUNDER**, and so do
+the fitness chart and the AI best table). Clicking another car under **Car** while training ends the session and
+starts a new one with that car, continuing from that car's saved network when it has one. If the session holds a
+better network than the one saved (for example a car of the current run already beats the best so far), the screen
+asks first: **Save it, then switch**, **Switch without saving** or **Keep training**. Each car learns its own
+driving: a network trained with one car may get round with another (on Rookie Oval with Crash out, the six
+networks trained 20 generations each finished a lap with 14 of their 30 other cars, mostly slower than that car's
+own network) or crash out in the first corner, so train each car's network with that car.
 
 The dashboard shows:
 - a live diagram of the network: blue connections are positive weights, red are negative, thicker means stronger,
   and nodes light up with their current activation. Input and output nodes are labelled.
 - the sensor rays of the car being shown, drawn in the 3D view (green = far wall, red = close wall)
-- a chart of best and average fitness per generation
+- a chart of best and average fitness per generation (of the session's car)
 - generation, cars alive, best fitness so far, why the cars in the current run stopped, and the AI's best lap and
-  finish times per track
+  finish times per track with the session's car
 
 Click any car in the 3D view to see its network instead of the leader's; **Follow leader** goes back.
 **Overview camera** shows the whole track from above, which makes clicking cars easier.
@@ -357,6 +370,9 @@ finish in generation 0 against 44); the simulation here is the same, so expect t
     how much the road turns 25-60 m ahead, and three **corner margins**: how much faster than its current
     speed the car could take the tightest corner 0-50 m, 50-110 m and 110-200 m ahead. The corner margins
     are what teach it to brake before hairpins.
+  - Speed and corner margins are measured against the car's own top speed, so "1" means flat out for every
+    car and a corner the car can take flat out reads the same in each. For the Racer the inputs are exactly those of earlier versions, so Racer
+    networks from version 6.0-6.1 and from the browser drive exactly as before.
   - 2 outputs: steering (left/right) and throttle (positive = accelerate, negative = brake/reverse).
   - The network is also run on the mirror image of its inputs and the two answers are combined, so it
     drives left and right corners the same way.
@@ -369,24 +385,33 @@ finish in generation 0 against 44); the simulation here is the same, so expect t
 
 ### Saving and loading a network
 
-- The best network is **autosaved in the save file** whenever it improves, so it survives closing the game.
-  Tick **Continue from saved network** on the training screen to keep training it.
-- **Save best network** (training screen) also writes a copy as a file, `ai-driver-gen<N>.json`, in the
-  `networks` folder next to the save file. **Save network…** (menu) saves the network in use wherever you choose.
-- **Load network…** (menu or training screen) loads such a file. On the training screen, training
-  continues from it: the new population is made of the loaded network plus mutated copies.
+- The best network is **autosaved in the save file** as the session's car's network whenever it improves, so it
+  survives closing the game. Tick **Continue from saved network** on the training screen to keep training it.
+- **Save best network** (training screen) also writes a copy as a file, `ai-<car>-gen<N>.json` (for example
+  `ai-thunder-gen40.json`), in the `networks` folder next to the save file. **Save network…** (menu) saves the
+  picked car's network wherever you choose.
+- **Load network…** loads such a file: on the menu as the picked car's network, on the training screen as the
+  session's car's, and training continues from it (the new population is made of the loaded network plus mutated
+  copies). A network trained with another car loads too, with a note saying which car it learned; it then drives
+  the picked car, so expect it to brake too early or too late until it has been trained with that car.
 
 The files are the same format as the browser version's, both ways: a network trained in the browser loads here,
 and one trained here loads in the browser. The file contains the weights, the layer sizes, the sensor version,
-the generation count, the fitness history, the tracks and wall rule it was trained with and the AI's best times.
-Networks from version 1 of the game (11 inputs) can't be used with these sensors and are refused with a message.
+the car it was trained with (`"car": "thunder"`; a file without it, like every browser file and those of versions
+6.0-6.1, is a Racer network), the generation count, the fitness history, the tracks and wall rule it was trained
+with and the AI's best times. Networks from version 1 of the game (11 inputs) can't be used with these sensors
+and are refused with a message.
 
 ### Watching and racing the AI
 
-- **Watch the AI** (menu) or **Watch best** (training screen): the AI drives a full race on the selected track,
-  with its network and sensor rays shown live. If it gets stuck for 3 s it is put back at its last checkpoint.
+- **Watch the AI** (menu) or **Watch best** (training screen): the AI drives a full race on the selected track
+  with its car (on the menu the picked car, on the training screen the session's car), with its network and
+  sensor rays shown live. If it gets stuck for 3 s it is put back at its last checkpoint.
 - **Race the AI ghost** (menu) or **Race best (ghost)** (training screen): you race the AI with the car you picked;
-  the AI is a see-through Racer you can drive through. The HUD shows how far ahead or behind you are at each checkpoint.
+  the AI is a see-through copy of its car you can drive through. The HUD shows how far ahead or behind you are at
+  each checkpoint.
+- When the picked car has no network yet, the AI driver block says so, and Watch the AI and Race the AI ghost stay
+  off until you train one (**Train the AI** starts with that car) or load a network file.
 
 ### Training without the game window (optional)
 
@@ -399,10 +424,12 @@ godot --headless --path . --script res://tools/headless_train.gd -- hairpin-vall
 # continue later from that file:
 godot --headless --path . --script res://tools/headless_train.gd -- hairpin-valley,technical-trial 100 my-driver-2.json my-driver.json
 # options: --pop 80  --hidden 16,8  --mutation 0.1  --laps 1  --walls ride|crash  --stop-after 10  --quiet
-#          --threads 4  --seed 1  --car racer  --gdscript
+#          --threads 4  --seed 1  --car racer|kestrel|thunder|drifter|dune|vortex  --gdscript
 ```
 
-The physics is deterministic, so a network trained from the command line drives exactly the same in the game.
+`--car` picks the car to train (default the Racer); the file records it. To use the network in the game, pick
+that car on the menu and **Load network…**. The physics is deterministic, so a network trained from the command
+line drives exactly the same in the game.
 
 ## Settings
 
@@ -431,7 +458,7 @@ Everything is kept in one file, `trackrush_save.json`:
 
 The same folder is used whether you run the exported game or the project from the Godot editor. It holds your
 best time and splits, the ghost of that run and your best score for every track and car, the settings, and the
-latest trained AI network. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's). Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -461,7 +488,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.1.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.2.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -483,8 +510,8 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 3-4 minutes: `sim` (tracks, physics, race, points, ghosts, medals, save file; the numbers are compared with the browser version's), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation, training, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 3-4 minutes: `sim` (tracks, physics, race, points, ghosts, medals, save file; the numbers are compared with the browser version's), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads) |
@@ -529,7 +556,7 @@ world/                  3D: track mesh, terrain and scenery, sky and themes, car
                         the skeleton's animation and lights), effects (smoke, skids, sparks, nitro), chase camera,
                         the AI fleet and sensor rays; shaders/
 ui/                     the interface, built in code: style, menu, Controls and Settings screens, HUD, finish panel,
-                        training dashboard, network view, fitness chart
+                        training dashboard (car_chip.gd: its car tiles), network view, fitness chart
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)
 data/                   tracks.json and medals.json (made by tools/)
 tools/                  track generator, turtle, medal times, car stats, headless trainer, benchmark, parity checks

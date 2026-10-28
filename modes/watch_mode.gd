@@ -1,13 +1,13 @@
 extends "res://modes/play_mode.gd"
 ## watch_mode.gd (playMode.js with driver 'ai')
 ## ------------------------------------------------------------------
-## Watch the AI: the AI drives a full race on the selected track in the Racer (painted
-## yellow), with its sensor rays drawn in the 3D view and its network drawn live in the
-## HUD's Watch panel. It scores nothing and never uses nitro. If it makes no progress for
-## STUCK_TIME seconds (nose against a wall: walls don't bounce cars back), it is put back
-## at its last checkpoint, standing, like a player pressing Enter, and the HUD says so.
-## The finish panel compares its time with your best with the Racer.
-## setup(app, {track, net, return_to}) as play_mode.gd (the driver is always "ai").
+## Watch the AI: the AI drives a full race on the selected track in its network's car
+## (opts.ai_car, in that car's colours), with its sensor rays drawn in the 3D view and its
+## network drawn live in the HUD's Watch panel. It scores nothing and never uses nitro. If it
+## makes no progress for STUCK_TIME seconds (nose against a wall: walls don't bounce cars
+## back), it is put back at its last checkpoint, standing, like a player pressing Enter, and
+## the HUD says so. The finish panel compares its time with your best with that car.
+## setup(app, {track, net, ai_car, return_to}) as play_mode.gd (the driver is always "ai").
 
 var rays: SensorRays = null
 var _net_view := {}
@@ -21,8 +21,8 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	name = "WatchMode"
 
 
-func _mode_text(_cname: String) -> String:
-	return "WATCHING AI · %s" % track.name
+func _mode_text(cname: String) -> String:
+	return "WATCHING AI · %s · %s" % [track.name, cname]
 
 
 func _enter_view() -> void:

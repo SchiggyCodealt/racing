@@ -18,8 +18,9 @@ extends RefCounted
 ##   records, best scores, ghosts, settings: sim/ SaveData (the save file in user://) once the
 ##                game calls use_save_data(true) (game/app.gd does at start-up); until then (tests,
 ##                previews) an in-memory store (`store`), which they fill.
-##   the AI network: the game hands its summary over with set_ai_status (game/app.gd, from the
-##                loaded network file); the input / output names come from ai/sensors.gd.
+##   the AI network: the game hands the picked car's network summary over with set_ai_status
+##                (game/app.gd, from that car's network file); the input / output names come from
+##                ai/sensors.gd.
 ##
 ## Shapes returned (plain Dictionaries, so nothing here depends on sim/ types):
 ##   track_info(i)   {id, name, difficulty, description, closed, laps, length, sprint_length, theme}
@@ -29,7 +30,8 @@ extends RefCounted
 ##   car_profile(id) {parts: [{mat, pts: PackedVector2Array of (z, y) m}], wheels: [[z, r]]}
 ##   record(t, c)    {time, splits} or null;  best_score(t, c) int or -1;  has_ghost(t, c) bool
 ##   medal_times(t, c) {author, gold, silver, bronze} (s) or {} (none for this track and car)
-##   ai_status()     {ready, generation, fitness, sizes, trained_on [track ids], walls, best_times {id: {lap, finish}}}
+##   ai_status()     {ready, generation, fitness, sizes, trained_on [track ids], walls, best_times {id: {lap, finish}},
+##                   car (whose network it is: the picked car), trained_car (the car it was trained with)}
 
 const FIXTURE_PATH := "res://ui/fixtures/web_v5.json"
 const TRACKS_JSON := "res://data/tracks.json"
@@ -307,7 +309,8 @@ static func next_medal(medals: Dictionary, time: Variant) -> Dictionary:
 	return {"medal": UiStyle.MEDAL_ORDER[k], "time": float(medals[UiStyle.MEDAL_ORDER[k]])} if k >= 0 else {}
 
 
-## The loaded AI network's summary for the menu (the game hands it over: set_ai_status).
+## The picked car's AI network summary for the menu (the game hands it over: set_ai_status);
+## {ready: false} when that car has none.
 static func ai_status() -> Dictionary:
 	var n: Variant = store.network
 	if n == null:
@@ -330,8 +333,8 @@ static func ai_best(track_index: int) -> float:
 	return float(v) if v != null else -1.0
 
 
-## The game's AI network summary for the menu ({generation, fitness, sizes, trained_on, walls,
-## best_times}), or null when no network is loaded.
+## The game's AI network summary of the picked car for the menu ({generation, fitness, sizes,
+## trained_on, walls, best_times, car, trained_car}), or null when that car has no network.
 static func set_ai_status(info: Variant) -> void:
 	store.network = info
 

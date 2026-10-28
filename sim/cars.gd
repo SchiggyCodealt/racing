@@ -28,7 +28,9 @@ extends RefCounted
 ##   brake100 m (100-0 km/h); grip / gripFast g (30 m / 120 m skidpad); drift s
 ##   (how long a keyboard driver holds a handbrake-started drift; median of 192 tries).
 ## Specs are read-only once a car uses them; every car shares the racer's collision
-## capsule and wall constants. The AI is trained with the racer and never uses nitro.
+## capsule and wall constants. The AI trains with any car (its sensors scale speed by the
+## car's max_speed, so changing a car's max_speed changes what its AI networks see) and never
+## uses nitro.
 
 const DEFAULT_CAR: String = "racer"
 

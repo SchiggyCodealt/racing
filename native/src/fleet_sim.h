@@ -7,7 +7,8 @@
 // race gates (sim/race.gd) + fitness and elimination rules (ai/trainer.gd
 // Trainer.step), optionally on several native threads.
 //
-// The GDScript Trainer (ai/trainer.gd) drives it: it hands over the car spec,
+// The GDScript Trainer (ai/trainer.gd) drives it: it hands over the car spec (any car of
+// sim/cars.gd, as data: Trainer.spec_data; its max_speed also scales the speed sensor),
 // the track (with every table GDScript computed: wall grid, gates, physics and
 // heading tables) and the networks, then calls step() and reads the results.
 // The genetic algorithm stays in GDScript.
@@ -38,7 +39,6 @@ struct Rules {
 	double finish_cutoff = 1.25, finish_slack = 5.0, ref_speed = 50.0;
 	bool walls_crash = false;
 	int laps = 1;
-	double speed_scale = 77.0; // Sensors.SPEED_SCALE
 };
 
 // One car of the run (Trainer.Agent with its RaceState).
@@ -66,6 +66,7 @@ struct ThreadStats {
 	int deaths[8] = {};
 	int wall_cars = 0;
 	double best_lap = INFINITY, best_finish = INFINITY, first_finish = INFINITY;
+	bool any_gate = false; // a car passed a gate (checkpoint, lap or finish)
 	int64_t car_steps = 0;
 };
 
@@ -90,6 +91,7 @@ class FleetSim : public godot::RefCounted {
 	int deaths[8] = {};
 	int wall_cars = 0;
 	double best_lap = INFINITY, best_finish = INFINITY;
+	bool any_gate = false; // a car of this run passed a gate (Trainer: the track's best-times entry exists)
 	bool run_over = true;
 	int64_t car_steps = 0;
 	double ray_cos[9] = {}, ray_sin[9] = {};
@@ -110,6 +112,7 @@ public:
 	FleetSim();
 
 	void set_spec(const godot::Dictionary &d);
+	godot::Dictionary get_spec() const;
 	void set_track(const godot::Dictionary &d);
 	void set_rules(const godot::Dictionary &d);
 	void set_networks(const godot::PackedInt32Array &p_sizes, const godot::PackedFloat32Array &p_params, int count);
@@ -128,6 +131,7 @@ public:
 	godot::Dictionary get_deaths() const;
 	double get_best_lap() const;
 	double get_best_finish() const;
+	bool get_any_gate() const;
 	int64_t get_car_steps() const;
 	godot::PackedFloat64Array get_fitness() const;
 	godot::PackedInt32Array get_reasons() const;

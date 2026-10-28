@@ -11,8 +11,9 @@ extends Control
 ##   from training and the four medal times.
 ## - The car picker (side view, name, top speed, mass, five stat bars, the picked car's
 ##   description line). The pick is the "car" setting, which Drive and Race the AI ghost use.
-## - Drive, the best-run ghost option, the AI block (status, Load / Save network, Race the AI
-##   ghost, Watch the AI, Train the AI); the Controls screen and the Settings screen.
+## - Drive, the best-run ghost option, the AI block for the picked car (its network's status, or
+##   that it has none yet; Load / Save network, Race the AI ghost, Watch the AI, Train the AI);
+##   the Controls screen and the Settings screen.
 ## Every bit of game data comes through UiData; the buttons only emit signals.
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12), C / Shift+C (next / previous car),
@@ -101,6 +102,7 @@ var _medal_cells: Array = []  # [{dot, name, time}]
 var _gaps := {}              # name -> spacer Control (sizes change with the window)
 var _drive_btn: Button
 var _ghost_check: Control
+var _ai_cap: Label
 var _ai_status: RichTextLabel
 var _ai_status_text := ""
 var _load_btn: Button
@@ -416,10 +418,12 @@ func _build_go() -> void:
 	_gaps.ai = _spacer(_side, UiStyle.S3)
 	# the AI driver
 	var head := UiStyle.hbox(UiStyle.S1)
-	var cap := UiStyle.label("AI driver", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
-	cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head.add_child(cap)
+	_ai_cap = UiStyle.label("AI driver", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	_ai_cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ai_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_ai_cap.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_ai_cap.custom_minimum_size.x = 1
+	head.add_child(_ai_cap)
 	_load_btn = UiStyle.button("Load network…", "SmallQuietButton", 30)
 	_load_btn.pressed.connect(func() -> void: load_network.emit())
 	head.add_child(_load_btn)
@@ -477,10 +481,18 @@ func refresh() -> void:
 		_tiles[i].set_record(UiFormat.time(t) if t != null else "", UiData.medal_for(UiData.medal_times(id, car), t))
 	_render_detail()
 	_render_cars()
-	# the AI status: two lines at most (the whole text is in the tooltip)
+	# the AI block is the picked car's: its network's status, two lines at most (the whole text
+	# is in the tooltip), or that it has none yet
 	var st := UiData.ai_status()
+	var cname: String = UiData.car_info(car).name
+	_ai_cap.text = "AI driver · %s" % cname
 	if st.ready:
-		var s := "[color=#a7a9ae][b]Ready[/b][/color]: generation %s, fitness %d, network %s" % [
+		var s := "[color=#a7a9ae][b]Ready[/b][/color]: "
+		var trained := str(st.get("trained_car", car))
+		if trained != car and UiData.car_ids().has(trained):
+			# a network trained with another car (a loaded file): it drives this car all the same
+			s += "[color=#%s]trained with the %s[/color], " % [UiStyle.ACCENT.to_html(false), UiData.car_info(trained).name]
+		s += "generation %s, fitness %d, network %s" % [
 			str(st.get("generation", "?")), roundi(float(st.get("fitness", 0))), "-".join(PackedStringArray(st.get("sizes", []).map(func(x: Variant) -> String: return str(int(x)))))]
 		var on: Array = st.get("trained_on", [])
 		if not on.is_empty():
@@ -489,13 +501,18 @@ func refresh() -> void:
 			s += " (walls: %s)" % st.walls
 		_ai_status_text = s
 	else:
-		_ai_status_text = "[color=#a7a9ae][b]None yet[/b][/color]: train one or load a saved network file."
+		_ai_status_text = "[color=#a7a9ae][b]No %s network yet[/b][/color]: Train the AI teaches one with the %s, or load a network file." % [cname, cname]
 	_ai_status.tooltip_text = _strip_bbcode(_ai_status_text)
 	_clamp_status()
 	_ghost_check.checked = bool(UiData.get_setting("ghost"))
 	_ghost_btn.disabled = not st.ready
 	_watch_btn.disabled = not st.ready
 	_save_btn.disabled = not st.ready
+	_ghost_btn.tooltip_text = "Race the %s AI's ghost: a see-through %s driven by its network" % [cname, cname] if st.ready \
+		else "The %s has no AI network yet: train one first" % cname
+	_watch_btn.tooltip_text = "Watch the %s AI drive this track, with its sensors and network" % cname if st.ready \
+		else "The %s has no AI network yet: train one first" % cname
+	_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
 
 
 func _track_name(id: Variant) -> String:
@@ -577,7 +594,8 @@ func _render_detail() -> void:
 		["Ghost", "Saved", UiData.has_ghost(t.id, car),
 			"Your best run with the %s is saved as a ghost" % cinfo.name if UiData.has_ghost(t.id, car) else "No ghost yet: set a best time"],
 		["AI best lap" if t.closed else "AI best", UiFormat.time(ai) if ai > 0 else "", ai > 0,
-			"The AI's best %s here, from training (the AI always drives the Racer)" % ("lap" if t.closed else "time")],
+			"The %s AI's best %s here, from its training" % [cinfo.name, "lap" if t.closed else "time"] if ai > 0
+			else "The %s AI has no time here yet (it has no network, or was not trained on this track)" % cinfo.name],
 	]
 	for k in 4:
 		var s: Dictionary = _stats[k]

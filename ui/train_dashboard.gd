@@ -4,30 +4,36 @@ extends Control
 ## The AI training screen's interface (web/index.html #dashboard + #max-overlay, style.css):
 ## a 420 px column on the right of the 3D view (the bottom half in windows narrower than
 ## 1000 px) with
-##   - the header: AI TRAINING and the Menu button
-##   - the setup form: population size, mutation rate, hidden layer size(s), laps per circuit,
-##     walls, the tracks to train on, "Continue from saved network", Start training and
-##     Load network file…
+##   - the header: AI TRAINING with the car being trained, and the Menu button
+##   - the setup form: the car (six small car tiles, ui/car_chip.gd; a tile shows the generation
+##     of that car's saved network), population size, mutation rate, hidden layer size(s), laps
+##     per circuit, walls, the tracks to train on, "Continue from saved network", Start training
+##     and Load network file…
 ##   - the run: Pause / Resume, the speed (1× / Fast ×6 / Max), Follow leader, Overview /
 ##     Chase camera, the viewed car's live network, what that car is doing, the stats
 ##     (generation, cars alive, best fitness ever, leader this run, track, run time), this
 ##     run's outs, the AI's best lap / finish per track, the fitness chart, Save best network,
-##     Load network…, Watch best, Race best (ghost), Stop and a note line
+##     Load network…, Watch best, Race best (ghost), Stop and a note line, then the car tiles
+##     again (picking another car starts a new session with it) and, when the mode asks before
+##     doing that, a question with its answers (ask())
 ## and, over the 3D view, the Max speed overlay (no 3D drawing at Max) with the speed reached.
 ## It fills its parent (full rect) and leaves the 3D view's part free (mouse clicks go through
 ## there: picking a car). view_rect() is that part, in this control's coordinates.
 ##
 ## Every press comes out as action(name): "start", "load", "menu", "pause", "speed_1",
-## "speed_6", "speed_max", "follow", "cam", "save", "watch", "race", "stop"; a change of the
-## ticked tracks, the walls or the seed tick as settings_changed(). The mode
+## "speed_6", "speed_max", "follow", "cam", "save", "watch", "race", "stop" (and the answers
+## of ask()); a car tile as car_picked(id); a change of the ticked tracks, the walls or the
+## seed tick as settings_changed(). The mode
 ## (modes/train_mode.gd) does the rest and fills the read-outs with the set_* functions.
 ## Gamepad: handle_pad(input) moves a highlight over the buttons, ticks and choices (A presses
 ## it); the number fields need a keyboard, the file dialog a mouse or the keys.
 
 signal action(name: String)
 signal settings_changed
+signal car_picked(id: String)
 
 const CheckToggle := preload("res://ui/check_toggle.gd")
+const CarChip := preload("res://ui/car_chip.gd")
 const PadRing := preload("res://ui/pad_ring.gd")
 const PadNav := preload("res://ui/pad_nav.gd")
 const FitnessChart := preload("res://ui/train_fitness_chart.gd")
@@ -46,6 +52,15 @@ var setup_box: VBoxContainer
 var run_box: VBoxContainer
 var overlay: Control
 var max_rate: Label
+var title: Label
+## The car the form trains (the session's car while it runs): Cars ids.
+var car := "racer"
+var car_chips: Array = []        # CarChip per car on the setup form (Cars.ids() order)
+var run_chips: Array = []        # the same in the run view
+var car_line: Label              # the picked car's description under the form's tiles
+var ask_box: PanelContainer      # a question with its answers (ask())
+var ask_label: Label
+var ask_buttons: Array[Button] = []
 
 # setup form
 var pop: SpinBox
@@ -112,9 +127,12 @@ func _init() -> void:
 
 	# header
 	var head := UiStyle.hbox(UiStyle.S3)
-	head.add_child(UiStyle.label("AI training", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.06, true))
-	head.get_child(0).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.get_child(0).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title = UiStyle.label("AI training", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.06, true)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.custom_minimum_size.x = 1
+	head.add_child(title)
 	menu_btn = _button("Menu", "menu", "SmallButton", 30)
 	head.add_child(menu_btn)
 	col.add_child(head)
@@ -137,7 +155,14 @@ func _build_setup() -> VBoxContainer:
 	var box := UiStyle.vbox(0)
 	box.add_child(_text("Each generation, every car drives the selected track(s). The best networks are kept, mixed and mutated to make the next generation.",
 		UiStyle.TEXT_3))
-	box.add_child(UiStyle.gap(0, UiStyle.S3))
+	box.add_child(UiStyle.gap(0, UiStyle.S4))
+	box.add_child(UiStyle.label("Car", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true))
+	box.add_child(UiStyle.gap(0, UiStyle.S2))
+	box.add_child(_car_grid(car_chips))
+	car_line = _text("", UiStyle.TEXT_3)
+	box.add_child(UiStyle.gap(0, UiStyle.S1))
+	box.add_child(car_line)
+	box.add_child(UiStyle.gap(0, UiStyle.S4))
 	var form := GridContainer.new()
 	form.columns = 2
 	form.add_theme_constant_override("h_separation", UiStyle.S3)
@@ -309,7 +334,52 @@ func _build_run() -> VBoxContainer:
 	box.add_child(note_label)
 	box.add_child(UiStyle.gap(0, UiStyle.S2))
 	box.add_child(_text("Click any car in the 3D view to see its network.", UiStyle.TEXT_3))
+	# the car: another one ends this session and starts a new one with it
+	box.add_child(UiStyle.gap(0, UiStyle.S5))
+	box.add_child(UiStyle.label("Car", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true))
+	box.add_child(UiStyle.gap(0, UiStyle.S2))
+	box.add_child(_car_grid(run_chips))
+	box.add_child(UiStyle.gap(0, UiStyle.S1))
+	box.add_child(_text("Each car has its own AI network. Picking another car ends this session and starts a new one with that car.", UiStyle.TEXT_3))
+	ask_box = _make_ask()
+	box.add_child(ask_box)
+	box.add_child(UiStyle.gap(0, UiStyle.S2))
 	return box
+
+
+## Six car tiles, three a row (Cars.ids() order); a press emits car_picked.
+func _car_grid(into: Array) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", UiStyle.S2)
+	grid.add_theme_constant_override("v_separation", UiStyle.S2)
+	for id in UiData.car_ids():
+		var chip: Control = CarChip.new()
+		chip.setup(id, UiData.car_info(id), UiData.car_profile(id))
+		chip.picked.connect(func() -> void: car_picked.emit(id))
+		grid.add_child(chip)
+		into.append(chip)
+	return grid
+
+
+## The question box (hidden until ask()): its text and up to three answer buttons.
+func _make_ask() -> PanelContainer:
+	var p := UiStyle.panel(UiStyle.box(UiStyle.BG_2, false, [UiStyle.S3, UiStyle.S3, UiStyle.S3, UiStyle.S3]))
+	p.visible = false
+	var col := UiStyle.vbox(UiStyle.S3)
+	p.add_child(col)
+	ask_label = _text("", UiStyle.TEXT)
+	col.add_child(ask_label)
+	var row := UiStyle.hbox(UiStyle.S2)
+	for k in 3:
+		var b := UiStyle.button("", "TightButton", 36)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = false
+		b.pressed.connect(func() -> void: action.emit(String(b.get_meta("act", ""))))
+		ask_buttons.append(b)
+		row.add_child(b)
+	col.add_child(row)
+	return p
 
 
 ## The Max speed overlay over the 3D view (style.css #max-overlay).
@@ -459,12 +529,56 @@ func view_rect() -> Rect2:
 	return Rect2(0, 0, maxf(0.0, s.x - DASH_W), s.y)
 
 
+# ================================================================= the car
+
+## The car the form trains (the session's car while one runs): its tiles are lit, the title,
+## the chart and the line under the form's tiles name it.
+func set_car(id: String) -> void:
+	car = id if UiData.car_ids().has(id) else UiData.car_ids()[0]
+	for c in car_chips + run_chips:
+		c.selected = c.car_id == car
+	var info := UiData.car_info(car)
+	title.text = "AI training · %s" % info.name
+	chart.caption = info.name
+	car_line.text = "%s: %s" % [info.name, info.description]
+
+
+## A short note on each car's tile: id -> text (the generation of its saved network), "" none.
+func set_car_badges(badges: Dictionary) -> void:
+	for c in car_chips + run_chips:
+		c.badge = String(badges.get(c.car_id, ""))
+
+
+## Ask a question under the run's car tiles: `answers` [[label, action], ...] (up to three);
+## a press emits action(its action). hide_ask() takes it away.
+func ask(text: String, answers: Array) -> void:
+	ask_label.text = text
+	for k in ask_buttons.size():
+		var b := ask_buttons[k]
+		b.visible = k < answers.size()
+		if b.visible:
+			b.text = String(answers[k][0])
+			b.set_meta("act", String(answers[k][1]))
+	ask_box.visible = true
+	_pad_at = ask_buttons[0]
+	scroll.ensure_control_visible(ask_box)
+
+
+func hide_ask() -> void:
+	ask_box.visible = false
+
+
+func asking() -> bool:
+	return ask_box.visible
+
+
 # ================================================================= the setup form
 
 func show_setup() -> void:
 	setup_box.visible = true
 	run_box.visible = false
 	overlay.visible = false
+	hide_ask()
 	scroll.scroll_vertical = 0
 	_pad_at = null
 
@@ -595,14 +709,14 @@ func _set_times(best: Dictionary, tracks: Array) -> void:
 		var lap: String = UiFormat.time(r.lap) if r is Dictionary and r.lap != null else "—"
 		var fin: String = UiFormat.time(r.finish) if r is Dictionary and r.finish != null else "—"
 		rows.append([t.name, lap if t.closed else "—", fin])
-	var key := str(rows)
+	var key := car + str(rows)
 	if key == _times_key:
 		return
 	_times_key = key
 	for c in times_box.get_children():
 		times_box.remove_child(c)
 		c.queue_free()
-	times_box.add_child(_times_row(["AI best", "lap", "finish"], true))
+	times_box.add_child(_times_row(["AI best · %s" % UiData.car_info(car).name, "lap", "finish"], true))
 	for r: Array in rows:
 		times_box.add_child(_times_row(r, false))
 
@@ -649,13 +763,17 @@ func pad_controls() -> Array:
 	var out: Array = []
 	var all: Array = []
 	if setup_box.visible:
+		all.append_array(car_chips)
 		all.append_array(laps_segs)
 		all.append_array(walls_segs)
 		all.append_array(track_checks)
 		all.append_array([seed_check, start_btn])
+	elif asking():
+		all.append_array(ask_buttons) # (answer the question first)
 	else:
 		all.append_array([pause_btn, speed_segs["1"], speed_segs["6"], speed_segs["max"], follow_btn, cam_btn,
 			save_btn, watch_btn, race_btn, stop_btn])
+		all.append_array(run_chips)
 	all.append(menu_btn)
 	for c: Control in all:
 		if c.is_visible_in_tree() and not (c is BaseButton and c.disabled) and not (c.get("disabled") == true):
