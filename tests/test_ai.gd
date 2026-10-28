@@ -560,9 +560,17 @@ func _train_screen() -> void:
 	d.press(d.pause_btn)
 	t.check(mode.get("_max") == null and bool(s.get("paused")), "Pause takes the session back from the thread")
 	var hist: Array = s.get("history")
-	t.check(tr.steps_done() > 400 and hist.size() == tr.history.size(), "it trained meanwhile (%d steps, generation %d) and the chart has every generation" % [tr.steps_done(), tr.generation])
+	var gen := tr.generation
+	var steps := tr.steps_done()
+	t.check(steps > 400 and hist.size() == tr.history.size(), "it trained meanwhile (%d steps, generation %d) and the chart has every generation" % [steps, gen])
+	# (the thread is stopped and the session paused: nothing moves from here on, so the
+	# dashboard must show exactly this generation, at once and after the next frame; while
+	# the thread ran it showed snapshots published a few times a second, which may lag)
+	var shown_now: String = d.stat_values.generation.text
 	mode.update(1.0 / 60.0)
-	t.check(d.stat_values.generation.text == str(tr.generation) and d.run_line.text.begins_with("This run:"), "the stats show the session (generation %s)" % d.stat_values.generation.text)
+	t.check(shown_now == str(gen) and d.stat_values.generation.text == str(gen) and tr.generation == gen and tr.steps_done() == steps
+		and d.run_line.text.begins_with("This run:"),
+		"the stats show the session (generation %s at the pause, %s after a frame, the session's %d)" % [shown_now, d.stat_values.generation.text, tr.generation])
 	d.press(d.save_btn)
 	t.check(SaveData.load_network() is Dictionary and saved.size() >= 1 and not Trainer.parse_network_file(SaveData.load_network()).has("error"),
 		"Save best network: in the save file, and the game is told (network_saved)")

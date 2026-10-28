@@ -1,0 +1,520 @@
+# Track Rush
+
+A Trackmania-style racer, plus a neural-network AI driver that you train yourself with
+neuroevolution and can watch learn in real time. Pick one of 4 cars, chase the medal times on
+12 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
+and play with a keyboard or a gamepad.
+
+Version 6.0.0 is the game rebuilt in the [Godot](https://godotengine.org) game engine (version
+4.7.2). It plays the same as the browser version 5 it was ported from: the same tracks, cars,
+physics, points, medals and AI. The browser version is still in the [`web/`](web/) folder and
+still playable. Everything runs on your own computer: no accounts, no internet, no cloud.
+
+![The menu: track tiles with minimaps, the selected track's panel with records and medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
+
+| Driving (nitro flames, the score on the left) | The finish panel |
+| --- | --- |
+| ![Driving on Night Highway with the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel: time, medal, score breakdown](docs/screenshots/finish.png) |
+
+![Training the AI: the population on Lighthouse Bay with the leader's sensor rays, its live network and the stats](docs/screenshots/training.png)
+
+## Play it on Windows
+
+### The ready-made game (no installation)
+
+1. Get `TrackRush-6.0.0-windows.zip`. It is made with the export steps in
+   [Making the game files](#making-the-game-files-export); it is not stored in the repository
+   itself (it is about 40 MB), so it is shared separately, for example attached to a release on
+   the repository's GitHub **Releases** page.
+2. Unzip it anywhere (right-click, **Extract All...**). You get `TrackRush.exe`,
+   `libtrackrush.windows.template_release.x86_64.dll` and a short `README.txt`.
+   **Keep the `.dll` file next to `TrackRush.exe`**: it is the fast AI training engine.
+   Without it the game still runs, but AI training is about a hundred times slower
+   (the training screen says so).
+3. Double-click `TrackRush.exe`.
+
+The game is not signed with a certificate, so the first time Windows may show a blue
+**"Windows protected your PC"** (SmartScreen) box. Click **More info**, then **Run anyway**.
+
+Nothing is installed and nothing is written next to the game: your best times, ghosts,
+settings and AI network are kept in one save file (see [Saved data](#saved-data)).
+To remove the game, delete the folder (and the save folder, if you want your records gone too).
+
+### From the project, with Godot 4.7.2
+
+This is how you run the game while working on it. Godot runs on Windows, Linux and macOS
+(the fast AI training library is only built for Windows and Linux, see
+[`native/README.md`](native/README.md); elsewhere training is slower).
+
+1. Download Godot **4.7.2**, the standard version (not ".NET"), from its
+   [release page](https://github.com/godotengine/godot/releases/tag/4.7.2-stable)
+   (for Windows: `Godot_v4.7.2-stable_win64.exe.zip`). Unzip it; there is nothing to install.
+2. Get this repository onto your computer (on GitHub: **Code**, **Download ZIP**, then unzip;
+   or `git clone`).
+3. Start Godot. In the Project Manager click **Import**, pick the `project.godot` file in the
+   repository folder, then **Open**. The first time, Godot spends a few seconds importing the
+   fonts and the icon.
+4. Press **F5** (or the ▶ "Run Project" button at the top right). The game opens in its own window.
+
+Use the same Godot version (4.7.2): an older one can't run the project, and a newer one may
+offer to convert it.
+
+## Playing
+
+| Key | Gamepad | Action |
+| --- | --- | --- |
+| ↑ / W | RT (analogue) | Accelerate |
+| ↓ / S | LT (analogue) | Brake, then reverse once stopped |
+| ← → / A D | Left stick (analogue), d-pad ← → | Steer |
+| Space | A | Handbrake (start a slide) |
+| Shift (either one) | X or RB | Nitro (hold it) |
+| R | View (Back on older pads) | Restart the run instantly |
+| Enter / Backspace | B | Respawn at the last checkpoint (the timer keeps running) |
+| G | Y | Show or hide the ghost of your best run |
+| Esc | Menu (Start on older pads) | Back to the menu |
+
+On the menu:
+
+| Key | Gamepad | Action |
+| --- | --- | --- |
+| Arrows or W A S D, 1-9, 0, -, = | d-pad / left stick | Pick a track (0, - and = are tracks 10-12) |
+| C / Shift+C | RB / LB | Next / previous car |
+| Enter or Space | A | Drive |
+| H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
+| O | highlight **Settings**, then A | The **Settings** screen |
+| Mouse | | Click a track tile or a car card to pick it, double-click to drive straight away |
+
+Each run starts with a 3-2-1-GO countdown. Circuits are 3 laps, and a lap only counts when you pass
+every checkpoint in order. At each checkpoint you see your split time compared with your best run
+(green = faster, red = slower). Sprints have a long straight after the finish line, so you can brake
+to a stop. When you finish, the finish panel shows your time, the medal it earned, how far you are
+from the next medal, your points with their breakdown, and the lap times; **R** races again and
+**Esc** goes back to the menu.
+
+**The menu** is three steps: **1 Track**, **2 Car**, **3 Drive**. Each track tile shows the track's
+outline (the dot is the start; sprints have a second dot at the finish), its number, how hard it is
+(1-5 bars), and the medal and best time you have with the picked car. The panel on the right is the
+selected track: its description, length and laps, then with the picked car your best time, best
+score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive**, the
+**Race my best-run ghost** option and the **AI driver** block (the network in use, Load / Save
+network, Race the AI ghost, Watch the AI, Train the AI). The header line shows a few key hints; the
+**Controls** button lists the rest, and the **Settings** button opens the settings.
+
+**Drifting:** pull the handbrake (Space) into a corner to make the rear step out, then countersteer
+and use the throttle to hold the slide. Braking hard while turning only tightens the line a little.
+
+**Gamepad:** any controller Windows (or Linux) recognises as a game controller works; the buttons are
+named as on an Xbox pad (on a PlayStation pad A is ✕, B is ○, X is □ and Y is △). Plug it in and a
+short note confirms it. The stick and both triggers are analogue, with a small dead zone so a worn
+stick doesn't drift; half-way on the stick gives about a third of full steering, for fine
+corrections. Keyboard and gamepad can be used together (each control takes the stronger of the two).
+On the menu, the Settings screen and the training screen the d-pad or stick moves a highlight,
+**A** presses, **B** goes back, and on the menu **LB** / **RB** change the car. While the gamepad is
+the last thing you used, the key hints show its buttons.
+
+### The cars
+
+There are four cars. Each handles differently and has its own best times, ghosts, medals and best scores.
+
+- **Racer** (red, the default): the all-rounder. Quick, grippy and stable, never far off the pace anywhere.
+- **Kestrel** (yellow): light and nimble. The most grip, the shortest braking and the quickest launch, but a low
+  top speed. It is the quickest car on twisty tracks (Hairpin Valley, Technical Trial, Canyon Run, Lighthouse Bay).
+- **Thunder** (blue): heavy and brutal. Huge power and the highest top speed; its downforce makes it grip better
+  the faster it goes, so slow corners need patience. It is the quickest car where the straights are long
+  (Banked Speedway, Grand Marathon, Night Highway).
+- **Drifter** (teal): a loose rally car. It slides on demand, holds long drifts and lands jumps without losing
+  speed. It is the quickest car over the jumps (Ramp Rally, Seaside Stunts) and scores drift points easily.
+
+| Car | Mass | 0-100 km/h | 0-200 km/h (with nitro) | Top speed (with nitro) | Nitro tank | 100-0 km/h | Cornering grip, 30 m / 120 m circle | Drift held |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Racer | 1,250 kg | 2.70 s | 9.78 s (7.57 s) | 277.7 km/h (291.8) | 5 s | 30.7 m | 1.68 g / 1.58 g | 0.83 s |
+| Kestrel | 950 kg | 2.43 s | 11.28 s (9.78 s) | 230.2 km/h (239.8) | 4 s | 27.7 m | 1.78 g / 1.59 g | 0.75 s |
+| Thunder | 1,650 kg | 2.68 s | 8.20 s (6.08 s) | 312.7 km/h (328.9) | 6 s | 33.8 m | 1.47 g / 1.56 g | 1.07 s |
+| Drifter | 1,150 kg | 2.50 s | 9.23 s (7.57 s) | 264.3 km/h (278.9) | 5 s | 33.1 m | 1.59 g / 1.52 g | 1.63 s |
+
+The numbers are measured with the game's own physics (`tools/car_stats.gd`, see [Tests and tools](#tests-and-tools)).
+"Drift held" is how long a keyboard driver typically keeps a handbrake slide going. The car picker shows the same
+as five bars (speed, acceleration, grip, drift, nitro).
+
+**Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
+**Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The line under the cards describes the picked car.
+The choice is remembered, and Drive and Race the AI ghost use it. The track tiles, the records and the medal
+times follow the picked car. The AI always drives the Racer (it was trained with it).
+
+### Nitro
+
+Hold **Shift** (or **X** / **RB** on a gamepad) to burn nitro: it adds a strong push on top of the engine, with
+blue flames from the exhausts and a slight camera kick. A full tank lasts 4-6 s depending on the car and is
+worth roughly 0.3-0.5 s on a long straight. Nitro only works on the ground and going forwards: it does nothing in
+the air, in reverse, while braking or while the handbrake is held. Holding nitro alone also opens the throttle.
+
+The **NITRO** gauge above the speed shows the tank in ten segments: it glows while you boost, changes colour
+when it is low and reads EMPTY when it is empty. Every run starts with a full tank, and a respawn keeps what
+is left. The tank is **refilled by points** (see below): every 16,000 points you bank put one full tank back, so
+a clean lap refills about half a tank to a full one, depending on the track, and drifts and jumps fill it faster.
+Penalties take nothing out of the tank, and points banked at the finish refill nothing (the race is over).
+
+### Points for clean driving
+
+Each run in Drive and Race the AI ghost scores style points:
+
+| What | Points |
+| --- | --- |
+| Clean checkpoint (no wall contact or respawn since the last one; the lap line and the finish count too) | 500 × the combo |
+| Combo | starts at x1 and goes up by one with every clean checkpoint in a row, up to x5; a wall contact or a respawn puts it back to x1 |
+| Drift (a slide of 12° or more above 43 km/h, at least 0.6 s, ending without a wall contact or a spin) | about 600 a second at 30° and 90 km/h, more for more angle and speed, doubling over the first 3 s |
+| Air (a jump of 0.5 s or more, landed straight with no wall contact right after) | 500 a second in the air |
+| Close call (within 0.5 m of a wall above 108 km/h without touching it) | 250 |
+| Clean lap / clean run (no wall contact or respawn) | +2,000 / +5,000 |
+| Wall contact | −150, plus 25 for every m/s of speed lost into the wall and 200 a second of scraping after the first 0.5 s, at most −1,500 |
+| Respawn | −500 |
+
+Drifts, jumps and close calls only count on new road: after a respawn (or if you turn round and drive back),
+the stretch you have already driven scores none of them again until you are past the furthest point you had
+reached. The score never goes below zero.
+
+The score sits under the lap and checkpoint counters with the combo next to it. A line below shows the drift,
+jump or wall contact going on right now, and short notes pop up for every gain and loss. The finish panel shows
+the total, the breakdown and how much nitro the points earned. Your **best score is saved for each track and
+car** and shown in the menu's track panel. Clean driving pays most: one wall hit costs the combo and the clean
+lap and clean run bonuses, often 10,000-15,000 points in all.
+
+### Medals
+
+Every track has four medal times for every car, as in Trackmania: **author**, **gold**, **silver** and **bronze**.
+The menu shows the selected track's medal times for the picked car in the track panel (the ones you have won are
+lit) and, on each track tile, the medal your best time with that car has earned. During a race the HUD shows the
+next medal to aim for under your best time: it is crossed out once the clock passes it, and ticked when you beat
+it. The finish panel shows the medal the run earned (marked NEW when it beats your previous one) and how far you
+are from the next.
+
+Gold, silver and bronze are 6 %, 20 % and 50 % slower than the author time, rounded up to a whole second (for
+example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 3:03). Author times:
+
+| Track | Racer | Kestrel | Thunder | Drifter |
+| --- | --- | --- | --- | --- |
+| Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 |
+| Hairpin Valley | 3:46.583 | 3:44.050 | 3:48.433 | 3:46.833 |
+| Ramp Rally | 2:52.417 | 2:55.183 | 2:53.517 | 2:52.083 |
+| Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 |
+| Technical Trial | 3:45.083 | 3:41.933 | 3:47.950 | 3:45.017 |
+| Grand Marathon | 2:30.467 | 2:33.017 | 2:29.317 | 2:32.033 |
+| Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 |
+| Mountain Pass | 1:47.683 | 1:48.250 | 1:49.150 | 1:48.500 |
+| Canyon Run | 4:15.450 | 4:11.933 | 4:25.167 | 4:12.150 |
+| Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 |
+| Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 |
+| Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 |
+
+The times are for the full race you drive (3 laps, or the whole sprint), from a standing start with a full
+nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
+settings, driving each car with the same physics as you: it burns nitro on the straights and its points
+refill the tank as yours do (`tools/medals.gd`, see [Tests and tools](#tests-and-tools)). The autopilot only
+follows the centre line and uses nitro simply, so a driver with a real racing line and good nitro timing can beat
+even the author time. A medal counts to the millisecond the HUD shows. (All times are the browser version's
+except the Racer on Technical Trial, 1.05 s slower here: see [HANDOFF.md](HANDOFF.md).)
+
+### Your ghost
+
+When you set a personal best, the run is saved as the **ghost** of that track and car: from the next restart a
+see-through light-blue car (the same model as yours, with flames where you used nitro) drives your best run
+alongside you, so you can see where you gain or lose time. It is only drawn: you can drive through it, and it
+never affects your race. It fades out while it is right on top of your car (every race starts that way) and
+disappears once it has finished. **G** (or **Y** on a gamepad) shows or hides it during a race, and the
+**Race my best-run ghost** option (on the menu and in Settings) sets the same choice; it is remembered. The menu's
+track panel says "Ghost: Saved" when the picked car has one saved. Runs in **Race the AI ghost** count too (that
+race shows the AI; your own ghost appears in Drive).
+
+A ghost stores the car's position, angles, wheel speed and nitro 30 times a second (plus the moments of landings,
+wall hits and respawns) and replays within a few centimetres of the original run. It stores where the car was, not
+which keys were pressed, so it can't drift off when replayed. Best times and ghosts only count for the physics
+version they were set with.
+
+### How the cars drive
+
+The Racer is a 1,250 kg, all-wheel-drive sports car: 0-100 km/h in about 2.7 s, a top speed of about 277 km/h,
+and around 1.6-1.7 g of cornering grip. The other cars use the same physics with their own weight, engine,
+gearing, tyres, downforce, brakes and steering. In plain words, the physics (`sim/car.gd`, the cars in
+`sim/cars.gd`) works like this:
+
+- **Tyres** grip more as they start to slide sideways, peak at about 8° of slip, then lose a little grip.
+  Braking or accelerating uses up some of that grip, so you can't brake flat out and turn at full grip at the same time.
+- **Weight moves** when you brake (onto the front tyres) or accelerate (onto the rear), and downforce
+  presses the car onto the road more the faster it goes.
+- **Gearbox**: automatic, 6 speeds, with an engine that has a real torque curve and a rev limiter. The HUD shows gear and revs.
+- **Steering** has a speed-sensitive lock, so a keyboard can't overdrive the front tyres at high speed,
+  and a stability control (like a road car's ESC) stops quick left-right key presses from building
+  up a fishtail. Stability control switches off while you use the handbrake, so you can still drift.
+- **Hills and banking** matter: banked corners push the car into the turn and add grip, and the car
+  stays planted over crests unless the road really drops away (kicker ramps).
+- **Jumps**: in the air the car keeps the rotation it took off with; steering only nudges it a little.
+  Landings don't bounce.
+- **Walls** cost time, so the racing line matters: a hit takes away the speed going into the wall and
+  also speed along it, far more for a hard hit than for a graze. A 5° touch at 150 km/h costs about
+  15-20 km/h, a 15° hit at 200 km/h about half the speed, and a 30° hit at 180 km/h (or anything
+  steeper) stops the car. Rubbing along a wall slows the car further: grinding along a barrier at full
+  throttle settles at about 90 km/h. Walls don't bounce you back across the road, and the car lines up
+  with the wall as it slides. Pinned nose-first against a wall, full throttle with the wheels turned away
+  slides it off within about 2 s; at part throttle a steep nose-in needs reversing (or Enter). Hits throw
+  sparks and give the camera a short shake. Every car has the same size for collisions and the same walls.
+
+The physics runs at a fixed 60 steps per second everywhere (the screen draws the cars in between steps), so
+it doesn't depend on the frame rate, and an AI trained at Max speed drives exactly the same when you watch it.
+
+### Tracks
+
+| # | Track | Type | Length | Scenery | Difficulty | What it asks of you |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Rookie Oval | 3 laps | 2.17 km/lap | meadow | ★ | Learn the car, carry speed through sweepers |
+| 2 | Hairpin Valley | 3 laps | 2.42 km/lap | alpine | ★★ | Five switchbacks over a ridge: brake early, power out |
+| 3 | Ramp Rally | 3 laps | 2.37 km/lap | desert | ★★★ | Four kicker jumps of 4-7 m: hit each ramp straight |
+| 4 | Banked Speedway | 3 laps | 2.84 km/lap | dusk | ★★★ | Steep banked bowls (24-28°): trust the banking |
+| 5 | Technical Trial | 3 laps | 2.59 km/lap | canyon | ★★★★ | A 10 m chicane, a jump, banked sweepers and a switchback climb |
+| 6 | Grand Marathon | Sprint | 7.18 km | meadow | ★★★★★ | Everything from 1-5 in one long point-to-point run |
+| 7 | Coastal GP | 3 laps | 2.90 km/lap | dusk | ★★★ | Fast grand-prix circuit: big braking zones, quick esses |
+| 8 | Mountain Pass | Sprint | 4.50 km | alpine | ★★★★ | Banked switchbacks up to the summit and a twisting descent |
+| 9 | Canyon Run | 3 laps | 2.85 km/lap | canyon | ★★★★★ | Narrow road, jumps, blind crests and tight S-bends |
+| 10 | Night Highway | 3 laps | 3.12 km/lap | night | ★★ | Kilometre-long straights and slow corners under the lights: brake hard, then fire the nitro |
+| 11 | Lighthouse Bay | 3 laps | 2.35 km/lap | seaside | ★★★ | Long sweeping bends round a bay, past a lighthouse: hold the drift |
+| 12 | Seaside Stunts | Sprint | 3.02 km | seaside | ★★★★ | Six kickers down the coast road, with step-downs and a 7.5 m launch |
+
+Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map of every track is in
+[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (the tracks are the same in both versions).
+
+## Training the AI
+
+1. On the menu, click **Train the AI**.
+2. Pick the settings, then **START TRAINING**:
+   - **Population size**: cars per generation (default 80). More cars learn faster per generation but each generation takes longer.
+   - **Mutation rate**: chance that each weight is nudged when breeding (default 0.1).
+   - **Hidden layer size(s)**: neurons in the hidden layer, e.g. `12`, or `16,8` for two hidden layers.
+   - **Laps per circuit**: laps driven per training run (1 is fastest; the network can still race 3 laps).
+   - **Walls**: **Ride them** (default) lets a car that hits a wall keep driving (it just loses the speed the
+     wall costs), so the AI can learn to use a wall where that is quicker than braking. **Crash out** takes a car
+     out of the run the moment it touches a wall, so it learns clean racing lines instead.
+   - **Train on**: one or more tracks (the menu's track is ticked). With several, every car drives each track in
+     turn and its fitness is averaged, which gives a driver that generalises better.
+   - **Continue from saved network**: keep training the network you already have instead of starting from
+     random drivers.
+3. Use the speed buttons: **1×** (real time), **Fast ×6** (six physics steps per drawn frame), or **Max**, which
+   stops drawing the 3D view and simulates as fast as your computer allows. Max runs on a background thread with
+   the native trainer (FleetSim, a small C++ library in `bin/` that steps the whole population on several CPU
+   cores), so the screen stays smooth; the dashboard, the chart, the autosave and **Save best network** keep
+   working. With 80 cars Max ran about 120-150 times faster than real time in the game on a 4-core test PC
+   (Linux, nothing else running; the browser version managed 30-40×). If the native library is missing or
+   doesn't load, training runs in GDScript instead, at only about real time with 80 cars, and the screen says so.
+   **Pause**, another speed, **Watch best** or **Race best** take the session back from the thread exactly where it was.
+
+The AI always drives the **Racer**, never uses nitro and scores no points.
+
+The dashboard shows:
+- a live diagram of the network: blue connections are positive weights, red are negative, thicker means stronger,
+  and nodes light up with their current activation. Input and output nodes are labelled.
+- the sensor rays of the car being shown, drawn in the 3D view (green = far wall, red = close wall)
+- a chart of best and average fitness per generation
+- generation, cars alive, best fitness so far, why the cars in the current run stopped, and the AI's best lap and
+  finish times per track
+
+Click any car in the 3D view to see its network instead of the leader's; **Follow leader** goes back.
+**Overview camera** shows the whole track from above, which makes clicking cars easier.
+
+With **Ride them** the AI learns to keep full throttle and turn many corners off the outside wall, because a wall
+works as a brake that is stronger than the tyres; with **Crash out** it learns to brake and keep off the walls,
+which looks like clean racing but takes longer to learn. In the browser version, with 80 cars on one track,
+Hairpin Valley's best lap after 100 generations was 1:12.9 with Ride them against 1:27.1 with Crash out (first
+finish in generation 0 against 44); the simulation here is the same, so expect the same kind of progress.
+
+### How the AI works
+
+- **Network** (`ai/network.gd`): a small fully connected network with tanh activations.
+  - 18 inputs (`ai/sensors.gd`): 9 distance rays fanning out from the nose (-90° to +90°, 100 m range),
+    speed, side slip, yaw rate, two "aim" angles to points on the road ahead (further ahead at higher speed),
+    how much the road turns 25-60 m ahead, and three **corner margins**: how much faster than its current
+    speed the car could take the tightest corner 0-50 m, 50-110 m and 110-200 m ahead. The corner margins
+    are what teach it to brake before hairpins.
+  - 2 outputs: steering (left/right) and throttle (positive = accelerate, negative = brake/reverse).
+  - The network is also run on the mirror image of its inputs and the two answers are combined, so it
+    drives left and right corners the same way.
+- **Evolution** (`ai/genetic.gd`): the top 5 % survive unchanged, parents are picked by tournament
+  selection, children mix their parents neuron by neuron and are then mutated. A few random newcomers keep diversity up.
+- **Fitness** (`ai/trainer.gd`): 1000 × share of the race distance covered, + 200 × share of checkpoints reached,
+  + a bonus for finishing that grows the faster the car finishes. A car is out of the run when it touches a wall
+  (only with **Walls: Crash out**), stalls, drives backwards, is too slow to reach the next checkpoint, falls far
+  behind the first car to finish, or runs out of time. Time limits scale with the length of the track.
+
+### Saving and loading a network
+
+- The best network is **autosaved in the save file** whenever it improves, so it survives closing the game.
+  Tick **Continue from saved network** on the training screen to keep training it.
+- **Save best network** (training screen) also writes a copy as a file, `ai-driver-gen<N>.json`, in the
+  `networks` folder next to the save file. **Save network…** (menu) saves the network in use wherever you choose.
+- **Load network…** (menu or training screen) loads such a file. On the training screen, training
+  continues from it: the new population is made of the loaded network plus mutated copies.
+
+The files are the same format as the browser version's, both ways: a network trained in the browser loads here,
+and one trained here loads in the browser. The file contains the weights, the layer sizes, the sensor version,
+the generation count, the fitness history, the tracks and wall rule it was trained with and the AI's best times.
+Networks from version 1 of the game (11 inputs) can't be used with these sensors and are refused with a message.
+
+### Watching and racing the AI
+
+- **Watch the AI** (menu) or **Watch best** (training screen): the AI drives a full race on the selected track,
+  with its network and sensor rays shown live. If it gets stuck for 3 s it is put back at its last checkpoint.
+- **Race the AI ghost** (menu) or **Race best (ghost)** (training screen): you race the AI with the car you picked;
+  the AI is a see-through Racer you can drive through. The HUD shows how far ahead or behind you are at each checkpoint.
+
+### Training without the game window (optional)
+
+For long runs you can train from the command line with the same code, then load the result in the game
+(Godot's console executable on Windows is `Godot_v4.7.2-stable_win64_console.exe`; run these from the
+repository folder, after opening the project in Godot once):
+
+```bash
+godot --headless --path . --script res://tools/headless_train.gd -- hairpin-valley,technical-trial 100 my-driver.json
+# continue later from that file:
+godot --headless --path . --script res://tools/headless_train.gd -- hairpin-valley,technical-trial 100 my-driver-2.json my-driver.json
+# options: --pop 80  --hidden 16,8  --mutation 0.1  --laps 1  --walls ride|crash  --stop-after 10  --quiet
+#          --threads 4  --seed 1  --car racer  --gdscript
+```
+
+The physics is deterministic, so a network trained from the command line drives exactly the same in the game.
+
+## Settings
+
+The **Settings** screen (the button in the menu's header, or **O**) has:
+
+| Setting | Choices | What it does |
+| --- | --- | --- |
+| Graphics quality | High (default) / Low | **High** starts with everything on and steps down to medium and then low by itself when frames get slow. **Low** stays low: less scenery, fewer sparks and shorter nitro trails, no scenery shadows or grass, and a lower rendering resolution. |
+| Fullscreen | On / Off | Fill the whole screen instead of a window. |
+| Vertical sync | On (default) / Off | Match the monitor's refresh rate: no tearing, a little more input lag. |
+| Interface size | Auto (default), 100 %-200 % | The size of the menus and the HUD. Auto: 100 % up to 1920x1080, bigger on larger screens. |
+| Race my best-run ghost | On (default) / Off | The same as the option on the menu and **G** in a race. |
+
+Up / down (or W / S, the d-pad) pick a row, left / right or Enter change it, Esc or O closes the screen. The
+choices are saved straight away.
+
+## Saved data
+
+Everything is kept in one file, `trackrush_save.json`:
+
+| System | Folder |
+| --- | --- |
+| Windows | `%APPDATA%\TrackRush\` (paste that into the address bar of a File Explorer window), usually `C:\Users\<you>\AppData\Roaming\TrackRush\` |
+| Linux | `~/.local/share/TrackRush/` |
+| macOS | `~/Library/Application Support/TrackRush/` |
+
+The same folder is used whether you run the exported game or the project from the Godot editor. It holds your
+best time and splits, the ghost of that run and your best score for every track and car, the settings, and the
+latest trained AI network. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+(Godot's log files, useful when something goes wrong).
+
+The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
+it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, close the game
+and delete the file. Best times and ghosts made with another version of the physics are not used.
+
+Saves from the browser version (kept in the browser's storage) can't be carried over; AI networks can (save the
+network in the browser, then use **Load network…** here).
+
+## The browser version (`web/`)
+
+The [`web/`](web/) folder is Track Rush 5.0.0, the original browser game (JavaScript and Three.js), kept as it was:
+it is the reference the Godot version was checked against, and it still works. To play it you need
+[Node.js](https://nodejs.org); in the `web` folder run `npx serve` and open the address it prints (usually
+http://localhost:3000), or use any static web server. [web/README.md](web/README.md) and
+[web/HANDOFF.md](web/HANDOFF.md) describe it. Godot ignores the folder (it holds a `.gdignore` file).
+
+## Making the game files (export)
+
+The project has two export presets (`export_presets.cfg`): **Windows Desktop** (`build/windows/TrackRush.exe`)
+and **Linux** (`build/linux/TrackRush.x86_64`). The game data is packed inside the executable; the AI training
+library (`bin/`) is copied next to it and must stay there. The `build/` folder is not stored in git.
+
+In the Godot editor:
+
+1. Once: **Editor → Manage Export Templates… → Download and Install** (the 4.7.2 templates, about 1 GB).
+2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
+   and save as `build/windows/TrackRush.exe`.
+3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
+   README) in a zip, like `TrackRush-6.0.0-windows.zip`.
+
+From the command line (the same presets; delete the `.godot` folder first for a clean build):
+
+```bash
+godot --headless --path . --import
+godot --headless --path . --export-release "Windows Desktop" build/windows/TrackRush.exe
+godot --headless --path . --export-release "Linux" build/linux/TrackRush.x86_64
+```
+
+The Windows build can be made on Linux and the other way round. The Linux build's training library needs a
+recent Linux (glibc 2.38, as in Ubuntu 24.04 or newer); on an older one the game runs and trains in GDScript.
+
+## Tests and tools
+
+Run these from the repository folder (`godot` is the Godot 4.7.2 executable; on Windows use the `_console.exe`
+one to see the output). Run `godot --headless --path . --import` once first (after a fresh checkout, or after
+adding a script with a new `class_name`), and keep a time limit around headless runs (`timeout 1500 godot ...`
+on Linux): a script error at start-up leaves Godot waiting instead of exiting.
+
+| Command | What it does |
+| --- | --- |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 2-3 minutes: `sim` (tracks, physics, race, points, ghosts, medals, save file; the numbers are compared with the browser version's), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation, training, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
+| `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
+| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 20 minutes on 3 cores (`-- --check` only compares, `-- --jobs=N` threads) |
+| `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute) |
+| `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
+| `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
+
+Run `tools/medals.gd` after changing the physics, a car, the scoring rules, a track or its laps, and
+`tools/car_stats.gd` (then paste its lines into `sim/cars.gd`) after changing a car. Screenshot and preview scripts
+for the 3D world and the interface are in `tests/visual/`. The native training library is built as described in
+[`native/README.md`](native/README.md).
+
+### Adding a track
+
+Tracks are designed in `tools/gen_tracks.gd` with a "turtle" (`tools/turtle.gd`) that you drive around with
+commands like `S(200)` (straight), `L(90, 40, {bank = 12})` (left turn, 90°, radius 40 m, 12° banking), hairpins,
+S-bends, climbs, crests and self-sizing kicker ramps. Add a `_circuit(...)` or `_sprint(...)` entry there, run
+`tools/gen_tracks.gd` (it refuses a track that breaks the design rules: overlaps, too-tight corners, too-steep
+grades, short landing zones, sprints without a run-off) and then `tools/medals.gd`. The menu, minimaps, scenery and
+AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked with
+the mouse, arrows or gamepad.
+
+## Project layout
+
+```
+project.godot           the Godot project (Forward+, 1280x720 base size, main scene main.tscn)
+main.tscn               the main scene: one node with game/app.gd
+game/                   the game shell: modes, threaded track loading, quality, settings, AI network files (app.gd),
+                        keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages
+modes/                  menu, play (Drive, Race the AI ghost), watch (Watch the AI) and train (the training screen)
+sim/                    game logic without any graphics: tracks, car physics and nitro, the four cars, collisions,
+                        race timing, points, ghosts, medals, the save file, the autopilot
+ai/                     the AI: network, evolution, sensors and driver, trainer
+native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
+bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
+world/                  3D: track mesh, terrain and scenery, sky and themes, car models, effects (smoke, skids,
+                        sparks, nitro), chase camera, the AI fleet and sensor rays; shaders/
+ui/                     the interface, built in code: style, menu, Controls and Settings screens, HUD, finish panel,
+                        training dashboard, network view, fitness chart
+assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)
+data/                   tracks.json and medals.json (made by tools/)
+tools/                  track generator, turtle, medal times, car stats, headless trainer, benchmark, parity checks
+tests/                  run_tests.gd and test_*.gd (headless), e2e/ (the real game), visual/ (screenshots), fixtures/
+docs/screenshots/       the pictures in this file (Godot ignores docs/: it holds a .gdignore file)
+web/                    the browser version 5.0.0 (ignored by Godot)
+export_presets.cfg      Windows and Linux export settings
+.github/workflows/      CI: the Godot tests and the browser version's self-test
+HANDOFF.md              status, how the port was checked, conventions, known limitations and what comes next
+```
+
+## Licence
+
+No licence has been chosen for the game yet. Godot Engine is © the Godot Engine contributors, MIT licence
+(https://godotengine.org/license); the exported game contains it. The Barlow and Barlow Condensed fonts in
+`assets/fonts/` are © 2017 The Barlow Project Authors (https://github.com/jpt/barlow), SIL Open Font License 1.1
+([assets/fonts/OFL.txt](assets/fonts/OFL.txt)); the files are subsets (Latin letters, digits and punctuation) of
+the originals. The browser version in `web/` includes Three.js, © three.js authors, MIT licence
+([web/vendor/three.LICENSE](web/vendor/three.LICENSE)). FleetSim (`native/`) is built with godot-cpp, MIT licence.

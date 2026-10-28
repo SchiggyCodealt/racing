@@ -22,9 +22,13 @@ extends SceneTree
 ##   menu      keyboard and gamepad navigation of the menu, Controls and Settings screens.
 ##   settings1 / settings2   change settings with the keyboard on the Settings screen; the second
 ##             run (a new process on the same save file) checks they persisted and were applied.
-##   shots     out=<dir>: menu, driving with nitro, finish panel and the menu after it (PNGs).
+##   shots     out=<dir>: menu, driving with nitro, finish panel, the menu after it and (train=0
+##             skips it) the AI training screen after train_seconds=40 of Max training (PNGs);
+##             net=<file> loads that network first (the menu's AI block, training continues it).
 ##   perf      script time per frame of a race (Drive with the autopilot, real time).
 ## Prints "ok"/"FAIL" lines and "E2E <scenario>: n passed, m failed"; quits with 1 on a failure.
+## out=<dir> (default user://e2e) also holds the scratch files of the modes scenario;
+## net=<file> is the network it loads (default the test fixture, a browser-format file).
 
 const AiLink := preload("res://game/ai_link.gd")
 const PlayMode := preload("res://modes/play_mode.gd")
@@ -32,7 +36,7 @@ const PlayMode := preload("res://modes/play_mode.gd")
 var app: GameApp
 var opts := {}
 var scenario := ""
-var out_dir := "/tmp/godot-game/shots"
+var out_dir := ""
 var passed := 0
 var failed := 0
 var _pilot: Autopilot = null
@@ -43,7 +47,7 @@ func _initialize() -> void:
 		var kv := a.trim_prefix("--").split("=", true, 1)
 		opts[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	scenario = str(opts.get("scenario", "races"))
-	out_dir = str(opts.get("out", out_dir))
+	out_dir = str(opts.get("out", ProjectSettings.globalize_path("user://e2e")))
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var scene: PackedScene = load("res://main.tscn")
 	app = scene.instantiate()
@@ -309,13 +313,13 @@ func modes() -> void:
 	var tid := "rookie-oval"
 	await pick(tid, "racer")
 	# the AI network: Load network's code path with a file in the web game's format
-	var net_path := str(opts.get("net", "/tmp/godot-game/web_net.json"))
+	var net_path := str(opts.get("net", "res://tests/fixtures/game_net.json"))
 	var err := app.load_network_file(net_path)
 	check(err == "" and not app.network.is_empty(), "load a web network file: %s" % (err if err != "" else "ok"))
 	check(UiData.ai_status().ready and not app.ui.menu.get("_ghost_btn").disabled and not app.ui.menu.get("_watch_btn").disabled,
 		"the menu's AI buttons are enabled")
 	check(SaveData.load_network() != null, "the loaded network is remembered in the save file")
-	var bad := "/tmp/godot-game/bad_net.json"
+	var bad := out_dir.path_join("bad_net.json")
 	var f := FileAccess.open(bad, FileAccess.WRITE)
 	f.store_string("{\"sizes\": [11, 8, 2], \"weights\": [[0]], \"biases\": [[0]]}")
 	f.close()
@@ -324,7 +328,7 @@ func modes() -> void:
 	await key(KEY_ENTER)
 	check(not app.message.visible and app.mode == app.menu_mode, "Enter closes the message (and doesn't drive)")
 	# save the network to a file and read it back
-	var saved := "/tmp/godot-game/saved_net.json"
+	var saved := out_dir.path_join("saved_net.json")
 	check(app.save_network_file(saved) == "" and AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(saved))).has("net"),
 		"Save network writes a file that loads back")
 
@@ -559,6 +563,8 @@ func shots() -> void:
 	var size := DisplayServer.window_get_size() # (the window's pixels, not the 2D stretch size)
 	var tag := "%dx%d" % [size.x, size.y]
 	var tid := str(opts.get("track", "night-highway"))
+	if opts.has("net"): # (net=<file>: the menu's AI block shows a trained network)
+		check(app.load_network_file(str(opts.net)) == "", "network loaded for the shots")
 	await pick(tid, "racer")
 	await frames(30)
 	await shot("menu_" + tag)
@@ -593,6 +599,31 @@ func shots() -> void:
 	await key(KEY_ESCAPE)
 	await frames(30)
 	await shot("menu_after_" + tag)
+	if str(opts.get("train", "1")) == "1":
+		await train_shot(tag)
+
+
+## The training screen for the screenshot: a new session on the menu's track, trained at Max
+## for train_seconds (no 3D drawing meanwhile), then 1x for a moment so the cars are drawn.
+func train_shot(tag: String) -> void:
+	await pick(str(opts.get("train_track", "lighthouse-bay")), "racer")
+	await click(app.ui.menu.get("_train_btn"))
+	await frames(3)
+	var tm := app.train_mode
+	if not check(tm != null and app.mode == tm, "Train the AI opens the training screen"):
+		return
+	var dash: Control = tm.get("dash")
+	await click(dash.get("start_btn"))
+	await frames(10)
+	await click((dash.get("speed_segs") as Dictionary)["max"])
+	var t_end := Time.get_ticks_msec() + int(float(opts.get("train_seconds", "40")) * 1000.0)
+	await wait_until(func() -> bool: return Time.get_ticks_msec() > t_end, 600.0)
+	await click((dash.get("speed_segs") as Dictionary)["1"])
+	await frames(int(opts.get("train_frames", "90")))
+	var tr: Variant = tm.get("session").get("trainer")
+	check(tr != null and int(tr.get("generation")) > 0 and not app.get_viewport().disable_3d,
+		"training for the shot: generation %s, the 3D view drawn" % (str(tr.get("generation")) if tr != null else "-"))
+	await shot("train_" + tag)
 
 
 # ---------------------------------------------------------------- performance

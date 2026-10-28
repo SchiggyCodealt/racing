@@ -5,6 +5,28 @@ on:
   pull_request:
 
 jobs:
+  # The Godot game (the repo root): import the project with Godot 4.7.2, then run the
+  # headless test suite (tests/run_tests.gd: sim, ui, world, game, ai; about 2-3 minutes).
+  # ubuntu-24.04: the native training library in bin/ needs glibc 2.38 or newer.
+  godot-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GODOT_VERSION: "4.7.2"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Import the project
+        run: timeout 600 "$GODOT" --headless --path . --import
+      - name: Headless tests
+        run: timeout 1500 "$GODOT" --headless --path . --script res://tests/run_tests.gd -- sim ui world game ai
+
+  # The browser version (web/): its own self-test with Node.
   web-self-test:
     runs-on: ubuntu-latest
     defaults:

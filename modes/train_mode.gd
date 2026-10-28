@@ -683,11 +683,15 @@ func _stop_max() -> void:
 	_max = null
 	_drain_events()
 	_acc = 0.0
-	_stats_timer = 0.0 # (the dashboard shows the session as it is now on the next frame)
+	_stats_timer = 0.0 # (and refreshed again on the next frame)
 	var tr := session.trainer
 	if tr != null and _active and dash != null and is_instance_valid(dash):
 		_pending_track = tr.track # shown, and the camera put behind the leader, when the view is back
 		dash.set_max(false)
+		# the session's numbers as they are now, at once: the thread's last snapshot can be
+		# a few generations old (it is published every STATS_EVERY seconds)
+		tr.sync_agents(false)
+		dash.set_stats(tr.live_stats(), tr.tracks, tr.cfg.walls)
 
 
 func _draw_chart() -> void:
@@ -776,11 +780,13 @@ func _on_action(act: String) -> void:
 			_load_file()
 		"pause":
 			s.paused = not s.paused
+			_stats_timer = 0.0 # (the dashboard text follows on the next frame)
 			_sync_buttons()
 			_sync_max()
 		"speed_1", "speed_6", "speed_max":
 			s.speed = act.trim_prefix("speed_")
 			_acc = 0.0
+			_stats_timer = 0.0
 			_sync_buttons()
 			_sync_max()
 		"follow":
