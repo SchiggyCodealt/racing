@@ -15,8 +15,11 @@ extends RefCounted
 ##   silhouettes  CarModel.profile(id) (world/) when it exists, else the fixture (the web's carProfile).
 ##   medals       sim/ Medals (data/medals.json, made by tools/medals.gd) once that file exists;
 ##                until then the fixture's medal times (the web's medals.json).
-##   records, best scores, ghosts, settings, the AI network: an in-memory store (`store`),
-##                which previews and tests fill.        WIRE: sim save data / ai.
+##   records, best scores, ghosts, settings: sim/ SaveData (the save file in user://) once the
+##                game calls use_save_data(true) (game/app.gd does at start-up); until then (tests,
+##                previews) an in-memory store (`store`), which they fill.
+##   the AI network: the game hands its summary over with set_ai_status (game/app.gd, from the
+##                loaded network file); the input / output names come from ai/sensors.gd.
 ##
 ## Shapes returned (plain Dictionaries, so nothing here depends on sim/ types):
 ##   track_info(i)   {id, name, difficulty, description, closed, laps, length, sprint_length, theme}
@@ -38,7 +41,7 @@ const SETTING_DEFAULTS := {"car": "racer", "ghost": true, "quality": "high", "fu
 ## Score rules the menu's tooltips quote (score.js SCORE.comboMax).
 const COMBO_MAX := 5
 
-## In-memory save data (WIRE: replace the reads and writes below with sim's save data):
+## In-memory save data (tests and previews; the game reads and writes SaveData instead):
 ##   records  {"track_id|car_id": {time, splits}},  scores {"track_id|car_id": int},
 ##   ghosts   {"track_id|car_id": true},  settings {key: value},
 ##   network  null or {generation, fitness, sizes, trained_on, walls, best_times}
@@ -46,6 +49,8 @@ static var store := {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, 
 
 ## Emitted-style hook: called with (key, value) after set_setting (the game applies quality etc.).
 static var on_setting_changed: Callable = Callable()
+## True: records, scores, ghosts and settings are the save file's (SaveData), see use_save_data.
+static var _save := false
 
 static var _fixture: Dictionary = {}
 static var _tracks: Array = []       # BuiltTrack-like objects (px, pz, closed, ...) or [] for the fixture
@@ -211,18 +216,40 @@ static func _key(track: String, car: String) -> String:
 	return "%s|%s" % [track, car]
 
 
-## Your best time and splits on a track with a car, or null.       WIRE: sim save data.
+## Read and write the game's save file (SaveData, sim/save.gd) instead of the in-memory store
+## (the game turns it on at start-up; reset() turns it off again for tests).
+static func use_save_data(on: bool = true) -> void:
+	_save = on
+
+
+## Your best time and splits on a track with a car, or null.
 static func record(track: String, car: String) -> Variant:
+	if _save:
+		var r := SaveData.get_record(track, car)
+		return {"time": r.time, "splits": r.splits} if not r.is_empty() else null
 	return store.records.get(_key(track, car))
 
 
-## Your best score on a track with a car, or -1 for none.       WIRE: sim save data.
+## Your best score on a track with a car, or -1 for none.
 static func best_score(track: String, car: String) -> int:
+	if _save:
+		var b := SaveData.get_best_score(track, car)
+		return int(b.score) if not b.is_empty() else -1
 	return int(store.scores.get(_key(track, car), -1))
 
 
-## True when a ghost of the best run is saved for the track and car.       WIRE: sim replay/save data.
+## True when a ghost of the best run is saved for the track and car (and fits this track's
+## layout and laps, the car and the physics: Replay.ghost_fits, as the web menu's "Saved").
 static func has_ghost(track: String, car: String) -> bool:
+	if _save:
+		if record(track, car) == null:
+			return false
+		_ensure_tracks()
+		for t: Variant in _tracks:
+			if t is BuiltTrack and (t as BuiltTrack).id == track:
+				var bt: BuiltTrack = t
+				return Replay.ghost_fits(SaveData.load_ghost(track, car), bt, bt.laps if bt.closed else 1, car)
+		return false
 	return record(track, car) != null and bool(store.ghosts.get(_key(track, car), false))
 
 
@@ -280,7 +307,7 @@ static func next_medal(medals: Dictionary, time: Variant) -> Dictionary:
 	return {"medal": UiStyle.MEDAL_ORDER[k], "time": float(medals[UiStyle.MEDAL_ORDER[k]])} if k >= 0 else {}
 
 
-## The saved AI network's summary for the menu.       WIRE: ai/ (the loaded network's meta).
+## The loaded AI network's summary for the menu (the game hands it over: set_ai_status).
 static func ai_status() -> Dictionary:
 	var n: Variant = store.network
 	if n == null:
@@ -303,20 +330,46 @@ static func ai_best(track_index: int) -> float:
 	return float(v) if v != null else -1.0
 
 
-## The AI network's input and output names (sensors.js INPUT_LABELS / OUTPUT_LABELS).       WIRE: ai/.
+## The game's AI network summary for the menu ({generation, fitness, sizes, trained_on, walls,
+## best_times}), or null when no network is loaded.
+static func set_ai_status(info: Variant) -> void:
+	store.network = info
+
+
+## The AI network's input and output names (ai/sensors.gd INPUT_LABELS / OUTPUT_LABELS; the
+## fixture's when the AI isn't in the project).
 static func network_labels() -> Dictionary:
+	var s := _global_script("Sensors")
+	if s != null and s.can_instantiate():
+		var ins: Variant = s.get("INPUT_LABELS")
+		var outs: Variant = s.get("OUTPUT_LABELS")
+		if ins != null and outs != null:
+			return {"inputs": Array(ins), "outputs": Array(outs)}
 	return {"inputs": fixture().input_labels, "outputs": fixture().output_labels}
 
 
 # ---------------------------------------------------------------- settings
 
-## A remembered setting ("car", "ghost", "quality", "fullscreen", "vsync").       WIRE: sim save data.
+## A remembered setting ("car", "ghost", "quality", "fullscreen", "vsync", "ui_scale"), from
+## the save file in the game. Quality "auto" (the save file's default: start high and let
+## the frame-time governor step down) reads as "high", the Settings screen's matching choice.
 static func get_setting(key: String) -> Variant:
+	if _save:
+		var d: Variant = SETTING_DEFAULTS.get(key)
+		var v: Variant = SaveData.get_setting(key, d)
+		if key == "quality":
+			return "high" if str(v) == "auto" else v
+		if key == "ui_scale":
+			return v if v is float or v is int or str(v) == "auto" else d
+		return d if d != null and typeof(v) != typeof(d) else v # (a stored value of another type reads as the default)
 	return store.settings.get(key, SETTING_DEFAULTS.get(key))
 
 
 static func set_setting(key: String, value: Variant) -> void:
-	store.settings[key] = value
+	if _save:
+		SaveData.set_setting(key, value)
+	else:
+		store.settings[key] = value
 	if on_setting_changed.is_valid():
 		on_setting_changed.call(key, value)
 
@@ -353,5 +406,6 @@ static func _has_static(script: Script, fn: String) -> bool:
 
 ## Forget everything stored and cached (tests and previews).
 static func reset() -> void:
+	_save = false
 	store = {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, "network": null}
 	_maps.clear()

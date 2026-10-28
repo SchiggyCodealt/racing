@@ -52,8 +52,11 @@ const AIM_FAR: float = 2.5
 const TURN_WINDOW: PackedFloat64Array = [25, 60]
 ## rad: input = tanh(turn / TURN_SCALE)
 const TURN_SCALE: float = 1.6
-## Stretches of road ahead [from, to] in metres: margin to the tightest bend's speed.
-const CORNER_WINDOWS: Array[PackedFloat64Array] = [[0, 50], [50, 110], [110, 200]]
+## Stretches of road ahead [from, to] in metres: margin to the tightest bend's speed
+## (the JS CORNER_WINDOWS [[0, 50], [50, 110], [110, 200]] as two lists: a constant
+## Array of PackedFloat64Arrays does not read back reliably in Godot 4.7).
+const CORNER_FROM: PackedFloat64Array = [0, 50, 110]
+const CORNER_TO: PackedFloat64Array = [50, 110, 200]
 ## m/s², lateral grip used for the corner speed sqrt(grip × radius)
 const CORNER_GRIP: float = 14.5
 ## m/s
@@ -266,9 +269,8 @@ static func sense(track: BuiltTrack, car: Car, inputs: PackedFloat32Array, rays:
 	var turn: float = heading_at(h, s0 + TURN_WINDOW[1] * inv) - heading_at(h, s0 + TURN_WINDOW[0] * inv)
 	inputs[NR + 5] = tanh(turn / TURN_SCALE)
 	var i0: int = JsMath.roundi(s0)
-	for w in CORNER_WINDOWS.size():
-		var win: PackedFloat64Array = CORNER_WINDOWS[w]
-		var kappa: float = sharpest(h, i0 + JsMath.roundi(win[0] * inv), i0 + JsMath.roundi(win[1] * inv))
+	for w in CORNER_FROM.size():
+		var kappa: float = sharpest(h, i0 + JsMath.roundi(CORNER_FROM[w] * inv), i0 + JsMath.roundi(CORNER_TO[w] * inv))
 		var vc: float = sqrt(CORNER_GRIP / kappa) if kappa > 1e-6 else SPEED_SCALE
 		if vc > SPEED_SCALE:
 			vc = SPEED_SCALE

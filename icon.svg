@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Track Rush icon: a winding road with a start line and the accent stripe (no brand marks) -->
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="#121316"/>
+  <rect x="8" y="8" width="240" height="240" rx="44" fill="none" stroke="#25272c" stroke-width="4"/>
+  <!-- the road: a loop with a hairpin -->
+  <path d="M72 196 C40 196 40 150 70 140 L150 112 C176 103 176 72 150 66 L112 58 C86 52 86 86 112 88 L180 92 C222 95 224 196 180 196 Z"
+        fill="none" stroke="#31343a" stroke-width="30" stroke-linejoin="round"/>
+  <path d="M72 196 C40 196 40 150 70 140 L150 112 C176 103 176 72 150 66 L112 58 C86 52 86 86 112 88 L180 92 C222 95 224 196 180 196 Z"
+        fill="none" stroke="#f2f2ef" stroke-width="3" stroke-dasharray="10 9" stroke-linejoin="round" opacity="0.85"/>
+  <!-- start / finish line -->
+  <g transform="translate(120 196)">
+    <rect x="-5" y="-15" width="10" height="30" fill="#f2f2ef"/>
+    <rect x="-5" y="-15" width="5" height="7.5" fill="#0a0b0d"/>
+    <rect x="0" y="-7.5" width="5" height="7.5" fill="#0a0b0d"/>
+    <rect x="-5" y="0" width="5" height="7.5" fill="#0a0b0d"/>
+    <rect x="0" y="7.5" width="5" height="7.5" fill="#0a0b0d"/>
+  </g>
+  <!-- the slanted accent bar of the title -->
+  <polygon points="40,40 64,40 52,92 28,92" fill="#ffc83d"/>
+</svg>

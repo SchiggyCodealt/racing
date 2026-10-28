@@ -146,6 +146,7 @@ var _fleet_track: BuiltTrack = null
 var _fleet_nets_gen: int = -1
 var _synced_step: int = -1
 var _steps: int = 0
+var _gd_car_steps: int = 0
 
 var _ctrl := Car.Controls.new()
 var _mirrored := PackedFloat32Array()
@@ -156,7 +157,8 @@ var _mirrored := PackedFloat32Array()
 ## seed (NeuralNetwork to continue from), seed_meta (the saved file's data),
 ## population (a Population to train as it is, instead of a new one),
 ## native (true = use FleetSim when it is available (default), false = GDScript),
-## threads (FleetSim threads, default 1; 0 = one per core, at most 8).
+## threads (FleetSim threads, default 1; 0 = one per core, at most 8),
+## native_class (tests: the class to use instead of "FleetSim"; a missing one = the fallback).
 func _init(opts: Dictionary) -> void:
 	for k: String in DEFAULT_TRAINING:
 		cfg[k] = opts.get(k, DEFAULT_TRAINING[k])
@@ -211,7 +213,7 @@ func _init(opts: Dictionary) -> void:
 				if h is Dictionary and _is_num(h.get("gen")) and _is_num(h.get("best")) and _is_num(h.get("avg")):
 					history.append({gen = int(h.gen), best = float(h.best), avg = float(h.avg)})
 	if bool(opts.get("native", true)):
-		_start_native(int(opts.get("threads", 1)))
+		_start_native(int(opts.get("threads", 1)), String(opts.get("native_class", "FleetSim")))
 	_prepare_tracks()
 	begin_generation()
 
@@ -223,15 +225,16 @@ static func _is_num(v: Variant) -> bool:
 # ---- the native fast path (FleetSim) --------------------------------------------------
 
 ## True when the FleetSim GDExtension (native/) is loaded.
-static func native_available() -> bool:
-	return ClassDB.class_exists("FleetSim") and ClassDB.can_instantiate("FleetSim")
+static func native_available(cls: String = "FleetSim") -> bool:
+	return ClassDB.class_exists(cls) and ClassDB.can_instantiate(cls)
 
 
-func _start_native(threads: int) -> void:
-	if not native_available():
+## `cls`: the native class (tests name a missing one to check the fallback).
+func _start_native(threads: int, cls: String = "FleetSim") -> void:
+	if not native_available(cls):
 		native_note = "The fast training extension (native/, bin/) is not loaded: training runs in GDScript, which is much slower."
 		return
-	fleet = ClassDB.instantiate("FleetSim")
+	fleet = ClassDB.instantiate(cls)
 	if fleet == null:
 		native_note = "The fast training extension could not start: training runs in GDScript, which is much slower."
 		return
@@ -250,6 +253,16 @@ func set_threads(n: int) -> void:
 
 func is_native() -> bool:
 	return fleet != null
+
+
+## Physics steps simulated so far (the whole population advances one step per step).
+func steps_done() -> int:
+	return _steps
+
+
+## Car steps simulated so far (one car through one step: sensors, network, physics, rules).
+func car_steps() -> int:
+	return int(fleet.call("get_car_steps")) if fleet != null else _gd_car_steps
 
 
 ## The numbers FleetSim needs from the rules and settings.
@@ -439,6 +452,7 @@ func step(dt: float) -> void:
 		p.y = car.y
 		p.z = car.z
 		p.yaw = car.yaw
+		_gd_car_steps += 1
 		Sensors.sense(t, car, a.inputs, a.rays)
 		Sensors.drive_network(a.net, a.inputs, _mirrored, _ctrl)
 		car.step(t, _ctrl, dt)
@@ -562,11 +576,12 @@ func _merge_native_times() -> void:
 
 
 ## Native path: copy the run's state from FleetSim into `agents` (fitness, alive, death
-## reasons, run time, deaths; with `cars` also every car's pose and effect fields and the
+## reasons, run time, deaths, best times; with `cars` also every car's pose and effect fields and the
 ## pose before the last step, for drawing). No-op on the GDScript path.
 func sync_agents(cars: bool = true) -> void:
 	if fleet == null:
 		return
+	_merge_native_times() # (the best lap / finish so far, live like the JS record_time)
 	sim_time = float(fleet.call("get_sim_time"))
 	first_finish = float(fleet.call("get_first_finish"))
 	wall_cars = int(fleet.call("get_wall_cars"))
