@@ -4,26 +4,31 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-28 (v6.0.0: the game ported from the browser to the Godot 4.7 engine)._
+_Last updated: 2026-10-28 (v6.1.0: feature 1 of 9, two more cars and detailed car models with a moving driver;
+v6.0.0 was the port from the browser to the Godot 4.7 engine)._
 
-## Status: v6.0.0, the port to Godot, complete
+## Status: v6.1.0, feature 1 of 9 done (two more cars, detailed models)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
-for after the port (see [Next](#next-the-owners-nine-features)). This round is the port only: the Godot game
-does everything the browser game v5.0.0 does, plays the same and looks at least as good. None of the nine
-features is built yet, but nothing was designed out of them (the car list, medal ratios, settings rows and track
-list are data).
+for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
+everything the browser game v5.0.0 does, plays the same and looks at least as good. v6.1.0 adds feature 1: the
+**Dune** (a soft, forgiving buggy) and the **Vortex** (a light, twitchy hypercar), and new models for all six cars
+with spinning and steering wheels, suspension, head and brake lights, body detail and a driver who steers, looks
+into corners, leans and pumps a fist at the finish. The Racer is unchanged bit for bit, so old records, ghosts and
+networks still count. Features 2-9 are not built yet; nothing was designed out of them (the car list, medal
+ratios, settings rows and track list are data).
 
 | Area | State | Where |
 | --- | --- | --- |
-| Game logic without graphics: tracks (builder, collision), car physics and nitro, the four cars, race timing, points, ghosts, medals, save file, autopilot | done, checked number for number against the browser version | `sim/`, `data/tracks.json`, `data/medals.json` |
+| Game logic without graphics: tracks (builder, collision), car physics and nitro, the six cars, race timing, points, ghosts, medals, save file, autopilot | done; the four browser cars checked number for number against the browser version, the Dune and Vortex (v6.1.0) by tests and the medal sweep | `sim/`, `data/tracks.json`, `data/medals.json` |
 | 3D world: track mesh, terrain and scenery for 7 themes, sky, lighting, glow, car models, smoke, skid marks, sparks, nitro flames, chase camera, AI fleet, sensor rays, quality levels (high / medium / low) | done, compared with v5 screenshots at 14 moments | `world/` |
-| Interface: menu (1 Track / 2 Car / 3 Drive), Controls and Settings screens, HUD, finish panel, pad navigation, Barlow fonts | done, layout checked at 6 window sizes | `ui/`, `assets/fonts/` |
+| Car models (v6.1.0): one skinned mesh per car (17 bones) with spinning / steering wheels, suspension, head and brake lights, panel lines, a driver who moves; headlights at night and dusk; a cheaper level of detail on low and for the AI fleet | done, checked by tests and screenshots (software rendering only) | `world/car_shapes.gd`, `world/car_build.gd`, `world/car_kit.gd`, `world/car_model.gd`, `world/shaders/car*.gdshader` |
+| Interface: menu (1 Track / 2 Car / 3 Drive; six car cards, three a row from a 780 px wide picker), Controls and Settings screens, HUD, finish panel, pad navigation, Barlow fonts | done, layout checked at 6 window sizes | `ui/`, `assets/fonts/` |
 | AI: network, evolution, sensors and driver, trainer (walls ride / crash, multi-track), training screen with 1× / Fast ×6 / Max on a background thread | done, lockstep-identical to the browser version | `ai/`, `modes/train_mode.gd`, `ui/train_*.gd` |
 | FleetSim: the C++ GDExtension that steps the whole population (sensors, network, physics, rules) on several threads | done, bit-identical to the GDScript simulation; Linux and Windows libraries built | `native/`, `bin/`, `trackrush.gdextension` |
 | Game shell: modes (menu, Drive, Race the AI ghost, Watch the AI, training), keyboard and gamepad, threaded track loading, quality governor, fullscreen / vsync, network files, messages | done | `main.tscn`, `game/`, `modes/` |
 | New in the Godot version: Settings screen (quality, fullscreen, vsync, interface size, ghost), native file dialogs for networks, the save file instead of browser storage | done | `ui/settings_screen.gd`, `game/app.gd`, `sim/save.gd` |
-| Tests: headless suite (387 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (437 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -44,8 +49,8 @@ Godot code; numbers travel as hex bits because Godot's JSON reader is not exact 
 | Car physics | 34 scenarios (autopilot on every track, every car, kickers, random keyboard tapes with handbrake, nitro, reverse, walls) stepped in lockstep from the JS states | 39,906 of 46,200 steps bit-identical, the largest difference 8.3e-11; in free runs 48 full races (12 tracks × 4 cars) finish on the same step with the same wall-contact counts |
 | Race timing and points | 72 runs, 2,964 events (48 medal-autopilot races + 24 random-key tapes with respawns) | 71 runs identical (every event, total, breakdown, split, nitro); 1 random wall-banging tape has one wall-contact end 2 steps later after 90 s |
 | Ghosts | recorded runs packed by both | byte-identical (format 3 = the browser's format 2 bytes in base64); replay within 3 cm of the run (8 mm measured) |
-| Car stats | `tools/car_stats.gd` against `web/tools/carStats.mjs` | identical, 4 cars × 12 stats |
-| Medal times | `tools/medals.gd` (50 autopilot runs per track and car) | 47 of 48 identical; Technical Trial with the Racer 3:45.083 against 3:44.033 (see Known limitations) |
+| Car stats | `tools/car_stats.gd` against `web/tools/carStats.mjs` | identical, 4 cars × 12 stats (the Dune and Vortex have no browser counterpart) |
+| Medal times | `tools/medals.gd` (50 autopilot runs per track and car) | 47 of 48 identical; Technical Trial with the Racer 3:45.083 against 3:44.033 (see Known limitations). The v6.1.0 sweep for six cars left the 48 old entries unchanged |
 | AI | sensors and network in lockstep (683k inputs, 76k controls); the browser's saved network driving from two track starts | 0 differences, bit for bit; GDScript and FleetSim give the same numbers at every step |
 | Interface | screenshots against the approved v5 ones | about 4 % of pixels differ on the menu (font rendering); 0 layout problems at 1024x600 to 1920x1080 |
 | 3D world | 14 moments side by side with the browser version | close; draw calls 158-216 at high (web 106-127), 74-99 at low (web 78-102) |
@@ -57,11 +62,37 @@ time, 2.5 ms with an AI ghost). That is why training uses FleetSim: 80 cars run 
 200-250× on 4 (benchmark), about 120-150× at Max in the game (the browser's Max: 32-37×). Without FleetSim,
 GDScript trains at about 1.2× real time.
 
-This release (2026-10-28): a fresh import in the checkout opens without errors or warnings (editor and main scene);
-the headless suite passes (387 checks: sim 49, ui 114, world 83, game 66, ai 75); the end-to-end scenarios pass
-(races, modes, menu, settings1 + settings2, perf, shots); the Windows and Linux release exports were made from a
-fresh import and the Linux one was run as a smoke test (menu, a drive with nitro, training at Max: 130× real time
-with the native library).
+v6.0.0 (2026-10-28): a fresh import in the checkout opened without errors or warnings (editor and main scene); the
+Windows and Linux release exports were made from a fresh import and the Linux one was run as a smoke test (menu, a
+drive with nitro, training at Max: 130× real time with the native library).
+
+v6.1.0 (2026-10-28): the headless suite passes (437 checks: sim 50, ui 120, world 126, game 66, ai 75); the
+end-to-end scenarios pass (races: 18 races, every car on Rookie Oval, Seaside Stunts and Mountain Pass, 324 checks;
+modes 29, menu 24, settings1 5 + settings2 6, perf 1: 1.37 ms of script time a race frame, shots 5); the Windows
+release export was made from a fresh import (not started: no Windows here).
+
+## How v6.1.0 (two more cars, detailed models) was verified
+
+- **Physics**: the Racer still drives two autopilot minutes within 3.1e-11 of the browser game (`tests/test_sim.gd`);
+  all six cars finish all 12 tracks with the test autopilot without touching a wall; the stats in `sim/cars.gd` are
+  what `tools/car_stats.gd --check` measures; wall shots, NaN and lane-keeping checks run for every car.
+- **Medal times**: a full `tools/medals.gd --jobs=3` sweep (2,029 s) for six cars; the 48 old entries in
+  `data/medals.json` came out identical, 24 are new. The Vortex is the fastest car on all 12 tracks, the Dune the
+  slowest.
+- **Models** (`tests/test_world.gd`, 126 checks): one skinned mesh per car with its bones; wheels spin and steer, the
+  steering wheel turns with the front wheels and the hands stay on it (within 2 mm) with the elbows joined; the
+  head looks into the turn; the body rolls out of a left turn and the driver leans; braking dives the nose and
+  lights the brake lights (and tilts the Vortex's flap); the wheels droop in the air and the body sinks and settles
+  after a landing; the fist pump rises above the helmet and ends; headlights: 2 spotlights at High, 1 at Medium, a
+  road decal at Low, none in daylight or on ghosts; Low models have under 0.6 × the triangles.
+- **Draw cost** (`tests/visual/car_cost.gd`, one car in an empty world): the Racer at High went from 53 draw calls
+  (19 + 34 shadow) and 10,592 visible triangles to 4 calls (2 + 2) and 17,180; at Low from 36 calls to 3 and
+  6,772 visible triangles. The six cars: 3-4 calls and 15,900-19,000 visible triangles at High / Medium, 2-3 calls
+  and 6,800-7,500 at Low. The 80-car AI fleet is unchanged (5 / 4 / 3 calls; 128,000 visible triangles).
+- **Menu**: the car picker at 1280x720, 1920x1080, 1366x768, 1024x600, 900x700 and 700x900 (`tests/test_ui.gd`):
+  six cards inside the window's width and apart; at 1280 and wider three a row, all on screen without scrolling.
+- **Screenshots** (software rendering only): the six cars on a start grid, close-ups mid-corner, night at each
+  quality, the menu; see README for the tools (`tests/visual/car_studio.gd`, `car_corner.gd`, `world_cars.gd`).
 
 ## Conventions
 
@@ -88,6 +119,14 @@ with the native library).
 - **Data, not code**, where the next features will grow: the cars (`sim/cars.gd` `CARS`), medals (`sim/medals.gd`
   `ORDER` / `FACTORS`, stored with the times in `data/medals.json`), the settings rows (`ui/settings_screen.gd`
   `ROWS`, with an `action` row type for a terminal), the tracks (`data/tracks.json`), the themes (`world/themes.gd`).
+- **Car models are made in code and are only looks**: nothing in `sim/` reads them. `world/car_shapes.gd` holds each
+  car's shape as data (body sections, wheel places, wing, cockpit, suit and glove colours; the paint comes from
+  `look` in `sim/cars.gd`), `world/car_build.gd` turns a shape into one skinned mesh per car and detail level
+  (`CarKit` triangles tagged with a bone and a material kind, cached), and `world/car_model.gd` poses its 17 bones
+  every frame from the car state (body, 4 uprights, 4 spinning wheels, steering wheel, driver torso / head / arms,
+  rear flap). One opaque and one glass surface: 2-4 draw calls a car whatever the detail. To add a car: an entry in
+  `sim/cars.gd` (spec, look, description; `tools/car_stats.gd`, `tools/medals.gd`), a shape in `car_shapes.gd`, then
+  look at it with `tests/visual/car_studio.gd`.
 - **Version tags** decide what old saved data still counts: `Car.PHYSICS_VERSION` (3: best times, ghosts, medals),
   `ScoreState.SCORE_RULES` (1: best scores, medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION`
   (1), ghost format 3. Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
@@ -125,7 +164,15 @@ with the native library).
 - **Track building is slower** (0.8-1.7 s against 0.16-0.45 s in the browser); the menu builds on a worker thread so
   the orbit never stops, and a race waits for its track.
 - **GDScript physics is about 40× slower than the browser's JS**: fine for playing, but `tools/medals.gd` takes about
-  20 minutes on 3 cores (browser 15 s) and `tools/car_stats.gd` about a minute.
+  35 minutes for six cars on 3 cores (`--jobs=3`; it only writes `data/medals.json` after a full sweep) and
+  `tools/car_stats.gd` about a minute (52 s for six cars on 4 threads).
+- **Car models and headlights were only ever seen through software rendering** (llvmpipe): the headlight
+  brightness (high: two spotlights a car, medium: one, low: a glowing pool on the road), the panel lines and the
+  driver's colours were tuned on screenshots from it. The low-quality headlight pool looks blocky up close.
+- **The Vortex is the fastest car on every track and the Dune the slowest** by the medal autopilot (the Dune's
+  strength, grip on dirt, is a `dirtGrip` field that nothing reads until feature 3 adds dirt).
+- A ghost car on High and Medium now costs about 16,500 triangles (was about 10,600) because it is the full model
+  in the ghost material (on Low about 6,700); it is 2 draw calls instead of 38.
 - **The Linux training library needs glibc 2.38** (Ubuntu 24.04 or newer); on older Linux the game falls back to
   GDScript training. The Windows DLL needs only `KERNEL32.dll` and `msvcrt.dll`.
 - The AI trains and drives the Racer only, never uses nitro, and its speed input is scaled by the Racer's top speed
@@ -141,7 +188,7 @@ with the native library).
 - `TrackBuilder.get_gates()` caches gates for unusual lap counts lazily and is not thread-safe for those (the game
   only uses each track's own lap count, which is built up front).
 - From the browser version, still true: medal times come from a simple centre-line autopilot (a good driver can beat
-  author); car balance, nitro and points were tuned with autopilots, not people; no headlights at night; with Walls:
+  author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
 
@@ -151,12 +198,19 @@ The owner asked for these after the port, in this order. The defaults below were
 confirm anything else before building it. Several touch the physics: keep `sim/` and `native/` in step, and
 re-run the medal times.
 
-1. **Two more cars with detailed models (spinning wheels, a moving driver).** Add them to `sim/cars.gd` `CARS`
-   (spec, look, description; then `tools/car_stats.gd` for their `stats` and `tools/medals.gd` for their medal
-   times) and build their models in `world/car_shapes.gd` / `world/car_model.gd` (models are made in code; wheels
-   already spin from `wheel_rot` and steer from `steer_angle`; a driver could lean with the car's lateral g and turn
-   the wheel with the steering). The menu's car picker (`ui/main_menu.gd`, two columns of cards) and the silhouettes
-   (`CarModel.profile`) take a list. With money (item 5) cars are bought: **you start with the Racer**.
+1. **Two more cars with detailed models (spinning wheels, a moving driver).** **Done in v6.1.0.** The Dune (buggy:
+   all-wheel drive, forgiving grip and gentle slides, soft landings, 222 km/h, the most `dirtGrip` for item 3) and
+   the Vortex (hypercar: the most power, 321 km/h, light and twitchy, the smallest nitro tank, 3 s) are in
+   `sim/cars.gd` with stats and medal times for all 12 tracks; the Racer is unchanged bit for bit. All six cars got
+   new models (see Conventions): grooved tyres, spoked rims and brake discs that spin and steer with their calipers,
+   wishbones (and coil-over springs on the Dune) that follow the wheels, a body that rolls, dives and squats
+   with the sim's own g coefficients and sinks on landings, head and brake lights (real headlights at night and
+   dusk, theme key `headlights`), panel lines, vents, mirrors, wings, exhausts and race numbers; a driver whose hands
+   turn the steering wheel (two-bone arm IK), whose head looks into corners, whose body leans with the g, rocks on
+   braking and bumps on landings, and who pumps a fist after the finish (`CarModel.celebrate()`). The menu picker
+   shows three cards a row (two on narrow windows); the silhouettes come from `CarModel.profile`. Left for later
+   items: buying cars and **starting with only the Racer** (item 5), the AI driving other cars (item 2), dirt
+   reading `dirtGrip` (item 3).
 2. **AI training with different vehicles.** Add a car choice to the training form (`ui/train_dashboard.gd`), pass it
    as `car_id` to `Trainer` (FleetSim already takes any spec through `set_spec`), scale the speed input by the
    chosen car's top speed (a new `SENSOR_VERSION`, or keep 77 for the Racer), store the car in the network file's

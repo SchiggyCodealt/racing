@@ -27,6 +27,12 @@ var stacked := false:
 			stacked = v
 			update_minimum_size()
 			queue_redraw()
+## Narrow cards (three a row): the head shows the top speed without the mass.
+var short_spec := false:
+	set(v):
+		if v != short_spec:
+			short_spec = v
+			queue_redraw()
 var _hover := false
 
 
@@ -42,7 +48,7 @@ func setup(id: String, car: Dictionary, side_view: Dictionary) -> void:
 	car_id = id
 	info = car
 	profile = side_view
-	tooltip_text = "%s: %s (C changes the car)" % [car.name, car.description]
+	tooltip_text = "%s (%d km/h, %.2f t): %s (C changes the car)" % [car.name, roundi(car.top), car.mass / 1000.0, car.description]
 	queue_redraw()
 
 
@@ -96,7 +102,8 @@ func _draw() -> void:
 	var base := W.baseline(name_font, UiStyle.FS_L, head_top, UiStyle.FS_L)
 	draw_string(name_font, Vector2(right_x, base), info.name, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_L, UiStyle.TEXT)
 	var name_w := name_font.get_string_size(info.name, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_L).x
-	var spec := "%d km/h · %.2f t" % [roundi(info.top), info.mass / 1000.0]
+	# top speed and mass; in narrow cards the top speed alone (the mass is in the tooltip)
+	var spec := ("%d km/h" % roundi(info.top)) if short_spec else ("%d km/h · %.2f t" % [roundi(info.top), info.mass / 1000.0])
 	var spec_x := right_x + name_w + UiStyle.S3
 	W.ellipsis(self, UiStyle.font("text", UiStyle.FS_S, 0, true), UiStyle.FS_S, Vector2(spec_x, base), spec,
 		size.x - px - spec_x, UiStyle.TEXT_3)

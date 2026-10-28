@@ -36,6 +36,9 @@ var load_sensitivity: float = 0.08 # grip per load falls 8 % per extra 100 % loa
 var pac_b: float = 13.0           # magic formula shape (peak at ~8°)
 var pac_c: float = 1.9
 var pac_e: float = 0.97
+## Share of the tyres' grip kept on a loose surface (dirt) against tarmac. Nothing reads it yet: it
+## is data for the dirt sections of a later version (the racer 0.7; the Dune buggy keeps the most).
+var dirt_grip: float = 0.7
 # --- aero ---------------------------------------------------------------------------
 var drag: float = 0.62            # N per (m/s)²  (½ ρ Cd A)
 var downforce: float = 0.65       # N per (m/s)²  (½ ρ Cl A)
@@ -128,7 +131,7 @@ var derived: bool = false
 ## The JS names of the spec fields, in CAR's order (to_dict / make).
 const KEYS: PackedStringArray = [
 	"id", "mass", "inertia", "cgToFront", "cgToRear", "cgHeight", "wheelRadius",
-	"mu", "handbrake", "handbrakeFast", "handbrakeRate", "loadSensitivity", "pacB", "pacC", "pacE",
+	"mu", "handbrake", "handbrakeFast", "handbrakeRate", "loadSensitivity", "pacB", "pacC", "pacE", "dirtGrip",
 	"drag", "downforce", "aeroFront", "rollResist",
 	"idleRpm", "redline", "upshiftRpm", "downshiftRpm", "launchRpm", "torque", "gears", "finalDrive", "reverseRatio",
 	"efficiency", "shiftTime", "driveFront", "slideDrive", "maxReverse",

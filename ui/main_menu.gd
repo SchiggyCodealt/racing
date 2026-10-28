@@ -35,6 +35,8 @@ signal car_selected(id: String)
 const W := preload("res://ui/widgets.gd")
 const TrackTile := preload("res://ui/track_tile.gd")
 const CarCard := preload("res://ui/car_card.gd")
+## The car picker shows three cards a row from this width (px), else two.
+const CARS_3COL := 780.0
 const TrackMapView := preload("res://ui/track_map_view.gd")
 const KeyCap := preload("res://ui/key_cap.gd")
 const MedalDot := preload("res://ui/medal_dot.gd")
@@ -896,13 +898,18 @@ func _layout() -> void:
 		[UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5, UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5]))
 	_td_desc.custom_minimum_size.y = 0.0 if compact else ceilf(UiStyle.FS_M * 1.45 * 3)
 	_drive_btn.custom_minimum_size.y = 46.0 if compact else 52.0
-	# the car cards stack (bars under the side view and name) when the picker is 500-760 px wide
-	# (style.css @container car-picker)
+	# the car picker: three cards a row when it is at least CARS_3COL px wide (six cars in two rows),
+	# else two; the cards stack (bars under the side view and name) three a row, or two a row in a
+	# 500-760 px picker (style.css @container car-picker)
 	var pad_x := float(UiStyle.S6) if w >= 1000 else float(UiStyle.S4)
 	var mw := minf(1480.0, w - 2 * pad_x)
 	var picker_w := mw if one_col else mw - side_w - _main.get_theme_constant("separation")
+	var car_cols := 3 if picker_w >= CARS_3COL else 2
+	_cars_grid.columns = car_cols
+	var card_w := (picker_w - (car_cols - 1) * UiStyle.S2) / car_cols
 	for c in _cards:
-		c.stacked = picker_w >= 500.0 and picker_w <= 760.0
+		c.stacked = car_cols == 3 or (picker_w >= 500.0 and picker_w <= 760.0)
+		c.short_spec = card_w < 300.0
 	# the ghost check box wraps its label beside the Drive button when the side column is narrow
 	var row_sep := float(_ghost_check.get_parent().get_theme_constant("separation"))
 	var room := side_w - _drive_btn.custom_minimum_size.x - row_sep - 18 - UiStyle.S2

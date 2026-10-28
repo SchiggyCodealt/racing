@@ -319,7 +319,7 @@ func _cars_and_nitro() -> void:
 		return s
 	var plain: Dictionary = lap_state.call(0)
 	var same: bool = plain == lap_state.call(1) and plain == lap_state.call(2)
-	var ids_ok: bool = ids.size() == 4
+	var ids_ok: bool = ids.size() == 6
 	for id: String in ids:
 		ids_ok = ids_ok and Cars.spec(id).id == id
 	t.check(Cars.get_car("nope").id == "racer" and Car.new().spec == Cars.default_spec() and Cars.spec("racer") == Cars.default_spec() and \
@@ -367,8 +367,10 @@ func _cars_and_nitro() -> void:
 	var shots: int = 0
 	var escapes: int = 0
 	var where: String = ""
+	var fastest: float = 0.0
 	for id: String in ids:
 		var spec: CarSpec = Cars.spec(id)
+		fastest = maxf(fastest, float(Cars.get_car(id).stats.topNitro))
 		var v_top: float = (float(Cars.get_car(id).stats.topNitro) / 3.6) * 1.1
 		for track: BuiltTrack in tracks:
 			var i: int = track.start_idx + 15
@@ -404,7 +406,7 @@ func _cars_and_nitro() -> void:
 						prev_idx = c.idx
 					shots += 1
 	t.check(worst <= 1.0 + 1e-3 and escapes == 0, "walls, every car: a 30° hit at 50 m/s rebounds at most %.2f m/s (%s; limit 1.0); %d wall shots at each car's top speed with nitro + 10 %% (up to %d km/h), %d left the road" % [
-		worst, where, shots, JsMath.roundi(float(Cars.get_car("thunder").stats.topNitro) * 1.1), escapes])
+		worst, where, shots, JsMath.roundi(fastest * 1.1), escapes])
 
 	# no NaN, every car: random controls with nitro (on/off/analogue, refills), handbrake and respawns
 	var steps: int = 0
@@ -439,9 +441,85 @@ func _cars_and_nitro() -> void:
 	t.check(bad == 0 and below == 0 and boosted > steps / 10.0, "no NaN, every car: %d random-control steps with nitro (boosting in %d), %d non-finite states or tanks out of 0..1, %d steps below the road" % [
 		steps, boosted, bad, below])
 
+	_every_car_finishes(ids)
 	_nitro_rules(ids)
 	_lane_keeping(ids)
 	_jumps(ids)
+
+
+## Every car finishes every track with the test autopilot planned for that car (its skidpad grip and
+## braking against the racer's, its top speed; as the web game's self test), on threads. A car drives
+## clean (no wall contact) on every track where the four original cars all do.
+func _every_car_finishes(ids: PackedStringArray) -> void:
+	var r: Dictionary = Cars.get_car("racer").stats
+	var res: Dictionary = {}
+	var mutex := Mutex.new()
+	var jobs: Array = []
+	for id: String in ids:
+		for track: BuiltTrack in tracks:
+			jobs.append([id, track])
+	var next: Array[int] = [0]
+	var work := func() -> void:
+		while true:
+			mutex.lock()
+			var j: int = next[0]
+			next[0] += 1
+			mutex.unlock()
+			if j >= jobs.size():
+				return
+			var id: String = jobs[j][0]
+			var track: BuiltTrack = jobs[j][1]
+			var def: Dictionary = Cars.get_car(id)
+			var spec: CarSpec = def.spec
+			var grip: float = 11.0 * (float(def.stats.grip) / float(r.grip))
+			var brake: float = 7.5 * (float(r.brake100) / float(def.stats.brake100))
+			var car := Car.new(track, track.start_idx, spec)
+			var race := RaceState.new(track)
+			var pilot := Autopilot.basic(track, grip, brake, spec.max_speed)
+			var wall: int = 0
+			var bad: bool = false
+			while not race.finished and race.time < 600.0:
+				car.step(track, pilot.drive(car), DT)
+				race.update(car, DT)
+				if car.hit_wall:
+					wall += 1
+				if not finite(car):
+					bad = true
+					break
+			mutex.lock()
+			res["%s|%s" % [id, track.id]] = {done = race.finished and not bad, time = race.finish_time, wall = wall}
+			mutex.unlock()
+	var pool: Array[Thread] = []
+	for k in mini(4, OS.get_processor_count()):
+		var th := Thread.new()
+		th.start(work)
+		pool.append(th)
+	for th in pool:
+		th.wait_to_finish()
+	var lines: PackedStringArray = []
+	var all_done: bool = true
+	var clean_ok: bool = true
+	for id: String in ids:
+		var done: int = 0
+		var total: float = 0.0
+		var walls: int = 0
+		var dirty: PackedStringArray = []
+		for track: BuiltTrack in tracks:
+			var e: Dictionary = res["%s|%s" % [id, track.id]]
+			if e.done:
+				done += 1
+				total += float(e.time)
+			walls += int(e.wall)
+			var others_clean: bool = true
+			for o: String in ["racer", "kestrel", "thunder", "drifter"]:
+				others_clean = others_clean and int(res["%s|%s" % [o, track.id]].wall) == 0
+			if others_clean and int(e.wall) > 0:
+				dirty.append(track.name)
+		all_done = all_done and done == tracks.size()
+		clean_ok = clean_ok and dirty.is_empty()
+		lines.append("%s %d/%d in %s (wall contact in %d steps%s)" % [id, done, tracks.size(), RaceState.format_time(total), walls,
+			"" if dirty.is_empty() else "; NOT CLEAN: " + ", ".join(dirty)])
+	t.check(all_done and clean_ok, "every car finishes every track with the test autopilot planned for its grip and braking, clean wherever the four original cars are: %s" % "; ".join(lines))
 
 
 ## Every car's stats, measured on threads (one per car, at most 4).

@@ -4,7 +4,8 @@ extends Node3D
 ## ------------------------------------------------------------------
 ## Many cars (an AI training population) drawn with two MultiMeshes: the
 ## racer's paint (one colour per car) and its dark parts (carbon, canopy,
-## plain wheels). The viewed car gets a floating marker and a glowing ring
+## plain wheels, cage tubes; CarBuild.fleet_geometry: the cheap level of
+## detail, without the CarModel's skeleton, driver or lights). The viewed car gets a floating marker and a glowing ring
 ## on the road; wall sparks come from one pool shared by the whole fleet.
 ##
 ## Use:
@@ -18,7 +19,7 @@ extends Node3D
 ## `alive` (bool).
 
 const Geo = preload("res://world/geo.gd")
-const Shapes = preload("res://world/car_shapes.gd")
+const CarBuild = preload("res://world/car_build.gd")
 
 const FLEET_SPARKS := 240      # spark pool shared by every car of the fleet
 const FLEET_SPARK_FRAME := 40  # most new sparks per frame for the whole fleet (high quality)
@@ -47,16 +48,14 @@ var _buf_body := PackedFloat32Array()
 var _buf_dark := PackedFloat32Array()
 
 
-func _init(max_count := 80) -> void:
+## car_id: the shape every car of the fleet has (the AI trains with the racer).
+func _init(max_count := 80, car_id := "racer") -> void:
 	name = "ai-fleet"
 	count = max_count
-	var shape := Shapes.shape_of("racer")
-	var paint := Shapes.paint_geometry(shape, 0)
-	var parts: Array = [Shapes.carbon_geometry(shape, 0), Shapes.loft(Shapes.canopy_stations(), 10, 1)]
-	for w: Array in Shapes.WHEELS:
-		var R: float = w[2]
-		parts.append(Geo.cylinder(R, R, w[3], 10).rotate_z(PI / 2.0).translate(w[0], R, w[1]))
-	var dark_geo := Geo.merge(parts)
+	# the light level of detail: the low-detail body, plain wheels, no driver animation
+	var geos := CarBuild.fleet_geometry(car_id)
+	var paint: Geo = geos["paint"]
+	var dark_geo: Geo = geos["dark"]
 
 	var bm := StandardMaterial3D.new()
 	bm.roughness = 0.38

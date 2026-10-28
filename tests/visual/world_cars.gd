@@ -1,6 +1,6 @@
 extends SceneTree
-## world_cars.gd: the four cars (and a ghost) under one theme's sky, on a flat pad or on a
-## track just past its start line (the web README's cars.png moment).
+## world_cars.gd: every car (and a ghost) under one theme's sky, on a flat pad or on a
+## track's start grid just past the start line (the web README's cars.png moment).
 ##
 ##   godot --path . --resolution 1280x720 --script res://tests/visual/world_cars.gd -- \
 ##       theme=meadow quality=high out=/tmp/cars.png [track=rookie-oval] [ghost=1]
@@ -18,31 +18,33 @@ func _initialize() -> void:
 		o[kv[0]] = kv[1] if kv.size() > 1 else "1"
 	var level: String = o.get("quality", "high")
 	var out: String = o.get("out", "user://world_cars.png")
-	var ids := ["racer", "kestrel", "thunder", "drifter"]
+	var ids := Cars.ids()
 	var states: Array[Dictionary] = []
 	var world: World
 	var cam := Camera3D.new()
 	var ghost_state := {}
 	var track: BuiltTrack = null
 	if o.has("track"):
-		# on the road a little past the start line, staggered across it, the camera looking back at the gate
+		# a start grid a little past the start line: two staggered columns, the camera ahead of it
+		# looking back at the gate
 		track = Tracks.build(o["track"])
 		world = World.build(track, level)
 		get_root().add_child(world)
 		var i0 := 0
 		var step := track.seg_len
 		for k in ids.size():
-			var along := 40.0 - 3.0 * k
-			var lat := -4.8 + 3.3 * k
+			var along := 42.0 - 8.0 * (k / 2) - 4.0 * (k % 2)
+			var lat := -3.0 if k % 2 == 0 else 3.0
 			var j := track.wrap(i0 + roundi(along / step))
-			var yaw := track.heading(j) + 0.3
+			var yaw := track.heading(j)
 			states.append({"x": track.px[j] + track.nx[j] * lat, "y": track.py[j] - lat * tan(track.bank[j]),
 				"z": track.pz[j] + track.nz[j] * lat, "yaw": yaw, "idx": j, "steer_angle": 0.0, "speed": 0.0})
-		var jc := track.wrap(i0 + roundi(53.0 / step))
-		var jt := track.wrap(i0 + roundi(33.0 / step))
-		var eye := Vector3(track.px[jc] - track.nx[jc] * 4.0, track.py[jc] + 2.3, track.pz[jc] - track.nz[jc] * 4.0)
-		var at := Vector3(track.px[jt] + track.nx[jt] * 1.5, track.py[jt] + 1.0, track.pz[jt] + track.nz[jt] * 1.5)
-		cam.fov = 48
+		var jc := track.wrap(i0 + roundi(float(o.get("eye", "52")) / step))
+		var jt := track.wrap(i0 + roundi(29.0 / step))
+		var side := float(o.get("side", "8"))
+		var eye := Vector3(track.px[jc] - track.nx[jc] * side, track.py[jc] + 4.0, track.pz[jc] - track.nz[jc] * side)
+		var at := Vector3(track.px[jt] + track.nx[jt] * 0.5, track.py[jt] + 0.6, track.pz[jt] + track.nz[jt] * 0.5)
+		cam.fov = 50
 		world.add_child(cam)
 		cam.look_at_from_position(eye, at)
 		if o.get("ghost", "0") == "1":
@@ -63,10 +65,10 @@ func _initialize() -> void:
 		pad.material_override = mat
 		world.add_child(pad)
 		for k in ids.size():
-			states.append({"x": (k - 1.5) * 4.2, "y": 0.0, "z": 0.0, "yaw": 0.35, "steer_angle": 0.2 if k % 2 == 0 else -0.1, "speed": 0.0})
+			states.append({"x": (k - (ids.size() - 1) * 0.5) * 4.2, "y": 0.0, "z": 0.0, "yaw": 0.35, "steer_angle": 0.2 if k % 2 == 0 else -0.1, "speed": 0.0})
 		cam.fov = 50
 		world.add_child(cam)
-		cam.look_at_from_position(Vector3(-6, 4.5, 11), Vector3(0, 0.6, -1))
+		cam.look_at_from_position(Vector3(-8, 6.5, 17), Vector3(0, 0.6, -1))
 		if o.get("ghost", "1") == "1":
 			ghost_state = {"x": 0.0, "y": 0.0, "z": -6.0, "yaw": 0.0}
 	cam.make_current()

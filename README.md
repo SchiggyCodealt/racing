@@ -1,7 +1,7 @@
 # Track Rush
 
 A Trackmania-style racer, plus a neural-network AI driver that you train yourself with
-neuroevolution and can watch learn in real time. Pick one of 4 cars, chase the medal times on
+neuroevolution and can watch learn in real time. Pick one of 6 cars, chase the medal times on
 12 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
 and play with a keyboard or a gamepad.
 
@@ -9,12 +9,15 @@ Version 6.0.0 is the game rebuilt in the [Godot](https://godotengine.org) game e
 4.7.2). It plays the same as the browser version 5 it was ported from: the same tracks, cars,
 physics, points, medals and AI. The browser version is still in the [`web/`](web/) folder and
 still playable. Everything runs on your own computer: no accounts, no internet, no cloud.
+Version 6.1.0 adds two cars, the Dune buggy and the Vortex hypercar, and new detailed car models
+with spinning, steering wheels, working suspension, lights and a driver who steers, leans into the
+corners and celebrates at the finish (see [The cars](#the-cars)).
 
 ![The menu: track tiles with minimaps, the selected track's panel with records and medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
 
-| Driving (nitro flames, the score on the left) | The finish panel |
+| Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
-| ![Driving on Night Highway with the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel: time, medal, score breakdown](docs/screenshots/finish.png) |
+| ![Driving on Night Highway with the headlights on and the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel: time, medal, score breakdown](docs/screenshots/finish.png) |
 
 ![Training the AI: the population on Lighthouse Bay with the leader's sensor rays, its live network and the stats](docs/screenshots/training.png)
 
@@ -22,7 +25,7 @@ still playable. Everything runs on your own computer: no accounts, no internet, 
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.0.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.1.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -114,7 +117,7 @@ the last thing you used, the key hints show its buttons.
 
 ### The cars
 
-There are four cars. Each handles differently and has its own best times, ghosts, medals and best scores.
+There are six cars. Each handles differently and has its own best times, ghosts, medals and best scores.
 
 - **Racer** (red, the default): the all-rounder. Quick, grippy and stable, never far off the pace anywhere.
 - **Kestrel** (yellow): light and nimble. The most grip, the shortest braking and the quickest launch, but a low
@@ -124,6 +127,12 @@ There are four cars. Each handles differently and has its own best times, ghosts
   (Banked Speedway, Grand Marathon, Night Highway).
 - **Drifter** (teal): a loose rally car. It slides on demand, holds long drifts and lands jumps without losing
   speed. It is the quickest car over the jumps (Ramp Rally, Seaside Stunts) and scores drift points easily.
+- **Dune** (green): an open buggy on big tyres. Soft and forgiving: strong grip in slow corners, traction on all
+  four wheels, gentle slides that are easy to catch and soft landings, but the lowest top speed, so it is the slowest
+  car on these tarmac tracks. It is the easiest car to drive cleanly.
+- **Vortex** (orange): a mid-engine hypercar. The most power, the highest top speed and the most grip at speed,
+  but light and twitchy at the limit, and its nitro tank lasts only 3 s. In the medal autopilot's hands it is the
+  quickest car on every track; in yours it rewards precise driving.
 
 | Car | Mass | 0-100 km/h | 0-200 km/h (with nitro) | Top speed (with nitro) | Nitro tank | 100-0 km/h | Cornering grip, 30 m / 120 m circle | Drift held |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -131,15 +140,30 @@ There are four cars. Each handles differently and has its own best times, ghosts
 | Kestrel | 950 kg | 2.43 s | 11.28 s (9.78 s) | 230.2 km/h (239.8) | 4 s | 27.7 m | 1.78 g / 1.59 g | 0.75 s |
 | Thunder | 1,650 kg | 2.68 s | 8.20 s (6.08 s) | 312.7 km/h (328.9) | 6 s | 33.8 m | 1.47 g / 1.56 g | 1.07 s |
 | Drifter | 1,150 kg | 2.50 s | 9.23 s (7.57 s) | 264.3 km/h (278.9) | 5 s | 33.1 m | 1.59 g / 1.52 g | 1.63 s |
+| Dune | 1,100 kg | 2.87 s | 12.68 s (10.88 s) | 222.4 km/h (232.9) | 5 s | 31.7 m | 1.71 g / 1.43 g | 0.60 s |
+| Vortex | 1,150 kg | 2.57 s | 6.22 s (5.47 s) | 321.4 km/h (338.1) | 3 s | 28.8 m | 1.68 g / 1.75 g | 1.22 s |
 
 The numbers are measured with the game's own physics (`tools/car_stats.gd`, see [Tests and tools](#tests-and-tools)).
 "Drift held" is how long a keyboard driver typically keeps a handbrake slide going. The car picker shows the same
 as five bars (speed, acceleration, grip, drift, nitro).
 
 **Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
-**Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The line under the cards describes the picked car.
-The choice is remembered, and Drive and Race the AI ghost use it. The track tiles, the records and the medal
-times follow the picked car. The AI always drives the Racer (it was trained with it).
+**Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The cards sit three to a row (two in a narrow
+window); the line under them describes the picked car. The choice is remembered, and Drive and Race the AI ghost
+use it. The track tiles, the records and the medal times follow the picked car. The AI always drives the Racer
+(it was trained with it).
+
+**The models.** Every car is drawn in detail: tyres with tread grooves, spoked rims in the car's own style, brake
+discs and calipers, suspension arms (and coil springs on the Dune) that you can see working, head and tail lights,
+mirrors, vents, panel lines, wings and exhausts, and its race number on the doors. The wheels spin with the car's
+speed and the front ones steer; the body squats when you accelerate, dives under braking, leans out of corners and
+sinks onto its springs when it lands, while the wheels stay on the road (and hang down in the air). The Vortex's
+rear wing tilts up as an air brake. A driver sits in every car: the steering wheel turns with the front wheels and
+the arms follow it, the head looks into the corners and leans against the cornering force, the body rocks under
+braking and acceleration and bumps on landings, and at the finish the driver pumps a fist. The brake lights glow
+brighter when you brake. On night tracks (and at dusk) the headlights light the road ahead: two real lights on
+High graphics, one on Medium, and a cheap glow on the road on Low. Each car is a single mesh, so it costs only a
+few draw calls; the Low setting uses a lighter version of it, and the AI training fleet a much simpler one.
 
 ### Nitro
 
@@ -191,28 +215,29 @@ are from the next.
 Gold, silver and bronze are 6 %, 20 % and 50 % slower than the author time, rounded up to a whole second (for
 example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 3:03). Author times:
 
-| Track | Racer | Kestrel | Thunder | Drifter |
-| --- | --- | --- | --- | --- |
-| Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 |
-| Hairpin Valley | 3:46.583 | 3:44.050 | 3:48.433 | 3:46.833 |
-| Ramp Rally | 2:52.417 | 2:55.183 | 2:53.517 | 2:52.083 |
-| Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 |
-| Technical Trial | 3:45.083 | 3:41.933 | 3:47.950 | 3:45.017 |
-| Grand Marathon | 2:30.467 | 2:33.017 | 2:29.317 | 2:32.033 |
-| Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 |
-| Mountain Pass | 1:47.683 | 1:48.250 | 1:49.150 | 1:48.500 |
-| Canyon Run | 4:15.450 | 4:11.933 | 4:25.167 | 4:12.150 |
-| Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 |
-| Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 |
-| Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 |
+| Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
+| --- | --- | --- | --- | --- | --- | --- |
+| Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 | 2:09.683 | 1:52.250 |
+| Hairpin Valley | 3:46.583 | 3:44.050 | 3:48.433 | 3:46.833 | 3:47.233 | 3:31.383 |
+| Ramp Rally | 2:52.417 | 2:55.183 | 2:53.517 | 2:52.083 | 2:58.367 | 2:36.750 |
+| Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 | 2:23.150 | 1:48.600 |
+| Technical Trial | 3:45.083 | 3:41.933 | 3:47.950 | 3:45.017 | 3:47.283 | 3:32.783 |
+| Grand Marathon | 2:30.467 | 2:33.017 | 2:29.317 | 2:32.033 | 2:38.433 | 2:18.867 |
+| Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 | 3:16.167 | 2:54.900 |
+| Mountain Pass | 1:47.683 | 1:48.250 | 1:49.150 | 1:48.500 | 1:51.083 | 1:40.433 |
+| Canyon Run | 4:15.450 | 4:11.933 | 4:25.167 | 4:12.150 | 4:17.733 | 4:02.100 |
+| Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 |
+| Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 |
+| Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 |
 
 The times are for the full race you drive (3 laps, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
 settings, driving each car with the same physics as you: it burns nitro on the straights and its points
 refill the tank as yours do (`tools/medals.gd`, see [Tests and tools](#tests-and-tools)). The autopilot only
 follows the centre line and uses nitro simply, so a driver with a real racing line and good nitro timing can beat
-even the author time. A medal counts to the millisecond the HUD shows. (All times are the browser version's
-except the Racer on Technical Trial, 1.05 s slower here: see [HANDOFF.md](HANDOFF.md).)
+even the author time. A medal counts to the millisecond the HUD shows. (The first four cars' times are the browser
+version's except the Racer on Technical Trial, 1.05 s slower here: see [HANDOFF.md](HANDOFF.md). The Dune and the
+Vortex exist only in this version.)
 
 ### Your ghost
 
@@ -436,7 +461,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.0.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.1.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -458,18 +483,22 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 2-3 minutes: `sim` (tracks, physics, race, points, ghosts, medals, save file; the numbers are compared with the browser version's), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation, training, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 3-4 minutes: `sim` (tracks, physics, race, points, ghosts, medals, save file; the numbers are compared with the browser version's), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation, training, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
 | `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
-| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 20 minutes on 3 cores (`-- --check` only compares, `-- --jobs=N` threads) |
+| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads) |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
 | `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
 
 Run `tools/medals.gd` after changing the physics, a car, the scoring rules, a track or its laps, and
 `tools/car_stats.gd` (then paste its lines into `sim/cars.gd`) after changing a car. Screenshot and preview scripts
-for the 3D world and the interface are in `tests/visual/`. The native training library is built as described in
+for the 3D world and the interface are in `tests/visual/`; for the car models: `car_studio.gd` (any car from any
+side, steering, cornering, braking, in the air or celebrating, `noglass=1` to see the driver), `car_corner.gd` (a
+car driven by the autopilot on a real track, stopped mid-corner, close up or from the chase camera), `world_cars.gd`
+(all six on a start grid) and `car_cost.gd` (each car's draw calls and triangles at each quality level, and the AI
+fleet's). Each file says how to run it. The native training library is built as described in
 [`native/README.md`](native/README.md).
 
 ### Adding a track
@@ -490,13 +519,15 @@ main.tscn               the main scene: one node with game/app.gd
 game/                   the game shell: modes, threaded track loading, quality, settings, AI network files (app.gd),
                         keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages
 modes/                  menu, play (Drive, Race the AI ghost), watch (Watch the AI) and train (the training screen)
-sim/                    game logic without any graphics: tracks, car physics and nitro, the four cars, collisions,
+sim/                    game logic without any graphics: tracks, car physics and nitro, the six cars, collisions,
                         race timing, points, ghosts, medals, the save file, the autopilot
 ai/                     the AI: network, evolution, sensors and driver, trainer
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
-world/                  3D: track mesh, terrain and scenery, sky and themes, car models, effects (smoke, skids,
-                        sparks, nitro), chase camera, the AI fleet and sensor rays; shaders/
+world/                  3D: track mesh, terrain and scenery, sky and themes, car models (car_shapes.gd: the six
+                        bodies; car_build.gd + car_kit.gd: one skinned mesh per car with its driver; car_model.gd:
+                        the skeleton's animation and lights), effects (smoke, skids, sparks, nitro), chase camera,
+                        the AI fleet and sensor rays; shaders/
 ui/                     the interface, built in code: style, menu, Controls and Settings screens, HUD, finish panel,
                         training dashboard, network view, fitness chart
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)

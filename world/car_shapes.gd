@@ -1,7 +1,9 @@
 ## car_shapes.gd
 ## ------------------------------------------------------------------
-## The four car bodies (carMesh.js SHAPES and its procedural geometry):
-## one detailed model with different proportions and parts per car.
+## The six car bodies (carMesh.js SHAPES and its procedural geometry, plus
+## the Dune buggy and the Vortex hypercar): one body plan with different
+## proportions and parts per car. world/car_build.gd turns a shape into the
+## whole skinned car (wheels, suspension, lights, decals, the driver).
 ## Every part is laid out in the racer's frame and then stretched by warp():
 ## x * width, y * height + lift, z * front (z > 0) or rear (z < 0).
 ## Only the drawing changes: every car has the racer's collision capsule.
@@ -21,7 +23,18 @@
 ##   parts     extra parts, one material each (paint, accent, carbon, glass or head):
 ##             loft | box [sx, sy, sz] | wing [span, chord, thickness] | hoop [radius, tube] |
 ##             lamp [radius, depth] | fin; placed at `at` after a tilt rx about x;
-##             sym: mirrored to -x as well; flat: left out of the side view (profile)
+##             sym: mirrored to -x as well; flat: left out of the side view (profile);
+##             bone: "flap" for an active wing (car_build.gd moves it)
+##   fenders, pods  false: no wheel arches / side pods (the buggy's open wheels); floorW: floor half width
+##   open      an open cockpit (no canopy over the driver)
+##   number    the race number on the doors; decal [z, y, radius] of its roundel (racer frame)
+##   lights    "round" | "strip" (LED strips) | "buggy" (small lamps and a light bar)
+##   hip, lean, wheel   the driver: hip point [x, z, y] (racer frame), recline (rad), steering
+##             wheel [z, y, tilt]; tray [z0, z1, half width] the dark cockpit floor; seats [[x, z]]
+##   suit, helmet, helmet_stripe, visor, gloves, rim, spokes, caliper, cage   colours (0xRRGGBB) and counts
+##   seams     panel lines [axis (0: plane z = c, 1: plane |x| = c), c, r0, r1 (the |x| or z range), y0, y1]
+##   vents     louvres on top of the body [x, z, length, half width, slats] (both sides)
+##   tubes     roll cage / bars in the car's own frame [x0, y0, z0, x1, y1, z1, radius, sym]
 extends RefCounted
 
 const Geo = preload("res://world/geo.gd")
@@ -50,11 +63,21 @@ static func canopy_stations() -> Array:
 static var _shapes: Dictionary = {}
 
 
+## Keys every shape has (shapes() fills in the ones a car leaves out).
+const DEFAULTS := {
+	"fenders": true, "pods": true, "open": false, "number": "1", "lights": "round",
+	"rim": 0xc3c7cf, "spokes": 6, "caliper": 0xd8322b,
+	"suit": 0x202226, "helmet": 0xf2f2f2, "helmet_stripe": 0xd7263d, "visor": 0x10161f, "gloves": 0x1b1c20,
+	"tray": [], "seats": [], "seams": [], "vents": [], "tubes": [], "decal": [-0.05, 0.45, 0.15],
+	"cage": 0x3a3d42,
+}
+
+
 static func shapes() -> Dictionary:
 	if not _shapes.is_empty():
 		return _shapes
 	_shapes = {
-		# the v3 sports car exactly as it was: low wedge, bubble canopy, rear wing on swan necks, fin
+		# the v3 sports car: low wedge, bubble canopy, rear wing on swan necks, fin
 		"racer": {
 			"front": 1.0, "rear": 1.0, "width": 1.0, "height": 1.0, "lift": 0.0, "track": 1.0, "haunch": 1.0,
 			"wheels": [0.37, 0.3, 0.4, 0.36],
@@ -69,6 +92,16 @@ static func shapes() -> Dictionary:
 				{"mat": "paint", "fin": true},
 				{"mat": "paint", "box": [0.035, 0.42, 0.62], "at": [0.97, 1.08, -2.12], "sym": true}, # wing end plates
 			],
+			# the driver (racer frame): hip [x, z, y], recline (rad), steering wheel [z, y, tilt]
+			"number": "1", "hip": [0.0, -0.22, 0.26], "lean": 0.45, "wheel": [-0.1, 0.86, 0.35],
+			"tray": [-0.95, 0.72, 0.36],
+			"suit": 0xe6e6e9, "gloves": 0xd7263d, "helmet": 0xf2f2f2, "helmet_stripe": 0xd7263d,
+			"rim": 0xc3c7cf, "spokes": 6, "caliper": 0xd8322b,
+			# panel lines (racer frame): [axis 0 = plane z, 1 = plane |x|; c; r0, r1 (|x| or z range); y0, y1]
+			"seams": [[0, 0.62, 0.55, 1.2, 0.2, 0.76], [0, -0.6, 0.55, 1.2, 0.2, 0.8], [0, 1.05, 0.0, 0.5, 0.55, 0.9],
+				[1, 0.5, 1.05, 2.3, 0.3, 0.9], [0, -1.3, 0.0, 0.55, 0.6, 1.0]],
+			# louvres: [x, z, along-z length, half width, slats] on the top of the body (sym: both sides)
+			"vents": [[0.32, 1.62, 0.34, 0.11, 5], [0.27, -1.5, 0.34, 0.1, 5]],
 		},
 		# small, short, low roadster: open cockpit with a wraparound screen, roll hoops, ducktail lip, narrow track
 		"kestrel": {
@@ -81,14 +114,19 @@ static func shapes() -> Dictionary:
 			"exhausts": [[0.1, 0.34, -2.42, 0.045], [-0.1, 0.34, -2.42, 0.045]],
 			"rain": [0.0, 0.74, -2.37],
 			"parts": [
-				# open cockpit (a dark well in the deck), two headrest fairings and roll hoops behind the seats
-				{"mat": "carbon", "flat": true, "loft": [ST(-0.85, 0, 0.79, 0.3, 0.03, 4), ST(-0.6, 0, 0.8, 0.42, 0.035, 4),
-					ST(-0.1, 0, 0.765, 0.43, 0.035, 4), ST(0.22, 0, 0.73, 0.36, 0.03, 4)]},
+				# two headrest fairings and roll hoops behind the seats (the open cockpit is the tray)
 				{"mat": "paint", "sym": true, "loft": [ST(-1.85, 0.22, 0.76, 0.04, 0.02, 3), ST(-1.35, 0.22, 0.78, 0.1, 0.07, 3),
 					ST(-0.85, 0.22, 0.8, 0.13, 0.13, 3), ST(-0.66, 0.22, 0.8, 0.12, 0.14, 3)]},
 				{"mat": "accent", "hoop": [0.13, 0.022], "at": [0.22, 0.86, -0.6], "sym": true},
 				{"mat": "accent", "wing": [1.36, 0.2, 0.045], "at": [0, 0.77, -2.12], "rx": 0.3}, # ducktail lip
 			],
+			"number": "7", "open": true, "hip": [0.22, -0.2, 0.36], "lean": 0.32, "wheel": [0.13, 0.84, 0.42],
+			"tray": [-0.8, 0.24, 0.42], "seats": [[0.22, -0.52], [-0.22, -0.52]],
+			"suit": 0x2c4a9a, "gloves": 0xf2c14e, "helmet": 0x2b2d42, "helmet_stripe": 0xf2c14e,
+			"rim": 0x24262b, "spokes": 10, "caliper": 0xd8322b,
+			"seams": [[0, 0.55, 0.5, 1.2, 0.2, 0.74], [0, -0.55, 0.5, 1.2, 0.2, 0.76], [0, 0.95, 0.0, 0.48, 0.5, 0.9],
+				[0, -1.62, 0.0, 0.5, 0.55, 0.95]],
+			"vents": [[0.3, 1.55, 0.26, 0.09, 4]],
 		},
 		# long, wide grand tourer: cabin set back (long bonnet), fat rear tyres, big wing, splitter, four pipes
 		"thunder": {
@@ -108,6 +146,13 @@ static func shapes() -> Dictionary:
 				{"mat": "carbon", "box": [1.95, 0.035, 0.3], "at": [0, 0.13, 2.35]},            # splitter
 				{"mat": "carbon", "box": [0.04, 0.12, 0.3], "at": [0.94, 0.3, 2.16], "sym": true}, # dive planes
 			],
+			"number": "3", "hip": [0.0, -0.55, 0.22], "lean": 0.48, "wheel": [-0.42, 0.84, 0.38],
+			"tray": [-1.6, 0.4, 0.38],
+			"suit": 0x2f6fd8, "gloves": 0xeef2f8, "helmet": 0xeef2f8, "helmet_stripe": 0x3a86ff,
+			"rim": 0x5a5f69, "spokes": 5, "caliper": 0xffc83d,
+			"seams": [[0, 0.3, 0.55, 1.2, 0.2, 0.78], [0, -1.05, 0.55, 1.2, 0.2, 0.82], [0, 0.65, 0.0, 0.52, 0.55, 0.95],
+				[1, 0.52, 0.65, 2.3, 0.3, 0.95], [0, -1.95, 0.0, 0.55, 0.55, 1.0]],
+			"vents": [[0.3, 1.35, 0.4, 0.12, 6]],
 		},
 		# tall rally hatchback: raised ride, boxy greenhouse with a roof, scoop, roof spoiler, light pod, mud flaps
 		"drifter": {
@@ -134,8 +179,86 @@ static func shapes() -> Dictionary:
 				{"mat": "accent", "box": [0.3, 0.26, 0.025], "at": [0.85, 0.2, 0.92], "sym": true},  # mud flaps
 				{"mat": "accent", "box": [0.3, 0.26, 0.025], "at": [0.85, 0.2, -1.95], "sym": true},
 			],
+			"number": "5", "hip": [0.3, -0.3, 0.36], "lean": 0.24, "wheel": [0.16, 0.9, 0.55],
+			"tray": [-1.9, 0.75, 0.55], "seats": [[0.3, -0.62], [-0.3, -0.62]],
+			"suit": 0x1f6f69, "gloves": 0xff9f1c, "helmet": 0xff9f1c, "helmet_stripe": 0xf4f4f2,
+			"rim": 0xd6a940, "spokes": 8, "caliper": 0xd8322b,
+			"seams": [[0, 0.45, 0.55, 1.2, 0.2, 0.76], [0, -0.75, 0.55, 1.2, 0.2, 0.8], [0, 0.95, 0.0, 0.5, 0.5, 0.9]],
+			# a rally cage behind the seats, in the car's own frame: [x0, y0, z0, x1, y1, z1, radius] (sym: mirrored)
+			"tubes": [[0.5, 0.9, -0.85, 0.5, 1.33, -0.85, 0.022, true], [0.5, 1.33, -0.85, -0.5, 1.33, -0.85, 0.022, false],
+				[0.5, 1.33, -0.85, 0.45, 0.92, -1.75, 0.02, true], [0.5, 1.33, -0.85, -0.5, 0.92, -1.75, 0.02, false]],
+		},
+		# open dune buggy: tube roll cage on a narrow tub, big tyres on long exposed arms, engine at the back
+		"dune": {
+			"front": 0.84, "rear": 0.86, "width": 0.82, "height": 1.0, "lift": 0.2, "track": 1.38, "haunch": 1.0,
+			"wheels": [0.43, 0.32, 0.45, 0.4],
+			"fenders": false, "pods": false, "open": true, "floorW": 0.62,
+			"glass": [], "mirror": [],
+			"stripes": [0.0], "stripeW": 0.1, "stripeAccent": true,
+			"exhausts": [[0.2, 0.94, -2.32, 0.055], [-0.2, 0.94, -2.32, 0.055]],
+			"rain": [0.0, 0.78, -2.3],
+			"lights": "buggy",
+			"parts": [
+				{"mat": "carbon", "box": [0.78, 0.36, 0.62], "at": [0, 0.62, -1.78]},             # engine
+				{"mat": "carbon", "box": [0.86, 0.06, 0.5], "at": [0, 0.46, 1.9]},               # skid plate
+				{"mat": "accent", "box": [0.9, 0.05, 0.52], "at": [0, 0.83, -1.78]},              # engine lid
+			],
+			"number": "9", "hip": [0.0, -0.32, 0.4], "lean": 0.3, "wheel": [0.2, 0.92, 0.5],
+			"seats": [[0.0, -0.64]],
+			"suit": 0x6b6a4e, "helmet": 0xf4f4f2, "helmet_stripe": 0x8cc63f, "gloves": 0xb08a5a,
+			"rim": 0x2a2c30, "spokes": 6, "caliper": 0x8cc63f,
+			"decal": [-0.1, 0.46, 0.13],
+			"cage": 0x2b2e33,
+			# roll cage, nudge bar, light bar and side bars, in the car's own frame
+			"tubes": [
+				[0.46, 0.9, -0.82, 0.42, 1.62, -0.86, 0.03, true], [0.42, 1.62, -0.86, -0.42, 1.62, -0.86, 0.03, false],
+				[0.46, 0.92, 0.6, 0.4, 1.56, 0.02, 0.028, true], [0.4, 1.56, 0.02, -0.4, 1.56, 0.02, 0.028, false],
+				[0.42, 1.62, -0.86, 0.4, 1.56, 0.02, 0.028, true],
+				[0.42, 1.62, -0.86, 0.4, 0.84, -1.98, 0.026, true], [0.4, 0.84, -1.98, -0.4, 0.84, -1.98, 0.026, false],
+				[0.46, 0.92, 0.6, 0.34, 0.7, 1.72, 0.026, true],
+				[0.5, 0.86, 0.56, 0.5, 0.86, -0.8, 0.024, true], [0.5, 0.86, 0.1, 0.52, 1.18, -0.36, 0.022, true],
+				[0.34, 0.7, 1.72, 0.36, 0.5, 2.02, 0.03, true], [0.36, 0.5, 2.02, -0.36, 0.5, 2.02, 0.032, false],
+				[0.36, 0.72, 1.98, -0.36, 0.72, 1.98, 0.028, false],
+			],
+		},
+		# very low, wide mid-engine hypercar: cab-forward bubble, roof scoop, long tail, big diffuser, active wing
+		"vortex": {
+			"front": 1.05, "rear": 1.1, "width": 1.06, "height": 0.9, "lift": -0.02, "track": 1.0, "haunch": 1.12,
+			"wheels": [0.36, 0.3, 0.4, 0.42],
+			"glass": [ST(-1.05, 0, 0.74, 0.2, 0.05, 3), ST(-0.75, 0, 0.8, 0.36, 0.15, 3), ST(-0.3, 0, 0.86, 0.43, 0.25, 3),
+				ST(0.25, 0, 0.85, 0.43, 0.24, 3), ST(0.8, 0, 0.77, 0.36, 0.15, 3), ST(1.2, 0, 0.68, 0.18, 0.04, 3)],
+			"mirror": [0.66, 0.86, 0.72],
+			"stripes": [0.2, -0.2], "stripeW": 0.04, "stripeAccent": true,
+			"exhausts": [[0.13, 0.66, -2.42, 0.062], [-0.13, 0.66, -2.42, 0.062]],
+			"rain": [0.0, 0.5, -2.4],
+			"lights": "strip",
+			"parts": [
+				{"mat": "accent", "loft": [ST(-0.35, 0, 1.1, 0.07, 0.015, 4), ST(-0.6, 0, 1.13, 0.15, 0.07, 4), ST(-1.0, 0, 1.08, 0.16, 0.08, 4),
+					ST(-1.45, 0, 0.96, 0.12, 0.05, 4), ST(-1.7, 0, 0.88, 0.06, 0.02, 4)]}, # roof scoop
+				{"mat": "paint", "fin": true},
+				{"mat": "carbon", "wing": [2.02, 0.44, 0.07], "at": [0, 1.2, -2.0], "bone": "flap"},      # active wing
+				{"mat": "accent", "box": [0.035, 0.3, 0.5], "at": [1.0, 1.2, -2.18], "sym": true, "bone": "flap"},
+				{"mat": "carbon", "box": [0.045, 0.5, 0.2], "at": [0.36, 0.95, -2.02], "sym": true},  # wing pylons
+				{"mat": "carbon", "box": [2.0, 0.035, 0.34], "at": [0, 0.12, 2.36]},              # splitter
+				{"mat": "carbon", "box": [0.05, 0.1, 0.32], "at": [0.96, 0.28, 2.14], "sym": true}, # canards
+				{"mat": "carbon", "box": [1.7, 0.3, 0.4], "at": [0, 0.27, -2.25]},               # diffuser
+				{"mat": "carbon", "loft": [ST(-1.25, 0.98, 0.5, 0.03, 0.04, 4), ST(-0.95, 0.99, 0.5, 0.07, 0.13, 4),
+					ST(-0.7, 0.98, 0.5, 0.06, 0.14, 4), ST(-0.55, 0.97, 0.5, 0.02, 0.1, 4)], "sym": true}, # side intakes
+			],
+			"number": "6", "hip": [0.0, 0.06, 0.14], "lean": 0.58, "wheel": [0.22, 0.8, 0.42],
+			"tray": [-0.9, 1.0, 0.36],
+			"suit": 0x34363e, "gloves": 0xff6b1a, "helmet": 0x15161a, "helmet_stripe": 0xff6b1a, "visor": 0x1b2c4a,
+			"rim": 0x1d1f23, "spokes": 10, "caliper": 0xffc83d,
+			"seams": [[0, 0.8, 0.55, 1.2, 0.2, 0.74], [0, -0.55, 0.55, 1.2, 0.2, 0.78], [0, 1.2, 0.0, 0.5, 0.5, 0.9],
+				[0, -1.25, 0.0, 0.5, 0.6, 1.0]],
+			"vents": [[0.32, 1.7, 0.28, 0.1, 4], [0.3, -1.55, 0.4, 0.12, 6]],
 		},
 	}
+	for id: String in _shapes:
+		var sh: Dictionary = _shapes[id]
+		for k: String in DEFAULTS:
+			if not sh.has(k):
+				sh[k] = DEFAULTS[k]
 	return _shapes
 
 
@@ -309,10 +432,13 @@ static func fin_geometry() -> Geo:
 
 
 ## The extra parts of `shape` made of material `mat` (racer frame, not warped yet).
-static func part_geometries(shape: Dictionary, mat: String, detail := 1) -> Array:
+## bone: only the parts on that bone ("" the body's, "*" every part).
+static func part_geometries(shape: Dictionary, mat: String, detail := 1, bone := "*") -> Array:
 	var out := []
 	for p in shape["parts"]:
 		if p["mat"] != mat:
+			continue
+		if bone != "*" and String(p.get("bone", "")) != bone:
 			continue
 		for s in ([1.0, -1.0] if p.get("sym", false) else [1.0]):
 			var g: Geo = null
@@ -338,18 +464,28 @@ static func part_geometries(shape: Dictionary, mat: String, detail := 1) -> Arra
 	return out
 
 
-static func paint_geometry(shape: Dictionary, detail := 1) -> Geo:
+static func paint_geometry(shape: Dictionary, detail := 1, bone := "*") -> Geo:
+	var parts := body_panels(shape, detail).values()
+	parts.append_array(part_geometries(shape, "paint", detail, bone))
+	return warp(Geo.merge(parts), shape)
+
+
+## The painted panels in the racer frame: {tub, front_l, front_r, pod_l, pod_r, rear_l, rear_r}
+## (fenders and pods only when the shape has them).
+static func body_panels(shape: Dictionary, detail := 1) -> Dictionary:
 	var st := body_stations(shape)
 	var ring := 18 if detail else 10
 	var steps := 3 if detail else 1
-	var parts := [
-		loft(st["tub"], ring, steps),
-		loft(st["frontFender"], ring, steps), loft(mirror_x(st["frontFender"]), ring, steps),
-		loft(st["sidePod"], ring, steps), loft(mirror_x(st["sidePod"]), ring, steps),
-		loft(st["rearFender"], ring, steps), loft(mirror_x(st["rearFender"]), ring, steps),
-	]
-	parts.append_array(part_geometries(shape, "paint", detail))
-	return warp(Geo.merge(parts), shape)
+	var out := {"tub": loft(st["tub"], ring, steps)}
+	if shape["fenders"]:
+		out["front_l"] = loft(st["frontFender"], ring, steps)
+		out["front_r"] = loft(mirror_x(st["frontFender"]), ring, steps)
+		out["rear_l"] = loft(st["rearFender"], ring, steps)
+		out["rear_r"] = loft(mirror_x(st["rearFender"]), ring, steps)
+	if shape["pods"]:
+		out["pod_l"] = loft(st["sidePod"], ring, steps)
+		out["pod_r"] = loft(mirror_x(st["sidePod"]), ring, steps)
+	return out
 
 
 static func stripe_geometry(shape: Dictionary) -> Geo:
@@ -359,46 +495,53 @@ static func stripe_geometry(shape: Dictionary) -> Geo:
 	return warp(Geo.merge(parts), shape)
 
 
-static func carbon_geometry(shape: Dictionary, detail := 1) -> Geo:
+static func carbon_geometry(shape: Dictionary, detail := 1, exhausts := true, bone := "*") -> Geo:
 	var parts := []
 	# floor with a front splitter
-	var fl := PackedVector2Array([Vector2(-0.9, -2.25), Vector2(0.9, -2.25), Vector2(0.9, 2.2)])
-	Geo.quadratic(fl, Vector2(0.9, 2.2), Vector2(0.86, 2.5), Vector2(0.4, 2.52), 12)
-	fl.append(Vector2(-0.4, 2.52))
-	Geo.quadratic(fl, Vector2(-0.4, 2.52), Vector2(-0.86, 2.5), Vector2(-0.9, 2.2), 12)
+	var fw: float = shape.get("floorW", 0.9)
+	var fl := PackedVector2Array([Vector2(-fw, -2.25), Vector2(fw, -2.25), Vector2(fw, 2.2)])
+	Geo.quadratic(fl, Vector2(fw, 2.2), Vector2(fw * 0.955, 2.5), Vector2(0.4 * fw / 0.9, 2.52), 12)
+	fl.append(Vector2(-0.4 * fw / 0.9, 2.52))
+	Geo.quadratic(fl, Vector2(-0.4 * fw / 0.9, 2.52), Vector2(-fw * 0.955, 2.5), Vector2(-fw, 2.2), 12)
 	parts.append(Geo.extrude(fl, 0.05).rotate_x(PI / 2.0).translate(0, 0.16, 0))
 	# the racer: rear wing on swan-neck pylons
-	parts.append_array(part_geometries(shape, "carbon", detail))
+	parts.append_array(part_geometries(shape, "carbon", detail, bone))
 	# diffuser fins
 	for x in [-0.6, -0.2, 0.2, 0.6]:
 		parts.append(box(0.03, 0.22, 0.4, x, 0.25, -2.12))
 	# side intakes and mirror stalks
 	var m: Array = shape["mirror"]
 	for s in [1.0, -1.0]:
-		parts.append(box(0.04, 0.2, 0.06, s * 0.72, 0.42, 0.83))
-		parts.append(box(0.03, 0.03, 0.14, s * (m[0] - 0.09), m[1] - 0.02, m[2] + 0.04))
-	if detail:
+		if shape["pods"]:
+			parts.append(box(0.04, 0.2, 0.06, s * 0.72, 0.42, 0.83))
+		if not m.is_empty():
+			parts.append(box(0.03, 0.03, 0.14, s * (m[0] - 0.09), m[1] - 0.02, m[2] + 0.04))
+	if detail and exhausts:
 		# exhausts
 		for e in shape["exhausts"]:
 			parts.append(Geo.cylinder(e[3], e[3], 0.2, 10).rotate_x(PI / 2.0).translate(e[0], e[1], e[2] + 0.1))
 	return warp(Geo.merge(parts), shape)
 
 
-static func glass_geometry(shape: Dictionary) -> Geo:
-	var parts := [loft(shape["glass"], 20, 3)]
-	parts.append_array(part_geometries(shape, "glass"))
+static func glass_geometry(shape: Dictionary, detail := 1) -> Geo:
+	var parts := []
+	if not (shape["glass"] as Array).is_empty():
+		parts.append(loft(shape["glass"], 20 if detail else 10, 3 if detail else 1))
+	parts.append_array(part_geometries(shape, "glass", detail))
 	return warp(Geo.merge(parts), shape)
 
 
 ## Parts in the car's accent colour, or null when it has none.
-static func accent_geometry(shape: Dictionary) -> Geo:
-	var parts := part_geometries(shape, "accent")
+static func accent_geometry(shape: Dictionary, detail := 1, bone := "*") -> Geo:
+	var parts := part_geometries(shape, "accent", detail, bone)
 	return warp(Geo.merge(parts), shape) if not parts.is_empty() else null
 
 
 static func mirror_geometry(shape: Dictionary) -> Geo:
 	var m: Array = shape["mirror"]
 	var parts := []
+	if m.is_empty():
+		return Geo.new()
 	for s in [1.0, -1.0]:
 		parts.append(Geo.sphere(0.07, 10, 6).scale(1.4, 0.7, 1.1).translate(s * m[0], m[1], m[2]))
 	return warp(Geo.merge(parts), shape)
@@ -423,77 +566,38 @@ static func wheel_geometries(R: float, W: float) -> Dictionary:
 	return {"tyre": tyre, "rim": rim, "brake": Geo.merge([disc, caliper])}
 
 
-static func light_geometries(shape: Dictionary) -> Dictionary:
+## The lamps (warped onto the shape): head (glowing), tail (glowing red) and housing (dark bezels).
+## Styles: "round" (lens and running-light strip), "strip" (thin LED blades), "buggy" (small
+## round lamps at the nose; car_build.gd adds the light bar on the cage).
+static func light_geometries(shape: Dictionary, detail := 1) -> Dictionary:
 	var head := []
 	var tail := []
+	var housing := []
+	var style: String = shape["lights"]
+	var seg := 12 if detail else 8
 	for s in [1.0, -1.0]:
-		head.append(Geo.sphere(0.1, 12, 6).scale(1.5, 0.42, 0.85).rotate_x(-0.55).translate(s * 0.79, 0.485, 2.31))
-		head.append(box(0.2, 0.018, 0.05, s * 0.79, 0.555, 2.2)) # daytime running light
-	head.append_array(part_geometries(shape, "head")) # the rally car's light pod
-	tail.append(box(1.9, 0.045, 0.03, 0, 0.6, -2.375)) # full-width light blade
-	for s in [1.0, -1.0]:
-		tail.append(box(0.05, 0.16, 0.03, s * 0.86, 0.55, -2.37))
+		if style == "round":
+			head.append(Geo.sphere(0.1, seg, 6).scale(1.5, 0.42, 0.85).rotate_x(-0.55).translate(s * 0.79, 0.485, 2.31))
+			head.append(box(0.2, 0.018, 0.05, s * 0.79, 0.555, 2.2)) # daytime running light
+			housing.append(Geo.sphere(0.112, seg, 6).scale(1.5, 0.5, 0.85).rotate_x(-0.55).translate(s * 0.79, 0.48, 2.29))
+		elif style == "strip":
+			head.append(box(0.36, 0.022, 0.05, 0, 0, 0).rotate_y(s * 0.32).rotate_x(-0.2).translate(s * 0.7, 0.5, 2.28))
+			head.append(Geo.sphere(0.045, seg, 6).scale(1.0, 0.8, 0.6).translate(s * 0.58, 0.455, 2.36))
+			head.append(Geo.sphere(0.045, seg, 6).scale(1.0, 0.8, 0.6).translate(s * 0.68, 0.45, 2.32))
+			housing.append(box(0.34, 0.09, 0.05, 0, 0, 0).rotate_y(s * 0.3).translate(s * 0.64, 0.46, 2.3))
+		else:
+			head.append(Geo.sphere(0.075, seg, 6).scale(1.0, 1.0, 0.5).translate(s * 0.3, 0.42, 2.4))
+			housing.append(Geo.cylinder(0.085, 0.085, 0.07, seg).rotate_x(PI / 2.0).translate(s * 0.3, 0.42, 2.36))
+	head.append_array(part_geometries(shape, "head", detail)) # the rally car's light pod
+	if style == "strip":
+		tail.append(box(1.96, 0.026, 0.03, 0, 0.66, -2.375)) # full-width LED blade
+		for s in [1.0, -1.0]:
+			tail.append(box(0.04, 0.2, 0.03, s * 0.92, 0.58, -2.36))
+	elif style == "round":
+		tail.append(box(1.9, 0.045, 0.03, 0, 0.6, -2.375)) # full-width light blade
+		for s in [1.0, -1.0]:
+			tail.append(box(0.05, 0.16, 0.03, s * 0.86, 0.55, -2.37))
 	var r: Array = shape["rain"]
 	tail.append(box(0.12, 0.06, 0.04, r[0], r[1], r[2])) # rain light
-	return {"head": warp(Geo.merge(head), shape), "tail": warp(Geo.merge(tail), shape)}
-
-
-# ---- side view ----------------------------------------------------------------
-
-## Side view of car `id` for the car picker (plain numbers, same data as the 3D
-## model): {parts: [{mat, pts: PackedVector2Array of (z, y)}], wheels: [Vector2(z, radius)]}
-## in metres (z forward, y up). mat is "glass", "paint", "accent", "carbon" or "head".
-## Draw the parts in order, then the wheels on top.
-static func profile(id: String) -> Dictionary:
-	var s := shape_of(id)
-	var P := func(z: float, y: float) -> Vector2:
-		var p := warp_point(s, 0, y, z)
-		return Vector2(snappedf(p.z, 0.001), snappedf(p.y, 0.001))
-	var side := func(st: Array) -> PackedVector2Array:
-		var out := PackedVector2Array()
-		for t in st:
-			out.append(P.call(t[0], t[2] + t[4]))
-		for i in range(st.size() - 1, -1, -1):
-			var t: Array = st[i]
-			out.append(P.call(t[0], t[2] - t[4]))
-		return out
-	var rect := func(z: float, y: float, dz: float, dy: float) -> PackedVector2Array:
-		return PackedVector2Array([P.call(z - dz, y - dy), P.call(z + dz, y - dy), P.call(z + dz, y + dy), P.call(z - dz, y + dy)])
-	var b := body_stations(s)
-	var parts := [{"mat": "glass", "pts": side.call(s["glass"])}]
-	for key in ["sidePod", "rearFender", "frontFender", "tub"]:
-		parts.append({"mat": "paint", "pts": side.call(b[key])})
-	parts.append({"mat": "carbon", "pts": rect.call(0.13, 0.135, 2.38, 0.025)}) # floor
-	for p in s["parts"]:
-		if p.get("flat", false):
-			continue
-		var at: Array = p.get("at", [0, 0, 0])
-		var y: float = at[1]
-		var z: float = at[2]
-		var pts := PackedVector2Array()
-		if p.has("loft"):
-			pts = side.call(p["loft"])
-		elif p.has("box"):
-			pts = rect.call(z, y, p["box"][2] / 2.0, p["box"][1] / 2.0)
-		elif p.has("hoop"):
-			pts = rect.call(z, y + (p["hoop"][0] + p["hoop"][1]) / 2.0, p["hoop"][1], (p["hoop"][0] + p["hoop"][1]) / 2.0)
-		elif p.has("lamp"):
-			pts = rect.call(z, y, p["lamp"][1] / 2.0, p["lamp"][0])
-		elif p.has("fin"):
-			for f in FIN:
-				pts.append(P.call(f[0], f[1]))
-		elif p.has("wing"):
-			var chord: float = p["wing"][1]
-			var thick: float = p["wing"][2]
-			var a: float = p.get("rx", 0.0)
-			var tz := z - chord * cos(a)
-			var ty := y + chord * sin(a)
-			pts = PackedVector2Array([P.call(z, y), P.call(z - chord * 0.3, y + thick), P.call(tz, ty + thick * 0.25), P.call(tz, ty),
-				P.call(z - chord * 0.3, y - thick * 0.2)])
-		if not pts.is_empty():
-			parts.append({"mat": p["mat"], "pts": pts})
-	var wheels := []
-	for w in wheel_layout(s):
-		if w[0] > 0.0:
-			wheels.append(Vector2(snappedf(w[1], 0.001), w[2]))
-	return {"parts": parts, "wheels": wheels}
+	return {"head": warp(Geo.merge(head), shape), "tail": warp(Geo.merge(tail), shape),
+		"housing": warp(Geo.merge(housing), shape)}

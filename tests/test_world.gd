@@ -8,6 +8,7 @@ const Themes = preload("res://world/themes.gd")
 const TrackMesh = preload("res://world/track_mesh.gd")
 const TrackCtx = preload("res://world/track_ctx.gd")
 const Shapes = preload("res://world/car_shapes.gd")
+const Kit = preload("res://world/car_kit.gd")
 
 
 func run(t) -> bool:
@@ -77,15 +78,12 @@ func _themes(t) -> void:
 
 func _cars(t) -> void:
 	t.section("car models")
-	for id: String in ["racer", "kestrel", "thunder", "drifter"]:
+	for id: String in Cars.ids():
 		var car := CarModel.new(id)
-		var tris := 0
-		for n in car.find_children("*", "MeshInstance3D", true, false):
-			var m: Mesh = (n as MeshInstance3D).mesh
-			if m != null:
-				for s in m.get_surface_count():
-					tris += (m.surface_get_array_index_len(s) if m.surface_get_array_index_len(s) > 0 else m.surface_get_array_len(s)) / 3
-		t.check(tris > 2000, "%s builds (%d triangles)" % [id, tris])
+		t.tree.root.add_child(car)
+		var tris := car.triangles()
+		t.check(tris > 8000 and car.skeleton.get_bone_count() == Kit.BONE_COUNT and car.opaque_mesh.skin != null and car.opaque_mesh.mesh != null,
+			"%s builds: one skinned mesh of %d triangles on %d bones" % [id, tris, car.skeleton.get_bone_count()])
 		var state := {"x": 10.0, "y": 2.0, "z": -5.0, "yaw": 0.7, "pitch": 0.02, "roll": -0.03, "steer_angle": 0.3, "wheel_rot": 1.2,
 			"vx": 3.0, "vz": 20.0, "speed": 20.2, "boost": 1.0, "boosting": true, "drifting": true, "slip": 0.4}
 		var prev := state.duplicate()
@@ -94,13 +92,144 @@ func _cars(t) -> void:
 		var p := car.position
 		t.check(p.is_finite() and _near(p.x, 9.5, 1e-6) and _near(p.z, -5.0, 1e-6), "%s interpolates its position" % id)
 		t.check(_near(car.rotation.y, 0.7, 1e-6), "%s faces its yaw" % id)
+		# wheels: the fronts steer, the rears don't; all of them roll by wheel_rot
+		var sk := car.skeleton
+		var fl := sk.get_bone_pose(Kit.UPRIGHT0)
+		var rl := sk.get_bone_pose(Kit.UPRIGHT0 + 2)
+		var spin := sk.get_bone_pose(Kit.SPIN0 + 3)
+		t.check(_near(fl.basis.get_euler().y, 0.3, 1e-4) and rl.basis.is_equal_approx(Basis.IDENTITY) and
+			spin.basis.is_equal_approx(Basis(Vector3.RIGHT, 1.2)), "%s: front wheels steer 0.3 rad, every wheel rolls" % id)
+		# the steering wheel turns with the front wheels and the hands stay on it (arm IK)
+		var sw := sk.get_bone_pose(Kit.STEERING)
+		var turned := sw.basis.get_rotation_quaternion().get_angle()
+		var gap := 0.0
+		var joint := 0.0
+		for side in 2:
+			var hd_r: Vector3 = car.rig["hands"][side]
+			var el_r: Vector3 = car.rig["elbows"][side]
+			var fore := sk.get_bone_pose(Kit.ARM_FL if side == 0 else Kit.ARM_FR)
+			var upper := sk.get_bone_pose(Kit.ARM_UL if side == 0 else Kit.ARM_UR)
+			gap = maxf(gap, (fore * hd_r).distance_to(sw * hd_r))
+			joint = maxf(joint, (fore * el_r).distance_to(upper * el_r))
+		t.check(_near(turned, 0.3 * CarModel.WHEEL_TURN, 0.02) and gap < 0.002 and joint < 1e-4,
+			"%s: steering wheel turned %.2f rad, hands on it (%.4f m off), elbows joined" % [id, turned, gap])
+		var look := sk.get_bone_pose(Kit.HEAD_BONE).basis * Vector3(0, 0, 1)
+		t.check(look.x > 0.1, "%s: the driver looks into the left turn (%.2f)" % [id, look.x])
 		var prof := CarModel.profile(id)
-		t.check((prof["parts"] as Array).size() > 3 and (prof["wheels"] as Array).size() == 2, "%s side profile" % id)
+		t.check((prof["parts"] as Array).size() > 3 and (prof["wheels"] as Array).size() == 2 and prof.has("rim"), "%s side profile" % id)
 		car.free()
-	var ghost := CarModel.new("racer", {"ghost": true})
+	_car_motion(t)
+	_car_lights(t)
+	var ghost := CarModel.new("dune", {"ghost": true})
 	ghost.update({"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0}, null, 1.0, 1.0 / 60.0)
-	t.check(ghost.position.is_finite(), "ghost builds and updates with a minimal state")
+	var gm := ghost.opaque_mesh.material_override as StandardMaterial3D
+	t.check(ghost.position.is_finite() and ghost.glass_mesh == null and gm != null and gm.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED and
+		ghost.smoke == null and ghost.headlights.is_empty(), "ghost: see-through, driver included, no glass, smoke or lights; updates with a minimal state")
 	ghost.free()
+	var light := CarModel.new("racer", {"detail": 0})
+	var full := CarModel.new("racer")
+	t.check(light.triangles() < full.triangles() * 0.6, "low detail: %d triangles against %d" % [light.triangles(), full.triangles()])
+	light.free()
+	full.free()
+
+
+## Drives a car through `frames` frames of a motion (`f` changes the state each frame); returns the last state.
+func _drive(car: CarModel, frames: int, from: Dictionary, f: Callable) -> Dictionary:
+	var st := from.duplicate()
+	for k in frames:
+		f.call(st, k)
+		car.update(st, null, 1.0, 1.0 / 60.0)
+	return st
+
+
+func _car_motion(t) -> void:
+	t.section("car models: body, suspension and driver in motion")
+	var base := {"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pitch": 0.0, "roll": 0.0, "steer_angle": 0.0, "wheel_rot": 0.0,
+		"forward_speed": 30.0, "speed": 30.0, "grounded": true, "braking": false}
+	for id: String in ["dune", "vortex", "racer"]:
+		var car := CarModel.new(id)
+		var sk := car.skeleton
+		# a left turn at 18 m/s²: the body rolls out of it over the wheels, the driver leans out
+		_drive(car, 60, base, func(st: Dictionary, k: int) -> void:
+			st.yaw = 0.6 * k / 60.0
+			st.steer_angle = 0.2)
+		var body := sk.get_bone_pose(Kit.BODY)
+		var torso := sk.get_bone_pose(Kit.TORSO)
+		var lean := (torso.basis * Vector3.UP).x - (body.basis * Vector3.UP).x
+		t.check(body.basis.get_euler().z > 0.03 and lean < -0.05 and sk.get_bone_pose(Kit.UPRIGHT0 + 2).origin.is_zero_approx(),
+			"%s: rolls %.3f rad out of a left turn on its wheels, the driver leans out (%.2f)" % [id, body.basis.get_euler().z, lean])
+		# braking hard at speed: the nose dives, the brake lights glow, the Vortex's wing tilts up
+		car.reset_effects()
+		_drive(car, 40, base, func(st: Dictionary, k: int) -> void:
+			st.forward_speed = 40.0 - 12.0 * k / 60.0
+			st.braking = true)
+		body = sk.get_bone_pose(Kit.BODY)
+		var nose := (body * Vector3(0, 0.5, 2.0)).y - 0.5
+		var glow := float(car.materials[0].get_shader_parameter("tail_glow"))
+		var flap := sk.get_bone_pose(Kit.FLAP).basis.get_euler().x - body.basis.get_euler().x
+		t.check(nose < -0.03 and glow > 3.0 and (flap > 0.4 if id == "vortex" else absf(flap) < 1e-6),
+			"%s: under braking the nose dives %.3f m, tail lights %.2f, wing %.2f rad" % [id, nose, glow, flap])
+		# a jump: the wheels droop in the air; the landing sinks the body onto them, then it settles
+		car.reset_effects()
+		var air := _drive(car, 30, base, func(st: Dictionary, k: int) -> void:
+			var tt := k / 60.0
+			st.grounded = false
+			st.y = 2.0 + 2.0 * tt - 9.81 * tt * tt)
+		var droop := sk.get_bone_pose(Kit.UPRIGHT0).origin.y
+		var low := 0.0
+		var after := air.duplicate()
+		after.grounded = true
+		after.y = 0.0
+		for k in 90:
+			car.update(after, null, 1.0, 1.0 / 60.0)
+			low = minf(low, sk.get_bone_pose(Kit.BODY).origin.y)
+		var settled := sk.get_bone_pose(Kit.BODY).origin.y
+		t.check(droop < -0.04 and low < -0.02 and absf(settled) < 0.01,
+			"%s: wheels droop %.3f m in the air, the body sinks %.3f m on landing and settles" % [id, droop, low])
+		# the finish: a fist pump (above the helmet in an open car, under the roof in a closed one)
+		car.reset_effects()
+		_drive(car, 5, base, func(_st: Dictionary, _k: int) -> void: pass)
+		car.celebrate()
+		var top := -INF
+		var side := 0 if float(car.rig["hip"].x) >= 0.0 else 1
+		var hd_r: Vector3 = car.rig["hands"][side]
+		for k in 60:
+			car.update(base, null, 1.0, 1.0 / 60.0)
+			top = maxf(top, (sk.get_bone_pose(Kit.ARM_FL if side == 0 else Kit.ARM_FR) * hd_r).y)
+		var head_y: float = car.rig["head"].y
+		var ok: bool = (top > head_y + 0.1) if car.rig["open"] else (top > hd_r.y + 0.08 and top < float(car.rig["roof"]) - 0.05)
+		for k in int(CarModel.CELEBRATION * 60.0):
+			car.update(base, null, 1.0, 1.0 / 60.0)
+		t.check(ok and car.celebration < 0.0, "%s: fist pump up to %.2f m (head %.2f m), then back on the wheel" % [id, top, head_y])
+		car.free()
+
+
+func _car_lights(t) -> void:
+	t.section("car models: headlights follow the theme and quality")
+	var w := World.new()
+	t.tree.root.add_child(w)
+	w.set_theme("night")
+	w.set_quality("high")
+	var car := CarModel.new("thunder")
+	w.add_child(car)
+	var ghost := CarModel.new("thunder", {"ghost": true})
+	w.add_child(ghost)
+	var kinds := func() -> String:
+		var out := []
+		for n in car.headlights:
+			out.append(n.get_class())
+		return ",".join(out)
+	var st := {"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0}
+	car.update(st)
+	t.check(kinds.call() == "SpotLight3D,SpotLight3D" and car.detail == 1, "night, high: two spot lights (%s)" % kinds.call())
+	w.set_quality("medium")
+	t.check(kinds.call() == "SpotLight3D", "night, medium: one (%s)" % kinds.call())
+	w.set_quality("low")
+	t.check(kinds.call() == "Decal" and car.detail == 0, "night, low: a light pool decal and the light mesh (%s, detail %d)" % [kinds.call(), car.detail])
+	w.set_theme("meadow")
+	car.update(st)
+	t.check(car.headlights.is_empty() and ghost.headlights.is_empty(), "day: no headlights; a ghost never has them")
+	w.free()
 
 
 func _camera(t) -> void:

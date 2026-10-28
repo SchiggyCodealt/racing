@@ -20,6 +20,7 @@ func run(t) -> bool:
 	_pad_nav(t)
 	_menu_keys(t)
 	_menu_pad(t)
+	_menu_cars(t)
 	_settings(t)
 	_hud(t)
 	_finish(t)
@@ -75,7 +76,7 @@ func _data(t) -> void:
 	t.check(UiData.track_id(9) == "night-highway" and UiData.track_info(9).name == "Night Highway", "track 10 is Night Highway")
 	var real: bool = not UiData._tracks.is_empty()
 	t.check(real, "tracks come from sim/ (Tracks.build), not the fixture")
-	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter"], "cars in picker order: %s" % [UiData.car_ids()])
+	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])
 	t.check(UiData.car_info("nope").id == "racer", "an unknown car gives the racer")
@@ -171,6 +172,37 @@ func _menu(t) -> Array:
 	return [h, menu]
 
 
+func _menu_cars(t) -> void:
+	t.section("menu car picker: six cars at every window size")
+	Fx.save_data_v5()
+	for sz: Vector2 in [Vector2(1280, 720), Vector2(1920, 1080), Vector2(1366, 768), Vector2(1024, 600), Vector2(900, 700), Vector2(700, 900)]:
+		var h := _holder(t, sz)
+		var menu := MainMenu.new()
+		h.add_child(menu)
+		menu.show_menu(true)
+		_settle(h)
+		var grid: GridContainer = menu.get("_cars_grid")
+		var cards: Array = menu.get("_cards")
+		var rects: Array[Rect2] = []
+		var inside := true
+		var overlap := false
+		for c: Control in cards:
+			var r := c.get_global_rect()
+			inside = inside and r.position.x >= -0.5 and r.end.x <= sz.x + 0.5 and r.size.x > 120.0
+			for o in rects:
+				overlap = overlap or o.grow(-0.5).intersects(r)
+			rects.append(r)
+		var cols_ok := grid.columns == (3 if sz.x >= 1280 else grid.columns)
+		# at 1280 x 720 and up the menu shows every car without scrolling
+		var all_shown := true
+		if sz.x >= 1280:
+			for r in rects:
+				all_shown = all_shown and r.end.y <= sz.y + 0.5
+		t.check(cards.size() == 6 and inside and not overlap and cols_ok and all_shown,
+			"%dx%d: %d cards, %d a row, inside the window and apart%s" % [sz.x, sz.y, cards.size(), grid.columns, ", all on screen" if sz.x >= 1280 else ""])
+		h.free()
+
+
 func _menu_keys(t) -> void:
 	t.section("menu keys (menu.js handleKeys)")
 	Fx.save_data_v5()
@@ -197,7 +229,7 @@ func _menu_keys(t) -> void:
 	menu.handle_keys(_press(inp, ["KeyC", "Shift+KeyC"]))
 	t.check(UiData.picked_car() == "racer", "Shift+C picks the previous car")
 	menu.handle_keys(_press(inp, ["KeyC", "Shift+KeyC"]))
-	t.check(UiData.picked_car() == "drifter", "Shift+C wraps to the last car")
+	t.check(UiData.picked_car() == "vortex", "Shift+C wraps to the last car")
 	UiData.set_setting("car", "racer")
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)

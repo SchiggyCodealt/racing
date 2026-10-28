@@ -351,6 +351,7 @@ func _on_gate(ev: Dictionary) -> void:
 
 func _on_finish() -> void:
 	phase = "finished"
+	model.celebrate() # the driver's fist pump (reset_effects() on restart ends it)
 	var t: float = race.finish_time
 	var s := {"title": "AI finished" if driver == "ai" else "Finish", "time": t, "ai": driver == "ai"}
 	if driver == "human":

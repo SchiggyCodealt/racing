@@ -48,11 +48,12 @@ static func arrow(ci: CanvasItem, c: Vector2, angle: float, color: Color, s: flo
 
 
 ## The menu's side view of a car (menu.js silhouette): the profile's parts and wheels, the same
-## scale for every car (5.6 m x 1.62 m shown) so their sizes compare, fitted to `r`.
+## scale for every car (5.6 m x 1.72 m shown) so their sizes compare, fitted to `r`. A part
+## with a `color` (the driver's helmet, a roll cage) is drawn in it; `rim` colours the wheels.
 static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Color, accent: Color) -> void:
 	const Z0 := -2.75
 	const Z1 := 2.85
-	const TOP := 1.62
+	const TOP := 1.72
 	var k := minf(r.size.x / (Z1 - Z0), r.size.y / TOP)
 	var o := r.position + (r.size - Vector2(Z1 - Z0, TOP) * k) * 0.5
 	var fills := {"paint": paint, "accent": accent, "glass": Color("#2a3b52"), "carbon": Color("#121418"), "head": Color("#fff3d6")}
@@ -61,7 +62,7 @@ static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Col
 		var pts := PackedVector2Array()
 		for q in src:
 			pts.append(o + Vector2(q.x - Z0, TOP - q.y) * k)
-		var col: Color = fills.get(part.mat, fills.carbon)
+		var col: Color = part.color if part.has("color") else fills.get(part.mat, fills.carbon)
 		if Geometry2D.triangulate_polygon(pts).size() > 0:
 			ci.draw_colored_polygon(pts, col)
 		else: # (a self-touching outline: fill its convex pieces)
@@ -70,7 +71,11 @@ static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Col
 		var ring := pts.duplicate()
 		ring.append(pts[0])
 		ci.draw_polyline(ring, col, 0.8, true) # (soft edges: polygons are not anti-aliased)
+	var rim: Color = profile.get("rim", Color("#a7adb8"))
+	if rim.get_luminance() < 0.25: # (dark rims: a little lighter, or they vanish into the tyre at card size)
+		rim = rim.lerp(Color("#a7adb8"), 0.3)
 	for wh in profile.get("wheels", []):
 		var c := o + Vector2(float(wh[0]) - Z0, TOP - float(wh[1])) * k
 		ci.draw_circle(c, float(wh[1]) * k, Color("#0c0d10"), true, -1.0, true)
-		ci.draw_circle(c, 0.23 * k, Color("#a7adb8"), true, -1.0, true)
+		ci.draw_circle(c, float(wh[1]) * 0.62 * k, rim, true, -1.0, true)
+		ci.draw_circle(c, float(wh[1]) * 0.2 * k, Color("#0c0d10").lerp(rim, 0.4), true, -1.0, true)

@@ -12,7 +12,8 @@
 ## ground colours, hills / mountains (m) and mountainStyle (peaks | mesa),
 ## accent (barrier panel colours), lamps (lit lamps and gates), scenery
 ## (species names), tuft (grass colours or null); extras: glow (night
-## barrier stripes), skyline (night city), sea (seaside coast).
+## barrier stripes), skyline (night city), sea (seaside coast), headlights (0..1: how
+## much the cars' headlights light the road, world/car_model.gd; none when missing).
 ## Light intensities are the Three.js values; World converts them.
 extends RefCounted
 
@@ -83,7 +84,7 @@ const THEMES := {
 		"bloom": {"strength": 0.55, "radius": 0.55, "threshold": 0.9},
 		"ground": {"a": 0x4a7332, "b": 0x5d8338, "dry": 0x7b7a46, "dirt": 0x6b5842, "rock": 0x6f6a66, "snow": -1, "far": 0x4c6e34},
 		"hills": 9.0, "mountains": 120.0, "mountainStyle": "peaks",
-		"accent": [0x8a3cf0, 0xf2f2f6], "lamps": true,
+		"accent": [0x8a3cf0, 0xf2f2f6], "lamps": true, "headlights": 0.5,
 		"scenery": ["broadleaf", "pine", "bush", "rock"],
 		"tuft": {"color": 0x58803a, "tip": 0x93a95a},
 	},
@@ -98,7 +99,7 @@ const THEMES := {
 		"bloom": {"strength": 0.5, "radius": 0.5, "threshold": 0.8},
 		"ground": {"a": 0x3d5233, "b": 0x4a5e3a, "dry": 0x5d5e44, "dirt": 0x524638, "rock": 0x5c5d63, "snow": -1, "far": 0x2b3826},
 		"hills": 6.0, "mountains": 30.0, "mountainStyle": "peaks",
-		"accent": [0x16d0ff, 0xeef2f8], "lamps": true, "glow": true, "skyline": true,
+		"accent": [0x16d0ff, 0xeef2f8], "lamps": true, "glow": true, "skyline": true, "headlights": 1.0,
 		"scenery": ["pine", "broadleaf", "bush", "rock"],
 		"tuft": {"color": 0x40603a, "tip": 0x6c8456},
 	},
