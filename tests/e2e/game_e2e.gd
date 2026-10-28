@@ -263,7 +263,10 @@ func one_race(tid: String, cid: String) -> void:
 	check(not rec.is_empty() and absf(float(rec.time) - t) < 1e-9 and (rec.splits as Array).size() == race.splits.size(), "%s: record and splits saved" % tag)
 	var sc := SaveData.get_best_score(tid, cid)
 	var score: ScoreState = m.get("score")
-	check(not sc.is_empty() and is_equal_approx(float(sc.score), score.total) and score.total > 0.0, "%s: best score %s saved" % [tag, ScoreState.format_points(score.total)])
+	if score.total > 0.0:
+		check(not sc.is_empty() and is_equal_approx(float(sc.score), score.total), "%s: best score %s saved" % [tag, ScoreState.format_points(score.total)])
+	else: # (as the web game: a score of 0 is never a best score)
+		check(sc.is_empty(), "%s: score 0 (the run grinds the walls): no best score saved" % tag)
 	var g := Replay.unpack_ghost(SaveData.load_ghost(tid, cid), track, race.laps, cid)
 	check(not g.is_empty() and absf(float(g.time) - t) < 1e-9, "%s: ghost saved (%d samples)" % [tag, (g.get("steps", PackedInt32Array()) as PackedInt32Array).size()])
 	check(str(fs.get("ghost_note", "")).begins_with("Ghost saved"), "%s: finish panel says the ghost is saved" % tag)
@@ -293,7 +296,8 @@ func one_race(tid: String, cid: String) -> void:
 	await frames(2)
 	check(app.mode == app.menu_mode and app.ui.menu.visible and not app.ui.hud.visible, "%s: Esc goes back to the menu" % tag)
 	var r: Variant = UiData.record(tid, cid)
-	check(r != null and absf(float(r.time) - t) < 1e-9 and UiData.best_score(tid, cid) == int(score.total) and UiData.has_ghost(tid, cid),
+	check(r != null and absf(float(r.time) - t) < 1e-9 and UiData.has_ghost(tid, cid)
+		and UiData.best_score(tid, cid) == (int(score.total) if score.total > 0.0 else -1),
 		"%s: the menu's data: best %s, score %d, ghost saved" % [tag, RaceState.format_time(t), UiData.best_score(tid, cid)])
 	var tile: Control = app.ui.menu.get("_tiles")[Tracks.ids().find(tid)]
 	check(str(tile.get("best_text")) == UiFormat.time(t) and str(tile.get("medal")) == "author", "%s: the track tile shows %s and the author medal" % [tag, tile.get("best_text")])
@@ -552,8 +556,8 @@ func settings_check() -> void:
 # ---------------------------------------------------------------- screenshots
 
 func shots() -> void:
-	var size := root.get_visible_rect().size
-	var tag := "%dx%d" % [int(size.x), int(size.y)]
+	var size := DisplayServer.window_get_size() # (the window's pixels, not the 2D stretch size)
+	var tag := "%dx%d" % [size.x, size.y]
 	var tid := str(opts.get("track", "night-highway"))
 	await pick(tid, "racer")
 	await frames(30)
@@ -593,32 +597,81 @@ func shots() -> void:
 
 # ---------------------------------------------------------------- performance
 
-## Script time of a race frame: physics steps (GDScript sim), the HUD and the models, measured
-## with the engine's own monitors over a stretch of real-time driving.
+## Script time of a race frame, measured in the game while it races (Drive with the autopilot,
+## real time): two marker nodes, processed first and last of every frame, time everything the
+## frame's _process callbacks do (the input poll, the mode's physics steps, the car model,
+## camera, HUD, world), without the drawing; the play mode times its physics steps itself and
+## the autopilot (test input, not part of the game) is timed and taken out.
+## (Performance.TIME_PROCESS is no use here: it includes the wait for the renderer.)
+class Stamp extends Node:
+	var t := 0
+	func _process(_d: float) -> void:
+		t = Time.get_ticks_usec()
+
+
 func perf() -> void:
 	var tid := str(opts.get("track", "night-highway"))
+	var with_ai := opts.has("net") # (net=<file>: Race the AI ghost, the AI network stepping too)
+	if with_ai:
+		check(app.load_network_file(str(opts.net)) == "", "network loaded for Race the AI ghost")
 	await pick(tid, str(opts.get("car", "racer")))
-	await key(KEY_ENTER)
+	if with_ai:
+		app.play("human", true)
+		await frames(2)
+	else:
+		await key(KEY_ENTER)
 	var m: Node = app.mode
 	autopilot(24.0, 1.3)
+	var pilot_feed: Callable = app.input.feed
+	var pilot_usec := [0]
+	app.input.feed = func(sp: float) -> void:
+		var t0 := Time.get_ticks_usec()
+		pilot_feed.call(sp)
+		pilot_usec[0] += Time.get_ticks_usec() - t0
+	var first := Stamp.new()
+	first.process_priority = -1000000
+	var last := Stamp.new()
+	last.process_priority = 1000000
+	root.add_child(first)
+	root.add_child(last)
 	await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+	await frames(30) # (past the start)
 	var steps0: int = m.get("steps_run")
 	var usec0: int = m.get("step_usec")
-	var proc := PackedFloat64Array()
+	var pilot0: int = pilot_usec[0]
+	var per_frame := PackedFloat64Array()
 	var t_end := Time.get_ticks_msec() + int(float(opts.get("seconds", "20")) * 1000.0)
-	var frames_n := 0
+	var t_prev := Time.get_ticks_usec()
+	var wall := 0.0
+	await process_frame
 	while Time.get_ticks_msec() < t_end:
 		await process_frame
-		proc.append(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
-		frames_n += 1
+		# (the stamps of the frame just processed: this coroutine resumes before the next one)
+		per_frame.append((last.t - first.t) / 1000.0)
+		var t_now := Time.get_ticks_usec()
+		wall += (t_now - t_prev) / 1000.0
+		t_prev = t_now
+	var n := per_frame.size()
 	var steps: int = int(m.get("steps_run")) - steps0
-	var usec: int = int(m.get("step_usec")) - usec0
-	proc.sort()
-	var avg := 0.0
-	for v in proc:
-		avg += v
-	avg /= maxf(1.0, proc.size())
-	print("PERF %s: %d frames, %d physics steps (%.1f per frame); physics %.3f ms per step; process (all scripts) avg %.2f ms, median %.2f, p95 %.2f ms per frame" % [
-		tid, frames_n, steps, float(steps) / maxf(1, frames_n), usec / 1000.0 / maxf(1, steps), avg, proc[proc.size() / 2], proc[int(proc.size() * 0.95)]])
-	check(steps > 0, "the race ran")
+	var pilot_ms: float = (pilot_usec[0] - pilot0) / 1000.0
+	var step_ms: float = ((int(m.get("step_usec")) - usec0) / 1000.0 - pilot_ms) / maxf(1, steps)
+	var total := 0.0
+	for v in per_frame:
+		total += v
+	var sorted := per_frame.duplicate()
+	sorted.sort()
+	var frame_ms: float = (total - pilot_ms) / maxf(1, n)
+	var other_ms: float = frame_ms - step_ms * steps / maxf(1, n)
+	print("PERF %s%s: %d frames, %d physics steps (%.1f per frame, the frames are slow here)" % [
+		tid, " + AI ghost" if with_ai else "", n, steps, float(steps) / maxf(1, n)])
+	print("PERF script time per frame (all _process, autopilot taken out): avg %.2f ms (raw median %.2f, p95 %.2f)" % [
+		frame_ms, sorted[n / 2], sorted[int(n * 0.95)]])
+	print("PERF   physics step %.3f ms each; the rest of a frame (model, camera, HUD, world, input) %.2f ms" % [step_ms, other_ms])
+	print("PERF   at 60 fps (1 step a frame): %.2f ms of 16.7; worst catch-up frame (6 steps): %.2f ms" % [
+		other_ms + step_ms, other_ms + 6.0 * step_ms])
+	print("PERF   autopilot (test input) %.3f ms per step; wall clock %.1f ms per frame incl. drawing (llvmpipe)" % [
+		pilot_ms / maxf(1, steps), wall / maxf(1, n)])
+	check(steps > 0 and other_ms + step_ms < 16.0, "a race frame's script time fits in 16 ms")
+	first.queue_free()
+	last.queue_free()
 	stop_autopilot()
