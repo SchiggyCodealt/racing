@@ -60,6 +60,11 @@ var _build_node: Node3D = null
 var _want_track: BuiltTrack = null
 var _dialog: FileDialog = null
 var _dialog_open := false
+## Training at Max: the 3D view isn't drawn (the root viewport's 3D is off) and its last
+## frame stays under the training screen's Max overlay, as the web game's canvas does.
+var _3d_paused := false
+var _freeze_layer: CanvasLayer = null
+var _freeze: TextureRect = null
 
 
 func _ready() -> void:
@@ -134,6 +139,7 @@ func _process(delta: float) -> void:
 		message.handle_keys(input)
 	if mode != null:
 		mode.update(minf(delta, max_frame))
+	_sync_3d()
 
 
 func _notification(what: int) -> void:
@@ -159,6 +165,42 @@ func set_mode(m: Node) -> void:
 	input.clear_pressed()
 	if old != null and old != m and old != menu_mode:
 		old.queue_free()
+	_sync_3d()
+
+
+## The training screen at Max shows its overlay (train_mode.gd: dash.overlay) and draws no
+## 3D: stop rendering the 3D view then, keeping its last frame under the overlay.
+func _sync_3d() -> void:
+	var paused := false
+	if mode != null and mode == train_mode:
+		var dash: Variant = mode.get("dash")
+		var ov: Variant = (dash as Object).get("overlay") if dash is Object and is_instance_valid(dash) else null
+		paused = ov is CanvasItem and (ov as CanvasItem).is_visible_in_tree()
+	if paused == _3d_paused:
+		return
+	_3d_paused = paused
+	var vp := get_viewport()
+	if paused:
+		if _freeze == null:
+			_freeze_layer = CanvasLayer.new()
+			_freeze_layer.layer = -1 # (under the interface)
+			add_child(_freeze_layer)
+			_freeze = TextureRect.new()
+			_freeze.set_anchors_preset(Control.PRESET_FULL_RECT)
+			_freeze.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			_freeze.stretch_mode = TextureRect.STRETCH_SCALE
+			_freeze.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_freeze_layer.add_child(_freeze)
+		var img: Image = null
+		if DisplayServer.get_name() != "headless":
+			img = vp.get_texture().get_image() # (the last frame drawn, once)
+		_freeze.texture = ImageTexture.create_from_image(img) if img != null and not img.is_empty() else null
+		_freeze_layer.visible = true
+	else:
+		if _freeze_layer != null:
+			_freeze_layer.visible = false
+			_freeze.texture = null
+	vp.disable_3d = paused
 
 
 func show_menu() -> void:

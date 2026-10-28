@@ -307,8 +307,19 @@ func _app(t) -> void:
 			app.train_mode.emit_signal("network_saved", kept)
 			t.check(app.network == kept and UiData.ai_status().get("generation") == 42,
 				"a network saved by training becomes the menu's (generation %s -> 42)" % str(gen0))
+		# Max speed: the screen's overlay shows and the app stops drawing the 3D view
+		var ov: CanvasItem = app.train_mode.get("dash").get("overlay")
+		ov.visible = true
+		app._sync_3d()
+		t.check(app.get_viewport().disable_3d, "training at Max (its overlay shown): no 3D drawing")
+		ov.visible = false
+		app._sync_3d()
+		t.check(not app.get_viewport().disable_3d, "1x / Fast: the 3D view draws again")
+		ov.visible = true
+		app._sync_3d()
 		app.train_mode.emit_signal("exit_requested")
 		t.check(app.mode == app.menu_mode and app.ui.menu.visible, "Menu / Esc on the training screen: back to the menu")
+		t.check(not app.get_viewport().disable_3d, "leaving the training screen at Max: the 3D view draws again")
 	if app.mode != app.menu_mode:
 		app.show_menu()
 	app.free()

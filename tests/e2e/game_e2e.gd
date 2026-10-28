@@ -405,6 +405,15 @@ func modes() -> void:
 		var tr: Variant = tm.get("session").get("trainer") if tm.get("session") != null else null
 		check(tr != null and app.mode == tm, "START TRAINING runs a training session")
 		await shot("train")
+		# Max: the training screen's overlay, no 3D drawing (the last frame stays under it)
+		await click((dash.get("speed_segs") as Dictionary)["max"])
+		await frames(10)
+		check(app.get_viewport().disable_3d and app.get("_freeze").texture != null and (dash.get("overlay") as CanvasItem).visible,
+			"Max speed: the overlay shows and the 3D view is not drawn")
+		await shot("train_max")
+		await click((dash.get("speed_segs") as Dictionary)["1"])
+		await frames(5)
+		check(not app.get_viewport().disable_3d and not (dash.get("overlay") as CanvasItem).visible, "1x: the 3D view draws again")
 		await click(dash.get("watch_btn"))
 		await frames(3)
 		check(app.mode != tm and app.mode.get("driver") == "ai", "Watch best: the AI drives")
@@ -523,7 +532,7 @@ func settings_set() -> void:
 	await frames(3)
 	check(UiData.get_setting("quality") == "low" and app.world.quality == "low" and not app.world.auto_quality, "quality Low applied (pinned)")
 	check(UiData.get_setting("vsync") == false and DisplayServer.window_get_vsync_mode() == DisplayServer.VSYNC_DISABLED, "vsync off applied")
-	check(is_equal_approx(float(UiData.get_setting("ui_scale")), 1.25) and is_equal_approx(app.ui.ui_scale, 1.25), "interface 125%% applied")
+	check(is_equal_approx(float(UiData.get_setting("ui_scale")), 1.25) and is_equal_approx(app.ui.ui_scale, 1.25), "interface 125% applied")
 	check(UiData.get_setting("ghost") == false, "ghost off")
 	print("PICKED ", UiData.picked_car())
 
@@ -552,7 +561,7 @@ func shots() -> void:
 	await key(KEY_ENTER)
 	var m: Node = app.mode
 	var run: Dictionary = Medals.medal_times(Tracks.build(tid), "racer").get("run", {"aLat": 24.0, "lookK": 1.0})
-	autopilot(float(run.aLat), float(run.lookK))
+	autopilot(float(run.aLat), float(run.lookK), false) # (no nitro yet: the banked points fill the tank for the shot)
 	fast(true)
 	var at := float(opts.get("at", "50"))
 	await wait_until(func() -> bool: return (m.get("race") as RaceState).time > at, 600.0)
@@ -565,9 +574,9 @@ func shots() -> void:
 		app.input.pad_throttle = 1.0
 		app.input.pad_brake = 0.0
 		app.input.held["nitro"] = true
-	await wait_until(func() -> bool: return c.boosting and c.boost > 0.9, 30.0)
+	await wait_until(func() -> bool: return c.boosting, 30.0)
 	await frames(8)
-	check(c.boosting, "nitro burning for the shot")
+	check(c.boosting, "nitro burning for the shot (tank %.0f%%)" % (c.nitro * 100.0))
 	await shot("drive_" + tag)
 	autopilot(float(run.aLat), float(run.lookK))
 	fast(true)
