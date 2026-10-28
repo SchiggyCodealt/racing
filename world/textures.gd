@@ -246,6 +246,10 @@ static var _font_var: FontVariation = null
 
 
 ## The banner font: Barlow Condensed Bold, emboldened and slanted ("italic 900").
+## Italic slant of the drawn text (x shift per pixel of height).
+const SLANT := 0.21
+
+
 static func font() -> Font:
 	if _font_var == null:
 		var base: Font = null
@@ -260,7 +264,6 @@ static func font() -> Font:
 		_font_var = FontVariation.new()
 		_font_var.base_font = base
 		_font_var.variation_embolden = 0.55
-		_font_var.variation_transform = Transform2D(Vector2(1, 0), Vector2(-0.21, 1), Vector2.ZERO)
 	return _font_var
 
 
@@ -325,4 +328,9 @@ static func draw_text(img: Image, text: String, center: Vector2, size: int, colo
 		var dst := Vector2i((at + off).round())
 		if gsize.x > 0.0 and absf(gsize.x - region.size.x) > 1.0:
 			tinted.resize(int(gsize.x), int(gsize.y), Image.INTERPOLATE_BILINEAR)
-		img.blend_rect(tinted, Rect2i(Vector2i.ZERO, tinted.get_size()), dst)
+		# italic (the canvas font is "italic 900"): each row slides right by SLANT x its height
+		# above the baseline (the glyph cache ignores a FontVariation transform)
+		var rise := at.y - dst.y
+		for r in tinted.get_height():
+			var shift := roundi(SLANT * (rise - r))
+			img.blend_rect(tinted, Rect2i(0, r, tinted.get_width(), 1), dst + Vector2i(shift, r))

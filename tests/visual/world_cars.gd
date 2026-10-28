@@ -32,21 +32,21 @@ func _initialize() -> void:
 		var i0 := 0
 		var step := track.seg_len
 		for k in ids.size():
-			var along := 13.0 - 2.6 * k
-			var lat := -4.6 + 3.3 * k
+			var along := 40.0 - 3.0 * k
+			var lat := -4.8 + 3.3 * k
 			var j := track.wrap(i0 + roundi(along / step))
-			var yaw := track.heading(j) + 0.55
+			var yaw := track.heading(j) + 0.3
 			states.append({"x": track.px[j] + track.nx[j] * lat, "y": track.py[j] - lat * tan(track.bank[j]),
 				"z": track.pz[j] + track.nz[j] * lat, "yaw": yaw, "idx": j, "steer_angle": 0.0, "speed": 0.0})
-		var jc := track.wrap(i0 + roundi(25.0 / step))
-		var jt := track.wrap(i0 + roundi(7.0 / step))
-		var eye := Vector3(track.px[jc] - track.nx[jc] * 6.0, track.py[jc] + 2.4, track.pz[jc] - track.nz[jc] * 6.0)
-		var at := Vector3(track.px[jt] + track.nx[jt] * 1.0, track.py[jt] + 0.9, track.pz[jt] + track.nz[jt] * 1.0)
-		cam.fov = 52
+		var jc := track.wrap(i0 + roundi(53.0 / step))
+		var jt := track.wrap(i0 + roundi(33.0 / step))
+		var eye := Vector3(track.px[jc] - track.nx[jc] * 4.0, track.py[jc] + 2.3, track.pz[jc] - track.nz[jc] * 4.0)
+		var at := Vector3(track.px[jt] + track.nx[jt] * 1.5, track.py[jt] + 1.0, track.pz[jt] + track.nz[jt] * 1.5)
+		cam.fov = 48
 		world.add_child(cam)
 		cam.look_at_from_position(eye, at)
 		if o.get("ghost", "0") == "1":
-			var jg := track.wrap(i0 + roundi(2.0 / step))
+			var jg := track.wrap(i0 + roundi(26.0 / step))
 			ghost_state = {"x": track.px[jg], "y": track.py[jg], "z": track.pz[jg], "yaw": track.heading(jg), "idx": jg}
 	else:
 		world = World.new()

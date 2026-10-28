@@ -13,6 +13,9 @@ extends Node3D
 ##   world.set_checkpoint_state(k, "next")     # "next" | "passed" | "idle"
 ##   world.set_quality("low")                  # any time; auto_quality steps it down by itself
 ##   world.render_stats()                      # draw calls, primitives, quality, build ms
+##   # switching tracks without a hitch: build the track in a WorkerThreadPool task, then
+##   var node := World.build_track_node(track)  # (in the task)
+##   world.show_track(track, node)              # (back on the main thread)
 ##
 ## What Godot does for the hand-made WebGL parts:
 ##   - sky: a sky shader (world/shaders/sky.gdshader). Its cubemap pass is the
@@ -261,7 +264,7 @@ func _step_down() -> void:
 # ---- track --------------------------------------------------------------------
 
 ## Show `p_track` (rebuilt only when it changes): its theme and its 3D track.
-func show_track(p_track: BuiltTrack) -> TrackMeshScript:
+func show_track(p_track: BuiltTrack, prebuilt: TrackMeshScript = null) -> TrackMeshScript:
 	if p_track == track and track_node != null:
 		return track_node
 	if track_node != null:
@@ -272,11 +275,18 @@ func show_track(p_track: BuiltTrack) -> TrackMeshScript:
 		return null
 	set_theme(p_track.theme)
 	var t0 := Time.get_ticks_msec()
-	track_node = TrackMeshScript.build(p_track)
-	_build_ms = Time.get_ticks_msec() - t0
+	track_node = prebuilt if prebuilt != null else TrackMeshScript.build(p_track)
+	_build_ms = int(track_node.stats.get("build_ms", 0)) if prebuilt != null else Time.get_ticks_msec() - t0
 	add_child(track_node)
 	track_node.apply_quality(Themes.get_quality(quality))
 	return track_node
+
+
+## Builds the 3D track for show_track(track, node) without touching the scene: safe in a
+## WorkerThreadPool task, so a menu can switch tracks without a hitch (the build is about
+## 1 s of GDScript; World.build itself also runs in a task, the node joins the tree after).
+static func build_track_node(p_track: BuiltTrack) -> TrackMeshScript:
+	return TrackMeshScript.build(p_track)
 
 
 ## Colour a checkpoint gate: "next" (cyan), "passed" (green) or "idle".

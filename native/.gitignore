@@ -1,0 +1,8 @@
+# godot-cpp checkout and build products (the built libraries go to ../bin)
+godot-cpp/
+.sconsign*.dblite
+*.o
+*.os
+*.obj
+*.lib
+*.exp

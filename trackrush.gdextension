@@ -1,0 +1,16 @@
+; Track Rush's native library: FleetSim, the fast AI training simulation (native/README.md).
+; Without it (a platform with no binary here, or a library that fails to load) the
+; training screen falls back to the GDScript simulation and says so.
+
+[configuration]
+
+entry_symbol = "trackrush_library_init"
+compatibility_minimum = "4.5"
+reloadable = false
+
+[libraries]
+
+linux.debug.x86_64 = "res://bin/libtrackrush.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://bin/libtrackrush.linux.template_release.x86_64.so"
+windows.debug.x86_64 = "res://bin/libtrackrush.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://bin/libtrackrush.windows.template_release.x86_64.dll"

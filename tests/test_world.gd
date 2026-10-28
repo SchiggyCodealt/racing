@@ -17,6 +17,7 @@ func run(t) -> bool:
 	_camera(t)
 	_tracks(t)
 	_fleet(t)
+	_threaded(t)
 	return true
 
 
@@ -219,3 +220,19 @@ func _fleet(t) -> void:
 	t.check(shown == 2, "overlapping clones are drawn once, dead cars hidden (%d shown)" % shown)
 	t.check(fleet.has_selected_view and _near(float(fleet.selected_view["x"]), tr.px[10], 1e-4), "selected view follows the viewed car")
 	fleet.free()
+
+
+var _built: Node3D = null
+
+
+func _threaded(t) -> void:
+	t.section("threaded track build")
+	var tr := Tracks.build("ramp-rally")
+	var task := WorkerThreadPool.add_task(func() -> void: _built = World.build_track_node(tr))
+	WorkerThreadPool.wait_for_task_completion(task)
+	var world := World.new()
+	var node: Node3D = world.show_track(tr, _built)
+	t.check(_built != null and node == _built and node.get_parent() == world and world.render_stats()["build_ms"] > 0,
+		"World.build_track_node in a worker thread, then show_track(track, node) (%d ms)" % world.render_stats()["build_ms"])
+	world.free()
+	_built = null
