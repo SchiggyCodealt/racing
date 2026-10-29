@@ -251,7 +251,7 @@ func _sensors() -> void:
 	var net := fixture_net()
 	for id: String in JS_REF:
 		var ref: Dictionary = JS_REF[id]
-		var track := Tracks.build(id)
+		var track := Tracks.build_web(id) # (the browser's layout: Hairpin Valley's corners changed in v6.6)
 		var drv := Sensors.AIDriver.new(net.clone())
 		var car := Car.new(track)
 		var worst := 0.0

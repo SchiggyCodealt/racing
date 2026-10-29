@@ -4,13 +4,13 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-29 (v6.5.0: feature 5 of 9, money and career points from medals and AI opponents, a car
-shop; v6.4.0: feature 4, three new tracks on three new themes; v6.3.0: feature 3, road
-surfaces: dirt and packed snow; v6.2.0: feature 2, AI
-training with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was
-the port from the browser to the Godot 4.7 engine)._
+_Last updated: 2026-10-29 (v6.6.0: feature 6 of 9, the tightest corners of five old tracks made more forgiving;
+v6.5.0: feature 5, money and career points from medals and AI opponents, a car shop; v6.4.0: feature 4, three new
+tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI training
+with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
+from the browser to the Godot 4.7 engine)._
 
-## Status: v6.5.0, features 1-5 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents)
+## Status: v6.6.0, features 1-6 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -44,7 +44,20 @@ takes 1.6 / 1.4 / 1.25 / 1.13 / 1.0 × the author time, and its race time is sto
 opponent (or My AI, the player's own network as before); Race the AI is the old Race the AI ghost path; the finish
 panel shows the payout. The save file is `VERSION` 4 (a `career` section); older saves are paid once for the medals
 they hold, own only the Racer, and get a one-time message.
-Features 6-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
+v6.6.0 adds feature 6: the corners that caught cars out the most on five of the old tracks are more forgiving. Every
+hairpin is at least 24 m round (were 13-19 m) on a road 2-3 m wider: Hairpin Valley (switchbacks 16 → 22 m, hairpins
+17 → 24 m, 15 m road; the snowy ridge corner keeps 40 m but is 15 m wide and banked 12°), Technical Trial (hairpins
+15 → 24 m, 16 m road), Grand Marathon (its hairpin 16 → 24 m and the corners beside it 20 → 24 m, 17 m road),
+Mountain Pass (six hairpins 18-19 → 24-25 m, 15 m road) and Canyon Run (the tongue's hairpin 13 → 24 m and its
+rights 20 → 26 m on 13 m, the gravel turnaround 22 → 28 m on 12 m). The straights beside each corner are shorter by
+as much as it grew, so the tracks keep their shape, start, dirt and snow; the other ten tracks are bit for bit as in
+v6.5.0. Measured with the medal autopilot over all 50 sweep settings and six cars (`tools/corners.gd`, new), wall
+contact per lap drops 6-41 % on the five tracks and the hairpins are taken 10-17 km/h faster. The five tracks have
+new signatures (old records, scores and ghosts move to the archive), new medal times and new AI opponents (30
+networks retrained, levels recalibrated); rewards already paid on them stay paid, on purpose (see Known
+limitations). The tests and the parity tools compare with the browser game on its own layouts
+(`Tracks.build_web`).
+Features 7-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
 list, surfaces, rewards and AI levels are data).
 
 | Area | State | Where |
@@ -62,7 +75,8 @@ list, surfaces, rewards and AI levels are data).
 | New in the Godot version: Settings screen (quality, fullscreen, vsync, interface size, ghost), native file dialogs for networks, the save file instead of browser storage | done | `ui/settings_screen.gd`, `game/app.gd`, `sim/save.gd` |
 | Career (v6.5.0): money and points (the reward table, paid once), the car shop, the save file's `career` (VERSION 4, migration pays held medals once), the menu's wallet and locked cards, the finish panel's payout | done; reward table, paid-once rule, shop, migrations (v1-v3) and junk are tests; prices checked against a simulated career | `sim/economy.gd`, `sim/save.gd`, `sim/cars.gd` (`price`), `ui/main_menu.gd`, `ui/car_card.gd`, `ui/finish_panel.gd`, `game/app.gd`, `game/message_screen.gd` |
 | AI opponents (v6.5.0): 90 shipped networks with five levels each (a speed cap and the race's time), the menu's opponent chips, Race / Watch the AI against a level | done; every level of every track and car finishes and is slower than the one above (tests); stored races re-run to the millisecond | `data/opponents/`, `sim/opponents.gd`, `ai/opponent_race.gd`, `ai/sensors.gd` (`AIDriver.speed_cap`), `tools/opponents.gd`, `modes/play_mode.gd`, `game/ai_link.gd` |
-| Tests: headless suite (640 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Reworked corners (v6.6.0): five old tracks with rounder, wider hairpins in `tools/gen_tracks.gd`; their medal times and AI opponents; `tools/corners.gd` (each corner's radius, width and how the medal autopilot takes it); `Tracks.build_web` (the browser's layouts for the parity checks) | done; the new minimum radius and width, the unchanged hairpin count and surfaces, the ten untouched tracks and their medal entries, and a v6.5 save's archive and paid rewards are tests | `tools/gen_tracks.gd`, `data/tracks.json`, `data/medals.json`, `data/opponents/`, `tools/corners.gd`, `sim/tracks.gd` |
+| Tests: headless suite (642 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -134,6 +148,90 @@ race frame on Night Highway); the FleetSim libraries were not touched (the speed
 which the opponents use in the game); the Windows release export was made from a fresh import (no errors or
 warnings; the opponents' data and scripts are in the pack) and zipped as `build/TrackRush-6.5.0-windows.zip` (not
 started: no Windows here).
+
+## How v6.6.0 (more forgiving corners) was verified
+
+- **Which corners** (`tools/corners.gd --sweep` on v6.5.0's tracks and medal file: every corner under 45 m, driven by
+  the medal autopilot with all 50 settings of the sweep and all six cars, 300 runs a track): the hairpins were hit on
+  65-96 % of laps (Technical Trial's 92-93 %, 17 steps of wall contact a lap each; Canyon Run's 96 %, 20 steps;
+  Mountain Pass's 65-66 %), Hairpin Valley's 16 m switchbacks on 87-100 % and its snowy ridge corner on 99 % (29.5
+  steps, 2.5 hits a lap, the worst corner of all). The author runs' lowest speed in the hairpins was down to 1-2 km/h
+  (Technical Trial, Grand Marathon: the autopilot stops against the wall).
+- **Design** (`tools/gen_tracks.gd`, all design rules pass; `tools/corners.gd` measures the tightest radius over ±2
+  samples, so a 24 m turn reads 23.8 m):
+
+  | Track | Corner | Radius | Road | Length |
+  | --- | --- | --- | --- | --- |
+  | Hairpin Valley | 6 switchback corners / 2 hairpins / ridge corner | 16.0 → 21.8-22.0 / 16.9 → 23.8 / 39.4 → 38.6 m (banked 12°) | 13 → 15 m | 2,417 → 2,435 m a lap |
+  | Technical Trial | 2 hairpins | 15.0 → 23.8 m | 14 → 16 m | 2,591 → 2,699 m a lap |
+  | Grand Marathon | hairpin / the two rights | 15.9 → 23.8 / 19.8 → 23.9 m | 15 → 17 m | 7,468 → 7,491 m |
+  | Mountain Pass | 3 hairpins up / 3 down | 17.9 → 23.8 / 19.0 → 24.8 m | 13 → 15 m | 4,783 → 4,925 m |
+  | Canyon Run | hairpin / its two rights / turnaround | 13.0 → 23.7 / 20.0 → 25.8 / 21.9 → 27.8 m | 10 → 13 m (turnaround 10 → 12 m) | 2,853 → 2,896 m a lap |
+
+  Hairpin Valley's ridge corner was first made 55 m: the sweep then showed 63 steps of wall contact a lap there
+  instead of 29.5 (a faster arrival, the same slide on the snow, all hits on the outer wall). Variants measured with
+  the Racer, Thunder and Vortex over the 50 settings (steps / hits a lap in that corner): v6.5 40 m 40.9 / 3.26, 55 m
+  86.9 / 6.01, 55 m banked 8° 24.6 / 2.21, 40 m on 15 m 24.6 / 2.19, 40 m banked 8° 7.3 / 1.04, **40 m banked 12°
+  5.4 / 0.85** (kept). Banking the snowy switchback pair 10° only took 18.7 to 13.4 there and was not kept.
+- **After** (the same sweep on the new tracks and medal file; wall-contact steps per lap, the share of laps that hit,
+  the lowest speed averaged over the runs):
+
+  | Corner | Steps a lap | Laps hit | Lowest speed |
+  | --- | --- | --- | --- |
+  | Hairpin Valley switchbacks (asphalt) | 10.3-15.1 → 6.1-9.6 | 87-88 % → 77-80 % | 23-27 → 34-40 km/h |
+  | Hairpin Valley switchbacks (snow) | 8.9-11.8 → 7.9-9.8 | 99-100 % → 98-99 % | 11-13 → 17-19 km/h |
+  | Hairpin Valley ridge corner (snow) | 29.5 → 4.6 | 99 % → 71 % | 43 → 61 km/h |
+  | Hairpin Valley hairpins | 17.2-17.3 → 11.6-11.9 | 93-94 % → 90-91 % | 17 → 27 km/h |
+  | Technical Trial hairpins | 16.8-17.4 → 10.8-11.2 | 92-93 % → 88-89 % | 14 → 27 km/h |
+  | Grand Marathon hairpin / rights | 13.3 → 8.5 / 8.4-9.9 → 6.2-8.5 | 91 → 87 % / 80-82 → 76-77 % | 17 → 28 / 33 → 38-40 km/h |
+  | Mountain Pass hairpins | 9.0-9.7 → 6.8-7.6 | 65-66 % → 59 % | 48-51 → 60-63 km/h |
+  | Canyon Run hairpin / its rights | 20.3 → 11.2 / 10.8-11.5 → 6.7-7.3 | 96 → 91 % / 78-79 → 68-70 % | 13 → 30 / 45-46 → 57-59 km/h |
+  | Canyon Run turnaround (dirt) | 5.8-6.0 → 4.8-5.1 | 85 % → 79-80 % | 40 → 48-49 km/h |
+
+  The whole track, steps of wall contact a lap over the sweep: Hairpin Valley 140.0 → 82.2, Technical Trial 104.2 →
+  92.4, Grand Marathon 146.6 → 137.7, Mountain Pass 147.9 → 133.0, Canyon Run 159.1 → 139.2; the corners left alone
+  read the same before and after (within 0.5 a lap). The author runs alone (one setting each, the fastest) are a
+  noisier measure: their wall contact a lap (mean of six cars) went 82.7 → 33.6 on Hairpin Valley, 52.6 → 38.8 on
+  Technical Trial, 86.7 → 79.8 on Grand Marathon and 110.3 → 88.3 on Mountain Pass, but 46.3 → 97.9 on Canyon Run,
+  where the fastest settings are now more aggressive ones that lean on the S-bends and canyon walls left alone (in
+  the reworked corners themselves they hit about as before). Scratch numbers, per corner and car: `tools/corners.gd
+  --tracks=... --max-r=45 [--sweep]`, with `--tracks-json=` / `--medals=` pointing at v6.5's files for the before.
+- **The other ten tracks are bit for bit v6.5.0**: their `data/tracks.json` entries, medal entries and opponents are
+  identical (`tests/test_sim.gd` hashes each track's `tools/gen_tracks.gd` text and its medal entry against v6.5's,
+  `V65_KEPT`), and so are their signatures.
+- **Signatures and saves**: all five reworked tracks changed their sample count and length, so their signatures
+  changed (`V65_SIGS` → `SIGS`; Hairpin Valley `1209:2417|snow480-812` → `1218:2435|snow492-815`). A test loads a
+  v6.5 save (file version 4) holding a Hairpin Valley record, best score and ghost with the old signature, a Rookie
+  Oval record and a career that was paid bronze, silver, gold and the Rookie there: the three Hairpin Valley entries
+  move to the archive, Rookie Oval's stays, loading pays nothing, the paid list is kept, a slower time than the
+  archived one is a new best, claiming gold and the Rookie again pays $0, author and the Amateur pay just those two,
+  and the file on disk is version 4 with the archive.
+- **Medal times** (`tools/medals.gd --update --tracks=<the five> --jobs=3`, 976 s, then Hairpin Valley again after
+  its ridge corner, 236 s; the other 60 entries untouched): author times move by -10.65 s (Drifter, Hairpin Valley)
+  to +5.22 s (Racer, Technical Trial, 108 m longer a lap); see the README for the table.
+- **AI opponents** (`tools/opponents.gd --train --tracks=<the five>`: 30 networks, FleetSim on 3 threads, 38-124 s each;
+  every one beat its gold time at generation 80; flat out 0.85 (Vortex, Hairpin Valley: it rides the walls) to 1.01
+  (Kestrel, Grand Marathon) × the author time. Levels (330 s): Rookie 1.587-1.619, Amateur 1.387-1.414, Pro
+  1.237-1.265, Expert 1.120-1.143, Elite 0.989-1.015 × the author time. `--check` re-ran all 450 stored races
+  (474 s) and every time was reproduced to the millisecond.
+- **Browser parity kept**: `Tracks.build_web(id)` reads the browser's own track data (`web/src/tracks/trackData.js`),
+  so the web comparisons in `tests/test_sim.gd` and `tests/test_ai.gd` and the parity tools drive the five tracks as
+  the browser has them (the v6.5 layouts, all asphalt); the test checks that `build_web` gives exactly the v6.5
+  layout for them and `build_asphalt` for the other ten.
+- **Tests**: the headless suite, 642 checks, all pass (`tests/run_tests.gd -- sim ui world game ai`, 328 s). New:
+  "the reworked corners (v6.6)" (for each of the five, measured on the built track: the tightest corner and the
+  tightest hairpin, a turn of 150° or more under 40 m, at least 21.5 / 23.5 m on Hairpin Valley and 23.5 / 23.5 m on
+  the others, the hairpin road at least 15 / 16 / 17 / 15 / 13 m, all wider and rounder than the browser's layout, as
+  many hairpins as before, the same surface stretches within 5 % of their length) and the v6.5 save above;
+  rewritten: "the tracks: design rules and versions" (the ten kept tracks' text and medal hashes, the five's new
+  signatures and medal entries, `build_web`). The web comparisons now run on `Tracks.build_web` and still match the
+  browser to the millisecond on all 12. End to end, `scenario=races` (Rookie Oval, Hairpin Valley, Seaside Stunts,
+  Mountain Pass, Canyon Run, Summit Rush, every car: through the menu to the author time, record, ghost, replay): 648
+  checks pass (989 s); `scenario=surfaces` (it drives Hairpin Valley's snow) 13 and `scenario=menu` (the 15
+  tiles at 1280 x 720 without scrolling) 28 pass.
+- **Screenshots** (software rendering, the same free camera before and after: v6.5.0 built from `git archive` of
+  commit ccf2f97): Technical Trial's first hairpin (in the README), Mountain Pass's first hairpin up and Hairpin
+  Valley's second switchback corner; top-down overlays of all five layouts.
 
 ## How v6.5.0 (money, points and AI opponents) was verified
 
@@ -403,18 +501,26 @@ started: no Windows here).
   `.surface("asphalt")`; the design rules want stretches of 60 m or more and the start grid on asphalt). A track
   without them has no `"surfaces"` key and an empty `BuiltTrack.surf_w`, and every surface branch in `sim/car.gd`,
   the autopilots and FleetSim is skipped for it: keep it that way, so asphalt tracks stay bit-identical.
-  `Tracks.build_asphalt(id)` is a track with its surfaces stripped (the browser's version, for the parity tools and
-  the web checks in `tests/test_sim.gd`).
+  `Tracks.build_asphalt(id)` is a track with its surfaces stripped. `Tracks.build_web(id)` (v6.6.0) is the track as
+  the browser game has it: read from `web/src/tracks/trackData.js` when the layout differs from ours (the five tracks
+  v6.6.0 reworked), `build_asphalt` otherwise; the parity tools (`tools/parity/`), `tests/test_ai.gd`'s sensor check
+  and the web checks in `tests/test_sim.gd` use it, so they still compare like with like.
 - **Track signatures**: `BuiltTrack.signature()` is "count:length" (the layout) plus "|dirt168-730,..." when the track
   has surfaces; `Tracks.signature(id)` caches it. Records, best scores and ghosts store it as `sig`; an entry whose
   `sig` is not the track's current one is archived when the save is loaded (`SaveData._archive_stale`).
   `Tracks.LEGACY_SIGS` holds the v6.2 signatures for untagged (version 2) entries: never change it. Changing a track
   (layout or surfaces) therefore retires its old records by itself; re-run `tools/medals.gd --update --tracks=<id>`.
+  The layout part is the sample count and the length, so a change that keeps both (only a road width, a banking or
+  a height) keeps the signature and the old records stay valid: v6.6.0's reworks all changed the length, and
+  `tests/test_sim.gd` checks that each reworked track's signature differs from its v6.5 one (`V65_SIGS`). If you
+  ever widen a road without changing its length, make the signature change some other way first.
 - **Tracks are appended, never edited in passing** (v6.4.0): menu order is `data/tracks.json` order, the first 12
-  are the browser's, and `tests/test_sim.gd` pins every track's signature (`SIGS`), the text of the first 12 entries
-  (a SHA-256 of `tools/gen_tracks.gd`'s output for them) and their medal entries (`V63_MEDALS_SHA`), and runs the
-  design rules on all of them. A new track: its turtle program after the last one in `tools/gen_tracks.gd`, its
-  theme's name in `THEMES` there, `tools/medals.gd --update --tracks=<id> --jobs=3`, then add its signature to `SIGS`.
+  are the browser's (as layouts: v6.6.0 reworked five of them on purpose, see its section), and `tests/test_sim.gd`
+  pins every track's signature (`SIGS`), the text of the ten tracks v6.6.0 left alone (a SHA-256 of
+  `tools/gen_tracks.gd`'s output for each) and their medal entries (`V65_KEPT`), what the reworked corners must be
+  (`V66_REWORKED`) and their old signatures (`V65_SIGS`), and runs the design rules on all of them. A new track: its
+  turtle program after the last one in `tools/gen_tracks.gd`, its theme's name in `THEMES` there, `tools/medals.gd
+  --update --tracks=<id> --jobs=3`, then add its signature to `SIGS`.
 - **Themes are data** (`world/themes.gd`; a theme lists every field, see its header). v6.4.0 added optional keys:
   `woods` ({count, spacing, peak, near, open}: a forest close to the road; without it the scenery is placed exactly
   as before), `sky.aurora` (+ `auroraColor`, `auroraEdge`: the northern lights, `world/shaders/sky.gdshader`) and
@@ -448,7 +554,7 @@ started: no Windows here).
   (never below 0), `owned_cars` / `owns_car` / `give_car(id)` / `purchase_car(id, price)`, `paid_rewards(track, car)`
   / `pay_rewards(...)`; `Economy` builds the payouts, the prices and `buy()` on top. Item 7's terminal should call
   `add_money`, `add_points` and `give_car` (they write the file) and refresh the menu. The paid list is per track id
-  and car, not per track signature (see Known limitations).
+  and car, not per track signature, on purpose (see Known limitations).
 - **AI opponents are data made by a tool**: `data/opponents/<car>.json` holds, per track, the network (the web
   game's file format), the track signature it was trained on, and each level's `{cap, time}` (cap in m/s, null =
   none). `Opponents.entry()` refuses an entry whose `physics` or `sig` no longer match, so a changed track or physics
@@ -484,9 +590,17 @@ started: no Windows here).
   win is judged against the race it actually drives, so it is fair everywhere; but on Windows (another maths library)
   a capped network can drive a slightly different line, and its finish can differ from the time the menu shows by a
   few milliseconds or, after a wall contact, more.
-- **Rewards are paid per track id, not per track version**: when item 6 reworks a track, its records move to the
-  archive (signature) but its paid medals stay paid, so beating the new medal times pays nothing for medals already
-  paid. Decide with the owner whether a reworked track pays again (then key `paid` by signature in `SaveData`).
+- **The reworked corners (v6.6.0) were judged with the medal autopilot, not with players**: it plans its corner
+  speed from a fixed grip, so on snow and in the slowest hairpins it still slides into a wall on most laps (Hairpin
+  Valley's snowy switchbacks on 98-99 % of laps, the hairpins on 87-91 %), only less often and for less time. Its
+  fastest setting per car (the author run) can also lean on walls more than before, as on Canyon Run (46 → 98 steps of
+  contact a lap, in corners that were not changed). Nobody drove the new layouts by hand.
+- **Rewards are paid per track id, not per track version, on purpose** (v6.6.0): the five reworked tracks moved
+  their records, scores and ghosts to the archive (new signatures) and have new medal times and AI opponents, but
+  medals and AI wins already paid on them stay paid and are not paid again, so reworking a track can't be farmed
+  for money (and nothing is taken back). Beating the new times pays only what that track and car never paid
+  (`tests/test_sim.gd` "career", a v6.5 save). The menu shows no medal on a reworked track until a new time is set.
+  To pay again per version, key `paid` by signature in `SaveData` (and migrate the existing lists).
 - **The AI opponents are a single network per track and car held to a lower top speed**, not different drivers: the
   slow levels take every corner at the same capped speed (the Rookie is very steady), they never use nitro, and with
   walls ride they lean on walls in tight corners like the trained networks do. Elite is the network flat out where
@@ -495,10 +609,11 @@ started: no Windows here).
   with yours and don't react to it.
 - **The Rookie may still be hard for a brand-new player on long tracks**: it takes 1.6 × the author time, slower
   than bronze (1.5 ×, 1.3 × after item 9), but it doesn't crash or make mistakes.
-- **Technical Trial, Racer**: the medal autopilot's best run grinds a wall for 281 steps, and a last-bit difference
-  turns into a different finish: 3:45.083 here against 3:44.033 in the browser, so gold / silver / bronze are 3:59 /
-  4:31 / 5:38 (browser 3:58 / 4:29 / 5:37). Lockstep from the JS states reproduces every step, so it is not a port
-  bug. All other 47 track-and-car medal sets are identical.
+- **Technical Trial, Racer** (the browser's layout, the game's until v6.5.0): the medal autopilot's best run grinds
+  a wall for 281 steps, and a last-bit difference turns into a different finish: 3:45.083 here against 3:44.033 in
+  the browser, so gold / silver / bronze were 3:59 / 4:31 / 5:38 (browser 3:58 / 4:29 / 5:37). Lockstep from the JS
+  states reproduces every step, so it is not a port bug. All other 47 track-and-car medal sets were identical. Since
+  v6.6.0 five tracks have layouts of their own, so their medal times no longer compare with the browser's at all.
 - **Terrain noise differs**: the terrain uses Godot's FastNoiseLite, statistically like the browser's noise but the
   hills are in different places. The road, walls and scenery rules are the same.
 - **Track building is slower** (0.8-1.7 s against 0.16-0.45 s in the browser); the menu builds on a worker thread so
@@ -623,12 +738,20 @@ re-run the medal times.
    `SaveData.VERSION` 4 with a `career` section; older saves are paid once for their medals (a message says how
    much) and own only the Racer. Not done (not asked): selling cars, prices per track, an AI that reacts to the
    player.
-6. **Rework the tight corners on the old maps** (make them more forgiving). The hairpins have a 13-19 m radius
-   (Canyon Run 13 m, Technical Trial 15 m, Grand Marathon 16 m, Hairpin Valley 17 m, Mountain Pass 18-19 m) and are
-   taken at about 55-65 km/h: widen the radius or the road there in `tools/gen_tracks.gd`. Changed tracks need new
-   medal times (`tools/medals.gd --update --tracks=...`); since v6.3.0 their old best times, scores and ghosts stop
-   counting and move to the save file's archive by themselves (track signatures, see Conventions). Keep the surface
-   stretches in place when reworking Hairpin Valley, Mountain Pass and Canyon Run (`.surface()` calls in the designs).
+6. **Rework the tight corners on the old maps** (make them more forgiving). **Done in v6.6.0.** The corners chosen
+   from a sweep of the medal autopilot (all 50 settings, six cars, `tools/corners.gd --sweep`) were the tightest
+   ones, which it hit on 65-100 % of laps (most on 85 % or more): every hairpin (Canyon Run 13 m, Technical Trial
+   15 m, Grand Marathon 16 m, Hairpin Valley 17 m and its 16 m switchbacks, Mountain Pass 18-19 m), the corners next to
+   them on Grand Marathon and Canyon Run, Canyon Run's gravel turnaround and Hairpin Valley's snowy left off the
+   ridge (the worst single corner: 2.5 wall hits a lap). All hairpins are now 24-25 m (switchbacks 22 m) on a road
+   2-3 m wider; the straights next to them are shorter by as much as the turns grew (a 90° turn of radius r moves
+   the road 1.4244 r forward and sideways, a hairpin 2.053 r sideways), so start, shape and surface stretches stay.
+   Hairpin Valley's ridge corner kept its 40 m and got 15 m of road and 12° of banking instead: at 55 m the
+   autopilot only arrived faster and slid further into the outer wall on the snow (twice the contact). Left alone on
+   purpose: Technical Trial's 10 m chicane, Canyon Run's narrow canyons and S-bends (their character; the autopilot
+   hits them about half the laps, as before), and the other ten tracks, whose tightest corners are 28 m or more.
+   Medal times (`tools/medals.gd --update`), AI opponents (`tools/opponents.gd --train` and the levels) and
+   signatures are new for the five; see "How v6.6.0 was verified". Not done: the bronze ratio (item 9).
 7. **A terminal in Settings** for adding points, money and so on. Default: **in Settings and on the ` key, with
    commands like `money 5000`, `points 200`, `unlock all`**. The Settings screen already has an `action` row type
    (`ui/settings_screen.gd`, emits `action(key)`); the menu input names keys like the browser (`ui/menu_input.gd`

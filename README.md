@@ -22,6 +22,10 @@ sprint over a mountain on asphalt, dirt and snow (see [Tracks](#tracks)).
 Version 6.5.0 adds a career: medals and wins against five AI opponents (Rookie, Amateur, Pro, Expert and Elite) pay
 money and career points, and money buys cars: you start with the Racer and buy the other five on the car picker
 (see [Money, points and cars](#money-points-and-cars)).
+Version 6.6.0 makes the tightest corners of five of the old tracks more forgiving: the hairpins and switchbacks of
+Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon Run are rounder (22-25 m instead of 13-19 m)
+and their road 2-3 m wider; they are still hairpins, and the tracks keep their shape and their dirt and snow (see
+[The reworked corners](#the-reworked-corners-version-660)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows, the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -35,7 +39,7 @@ money and career points, and money buys cars: you start with the Racer and buy t
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.5.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.6.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -236,14 +240,14 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 3:03). Autho
 | Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
 | --- | --- | --- | --- | --- | --- | --- |
 | Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 | 2:09.683 | 1:52.250 |
-| Hairpin Valley | 4:07.233 | 4:02.267 | 4:18.500 | 4:06.783 | 3:58.333 | 4:07.933 |
+| Hairpin Valley | 3:58.183 | 3:52.700 | 4:10.667 | 3:56.133 | 3:49.867 | 3:58.083 |
 | Ramp Rally | 3:05.633 | 3:04.500 | 3:12.917 | 3:03.983 | 3:00.133 | 3:05.700 |
 | Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 | 2:23.150 | 1:48.600 |
-| Technical Trial | 3:45.083 | 3:41.933 | 3:47.950 | 3:45.017 | 3:47.283 | 3:32.783 |
-| Grand Marathon | 2:30.467 | 2:33.017 | 2:29.317 | 2:32.033 | 2:38.433 | 2:18.867 |
+| Technical Trial | 3:50.300 | 3:46.467 | 3:52.567 | 3:50.067 | 3:52.117 | 3:35.650 |
+| Grand Marathon | 2:30.667 | 2:33.000 | 2:29.483 | 2:32.283 | 2:39.033 | 2:19.267 |
 | Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 | 3:16.167 | 2:54.900 |
-| Mountain Pass | 1:53.267 | 1:52.333 | 1:56.517 | 1:53.267 | 1:52.683 | 1:49.233 |
-| Canyon Run | 4:24.067 | 4:19.883 | 4:31.817 | 4:21.400 | 4:18.500 | 4:16.333 |
+| Mountain Pass | 1:51.617 | 1:50.650 | 1:56.533 | 1:53.833 | 1:52.633 | 1:49.683 |
+| Canyon Run | 4:20.167 | 4:17.033 | 4:30.900 | 4:21.117 | 4:16.017 | 4:15.017 |
 | Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 |
 | Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 |
 | Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 |
@@ -256,11 +260,12 @@ nitro tank. The author time is the fastest of 50 runs of a simple autopilot with
 settings, driving each car with the same physics as you: it burns nitro on the straights and its points
 refill the tank as yours do (`tools/medals.gd`, see [Tests and tools](#tests-and-tools)). The autopilot only
 follows the centre line and uses nitro simply, so a driver with a real racing line and good nitro timing can beat
-even the author time. A medal counts to the millisecond the HUD shows. (On the eight all-asphalt tracks the first
-four cars' times are the browser version's except the Racer on Technical Trial, 1.05 s slower here: see
-[HANDOFF.md](HANDOFF.md). Hairpin Valley, Ramp Rally, Mountain Pass and Canyon Run got dirt or snow in version 6.3.0
-and new times, 0.8-37 s slower than before depending on the car: see [Road surfaces](#road-surfaces). The Dune and the
-Vortex, and the three tracks of version 6.4.0, exist only in this version.)
+even the author time. A medal counts to the millisecond the HUD shows. (On the six all-asphalt tracks that are still
+the browser version's layouts the first four cars' times are the browser version's. Hairpin Valley, Ramp Rally,
+Mountain Pass and Canyon Run got dirt or snow in version 6.3.0 and new times, 0.8-37 s slower than before depending on
+the car: see [Road surfaces](#road-surfaces). Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon
+Run got rounder, wider hairpins in version 6.6.0 and new times again: see [Tracks](#tracks). The Dune and the Vortex,
+and the three tracks of version 6.4.0, exist only in this version.)
 
 ### Money, points and cars
 
@@ -363,7 +368,7 @@ no painted lines or kerbs, and dusty or snow-capped barriers alongside. You also
 | --- | --- | --- | --- | --- |
 | Asphalt | all of it | normal | as before | every track |
 | Dirt | 55-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Forest Rally (88 % of a lap), Ramp Rally (47 %), Summit Rush (30 %), Canyon Run (14 %), Mountain Pass (11 %) |
-| Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Northern Lights (79 %), Hairpin Valley (28 %), Summit Rush (21 %), Mountain Pass (19 %) |
+| Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Northern Lights (79 %), Hairpin Valley (27 %), Summit Rush (21 %), Mountain Pass (19 %) |
 
 How the physics handles it (`sim/surfaces.gd` holds the table, `sim/car.gd` uses it):
 
@@ -390,7 +395,7 @@ Why these tracks:
 
 - **Ramp Rally** (desert) is a rally stage now: from the first jump's run-out to the third jump, the S-bend, the dune
   and the banked left are dirt, and the big 7 m jump takes off from it.
-- **Canyon Run**: the tight double-left turnaround between the two canyons is a gravel track, a place to slide the car
+- **Canyon Run**: the double-left turnaround between the two canyons is a gravel track, a place to slide the car
   round instead of braking to a crawl.
 - **Mountain Pass** (alpine): the fast valley sweepers at the start are a dirt road, and the summit ridge is packed
   snow; the asphalt comes back 60 m before the first hairpin down, so you brake for it on tarmac.
@@ -419,20 +424,51 @@ old all-asphalt ones:
 | # | Track | Type | Length | Scenery | Surface | Difficulty | What it asks of you |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Rookie Oval | 3 laps | 2.17 km/lap | meadow | asphalt | ★ | Learn the car, carry speed through sweepers |
-| 2 | Hairpin Valley | 3 laps | 2.42 km/lap | alpine | asphalt, packed snow over the ridge | ★★ | Five switchbacks over a ridge: brake early, power out |
+| 2 | Hairpin Valley | 3 laps | 2.44 km/lap | alpine | asphalt, packed snow over the ridge | ★★ | Five switchbacks over a ridge: brake early, power out |
 | 3 | Ramp Rally | 3 laps | 2.37 km/lap | desert | asphalt, dirt from the first jump to the third | ★★★ | Four kicker jumps of 4-7 m: hit each ramp straight |
 | 4 | Banked Speedway | 3 laps | 2.84 km/lap | dusk | asphalt | ★★★ | Steep banked bowls (24-28°): trust the banking |
-| 5 | Technical Trial | 3 laps | 2.59 km/lap | canyon | asphalt | ★★★★ | A 10 m chicane, a jump, banked sweepers and a switchback climb |
-| 6 | Grand Marathon | Sprint | 7.18 km | meadow | asphalt | ★★★★★ | Everything from 1-5 in one long point-to-point run |
+| 5 | Technical Trial | 3 laps | 2.70 km/lap | canyon | asphalt | ★★★★ | A 10 m chicane, a jump, banked sweepers and a switchback climb |
+| 6 | Grand Marathon | Sprint | 7.20 km | meadow | asphalt | ★★★★★ | Everything from 1-5 in one long point-to-point run |
 | 7 | Coastal GP | 3 laps | 2.90 km/lap | dusk | asphalt | ★★★ | Fast grand-prix circuit: big braking zones, quick esses |
-| 8 | Mountain Pass | Sprint | 4.50 km | alpine | asphalt, a dirt valley road, packed snow on the summit | ★★★★ | Banked switchbacks up to the summit and a twisting descent |
-| 9 | Canyon Run | 3 laps | 2.85 km/lap | canyon | asphalt, a dirt turnaround at the far end | ★★★★★ | Narrow road, jumps, blind crests and tight S-bends |
+| 8 | Mountain Pass | Sprint | 4.64 km | alpine | asphalt, a dirt valley road, packed snow on the summit | ★★★★ | Banked switchbacks up to the summit and a twisting descent |
+| 9 | Canyon Run | 3 laps | 2.90 km/lap | canyon | asphalt, a dirt turnaround at the far end | ★★★★★ | Narrow road, jumps, blind crests and tight S-bends |
 | 10 | Night Highway | 3 laps | 3.12 km/lap | night | asphalt | ★★ | Kilometre-long straights and slow corners under the lights: brake hard, then fire the nitro |
 | 11 | Lighthouse Bay | 3 laps | 2.35 km/lap | seaside | asphalt | ★★★ | Long sweeping bends round a bay, past a lighthouse: hold the drift |
 | 12 | Seaside Stunts | Sprint | 3.02 km | seaside | asphalt | ★★★★ | Six kickers down the coast road, with step-downs and a 7.5 m launch |
 | 13 | Forest Rally | 3 laps | 2.54 km/lap | autumn | dirt, but for the start and finish straight | ★★★ | A rally stage through autumn woods: flowing bends to slide through, crests and two jumps |
 | 14 | Northern Lights | 3 laps | 2.83 km/lap | arctic | packed snow, two asphalt stretches | ★★★★ | Banked snow bowls (20-24°), a jump and long slides at night under the aurora: smooth hands win |
 | 15 | Summit Rush | Sprint | 4.38 km | highland | asphalt, a dirt forest climb, packed snow on the summit, dirt again on the way down | ★★★★★ | The finale: two jumps, sweeping switchbacks up to 18 m, the snow, and a flying descent |
+
+#### The reworked corners (version 6.6.0)
+
+Version 6.6.0 opened up the corners that caught cars out the most on five tracks. Every hairpin (a turn of about
+180°) is now at least 24 m round, the road through it 2-3 m wider, and the straights next to each corner were
+shortened by as much as the corner grew, so each track keeps its shape, its start and its dirt and snow where they
+were. Radius and road width, before and after:
+
+| Track | What changed | Length |
+| --- | --- | --- |
+| Hairpin Valley | the six switchback corners 16 → 22 m and the two hairpins down 17 → 24 m, on a 15 m road (was 13); the snowy left at the end of the ridge keeps its 40 m but is 15 m wide and banked 12° (it was flat) | 2.42 → 2.44 km/lap |
+| Technical Trial | the two hairpins of the switchback climb 15 → 24 m, on a 16 m road (14); the 10 m chicane stays | 2.59 → 2.70 km/lap |
+| Grand Marathon | the hairpin of the switchback climb 16 → 24 m and the corners either side of it 20 → 24 m, on a 17 m road (15) | 7.18 → 7.20 km |
+| Mountain Pass | the six banked hairpins 18 → 24 m going up and 19 → 25 m coming down, on a 15 m road (13) | 4.50 → 4.64 km |
+| Canyon Run | the hairpin of the far tongue 13 → 24 m and the rights either side 20 → 26 m, on a 13 m road (10); the gravel turnaround's two lefts 22 → 28 m on a 12 m road (10); the narrow canyons stay narrow | 2.85 → 2.90 km/lap |
+
+How much it helps, measured with the medal autopilot (`tools/corners.gd`, all 50 settings of the medal sweep with
+each of the six cars): it touches a wall on these five tracks 6-41 % less per lap (Hairpin Valley 140 → 82 steps of
+wall contact a lap, Technical Trial 104 → 92, Grand Marathon 147 → 138, Mountain Pass 148 → 133, Canyon Run 159 →
+139), and it is 10-17 km/h faster through the hairpins at their slowest point (Technical Trial's hairpins 14 → 27
+km/h, Canyon Run's 13 → 30, Mountain Pass's 49-51 → 60-63). The new author times are 10.7 s faster to 5.2 s slower
+than the old ones, depending on the track and car (the tracks got 18-142 m longer).
+
+| Technical Trial's first hairpin in 6.5.0 (15 m) | The same hairpin in 6.6.0 (24 m), from the same camera |
+| --- | --- |
+| ![Technical Trial's first hairpin before version 6.6.0: a tight 15 m U-turn in the desert, the red Racer in it](docs/screenshots/corners-before.png) | ![The same hairpin after version 6.6.0: a much rounder 24 m U-turn on a wider road, a checkpoint gate on the way in](docs/screenshots/corners-after.png) |
+
+These five tracks are **new versions**: best times, best scores and ghosts set on them before 6.6.0 no longer count
+(the menu shows none, and the medal times and AI opponents are new). They are not deleted: the save file keeps them
+under `"archive"` (see [Saved data](#saved-data)). Money and points already paid for medals and AI wins on them stay
+paid and are not paid a second time: a track pays each medal and each AI level once per car, whatever its version.
 
 Tracks 13-15 (version 6.4.0) come after the twelve of the browser version, harder from one to the next, and each
 has a scenery of its own: **autumn** (a golden afternoon in mixed woods that grow close to the road: orange oaks, red
@@ -445,8 +481,8 @@ snow on the ground beside the snowy road, where the trees carry snow too).
 | ![The Racer with nitro on Forest Rally's dirt road, dust behind it, autumn oaks, maples, birches and pines beside the road](docs/screenshots/forest-rally.png) | ![The Racer sliding through a snowy bend of Northern Lights at night, blue-grey snow spray behind it, green northern lights in the sky](docs/screenshots/northern-lights.png) | ![The Racer throwing up dust in a dirt switchback of Summit Rush's forest climb, golden larches beside it and the snowy summit road ahead](docs/screenshots/summit-rush.png) |
 
 Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map of the first twelve tracks is in
-[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (their layouts are the same in both versions; the browser
-version has no dirt or snow, and not tracks 13-15).
+[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (their layouts are the browser version's, except the
+corners reworked in 6.6.0; the browser version has no dirt or snow, and not tracks 13-15).
 
 ## Training the AI
 
@@ -609,10 +645,12 @@ The file is written safely (to a temporary file first, then swapped in), so a cr
 it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, close the game
 and delete the file. Best times and ghosts made with another version of the physics are not used. Best times, best
 scores and ghosts also remember the version of the track they were set on: when a track changes (as four did in
-6.3.0, when they got dirt and snow), the old ones stop counting and are moved to an `"archive"` section of the file
-(the next time the game saves anything), where they are kept but not shown. A save file from an older version is
+6.3.0, when they got dirt and snow, and five in 6.6.0, when their tight corners were opened up), the old ones stop
+counting and are moved to an `"archive"` section of the file (the next time the game saves anything), where they are
+kept but not shown. A save file from an older version is
 upgraded when it is loaded. A save from before 6.5.0 is paid once for the medals its best times hold (a message says
-how much); it owns only the Racer, like a new player.
+how much); it owns only the Racer, like a new player. Rewards already paid stay paid when a track changes: a
+track pays each medal and AI level once per car, whatever its version.
 
 Saves from the browser version (kept in the browser's storage) can't be carried over; AI networks can (save the
 network in the browser, then use **Load network…** here).
@@ -637,7 +675,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.5.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.6.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -659,12 +697,13 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points; the numbers are compared with the browser version's on the all-asphalt versions of the tracks), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
 | `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks) |
 | `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
+| `godot --headless --path . --script res://tools/corners.gd` | Lists the tight corners of every track (radius, road width, banking) and how the medal autopilot takes them with each car: its lowest speed and its wall contacts per lap there, from the author runs in `data/medals.json` (`-- --tracks=a,b`, `--max-r=40` for corners tighter than 40 m, `--sweep` for the wall contacts over all 50 settings of the medal sweep, as long as the medal sweep: about 16 minutes for five tracks on 3 threads; `--tracks-json=` and `--medals=` read older files, `--json=` writes the numbers). Made for version 6.6.0's corner rework |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
 | `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
@@ -697,7 +736,12 @@ the mouse, arrows or gamepad, and its grid makes rows as full as it can (15 trac
 colours, mountains and scenery species, all data; since 6.4.0 also `woods` for a forest close to the road,
 `sky.aurora` for the northern lights and `ground.roadSnow` for snowy land beside snowy road); add its name to
 `THEMES` in `tools/gen_tracks.gd`. The tests in `tests/test_sim.gd` check every track against the design rules and
-that the first twelve tracks, their signatures and their medal times stay exactly as they are.
+that the tracks, their signatures and their medal times stay exactly as they are (the five tracks reworked in 6.6.0
+against what their corners must be now). To rework a corner of an existing track, shorten the straights next to it by
+as much as it grows (a 90° turn of radius r moves the road 1.4244 × r forward and sideways, a hairpin 2.053 × r
+sideways) so the rest of the track stays put, run `tools/corners.gd` before and after (`--tracks-json=` and
+`--medals=` read the old files), then `tools/medals.gd --update --tracks=<id>` and `tools/opponents.gd --train
+--tracks=<id>` and the levels; the old records move to the archive by themselves when the track's length changes.
 
 ## Project layout
 

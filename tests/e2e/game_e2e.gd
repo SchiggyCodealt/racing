@@ -11,9 +11,10 @@ extends SceneTree
 ## recorder and save code. save=<file> keeps the player's real save file out of it.
 ##
 ## Scenarios (scenario=...):
-##   races     tracks=a,b,.. (default rookie-oval, seaside-stunts, mountain-pass and v6.4's
-##             summit-rush) cars=a,b,.. (default every car): pick the track and car with the menu
-##             keys, Drive (Enter), drive the medal autopilot of the author time to the finish;
+##   races     tracks=a,b,.. (default rookie-oval, seaside-stunts, v6.4's summit-rush and three
+##             tracks v6.6 reworked: hairpin-valley, mountain-pass, canyon-run) cars=a,b,.. (default
+##             every car): pick the track and car with the menu keys, Drive (Enter), drive the
+##             medal autopilot of the author time to the finish;
 ##             checks the finish panel (time = the author time, author medal), the saved record,
 ##             score and ghost, then R: the new ghost replays the run (within 3 cm of the car),
 ##             then Esc: the menu's tile and panel show the record, score and ghost.
@@ -276,7 +277,7 @@ func fast(on: bool) -> void:
 # ---------------------------------------------------------------- races
 
 func races() -> void:
-	var tracks: PackedStringArray = str(opts.get("tracks", "rookie-oval,seaside-stunts,mountain-pass,summit-rush")).split(",")
+	var tracks: PackedStringArray = str(opts.get("tracks", "rookie-oval,hairpin-valley,seaside-stunts,mountain-pass,canyon-run,summit-rush")).split(",")
 	var cars: PackedStringArray = str(opts.get("cars", ",".join(Cars.ids()))).split(",")
 	for tid in tracks:
 		for cid in cars:

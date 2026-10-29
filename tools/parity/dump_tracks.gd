@@ -10,7 +10,7 @@ func _initialize() -> void:
 	var out: Array = []
 	var t0: int = Time.get_ticks_usec()
 	for id in Tracks.ids():
-		var t: BuiltTrack = Tracks.build(id)
+		var t: BuiltTrack = Tracks.build_web(id) # (the browser's layouts, all asphalt)
 		var g: Collision.WallGrid = t.grid
 		out.append({
 			id = t.id, name = t.name, theme = t.theme, closed = t.closed, laps = t.laps, N = t.N, count = t.count, segLen = t.seg_len,

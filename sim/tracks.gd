@@ -12,8 +12,10 @@ extends RefCounted
 ##   Tracks.build(id)      -> BuiltTrack (cached; null for an unknown id)
 ##   Tracks.index_of(id)   -> menu position (0-based), -1 if unknown
 ##   Tracks.build_def(def) -> BuiltTrack from any definition (not cached)
-##   Tracks.build_asphalt(id) -> BuiltTrack of `id` without its road surfaces (cached): the track as
-##                            the browser version (v5) has it, for the parity tools and checks
+##   Tracks.build_asphalt(id) -> BuiltTrack of `id` without its road surfaces (cached)
+##   Tracks.build_web(id)  -> BuiltTrack of `id` as the browser version (v5) has it (cached): all
+##                            asphalt, and the browser's layout for the tracks reworked since (v6.6.0);
+##                            for the parity tools and the checks against the browser's numbers
 ##   Tracks.signature(id)  -> the built track's signature (BuiltTrack.signature(); "" if unknown)
 ##   Tracks.legacy_signature(id) -> its signature up to v6.2 (LEGACY_SIGS), for data saved without one
 ##
@@ -21,6 +23,8 @@ extends RefCounted
 ## them; the only lazily filled parts are the gate and physics caches).
 
 const DATA_PATH: String = "res://data/tracks.json"
+## The browser version's track definitions (web/ is not in an exported game: tests and tools only).
+const WEB_PATH: String = "res://web/src/tracks/trackData.js"
 ## Every track's signature up to v6.2, before road surfaces (all asphalt then). Records and best
 ## scores saved before v6.3, and AI best times in network files, carry no signature: they were
 ## made on these, so they count only while the track still has this signature (sim/save.gd,
@@ -38,6 +42,8 @@ static var _by_id: Dictionary = {}
 static var _built: Dictionary = {}
 static var _sigs: Dictionary = {}
 static var _asphalt: Dictionary = {}
+static var _web: Dictionary = {}
+static var _web_defs: Dictionary = {}
 static var _mutex: Mutex = Mutex.new()
 
 
@@ -114,6 +120,50 @@ static func build_asphalt(id: String) -> BuiltTrack:
 		_asphalt[id] = a
 	_mutex.unlock()
 	return a
+
+
+## Track `id` as the browser version (v5) has it (cached), or null when unknown: all asphalt. The
+## first 12 tracks were bit for bit the browser's until v6.6.0 reworked the tightest corners of
+## some of them; for those this is the browser's layout, read from WEB_PATH (so it needs web/, as the
+## parity tools do: tests and tools only). For every other track it is build_asphalt(id).
+static func build_web(id: String) -> BuiltTrack:
+	var t: BuiltTrack = build(id)
+	if t == null:
+		return null
+	_mutex.lock()
+	if _web_defs.is_empty():
+		_web_defs = _read_web_defs()
+	var w: Dictionary = _web_defs.get(id, {})
+	var mine: Dictionary = _by_id[id]
+	var same: bool = w.is_empty() or (JSON.stringify(w.points) == JSON.stringify(mine.points) and \
+		JSON.stringify(w.checkpoints) == JSON.stringify(mine.checkpoints))
+	var built: BuiltTrack = null if same else _web.get(id)
+	if not same and built == null:
+		built = build_def(w)
+		_web[id] = built
+	_mutex.unlock()
+	return build_asphalt(id) if same else built
+
+
+## The track definitions of web/src/tracks/trackData.js by id ({} when it can't be read): the
+## module's array literal turned into JSON (keys quoted, trailing commas dropped).
+static func _read_web_defs() -> Dictionary:
+	var src: String = FileAccess.get_file_as_string(WEB_PATH)
+	var a: int = src.find("export const TRACKS = [")
+	var b: int = src.rfind("];")
+	if a < 0 or b < a:
+		push_error("Tracks: cannot read %s" % WEB_PATH)
+		return {}
+	var body: String = src.substr(a + 22, b - a - 21)
+	var keys := RegEx.create_from_string("(?m)^(\\s*)([A-Za-z_]\\w*):")
+	var commas := RegEx.create_from_string(",(\\s*[\\]}])")
+	var data: Variant = JSON.parse_string(commas.sub(keys.sub(body, "$1\"$2\":", true), "$1", true))
+	var out: Dictionary = {}
+	if data is Array:
+		for d: Variant in data:
+			if d is Dictionary:
+				out[String(d.id)] = d
+	return out
 
 
 ## The signature of track `id` (BuiltTrack.signature(): layout and surfaces), "" when unknown.

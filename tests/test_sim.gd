@@ -28,20 +28,50 @@ const WEB_AUTOPILOT: Dictionary = {
 	"lighthouse-bay": [195.91666666671472, 0],
 	"seaside-stunts": [80.24999999999673, 0],
 }
-## Every track's signature (Tracks.signature: layout, then the road surfaces). The first 12 must
-## never change (records, ghosts, medals and AI best times are keyed to them); the three of
-## v6.4 (tools/gen_tracks.gd) follow them in the menu.
+## Every track's signature (Tracks.signature: layout, then the road surfaces). Records, ghosts,
+## medals and AI best times are keyed to them, so one changes only when its track is reworked on
+## purpose (v6.6.0: Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass, Canyon Run;
+## V65_SIGS has what they were); the three of v6.4 (tools/gen_tracks.gd) follow them in the menu.
 const SIGS: Dictionary = {
-	"rookie-oval": "1083:2167", "hairpin-valley": "1209:2417|snow480-812", "ramp-rally": "1187:2374|dirt168-730",
-	"banked-speedway": "1422:2844", "technical-trial": "1296:2591", "grand-marathon": "3735:7468",
-	"coastal-gp": "1448:2895", "mountain-pass": "2393:4783|dirt139-400,snow885-1349", "canyon-run": "1426:2853|dirt487-688",
+	"rookie-oval": "1083:2167", "hairpin-valley": "1218:2435|snow492-815", "ramp-rally": "1187:2374|dirt168-730",
+	"banked-speedway": "1422:2844", "technical-trial": "1350:2699", "grand-marathon": "3746:7491",
+	"coastal-gp": "1448:2895", "mountain-pass": "2463:4925|dirt138-400,snow920-1384", "canyon-run": "1448:2896|dirt487-694",
 	"night-highway": "1558:3117", "lighthouse-bay": "1175:2351", "seaside-stunts": "1654:3306",
 	"forest-rally": "1272:2544|dirt126-1242", "northern-lights": "1413:2826|snow169-897,snow995-1383",
 	"summit-rush": "2335:4668|dirt485-935,snow936-1429,dirt1868-2109",
 }
-## SHA-256 of the medal entries of the first 12 tracks in data/medals.json (JSON.stringify, keys
-## sorted, in menu order) as v6.3 made them: adding tracks must leave them alone.
-const V63_MEDALS_SHA: String = "015a8f566065d9a0483bf9418fa2c91f4d03f5619236f3b223c041bdc67fc0c2"
+## The tracks v6.6.0 left alone: SHA-256 of their tools/gen_tracks.gd text (tracks_json([def])) and
+## of their medal entry in data/medals.json (JSON.stringify, keys sorted) as v6.5 had them.
+const V65_KEPT: Dictionary = {
+	"rookie-oval": ["f50c587c9beccbbdbcec69238f3333d2db9e803d5fa5e737fc140083ef7b335d", "02233715e6e016b331e9e2b044c7f714c98ea1507396ab29e8887dd7932253e9"],
+	"ramp-rally": ["7eae2d8a2966df2b1d1d5e528ea9fbe5cb55f39340404901c9c6f8e52b89a51c", "cecaea67f480cceec76ec059accfb4237c9e89668999f6a257376b2edb1fcfa2"],
+	"banked-speedway": ["9516d8e05c1639d2b09b3a5f8a0eac3f69b9dec44971cb074341cc0bf7f0d128", "7610199e2724874ae050a8208f581d4d7344a448e52ee86cdcfc8e65752b6b93"],
+	"coastal-gp": ["968b9d669766b98db6c2a7232daeb374fe8bda931867da33db153cde283c6dbf", "41df70c034910a0b6bca7630b1116a95579caa778064439761362fe34533c859"],
+	"night-highway": ["0ea91b0a75ffc734c12e370424ab4c5feded1f677e00c4c5ad21ec49e8fd0356", "0efc46cf4755315090d1985a6b5035593d43c911a38d72b6b8ec99cf0d9b5844"],
+	"lighthouse-bay": ["f8b6f5bc5c7f77f044b6e68b01c098920926f96134c9832df29da34f4d39a1a5", "9e2bb8d27e50f730bdf2cacae73a11b0084b4de532f6e42e3fc65463013df7a2"],
+	"seaside-stunts": ["b0b4428e48f710c1568d621ede78c54de2549e664837ec0dd804a5938acf3540", "6fe1fcff2536ec0c36adb6d299a48de8a5e0fa830091339c3b010a261d597995"],
+	"forest-rally": ["a128d68df84c801ff97c441784d3d9dbc507cc3c457611fd2bbef2c736b7abe5", "f4bd360541021a2e344c8b3094982255a1e22fc28f3552ec32e825854d80e45f"],
+	"northern-lights": ["ff6a038e32c5b2b6706d29b5332cff97b8b53eb924cda86551571bc3282ce949", "42d401c384448d325c8b7d663ab642c42b575c40ded2414d4dd4ca041dfefa8f"],
+	"summit-rush": ["7d18eb5bcd014ca0db9d1718283a01b85b4078cd4ec000224c277d01e3a64e04", "b3b37860f70af09c22c67f93d81f0c59f21928dc01b467ae0bfede270b477b15"],
+}
+## The tracks v6.6.0 reworked (the tightest corners more forgiving), with what their corners must
+## be now, as tools/corners.gd measures them (the curvature over ±2 samples: a 22 m turn reads
+## 21.8 m): [the tightest corner's radius, the tightest hairpin's radius (a turn of 150° or more
+## tighter than 40 m), the narrowest road in a hairpin] in m.
+const V66_REWORKED: Dictionary = {
+	"hairpin-valley": [21.5, 23.5, 15.0],
+	"technical-trial": [23.5, 23.5, 16.0],
+	"grand-marathon": [23.5, 23.5, 17.0],
+	"mountain-pass": [23.5, 23.5, 15.0],
+	"canyon-run": [23.5, 23.5, 13.0],
+}
+## Their signatures in v6.3-6.5 (what records, scores, ghosts, medal times and AI opponents made on
+## them then carry).
+const V65_SIGS: Dictionary = {
+	"hairpin-valley": "1209:2417|snow480-812", "technical-trial": "1296:2591", "grand-marathon": "3735:7468",
+	"mountain-pass": "2393:4783|dirt139-400,snow885-1349", "canyon-run": "1426:2853|dirt487-688",
+}
+const Corners = preload("res://tools/corners.gd")
 ## The tracks of v6.4, in menu order (13-15): [surfaces, difficulty, race type]
 const V64_TRACKS: Dictionary = {
 	"forest-rally": ["Asphalt + dirt", 3, "circuit"],
@@ -136,10 +166,11 @@ func by_id(id: String) -> BuiltTrack:
 	return Tracks.build(id)
 
 
-## Track `id` as the web game (v5) has it: all asphalt (the road surfaces of v6.3 stripped; the
-## same layout and signature as before them). The checks against the web game's numbers use it.
+## Track `id` as the web game (v5) has it: all asphalt (the road surfaces of v6.3 stripped) and,
+## for the tracks v6.6 reworked, the browser's layout (Tracks.build_web). The checks against the
+## web game's numbers use it.
 static func asphalt(id: String) -> BuiltTrack:
-	return Tracks.build_asphalt(id)
+	return Tracks.build_web(id)
 
 
 # ---- 1 + 2: build and drive every track; 3: backwards ------------------------------------
@@ -182,7 +213,8 @@ func _tracks_and_autopilot() -> void:
 			exact += 1
 		t.check(track.cp_samples.size() > 0 and track.length > 1000.0 and race.finished and not bad and absf(race.finish_time - float(web[0])) < 0.1,
 			"%s%s: builds (%.2f km%s, %d checkpoints, %s); the test autopilot finishes in %s, wall contact in %d steps (web game: %s, %d)" % [
-				track.name, " (all asphalt, as in the web game)" if track != tracks[-1] else "", track.race_length(1) / 1000.0, "/lap" if track.closed else "", track.cp_samples.size(),
+				track.name, (" (as in the web game: %s)" % ("all asphalt, the layout before v6.6" if V66_REWORKED.has(id) else "all asphalt")) if track != tracks[-1] else "",
+				track.race_length(1) / 1000.0, "/lap" if track.closed else "", track.cp_samples.size(),
 				"%d laps" % track.laps if track.closed else "sprint", RaceState.format_time(race.finish_time), wall,
 				RaceState.format_time(float(web[0])), int(web[1])])
 	t.check(exact == WEB_AUTOPILOT.size(), "the test autopilot drives the web game's times to the millisecond (and its wall steps) on %d of the web game's %d tracks" % [exact, WEB_AUTOPILOT.size()])
@@ -204,11 +236,14 @@ func _tracks_and_autopilot() -> void:
 				bad = true
 				break
 		var plain: float = float(plain_time.get(track.id, INF))
+		if Tracks.build_asphalt(track.id) != asphalt(track.id): # (reworked in v6.6: this layout, all asphalt)
+			plain = _basic_race(Tracks.build_asphalt(track.id))
 		t.check(race.finished and not bad and race.finish_time > plain,
 			"%s (%s): the test autopilot finishes in %s with the racer, slower than on all asphalt (%s), wall contact in %d steps" % [
 				track.name, Surfaces.summary(track), RaceState.format_time(race.finish_time), RaceState.format_time(plain), wall])
 
 	_v64_tracks(ids)
+	_v66_corners()
 
 	var rookie: BuiltTrack = tracks[0]
 	var car := Car.new(rookie)
@@ -220,17 +255,19 @@ func _tracks_and_autopilot() -> void:
 	t.check(race.next_gate == 0, "driving backwards over the line scores no checkpoints")
 
 
-## The tracks of v6.4 (13-15) and the design rules: every track passes tools/gen_tracks.gd's
-## rules and data/tracks.json is what it writes; the first 12 tracks are bit for bit those of
-## v6.3 (their tracks.json text, signatures and medal times); the new ones follow them in the
-## menu with rising difficulty and their own road surfaces and themes.
+## The tracks' designs and versions: every track passes tools/gen_tracks.gd's rules and
+## data/tracks.json is what it writes; the tracks v6.6 did not rework are bit for bit those of v6.5
+## (their tracks.json text, signatures and medal times; the browser's first 12 = v6.2's layouts),
+## the reworked ones are new versions (new signatures, medal times for every car); tracks 13-15
+## (v6.4) follow the first 12 in the menu with rising difficulty and their own surfaces and themes.
 func _v64_tracks(ids: PackedStringArray) -> void:
-	t.section("the tracks of v6.4 and the design rules")
+	t.section("the tracks: design rules and versions (v6.4, v6.6)")
 	var gen: Object = load("res://tools/gen_tracks.gd").new()
 	gen.call("_define")
 	var defs: Array = []
 	var issues: PackedStringArray = []
 	var stats: PackedStringArray = []
+	var texts: Dictionary = {} # id -> the track's own tracks.json text
 	for d: Dictionary in gen.get("designs"):
 		var e: Dictionary = gen.call("_realise", d)
 		if e.is_empty():
@@ -238,6 +275,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 			continue
 		var r: Dictionary = gen.call("_validate", e)
 		defs.append(r.def)
+		texts[r.def.id] = gen.call("tracks_json", [r.def])
 		for msg: String in r.issues:
 			issues.append("%s: %s" % [r.def.id, msg])
 		if V64_TRACKS.has(r.def.id):
@@ -247,37 +285,50 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 				r.def.name, float(s.race) / 1000.0, " a lap" if r.def.type == "circuit" else "", float(s.minR), jumps, "" if jumps == 1 else "s",
 				float(s.maxBank), float(s.minY), float(s.maxY)])
 	var text: String = gen.call("tracks_json", defs)
-	var old12: String = gen.call("tracks_json", defs.slice(0, 12))
 	gen.free()
 	t.check(issues.is_empty() and defs.size() == ids.size() and text == FileAccess.get_file_as_string(Tracks.DATA_PATH),
 		"all %d tracks pass the design rules of tools/gen_tracks.gd (clearance, radius, grades, jumps and landings, crests, heights, banking, checkpoints, surfaces) and data/tracks.json is up to date%s" % [
 			defs.size(), "" if issues.is_empty() else ": " + "; ".join(issues)])
-	t.check(old12.sha256_text() == "0d78a00fc7d179b2a37b3ebb64f3d53bd6774eac2758f7201883bbe4574f6c8e",
-		"the 12 tracks of v6.3 are bit for bit as they were (their tracks.json text hashes as v6.3's whole file did)")
-	# signatures: the old ones unchanged (and their layouts = v6.2's), the new ones as made
+	var kept_bad: PackedStringArray = []
+	for id: String in ids:
+		var same: bool = String(texts.get(id, "")).sha256_text() == String((V65_KEPT.get(id, ["?"]) as Array)[0])
+		if same != V65_KEPT.has(id) or V65_KEPT.has(id) == V66_REWORKED.has(id):
+			kept_bad.append(id)
+	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() == ids.size(),
+		"the %d tracks v6.6 did not rework are bit for bit as in v6.5 (their tracks.json text); the %d reworked ones (%s) are not%s" % [
+			V65_KEPT.size(), V66_REWORKED.size(), ", ".join(V66_REWORKED.keys()), "" if kept_bad.is_empty() else ": wrong " + ", ".join(kept_bad)])
+	# signatures: the kept ones unchanged (the browser's layouts = v6.2's), the reworked ones new
+	# (neither v6.5's nor v6.2's, so what was made on the old versions stops counting), v6.4's as made
 	var bad_sigs: PackedStringArray = []
 	for id: String in ids:
 		var tr: BuiltTrack = by_id(id)
 		var legacy: String = Tracks.legacy_signature(id)
-		if Tracks.signature(id) != String(SIGS.get(id, "?")) or tr.signature() != Tracks.signature(id) or \
-				(legacy != "" and tr.layout_signature() != legacy) or (legacy == "") != V64_TRACKS.has(id):
+		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == V64_TRACKS.has(id)
+		if V66_REWORKED.has(id):
+			ok = ok and tr.layout_signature() != legacy and tr.signature() != String(V65_SIGS[id]) and \
+				Tracks.build_web(id).layout_signature() == legacy
+		elif legacy != "":
+			ok = ok and tr.layout_signature() == legacy and Tracks.build_web(id) == Tracks.build_asphalt(id)
+		if not ok:
 			bad_sigs.append("%s %s" % [id, Tracks.signature(id)])
 	t.check(bad_sigs.is_empty() and SIGS.size() == ids.size(),
-		"track signatures: the 12 of v6.3 unchanged (layouts = v6.2's), the 3 of v6.4 as made, none of them a v6.2 one%s" % [
-			"" if bad_sigs.is_empty() else ": changed " + ", ".join(bad_sigs)])
-	# medal times of the old tracks unchanged (data/medals.json), the new ones for every car
+		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4 as made%s" % [
+			"" if bad_sigs.is_empty() else ": wrong " + ", ".join(bad_sigs)])
+	# medal times: the kept tracks' unchanged (data/medals.json), the reworked and v6.4 ones for every car
 	var md: Dictionary = Medals.data().get("tracks", {})
-	var old_medals: String = ""
-	for i in 12:
-		old_medals += JSON.stringify(md.get(ids[i], {}), "", true)
+	var kept_ok: bool = true
+	for id: String in V65_KEPT:
+		kept_ok = kept_ok and JSON.stringify(md.get(id, {}), "", true).sha256_text() == String(V65_KEPT[id][1])
 	var new_ok: bool = true
-	for id: String in V64_TRACKS:
+	for id: String in ids:
+		if V65_KEPT.has(id):
+			continue
 		for c: String in Cars.ids():
 			var m: Dictionary = Medals.medal_times(by_id(id), c)
 			new_ok = new_ok and not m.is_empty() and is_equal_approx(float(m.bronze), float(Medals.medal_set(float(m.author)).bronze))
-	t.check(old_medals.sha256_text() == V63_MEDALS_SHA and new_ok,
-		"medal times: the 12 tracks of v6.3 keep theirs bit for bit; the 3 of v6.4 have them for all %d cars (bronze = %s x the author time, rounded up, as everywhere)" % [
-			Cars.ids().size(), JsMath.num_to_js(float(Medals.data().get("factors", {}).get("bronze", 1.5)))])
+	t.check(kept_ok and new_ok,
+		"medal times: the %d kept tracks keep theirs bit for bit; the reworked ones and the 3 of v6.4 have them for all %d cars on the current version of the track (bronze = %s x the author time, rounded up, as everywhere)" % [
+			V65_KEPT.size(), Cars.ids().size(), JsMath.num_to_js(float(Medals.data().get("factors", {}).get("bronze", 1.5)))])
 	# menu order, difficulty, surfaces, race type, themes
 	var old_themes: Dictionary = {}
 	for i in 12:
@@ -294,6 +345,72 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 		last_diff = diff
 		themes.append(tr.theme)
 	t.check(meta_ok, "tracks 13-15 after Seaside Stunts, difficulty 3, 4, 5, each with a theme of its own (%s): %s" % [", ".join(themes), "; ".join(stats)])
+
+
+## The reworked corners (v6.6.0): on each reworked track no corner is tighter than its new minimum,
+## every hairpin is wide and round enough, the track keeps its hairpins (a hairpin is still a
+## hairpin) and its dirt and snow stretches (the same surfaces in the same order, each about as
+## long as before); the numbers against the browser's (v6.5) layout of the same track.
+func _v66_corners() -> void:
+	t.section("the reworked corners (v6.6)")
+	var lines: PackedStringArray = []
+	var ok: bool = true
+	for id: String in V66_REWORKED:
+		var want: Array = V66_REWORKED[id]
+		var now: BuiltTrack = by_id(id)
+		var old: BuiltTrack = Tracks.build_web(id)
+		var res: Array[Dictionary] = []
+		for tr: BuiltTrack in [old, now]:
+			var r_min: float = INF
+			var pin_r: float = INF
+			var pin_w: float = INF
+			var pins: int = 0
+			for c: Dictionary in Corners.corners(tr, 1e9):
+				r_min = minf(r_min, float(c.r))
+				if absf(float(c.turn)) >= 150.0 and float(c.r) < 40.0: # (Grand Marathon's two 165° sweepers are 106-110 m)
+					pins += 1
+					pin_r = minf(pin_r, float(c.r))
+					pin_w = minf(pin_w, float(c.min_width))
+			res.append({r = r_min, pin_r = pin_r, pin_w = pin_w, pins = pins})
+		var a: Dictionary = res[0]
+		var b: Dictionary = res[1]
+		var good: bool = b.r >= float(want[0]) and b.pin_r >= float(want[1]) and b.pin_w >= float(want[2]) and b.pins == a.pins and \
+			b.r > a.r and b.pin_r > a.pin_r and b.pin_w > a.pin_w
+		# the road surfaces: the same stretches in the same order, each within 5 % of its old length
+		var ra: PackedStringArray = Tracks.build(id).surface_runs()
+		var surf_ok: bool = true
+		if String(V65_SIGS[id]).contains("|"):
+			var was: PackedStringArray = String(V65_SIGS[id]).split("|")[1].split(",")
+			surf_ok = ra.size() == was.size()
+			for k in mini(ra.size(), was.size()):
+				surf_ok = surf_ok and _run_kind(ra[k]) == _run_kind(was[k]) and absf(_run_len(ra[k]) - _run_len(was[k])) <= 0.05 * _run_len(was[k])
+		else:
+			surf_ok = ra.is_empty()
+		ok = ok and good and surf_ok
+		lines.append("%s: tightest corner %.1f -> %.1f m, hairpins (%d) %.1f -> %.1f m round and %.0f -> %.0f m wide%s%s" % [
+			now.name, a.r, b.r, b.pins, a.pin_r, b.pin_r, a.pin_w, b.pin_w, "" if ra.is_empty() else ", " + " ".join(ra),
+			"" if good and surf_ok else " (WRONG)"])
+	t.check(ok, "the reworked tracks' corners are more forgiving and keep their hairpins and surfaces: %s" % "; ".join(lines))
+
+
+static func _run_kind(run: String) -> String:
+	return run.rstrip("0123456789-")
+
+
+static func _run_len(run: String) -> float:
+	var nums: PackedStringArray = run.trim_prefix(_run_kind(run)).split("-")
+	return float(nums[1]) - float(nums[0]) + 1.0
+
+
+## The test autopilot's (Autopilot.basic, the Racer) finish time on `track` (INF when it doesn't finish in 10 min).
+static func _basic_race(track: BuiltTrack) -> float:
+	var car := Car.new(track)
+	var race := RaceState.new(track)
+	var pilot := Autopilot.basic(track)
+	while not race.finished and race.time < 600.0:
+		car.step(track, pilot.drive(car), DT)
+		race.update(car, DT)
+	return race.finish_time if race.finished else INF
 
 
 # ---- 4: physics -----------------------------------------------------------------------
@@ -462,7 +579,8 @@ func _surfaces() -> void:
 		"the surface table: asphalt neutral; every car keeps less grip on dirt and less again on packed snow, the Dune the most and the Vortex the least (%s)" % ", ".join(grips))
 
 	# the tracks: dirt on Ramp Rally, Mountain Pass and Canyon Run, packed snow on the alpine Hairpin
-	# Valley and Mountain Pass; the start grid on asphalt; the layout (and v6.2 signature) unchanged.
+	# Valley and Mountain Pass; the start grid on asphalt; the layout (and v6.2 signature) unchanged,
+	# but for the five tracks v6.6 reworked (V66_REWORKED: a new layout, see _v64_tracks).
 	# v6.4: Forest Rally mostly dirt, Northern Lights mostly snow, Summit Rush all three
 	var want: Dictionary = {"ramp-rally": "Asphalt + dirt", "canyon-run": "Asphalt + dirt", "hairpin-valley": "Asphalt + packed snow",
 		"mountain-pass": "Asphalt + dirt + packed snow"}
@@ -473,7 +591,7 @@ func _surfaces() -> void:
 	for tr: BuiltTrack in tracks:
 		var summary: String = Surfaces.summary(tr)
 		var legacy: String = Tracks.legacy_signature(tr.id)
-		var sig_ok: bool = (tr.layout_signature() == legacy or (legacy == "" and V64_TRACKS.has(tr.id))) and \
+		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and V64_TRACKS.has(tr.id))) and \
 			(tr.signature() == tr.layout_signature()) == (not tr.has_surfaces()) and Tracks.signature(tr.id) == tr.signature()
 		ok = ok and summary == String(want.get(tr.id, "Asphalt")) and sig_ok
 		if tr.has_surfaces():
@@ -496,7 +614,7 @@ func _surfaces() -> void:
 				parts.append("%s %d%%" % [Surfaces.id(k), roundi(float(shares[k]) * 100.0)])
 			ok = ok and sums_ok and step_max <= 1.0 / (2 * Surfaces.BLEND + 1) + 1e-5 and grid_ok
 			lines.append("%s: %s (%s)" % [tr.name, ", ".join(parts), tr.signature().get_slice("|", 1)])
-	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4), the other %d all asphalt with their v6.2 signatures; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
+	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4), the other %d all asphalt; the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
 		lines.size(), tracks.size() - lines.size(), 2 * Surfaces.BLEND + 1, roundi((2 * Surfaces.BLEND + 1) * 2.0), "; ".join(lines)])
 
 	# asphalt is the old physics: on Ramp Rally the racer drives bit for bit as on the all-asphalt
@@ -1825,6 +1943,40 @@ func _career() -> void:
 	ok = SaveData.get_money() == 70 and SaveData.get_points() == 2 and SaveData.owned_cars() == PackedStringArray(["racer", "vortex"]) and \
 		SaveData.paid_rewards("x", "racer") == PackedStringArray(["gold"])
 	t.check(ok and j_ok == cjunk.size(), "a damaged career section: %d of %d kinds of junk read as a new career; a hand-edited one is cleaned (whole numbers, known cars once each, the Racer always)" % [j_ok, cjunk.size()])
+
+	# v6.6 reworked five tracks: a version 4 save from v6.5 keeps its career, its records, scores and
+	# ghosts on the old Hairpin Valley move to the archive (their signature is v6.5's), those on
+	# Rookie Oval stay; the rewards already paid on Hairpin Valley stay paid (they are kept by track
+	# id): the new version's medal times pay only the medals and AI wins not paid before
+	var hv_old: String = V65_SIGS["hairpin-valley"]
+	var g_old: Dictionary = {format = Replay.GHOST_FORMAT, physics = pv, track = "hairpin-valley", sig = hv_old, laps = 3, car = "racer",
+		time = 250.0, steps = 15000, every = 2, date = "x", n = 1, data = ""}
+	write.call(JSON.stringify({version = 4,
+		records = {"hairpin-valley": {racer = rec.call(250.0, hv_old)}, "rookie-oval": {racer = rec.call(float(mro.gold), ro.signature())}},
+		scores = {"hairpin-valley": {racer = {score = 41000, date = "x", rules = ScoreState.SCORE_RULES, physics = pv, sig = hv_old}}},
+		ghosts = {"hairpin-valley": {racer = g_old}},
+		career = {money = 5000, points = 300, cars = ["racer"], paid = {"hairpin-valley": {racer = ["bronze", "silver", "gold", "ai-rookie"]},
+			"rookie-oval": {racer = ["bronze", "silver", "gold"]}}}}))
+	SaveData.use_file(path)
+	var arch_ok: bool = SaveData.get_record("hairpin-valley", "racer").is_empty() and SaveData.get_best_score("hairpin-valley", "racer").is_empty() and \
+		SaveData.load_ghost("hairpin-valley", "racer") == null and SaveData.get_archived("records", "hairpin-valley", "racer").has(hv_old) and \
+		SaveData.get_archived("scores", "hairpin-valley", "racer").has(hv_old) and SaveData.get_archived("ghosts", "hairpin-valley", "racer").has(hv_old) and \
+		not SaveData.get_record("rookie-oval", "racer").is_empty()
+	var kept: bool = SaveData.get_money() == 5000 and SaveData.get_points() == 300 and SaveData.take_welcome().is_empty() and \
+		SaveData.paid_rewards("hairpin-valley", "racer") == PackedStringArray(["bronze", "silver", "gold", "ai-rookie"])
+	# a slower run (255 s against the archived 250 s) on the new Hairpin Valley is a new best there; a gold and a Rookie win pay nothing, author and an Amateur win pay
+	var mnew: Dictionary = Medals.medal_times(hv, "racer")
+	var best_new: bool = SaveData.submit_record("hairpin-valley", "racer", 255.0, PackedFloat64Array([85.0, 170.0, 255.0]))
+	var again: Dictionary = Economy.claim("hairpin-valley", "racer", "gold", "rookie")
+	var more: Dictionary = Economy.claim("hairpin-valley", "racer", "author", "amateur")
+	var want_more: int = int(Economy.reward("hairpin-valley", "author").money) + int(Economy.reward("hairpin-valley", "ai-amateur").money)
+	SaveData.use_file(path) # read back from the file
+	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	t.check(arch_ok and kept and best_new and int(again.money) == 0 and (again.repeat as PackedStringArray).size() == 4 and int(more.money) == want_more and \
+		SaveData.get_money() == 5000 + want_more and not mnew.is_empty() and disk is Dictionary and JsMath.same(disk.get("version"), 4) and \
+		(((disk.get("archive", {}) as Dictionary).get("records", {}) as Dictionary).get("hairpin-valley", {}) as Dictionary).has("racer"),
+		"a version 4 save from v6.5: its record, score and ghost on the old Hairpin Valley (%s) move to the archive, Rookie Oval's stay; nothing is paid or taken on loading; the rewards paid there stay paid: a gold and a Rookie win on the new version (%s) pay $0, author and an Amateur win $%s" % [
+			hv_old, hv.signature(), UiFormat.points(want_more)])
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean.call()
 

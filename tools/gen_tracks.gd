@@ -176,25 +176,31 @@ func _define() -> void:
 
 	# 2 - Hairpin Valley: switchbacks up one side of the valley, a ridge road, switchbacks down the other.
 	# Packed snow (v6.3) from the third switchback over the ridge: the highest, coldest part.
+	# v6.6: more forgiving corners. The switchbacks turn on a 22 m radius (was 16) and the hairpins
+	# down on 24 m (17), all on a 15 m road (13); the snowy left off the ridge keeps its 40 m but is
+	# 15 m wide (13) and banked 12° (flat): the medal autopilot slid into its outer wall on 99 % of
+	# laps, and a 55 m version only let the cars arrive faster and slide further. The straights
+	# between the turns are shorter by as much as the turns grew, so the legs, the ridge, the start
+	# and the snow are where they were.
 	_circuit({id = "hairpin-valley", name = "Hairpin Valley", difficulty = 2, width = 13, theme = "alpine",
 		description = "Climb three switchbacks, cross the ridge and drop down two more: brake early, power out."},
 		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 13, y = 1, yaw = PI / 2})
 			.S(a, {y = 1})
-			.S(60)
+			.S(30).width(15, 30).S(30)
 			# up: three switchbacks, each leg climbs 5 m at up to 7 %
-			.L(90, 16).S(64).L(90, 16).S(20).climb(110, 6).S(20)
-			.R(90, 16).S(64).R(90, 16).S(20).climb(110, 11).S(20)
+			.L(90, 22).S(46.9).L(90, 22).width(13, 20).S(20).climb(110, 6).width(15, 20).S(20)
+			.R(90, 22).S(46.9).R(90, 22).width(13, 20).S(20).climb(110, 11).width(15, 20).S(20)
 			.surface("snow")
-			.L(90, 16).S(64).L(90, 16).S(20).climb(110, 16)
+			.L(90, 22).S(46.9).L(90, 22).width(13, 20).S(20).climb(110, 16)
 			# the ridge
-			.S(100).hill(200, 1.5)
-			.L(90, 40)
-			.surface("asphalt")
+			.S(49.9).hill(170, 1.5).width(15, 30).S(51.366)
+			.L(90, 40, {bank = 12})
+			.surface("asphalt").S(21.366)
 			# down: two hairpins
 			.climb(b, 12.5)
-			.hairpin("R", 17).climb(b - 40, 8)
-			.hairpin("L", 17).climb(b + 20, 3)
-			.L(90, 40, {y = 1.5})
+			.hairpin("R", 24).climb(b - 40, 8)
+			.hairpin("L", 24).climb(b + 20, 3)
+			.L(90, 40, {y = 1.5}).width(13, 30)
 			.S(120, {y = 1})),
 		{a0 = 100, b0 = 160, minA = 60, minB = 100},
 		{minLength = 2200, hairpins = 5, minClimb = 10, kickers = 0})
@@ -240,6 +246,7 @@ func _define() -> void:
 		{minLength = 2500, bank = [20, 30], kickers = 0})
 
 	# 5 - Technical Trial: everything mixed, the road narrows and widens.
+	# v6.6: the switchback climb's two hairpins turn on 24 m (was 15) on a 16 m road (14).
 	_circuit({id = "technical-trial", name = "Technical Trial", difficulty = 4, width = 14, theme = "canyon",
 		description = "Narrow chicanes, a jump, banked sweepers and a switchback climb: rhythm beats top speed."},
 		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 16, y = 3})
@@ -248,9 +255,9 @@ func _define() -> void:
 			.S(40).kicker({h = 5, ramp = 26, land = 40, run = 120, lead = 10})
 			.width(10, 40).SL(55, 24, {}, 12).S(40).width(14, 40).hill(200, -2)
 			.L(90, 30, {y = 4})
-			.S(220, {y = 9})
-			.hairpin("R", 15, {y = 10}).S(170, {y = 12})
-			.hairpin("L", 15, {y = 13}).width(14, 40).S(230, {y = 13})
+			.S(190).width(16, 30).S(30, {y = 9})
+			.hairpin("R", 24, {y = 10}).S(170, {y = 12})
+			.hairpin("L", 24, {y = 13}).width(14, 40).S(230, {y = 13})
 			.L(90, 40, {bank = 8})
 			.S(b)
 			.R(40, 60, {bank = 12}).L(80, 60, {bank = 14}).R(40, 60, {bank = 12})
@@ -276,10 +283,12 @@ func _define() -> void:
 			# U-turn 1: banked bowl
 			.L(180, 115, {bank = 24}).S(80, {y = 5})
 			# row 2 (west): climb, switchback tongue, narrow chicanes
-			.S(220, {y = 9})
-			.R(90, 20).S(110, {y = 12}).hairpin("L", 16, {y = 13}).S(110, {y = 15}).R(90, 20, {y = 15})
+			# (v6.6: the tongue's turns are 24 m, were 20 and 16 at the hairpin, on a 17 m road, was 15;
+			# the straight after it is shorter by as much as the tongue grew, so rows 3 and 4 stay put)
+			.S(190).width(17, 30).S(30, {y = 9})
+			.R(90, 24).S(110, {y = 12}).hairpin("L", 24, {y = 13}).S(110, {y = 15}).R(90, 24, {y = 15}).width(15, 30)
 			.S(80).width(11, 40).S(60).SR(45, 28, {}, 12).S(60).width(15, 40)
-			.S(260, {y = 12}).R(20, 200).L(20, 200)
+			.S(232.2, {y = 12}).R(20, 200).L(20, 200)
 			.S(120, {y = 11})
 			# U-turn 2: a slow double-right
 			.R(90, 35, {bank = 6}).S(170).R(90, 35, {bank = 6, y = 10})
@@ -337,21 +346,23 @@ func _define() -> void:
 			.S(40).climb(150, 8).S(40).width(13, 40)
 			.surface("asphalt")
 			# the climb: three banked switchbacks
+			# (v6.6: the six switchbacks turn on 24 m going up and 25 m coming down, were 18 and 19, on
+			# a 15 m road, was 13; the two stacks grow by the same, so the finish is where it was)
 			.L(90, 40, {bank = 8})
-			.S(40).climb(150, 11.5).S(30).hairpin("R", 18, {bank = 12})
-			.S(40).climb(150, 14.5).S(30).hairpin("L", 18, {bank = 12})
-			.S(40).climb(150, 17).S(30).hairpin("R", 18, {bank = 12})
+			.S(40).climb(150, 11.5).width(15, 30).S(30).hairpin("R", 24, {bank = 12}).width(13, 30)
+			.S(40).climb(150, 14.5).width(15, 30).S(30).hairpin("L", 24, {bank = 12}).width(13, 30)
+			.S(40).climb(150, 17).width(15, 30).S(30).hairpin("R", 24, {bank = 12}).width(13, 30)
 			.surface("snow")
 			.climb(240, 17.5)
 			# summit ridge
 			.S(60).L(30, 90, {bank = 10}).R(30, 90, {bank = 10})
 			.S(60).hill(240, 0.5).S(140)
 			.surface("asphalt")
-			.S(60)
+			.S(30).width(15, 30).S(30)
 			# the descent: three banked switchbacks, steep legs
-			.hairpin("R", 19, {bank = 12})
-			.S(30).climb(140, 12.5).S(30).hairpin("L", 19, {bank = 12})
-			.S(30).climb(140, 8).S(30).hairpin("R", 19, {bank = 12})
+			.hairpin("R", 25, {bank = 12}).width(13, 30)
+			.S(30).climb(140, 12.5).width(15, 30).S(30).hairpin("L", 25, {bank = 12}).width(13, 30)
+			.S(30).climb(140, 8).width(15, 30).S(30).hairpin("R", 25, {bank = 12}).width(13, 30)
 			.S(30).climb(140, 4.5).S(30)
 			# fast run to the finish
 			.L(90, 60, {bank = 8})
@@ -363,6 +374,9 @@ func _define() -> void:
 	# 9 - Canyon Run: out along one narrow canyon, back along the next; twisty, narrow and jumpy.
 	# Dirt (v6.3) at the far end: the double-left turnaround between the two canyons is a gravel
 	# track, a place to slide the car round instead of braking to a crawl.
+	# v6.6: the hairpin tongue turns on 24 m (the hairpin was 13 m, its two rights 20 m) on a 13 m
+	# road (10), the turnaround on 28 m (22) on 12 m (10); the straights next to them are shorter
+	# by as much as the turns grew, so the canyons and the start are where they were.
 	_circuit({id = "canyon-run", name = "Canyon Run", difficulty = 5, width = 11, theme = "canyon",
 		description = "Out and back through narrow red-rock badlands with jumps, blind crests and tight S-bends: the hardest circuit."},
 		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 13, y = 4, yaw = PI / 2})
@@ -374,19 +388,19 @@ func _define() -> void:
 			.S(60, {y = 6}).hill(170, 2.5, {y = 7})
 			.SR(65, 24, {bank = 8}, 12)
 			.surface("dirt")
-			.S(80, {y = 9})
-			# far end: a tight double-left onto the north canyon
-			.L(90, 22, {bank = 8}).S(140, {y = 10}).L(90, 22, {bank = 8}).width(12, 40)
+			.S(50).width(12, 30).S(30, {y = 9})
+			# far end: a double-left onto the north canyon (v6.6: 28 m turns on a 12 m road, were 22 m on 10 m)
+			.L(90, 28, {bank = 8}).S(122.9, {y = 10}).L(90, 28, {bank = 8})
 			# back along the north canyon
 			.S(80, {y = 11})
 			.surface("asphalt")
 			.hill(160, 2, {y = 11}).S(60)
 			.SL(45, 30, {bank = 8}, 10)
 			.kicker({h = 5, drop = 3})
-			.SR(60, 26, {bank = 10}, 8).width(10, 40)
+			.SR(60, 26, {bank = 10}, 8).width(13, 40)
 			.S(60, {y = 7})
-			.R(90, 20, {bank = 6}).S(60, {y = 8}).hairpin("L", 13, {y = 8}).S(60, {y = 6}).R(90, 20, {bank = 6})
-			.S(100, {y = 5}).SL(40, 40, {bank = 6}, 20).width(13, 40)
+			.R(90, 26, {bank = 6}).S(60, {y = 8}).hairpin("L", 24, {y = 8}).S(60, {y = 6}).R(90, 26, {bank = 6}).width(10, 30)
+			.S(60.3, {y = 5}).SL(40, 40, {bank = 6}, 20).width(13, 40)
 			# home: back down to the start straight
 			.L(90, 30, {bank = 6}).S(b, {y = 4}).L(90, 30, {bank = 6})
 			.S(80, {y = 4})),

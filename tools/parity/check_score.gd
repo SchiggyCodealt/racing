@@ -13,7 +13,7 @@ func _initialize() -> void:
 	var same_runs: int = 0
 	var n_events: int = 0
 	for r: Dictionary in meta.runs:
-		var track: BuiltTrack = Tracks.build_asphalt(r.track)
+		var track: BuiltTrack = Tracks.build_web(r.track)
 		var car := Car.new(track, -1, Cars.spec(r.car))
 		var race := RaceState.new(track)
 		var score := ScoreState.new(track)
