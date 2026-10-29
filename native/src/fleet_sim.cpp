@@ -242,6 +242,11 @@ void FleetSim::set_spec(const Dictionary &d) {
 	s.gears = doubles(d.get("gears", Variant()));
 	s.torque_rpm = doubles(d.get("torqueRpm", Variant()));
 	s.torque_nm = doubles(d.get("torqueNm", Variant()));
+	// the grip share on every road surface (Trainer.spec_data "surfGrip", from CarSpec.surface_grip)
+	s.surf_grip = doubles(d.get("surfGrip", Variant()));
+	if (s.surf_grip.empty()) {
+		s.surf_grip.push_back(1.0);
+	}
 	have_spec = !s.gears.empty() && !s.torque_rpm.empty() && s.torque_rpm.size() == s.torque_nm.size();
 	run_over = true;
 }
@@ -254,10 +259,14 @@ Dictionary FleetSim::get_spec() const {
 	TRACKRUSH_SPEC_FIELDS(SPEC)
 #undef SPEC
 	d["substeps"] = s.substeps;
-	PackedFloat64Array gears, rpm, nm;
+	PackedFloat64Array gears, rpm, nm, surf;
 	for (double v : s.gears) {
 		gears.push_back(v);
 	}
+	for (double v : s.surf_grip) {
+		surf.push_back(v);
+	}
+	d["surfGrip"] = surf;
 	for (double v : s.torque_rpm) {
 		rpm.push_back(v);
 	}
@@ -292,6 +301,12 @@ void FleetSim::set_track(const Dictionary &d) {
 	t.bank = doubles(d.get("bank", Variant()));
 	t.phys_slope = doubles(d.get("phys_slope", Variant()));
 	t.phys_kv = doubles(d.get("phys_kv", Variant()));
+	// road surfaces: the blend weights (empty: all asphalt) and the surface table's physics columns
+	t.surf_w = doubles(d.get("surf_w", Variant()));
+	t.surf_n = (int)(int64_t)d.get("surf_n", 0);
+	t.surf_roll = doubles(d.get("surf_roll", Variant()));
+	t.surf_stiff = doubles(d.get("surf_stiff", Variant()));
+	t.surf_esc = doubles(d.get("surf_esc", Variant()));
 	t.cell = num(d, "grid_cell", 12.0);
 	t.min_x = num(d, "grid_min_x", 0.0);
 	t.min_z = num(d, "grid_min_z", 0.0);
@@ -319,6 +334,15 @@ void FleetSim::set_track(const Dictionary &d) {
 			t.hw.size() == n && t.bank.size() == n && t.tx.size() == n && t.tz.size() == n && t.phys_slope.size() == n &&
 			t.phys_kv.size() == n && !t.gate_prog.empty() && t.gate_prog.size() == t.gate_kind.size() &&
 			(int)t.cell_start.size() == t.cols * t.rows + 1 && !t.head_theta.empty() && !t.head_sparse.empty();
+	if (!t.surf_w.empty()) {
+		const size_t S = (size_t)t.surf_n;
+		bool surf_ok = S >= 1 && t.surf_w.size() == n * S && t.surf_roll.size() == S && t.surf_stiff.size() == S &&
+				t.surf_esc.size() == S;
+		if (!surf_ok) {
+			ERR_PRINT("FleetSim.set_track: the road surface tables do not match");
+			have_track = false;
+		}
+	}
 	run_over = true;
 }
 
@@ -378,6 +402,10 @@ void FleetSim::begin_run() {
 	run_over = true;
 	if (!have_spec || !have_track || net_count <= 0) {
 		ERR_PRINT("FleetSim.begin_run: set_spec, set_track and set_networks first");
+		return;
+	}
+	if (!track.surf_w.empty() && spec.surf_grip.size() < (size_t)track.surf_n) {
+		ERR_PRINT("FleetSim.begin_run: the car has no grip share for every road surface of the track");
 		return;
 	}
 	race_len = track.race_len;
@@ -889,8 +917,37 @@ double FleetSim::debug_heading(double s) const {
 	return heading_at(track, s);
 }
 
+// One car driven by a control tape on the current spec and track (no network, no rules): for
+// tests comparing the physics with sim/car.gd step by step. tape: DRIVE_IN values a step
+// (steer, throttle, handbrake 0/1, nitro); the result: DRIVE_OUT values a step after it
+// (x, y, z, yaw, vx, vz, speed, yaw_rate, prog, slip), or empty without a spec / track.
+PackedFloat64Array FleetSim::debug_drive(int start_idx, const PackedFloat64Array &tape, double dt) const {
+	PackedFloat64Array out;
+	const int DRIVE_IN = 4, DRIVE_OUT = 10;
+	if (!have_spec || !have_track || (!track.surf_w.empty() && spec.surf_grip.size() < (size_t)track.surf_n)) {
+		ERR_PRINT("FleetSim.debug_drive: set_spec and set_track first");
+		return out;
+	}
+	const int steps = (int)(tape.size() / DRIVE_IN);
+	out.resize((int64_t)steps * DRIVE_OUT);
+	CarState c;
+	car_init(c, spec, track, start_idx);
+	for (int s = 0; s < steps; s++) {
+		Controls ctrl;
+		ctrl.steer = tape[s * DRIVE_IN];
+		ctrl.throttle = tape[s * DRIVE_IN + 1];
+		ctrl.handbrake = tape[s * DRIVE_IN + 2] > 0.5;
+		ctrl.nitro = tape[s * DRIVE_IN + 3];
+		car_step(c, spec, track, ctrl, dt);
+		double *o = out.ptrw() + (int64_t)s * DRIVE_OUT;
+		o[0] = c.x; o[1] = c.y; o[2] = c.z; o[3] = c.yaw; o[4] = c.vx; o[5] = c.vz;
+		o[6] = c.speed; o[7] = c.yaw_rate; o[8] = c.prog; o[9] = c.slip;
+	}
+	return out;
+}
+
 String FleetSim::version() const {
-	return "trackrush-native 2";
+	return "trackrush-native 3";
 }
 
 void FleetSim::_bind_methods() {
@@ -926,6 +983,7 @@ void FleetSim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("version"), &FleetSim::version);
 	ClassDB::bind_method(D_METHOD("debug_sharpest", "l", "r"), &FleetSim::debug_sharpest);
 	ClassDB::bind_method(D_METHOD("debug_heading", "s"), &FleetSim::debug_heading);
+	ClassDB::bind_method(D_METHOD("debug_drive", "start_idx", "tape", "dt"), &FleetSim::debug_drive);
 }
 
 } // namespace trackrush

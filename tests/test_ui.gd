@@ -76,6 +76,11 @@ func _data(t) -> void:
 	t.check(UiData.track_id(9) == "night-highway" and UiData.track_info(9).name == "Night Highway", "track 10 is Night Highway")
 	var real: bool = not UiData._tracks.is_empty()
 	t.check(real, "tracks come from sim/ (Tracks.build), not the fixture")
+	var surf := []
+	for i in UiData.track_count():
+		surf.append(UiData.track_info(i).surfaces)
+	t.check(surf[0] == "Asphalt" and surf[1] == "Asphalt + packed snow" and surf[2] == "Asphalt + dirt" and surf[7] == "Asphalt + dirt + packed snow" and \
+		surf[8] == "Asphalt + dirt" and surf.count("Asphalt") == 8, "the road surfaces of every track (v6.3): %s" % ", ".join(surf))
 	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])
@@ -216,6 +221,11 @@ func _menu_keys(t) -> void:
 		menu.handle_keys(_press(inp, [pair[0]]))
 		t.check(menu.selected_track == pair[1], "%s picks track %d" % [pair[0], pair[1] + 1])
 	t.check(picked.has(10), "track_selected emitted")
+	menu.select(2)
+	var meta: Label = menu.get("_td_meta")
+	t.check(meta.text == "Circuit · 3 laps · 2.37 km a lap · Asphalt + dirt", "the track panel names the road surfaces: \"%s\"" % meta.text)
+	menu.select(7)
+	t.check(meta.text.ends_with("km · Asphalt + dirt + packed snow"), "... and a sprint's: \"%s\"" % meta.text)
 	menu.select(11)
 	menu.handle_keys(_press(inp, ["ArrowRight"]))
 	t.check(menu.selected_track == 0, "ArrowRight from the last track wraps to the first")

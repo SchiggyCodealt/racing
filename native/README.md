@@ -88,7 +88,8 @@ fs.get_fitness(); fs.get_reasons(); fs.get_deaths(); fs.get_best_lap(); fs.get_b
 fs.get_any_gate()                                # an agent passed a gate this run (the best-times entry)
 fs.get_view_states()                             # every car's pose and effect fields (view_stride() each)
 fs.get_inputs(k); fs.get_rays(k); fs.get_acts(k); fs.get_car_state(k)
-fs.get_spec(); fs.version()                      # the spec as set (tests), "trackrush-native 2"
+fs.get_spec(); fs.version()                      # the spec as set (tests), "trackrush-native 3"
+fs.debug_drive(start_idx, tape, 1.0 / 60.0)      # one car driven by a control tape (tests): its states
 ```
 
 The car is data: `set_spec` takes every field of `CarSpec` (`Trainer.spec_data`: the numbers,
@@ -97,6 +98,18 @@ change here. The sensors scale the speed input and the corner speeds by the spec
 `max_speed` (version 2; version 1 took one `speed_scale` for every car in `set_rules`), as
 `ai/sensors.gd` does. `tests/test_ai.gd` compares `get_spec()` with every car's spec and
 runs every car in lockstep against the GDScript simulation.
+
+Road surfaces (version 3, v6.3.0): the spec carries the car's grip share on every surface
+(`surfGrip`, from `CarSpec.surface_grip`), and `set_track` takes the track's blend weights
+(`surf_w`, `surf_n` a sample, empty for an all-asphalt track) and the surface table's physics
+columns (`surf_roll`, `surf_stiff`, `surf_esc` from `sim/surfaces.gd`), so a new surface needs
+no change here. `car_step` mixes them per axle exactly as `sim/car.gd` does, and skips all of it
+on asphalt (a track without surfaces runs the version 2 physics bit for bit). The network's
+inputs are unchanged (the AI does not see the surface). `debug_drive(start_idx, tape, dt)`
+drives one car from a sample of the track with a tape of controls (4 numbers a step: steer,
+throttle, handbrake, nitro) and returns 10 numbers a step (x, y, z, yaw, vx, vz, speed, yaw
+rate, progress, slip); `tests/test_ai.gd` compares that with `sim/car.gd` for every car on the
+dirt and snow tracks, bit for bit.
 
 `ai/trainer.gd` does all of this; the game never calls FleetSim directly. Threads: the steps
 of a call run in chunks of 60, each thread stepping every T-th car; the run's shared numbers

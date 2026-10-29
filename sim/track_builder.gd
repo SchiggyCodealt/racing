@@ -19,6 +19,11 @@ extends RefCounted
 ##     point = road width there, falls back to def.width).
 ##   - bank sign: from the curvature, so a positive bank angle always leans
 ##     into the corner (+ = left-hand turn, raises the right edge).
+##   - surfaces (v6.3): def.surfaces = [[surface id, from, to], ...] with from / to
+##     control-point indices plus a fraction; every sample gets the surface its
+##     plan distance falls in (asphalt elsewhere) and blend weights smoothed over
+##     Surfaces.BLEND samples each side (see sim/surfaces.gd). No ranges: no arrays,
+##     and nothing else about the track changes.
 ##
 ## Start and finish: on a circuit the start/finish line is at sample 0 and
 ## the cars start 12 m past it (start_idx 6). A sprint's road runs on beyond
@@ -150,6 +155,7 @@ static func build_track(def: Dictionary) -> BuiltTrack:
 		var i: int = JsMath.roundi(s_ctrl[clampi(int(c), 0, n_seg)] / seg_len)
 		cps.append(i % N if closed else clampi(i, 0, count - 1))
 	cps.sort()
+	_build_surfaces(t, def, s_ctrl, n_seg, seg_len, count, N, closed)
 
 	t.def = def
 	t.id = String(def.get("id", ""))
@@ -170,6 +176,62 @@ static func build_track(def: Dictionary) -> BuiltTrack:
 	t.kickers = find_kickers(t)
 	t.grid = Collision.build_wall_grid(t)
 	return t
+
+
+## The surface of every sample and the smoothed blend weights from def.surfaces (see the header).
+static func _build_surfaces(t: BuiltTrack, def: Dictionary, s_ctrl: PackedFloat64Array, n_seg: int, seg_len: float,
+		count: int, N: int, closed: bool) -> void:
+	var ranges: Variant = def.get("surfaces")
+	if not (ranges is Array) or (ranges as Array).is_empty():
+		return
+	var length: float = s_ctrl[n_seg]
+	var ctrl_s := func(c: float) -> float:
+		var k: int = clampi(int(floorf(c)), 0, n_seg)
+		if k >= n_seg:
+			return length
+		return s_ctrl[k] + (s_ctrl[k + 1] - s_ctrl[k]) * (c - k)
+	var surf := PackedByteArray()
+	surf.resize(count)
+	surf.fill(Surfaces.ASPHALT)
+	var any: bool = false
+	for r: Variant in ranges:
+		if not (r is Array) or (r as Array).size() < 3:
+			continue
+		var si: int = Surfaces.index_of(String(r[0]))
+		if si < 0:
+			push_error("TrackBuilder: unknown surface '%s' on %s" % [r[0], def.get("id", "?")])
+			continue
+		var a: float = ctrl_s.call(float(r[1]))
+		var b: float = ctrl_s.call(float(r[2]))
+		for i in count:
+			var s: float = i * seg_len
+			var inside: bool = (s >= a and s < b) if a <= b else (closed and (s >= a or s < b))
+			if inside:
+				surf[i] = si
+				any = any or si != Surfaces.ASPHALT
+	if not any:
+		return
+	var S: int = Surfaces.count()
+	var w := PackedFloat32Array()
+	w.resize(count * S)
+	var R: int = Surfaces.BLEND
+	for i in count:
+		var c: int = 0
+		var acc := PackedFloat64Array()
+		acc.resize(S)
+		for k in range(-R, R + 1):
+			var j: int = i + k
+			if closed:
+				j = posmod(j, N)
+			elif j < 0 or j >= count:
+				continue
+			acc[surf[j]] += 1.0
+			c += 1
+		for s in S:
+			w[i * S + s] = acc[s] / c
+	t.surface = surf
+	t.surf_w = w
+	t.surf_n = S
 
 
 ## Gates are every line the car must cross, in order, for a whole race: each

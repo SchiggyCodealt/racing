@@ -30,7 +30,8 @@ extends Camera3D
 # Shake: a hit adds its speed into the wall / SHAKE_HIT to the "trauma" (0..1),
 # which fades by SHAKE_FADE per second; the shake is trauma² (soft for light
 # knocks) times these largest offsets. A scrape faster than RUMBLE_MIN m/s adds
-# a light rumble, full at RUMBLE_FULL m/s.
+# a light rumble, full at RUMBLE_FULL m/s. Loose ground (v6.3) rumbles too: the
+# surface's "rumble" (sim/surfaces.gd) × GROUND_RUMBLE, full from GROUND_FULL m/s.
 const SHAKE_HIT := 22.0
 const SHAKE_FADE := 1.5
 const SHAKE_MOVE := 0.16   # m, sideways (the up/down offset is 3/4 of it)
@@ -38,12 +39,16 @@ const SHAKE_ROLL := 0.022  # rad (1.3°); pitch and yaw get half and a third of 
 const RUMBLE_MIN := 8.0
 const RUMBLE_FULL := 48.0
 const RUMBLE := 0.22
+const GROUND_RUMBLE := 0.3
+const GROUND_FULL := 30.0
 # Nitro kick: at full boost the field of view gains KICK_FOV degrees and the camera drops
 # KICK_BACK m further back; it eases in at KICK_IN and out at KICK_OUT per second.
 const KICK_FOV := 5.0
 const KICK_BACK := 0.6
 const KICK_IN := 5.0
 const KICK_OUT := 1.6
+
+static var _RUMBLE_COL: PackedFloat64Array = Surfaces.column("rumble")
 
 ## Off switch for the shake and the nitro kick (the browser's prefers-reduced-motion).
 static var reduce_motion := false
@@ -66,6 +71,8 @@ var look := Vector3.ZERO
 var wall := CarEffects.WallState.new()
 var trauma := 0.0
 var rumble := 0.0
+## the rumble of the ground under the car (0..1, smoothed)
+var ground_rumble := 0.0
 var shake_time := 0.0
 var shake := 0.0
 var kick := 0.0  # nitro kick 0..1
@@ -98,6 +105,7 @@ func snap(car: Variant, p_track: BuiltTrack = null) -> void:
 	wall.ready = false
 	trauma = 0.0
 	rumble = 0.0
+	ground_rumble = 0.0
 	kick = 0.0
 	_place(c, p_track if p_track != null else track)
 	shake = 0.0
@@ -135,7 +143,7 @@ func update(car: Variant, dt: float, p_track: BuiltTrack = null) -> void:
 	dist_vel = dd.y
 
 	_place(c, p_track if p_track != null else track)
-	_shake(c, dt)
+	_shake(c, dt, p_track if p_track != null else track)
 
 	# Widen the field of view with speed: cheap but effective sense of speed.
 	var f := 68.0 + 16.0 * minf(1.0, maxf(0.0, speed - 10.0) / 60.0) + KICK_FOV * kick
@@ -144,14 +152,18 @@ func update(car: Variant, dt: float, p_track: BuiltTrack = null) -> void:
 
 
 ## Wall shake on top of the pose _place() just set (which is rebuilt from scratch every frame).
-func _shake(c: CarEffects.Pose, dt: float) -> void:
+func _shake(c: CarEffects.Pose, dt: float, tr: BuiltTrack = null) -> void:
 	var w := wall
 	if CarEffects.wall_events(w, c) > 0 and w.impact > 2.0:
 		trauma = minf(1.0, trauma + w.impact / SHAKE_HIT)
 	trauma = maxf(0.0, trauma - SHAKE_FADE * dt)
 	var r := clampf((w.scrape - RUMBLE_MIN) / (RUMBLE_FULL - RUMBLE_MIN), 0.0, 1.0)
 	rumble += (r - rumble) * (1.0 - exp(-dt * 6.0))
-	var amp := trauma * trauma + rumble * RUMBLE
+	var g := 0.0
+	if tr != null and c.grounded and c.idx >= 0 and tr.has_surfaces():
+		g = Surfaces.mix_at(tr, c.idx, _RUMBLE_COL) * minf(1.0, c.speed / GROUND_FULL)
+	ground_rumble += (g - ground_rumble) * (1.0 - exp(-dt * 5.0))
+	var amp := trauma * trauma + rumble * RUMBLE + ground_rumble * GROUND_RUMBLE
 	if amp < 1e-3 or reduce_motion:
 		shake = 0.0
 		return

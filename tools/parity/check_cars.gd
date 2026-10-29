@@ -30,7 +30,7 @@ func _initialize() -> void:
 	var field_bad: Dictionary = {}
 	print("scenario                          steps  air wall  hb boost | lockstep: exact steps, worst field diff | free run: first diff step, |dpos| at 5 s / 10 s / end")
 	for s: Dictionary in meta.scenarios:
-		var track: BuiltTrack = Tracks.build(s.track)
+		var track: BuiltTrack = Tracks.build_asphalt(s.track)
 		var spec: CarSpec = Cars.spec(s.car)
 		var steps: int = int(s.steps)
 		var base: int = int(s.offset)
@@ -106,7 +106,7 @@ func _initialize() -> void:
 		var t0: int = Time.get_ticks_msec()
 		var total_steps: int = 0
 		for r: Dictionary in races:
-			var track: BuiltTrack = Tracks.build(r.track)
+			var track: BuiltTrack = Tracks.build_asphalt(r.track)
 			var car := Car.new(track, -1, Cars.spec(r.car))
 			var race := RaceState.new(track)
 			var pilot := Autopilot.medal(track, 24.0, 0.75, true)

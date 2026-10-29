@@ -59,6 +59,7 @@ func run(checker: Variant) -> bool:
 	_tracks_and_autopilot()
 	_physics()
 	_cars_and_nitro()
+	_surfaces()
 	_score()
 	_ghosts()
 	_medals()
@@ -114,6 +115,12 @@ func by_id(id: String) -> BuiltTrack:
 	return Tracks.build(id)
 
 
+## Track `id` as the web game (v5) has it: all asphalt (the road surfaces of v6.3 stripped; the
+## same layout and signature as before them). The checks against the web game's numbers use it.
+static func asphalt(id: String) -> BuiltTrack:
+	return Tracks.build_asphalt(id)
+
+
 # ---- 1 + 2: build and drive every track; 3: backwards ------------------------------------
 
 func _tracks_and_autopilot() -> void:
@@ -122,8 +129,8 @@ func _tracks_and_autopilot() -> void:
 	t.check(ids.size() == 12, "%d tracks defined (expected 12)" % ids.size())
 	var exact: int = 0
 	for id: String in ids:
-		var track: BuiltTrack = Tracks.build(id)
-		tracks.append(track)
+		tracks.append(Tracks.build(id))
+		var track: BuiltTrack = asphalt(id) # (the web game's track: no dirt or snow)
 		var car := Car.new(track)
 		var race := RaceState.new(track)
 		var pilot := Autopilot.basic(track)
@@ -144,11 +151,32 @@ func _tracks_and_autopilot() -> void:
 		if same:
 			exact += 1
 		t.check(track.cp_samples.size() > 0 and track.length > 1000.0 and race.finished and not bad and absf(race.finish_time - float(web[0])) < 0.1,
-			"%s: builds (%.2f km%s, %d checkpoints, %s); the test autopilot finishes in %s, wall contact in %d steps (web game: %s, %d)" % [
-				track.name, track.race_length(1) / 1000.0, "/lap" if track.closed else "", track.cp_samples.size(),
+			"%s%s: builds (%.2f km%s, %d checkpoints, %s); the test autopilot finishes in %s, wall contact in %d steps (web game: %s, %d)" % [
+				track.name, " (all asphalt, as in the web game)" if track != tracks[-1] else "", track.race_length(1) / 1000.0, "/lap" if track.closed else "", track.cp_samples.size(),
 				"%d laps" % track.laps if track.closed else "sprint", RaceState.format_time(race.finish_time), wall,
 				RaceState.format_time(float(web[0])), int(web[1])])
 	t.check(exact == ids.size(), "the test autopilot drives the web game's times to the millisecond (and its wall steps) on %d of %d tracks" % [exact, ids.size()])
+	# the tracks with dirt or snow: the test autopilot, told the racer's grip on each surface, finishes them
+	for track: BuiltTrack in tracks:
+		if not track.has_surfaces():
+			continue
+		var spec: CarSpec = Cars.default_spec()
+		var car := Car.new(track, track.start_idx, spec)
+		var race := RaceState.new(track)
+		var pilot := Autopilot.basic(track, 11.0, 7.5, 77.0, spec)
+		var wall: int = 0
+		var bad: bool = false
+		while not race.finished and race.time < 600.0:
+			car.step(track, pilot.drive(car), DT)
+			race.update(car, DT)
+			wall += 1 if car.hit_wall else 0
+			if not finite(car):
+				bad = true
+				break
+		var plain: Array = WEB_AUTOPILOT.get(track.id, [INF, -1])
+		t.check(race.finished and not bad and race.finish_time > float(plain[0]),
+			"%s (%s): the test autopilot finishes in %s with the racer, slower than on all asphalt (%s), wall contact in %d steps" % [
+				track.name, Surfaces.summary(track), RaceState.format_time(race.finish_time), RaceState.format_time(float(plain[0])), wall])
 
 	var rookie: BuiltTrack = tracks[0]
 	var car := Car.new(rookie)
@@ -276,11 +304,12 @@ func _physics() -> void:
 	t.check(bad == 0 and below == 0 and outside == 0, "no NaN: %d random-control steps, %d non-finite states, %d steps below the road, %d outside the walls" % [steps, bad, below, outside])
 
 	# 4d. the racing line pays: on Hairpin Valley the clean autopilot beats one that never brakes
-	var hairpin: BuiltTrack = by_id("hairpin-valley")
+	# (the web game's all-asphalt track; on its snow since v6.3: see _surfaces)
+	var hairpin: BuiltTrack = asphalt("hairpin-valley")
 	var lap := func(grip: float) -> Dictionary:
 		var car := Car.new(hairpin)
 		var race := RaceState.new(hairpin, 1)
-		var pilot := Autopilot.basic(hairpin, grip)
+		var pilot := Autopilot.basic(hairpin, grip, 7.5, 77.0)
 		var wall: int = 0
 		while not race.finished and race.time < 300.0:
 			car.step(hairpin, pilot.drive(car), DT)
@@ -292,6 +321,173 @@ func _physics() -> void:
 	var rider: Dictionary = lap.call(INF)
 	t.check(clean.wall == 0 and clean.time < rider.time, "walls cost time: Hairpin Valley lap, clean autopilot %s (%d wall steps) beats never braking %s (wall contact in %d steps)" % [
 		RaceState.format_time(clean.time), clean.wall, RaceState.format_time(rider.time), rider.wall])
+
+
+# ---- 4f: road surfaces (v6.3) ---------------------------------------------------------------
+
+func _surfaces() -> void:
+	t.section("road surfaces: dirt and packed snow")
+	# the table: asphalt first and neutral; every car has a grip share on every surface
+	var a: Dictionary = Surfaces.def(Surfaces.ASPHALT)
+	var ok: bool = Surfaces.id(0) == "asphalt" and Surfaces.index_of("dirt") > 0 and Surfaces.index_of("snow") > 0 and Surfaces.index_of("mud") == -1 and \
+		float(a.grip) == 1.0 and float(a.roll) == 1.0 and float(a.stiffness) == 1.0 and float(a.esc) == 1.0
+	var dirt: int = Surfaces.index_of("dirt")
+	var snow: int = Surfaces.index_of("snow")
+	var best_dirt: String = ""
+	var worst_dirt: String = ""
+	var best_snow: String = ""
+	var worst_snow: String = ""
+	var grips: PackedStringArray = []
+	for id: String in Cars.ids():
+		var g: PackedFloat64Array = Cars.spec(id).surface_grip
+		ok = ok and g.size() == Surfaces.count() and g[0] == 1.0 and g[snow] < g[dirt] and g[dirt] < 1.0
+		if best_dirt == "" or g[dirt] > Cars.spec(best_dirt).surface_grip[dirt]:
+			best_dirt = id
+		if worst_dirt == "" or g[dirt] < Cars.spec(worst_dirt).surface_grip[dirt]:
+			worst_dirt = id
+		if best_snow == "" or g[snow] > Cars.spec(best_snow).surface_grip[snow]:
+			best_snow = id
+		if worst_snow == "" or g[snow] < Cars.spec(worst_snow).surface_grip[snow]:
+			worst_snow = id
+		grips.append("%s %d%%/%d%%" % [id, roundi(g[dirt] * 100.0), roundi(g[snow] * 100.0)])
+	t.check(ok and best_dirt == "dune" and best_snow == "dune" and worst_dirt == "vortex" and worst_snow == "vortex",
+		"the surface table: asphalt neutral; every car keeps less grip on dirt and less again on packed snow, the Dune the most and the Vortex the least (%s)" % ", ".join(grips))
+
+	# the tracks: dirt on Ramp Rally, Mountain Pass and Canyon Run, packed snow on the alpine Hairpin
+	# Valley and Mountain Pass; the start grid on asphalt; the layout (and v6.2 signature) unchanged
+	var want: Dictionary = {"ramp-rally": "Asphalt + dirt", "canyon-run": "Asphalt + dirt", "hairpin-valley": "Asphalt + packed snow",
+		"mountain-pass": "Asphalt + dirt + packed snow"}
+	var lines: PackedStringArray = []
+	ok = true
+	for tr: BuiltTrack in tracks:
+		var summary: String = Surfaces.summary(tr)
+		var sig_ok: bool = tr.layout_signature() == Tracks.legacy_signature(tr.id) and \
+			(tr.signature() == tr.layout_signature()) == (not tr.has_surfaces()) and Tracks.signature(tr.id) == tr.signature()
+		ok = ok and summary == String(want.get(tr.id, "Asphalt")) and sig_ok
+		if tr.has_surfaces():
+			var n: int = tr.N if tr.closed else tr.count
+			var sums_ok: bool = tr.surf_w.size() == tr.count * tr.surf_n and tr.surface.size() == tr.count
+			var step_max: float = 0.0
+			for i in tr.count:
+				var sum: float = 0.0
+				for k in tr.surf_n:
+					sum += tr.surf_w[i * tr.surf_n + k]
+					if i > 0:
+						step_max = maxf(step_max, absf(tr.surf_w[i * tr.surf_n + k] - tr.surf_w[(i - 1) * tr.surf_n + k]))
+				sums_ok = sums_ok and absf(sum - 1.0) < 1e-5
+			var grid_ok: bool = true
+			for i in range(tr.start_idx - 6, tr.start_idx + 6):
+				grid_ok = grid_ok and tr.surface[tr.wrap(i)] == Surfaces.ASPHALT
+			var shares: Dictionary = Surfaces.shares(tr)
+			var parts: PackedStringArray = []
+			for k: int in shares:
+				parts.append("%s %d%%" % [Surfaces.id(k), roundi(float(shares[k]) * 100.0)])
+			ok = ok and sums_ok and step_max <= 1.0 / (2 * Surfaces.BLEND + 1) + 1e-5 and grid_ok
+			lines.append("%s: %s (%s)" % [tr.name, ", ".join(parts), tr.signature().get_slice("|", 1)])
+	t.check(ok, "surfaces on 4 tracks, the other 8 all asphalt with their v6.2 signatures; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
+		2 * Surfaces.BLEND + 1, roundi((2 * Surfaces.BLEND + 1) * 2.0), "; ".join(lines)])
+
+	# asphalt is the old physics: on Ramp Rally the racer drives bit for bit as on the all-asphalt
+	# Ramp Rally until an axle reaches the dirt; then the surface counts
+	var rr: BuiltTrack = by_id("ramp-rally")
+	var plain: BuiltTrack = asphalt("ramp-rally")
+	var c1 := Car.new(rr)
+	var c2 := Car.new(plain)
+	var p1 := Autopilot.basic(rr)
+	var p2 := Autopilot.basic(plain)
+	var same_steps: int = 0
+	var same: bool = true
+	while not c1._env_loose and same_steps < 60 * 120:
+		c1.step(rr, p1.drive(c1), DT)
+		c2.step(plain, p2.drive(c2), DT)
+		if c1._env_loose:
+			break
+		same = same and var_to_bytes(c1.to_state()) == var_to_bytes(c2.to_state())
+		same_steps += 1
+	for k in 600:
+		c1.step(rr, p1.drive(c1), DT)
+		c2.step(plain, p2.drive(c2), DT)
+	t.check(same and same_steps > 300 and c1.prog < c2.prog - 1.0,
+		"asphalt runs the v6.2 physics: on Ramp Rally the racer drives bit for bit as on the all-asphalt track for %.1f s, until the front axle reaches the dirt; 10 s later it is %.0f m behind" % [
+			same_steps * DT, (c2.prog - c1.prog) * rr.seg_len])
+
+	# the change of grip is smooth: across the border onto the dirt at 25 m/s the front axle's grip
+	# share slides from 1 to the car's dirt grip over several metres, never in one jump
+	var i0: int = 0
+	for i in range(1, rr.count):
+		if rr.surface[i] == dirt and rr.surface[i - 1] == Surfaces.ASPHALT:
+			i0 = i
+			break
+	var car := Car.new(rr, rr.wrap(i0 - 20))
+	var y0: float = car.yaw
+	car.place(rr, car.idx, {x = car.x, z = car.z, yaw = y0, vx = sin(y0) * 25.0, vz = cos(y0) * 25.0, idx = car.idx, laps = 0})
+	var pilot := Autopilot.basic(rr)
+	var gfs: PackedFloat64Array = []
+	for k in 150:
+		var cc := pilot.drive(car)
+		cc.throttle = clampf((25.0 - car.forward_speed) * 0.5, -1.0, 1.0)
+		car.step(rr, cc, DT)
+		gfs.append(car._env_gf)
+	var target: float = Cars.default_spec().surface_grip[dirt]
+	var jump: float = 0.0
+	var ramp: int = 0
+	for k in range(1, gfs.size()):
+		jump = maxf(jump, absf(gfs[k] - gfs[k - 1]))
+		if gfs[k] < 1.0 and gfs[k] > target:
+			ramp += 1
+	t.check(gfs[0] == 1.0 and absf(gfs[-1] - target) < 1e-9 and ramp * DT * 25.0 >= 6.0 and jump < 0.05,
+		"onto the dirt at 90 km/h: the front grip share goes from 1 to %.2f over %.1f m (%d steps), at most %.3f a step" % [target, ramp * DT * 25.0, ramp, jump])
+
+	# what each surface does to a car: braking from 100 km/h and the fastest steady turn (30 m
+	# radius) on synthetic roads of dirt and snow (tools/car_stats.gd): the Dune loses the least
+	var brake: Dictionary = {}
+	var turn: Dictionary = {}
+	for sid: String in ["asphalt", "dirt", "snow"]:
+		CarStats.surface = sid
+		for id: String in ["racer", "dune", "vortex"]:
+			brake["%s %s" % [id, sid]] = CarStats.brake100(Cars.spec(id))
+	for sid: String in ["dirt"]:
+		CarStats.surface = sid
+		for id: String in ["dune", "vortex"]:
+			turn["%s %s" % [id, sid]] = CarStats.skidpad(Cars.spec(id), 30.0)
+	CarStats.surface = "asphalt"
+	var rs: Dictionary = Cars.get_car("racer").stats
+	ok = brake["racer dirt"] > brake["racer asphalt"] and brake["racer snow"] > brake["racer dirt"] and \
+		brake["vortex snow"] / brake["vortex asphalt"] > brake["dune snow"] / brake["dune asphalt"] and \
+		brake["vortex dirt"] / brake["vortex asphalt"] > brake["dune dirt"] / brake["dune asphalt"] and \
+		turn["dune dirt"] > turn["vortex dirt"] + 0.4 and absf(float(Cars.get_car("dune").stats.grip) - float(Cars.get_car("vortex").stats.grip)) < 0.1 and \
+		absf(brake["racer asphalt"] - float(rs.brake100)) < 0.06
+	t.check(ok, "100-0 km/h: the racer stops in %.1f m on asphalt, %.1f on dirt, %.1f on snow; the Dune %.1f / %.1f / %.1f, the Vortex %.1f / %.1f / %.1f. Fastest 30 m turn on dirt: Dune %.2f g, Vortex %.2f g (on asphalt both about %.2f g)" % [
+		brake["racer asphalt"], brake["racer dirt"], brake["racer snow"], brake["dune asphalt"], brake["dune dirt"], brake["dune snow"],
+		brake["vortex asphalt"], brake["vortex dirt"], brake["vortex snow"], turn["dune dirt"], turn["vortex dirt"], float(rs.grip)])
+
+	# walls still cost time where the road is loose (weak brakes make a wall a better brake than
+	# on asphalt): one lap with the Racer, the medal autopilot (no nitro) at the sweep's usual
+	# settings against the same autopilot never braking
+	var gaps: PackedStringArray = []
+	ok = true
+	for id: String in ["hairpin-valley", "ramp-rally", "mountain-pass", "canyon-run"]:
+		var tr: BuiltTrack = by_id(id)
+		var clean: float = minf(_medal_lap(tr, 18.0).x, _medal_lap(tr, 22.0).x)
+		var ride: Vector2 = _medal_lap(tr, 1000.0)
+		ok = ok and clean < ride.x
+		gaps.append("%s %s against %s (%d wall steps)" % [tr.name, RaceState.format_time(clean), RaceState.format_time(ride.x), int(ride.y)])
+	t.check(ok, "walls cost time on dirt and snow too: the medal autopilot's lap beats never braking on %s" % ", ".join(gaps))
+
+
+## One lap of `tr` with the Racer and the medal autopilot (a_lat, look 0.75, no nitro):
+## Vector2(time, wall steps).
+func _medal_lap(tr: BuiltTrack, a_lat: float) -> Vector2:
+	var car := Car.new(tr)
+	var race := RaceState.new(tr, 1)
+	var pilot := Autopilot.medal(tr, a_lat, 0.75, false, Autopilot.DECEL, Cars.default_spec())
+	var wall: int = 0
+	while not race.finished and race.time < 300.0:
+		car.step(tr, pilot.drive(car), DT)
+		race.update(car, DT)
+		if car.hit_wall:
+			wall += 1
+	return Vector2(race.finish_time if race.finished else INF, wall)
 
 
 # ---- 4e: cars and nitro ------------------------------------------------------------------
@@ -332,7 +528,7 @@ func _cars_and_nitro() -> void:
 	var diff: float = 0.0
 	var air: int = 0
 	for id: String in ["hairpin-valley", "ramp-rally"]:
-		var track: BuiltTrack = by_id(id)
+		var track: BuiltTrack = asphalt(id) # (the web game's track: no dirt or snow)
 		var car := Car.new(track)
 		var pilot := Autopilot.basic(track)
 		var rows: Array = WEB_V3_STATES[id]
@@ -475,7 +671,7 @@ func _every_car_finishes(ids: PackedStringArray) -> void:
 			var brake: float = 7.5 * (float(r.brake100) / float(def.stats.brake100))
 			var car := Car.new(track, track.start_idx, spec)
 			var race := RaceState.new(track)
-			var pilot := Autopilot.basic(track, grip, brake, spec.max_speed)
+			var pilot := Autopilot.basic(track, grip, brake, spec.max_speed, spec)
 			var wall: int = 0
 			var bad: bool = false
 			while not race.finished and race.time < 600.0:
@@ -811,7 +1007,7 @@ func _score() -> void:
 
 	# 12b. clean driving pays: on Hairpin Valley the clean autopilot outscores a corner-cutting one that hits the walls
 	var hairpin: BuiltTrack = by_id("hairpin-valley")
-	var clean: Dictionary = scored_race(hairpin, Autopilot.basic(hairpin))
+	var clean: Dictionary = scored_race(hairpin, Autopilot.basic(hairpin, 11.0, 7.5, 77.0, Cars.default_spec())) # (it knows the snow)
 	var rough: Dictionary = scored_race(hairpin, Autopilot.basic(hairpin, 21.0))
 	var rc: Dictionary = (rough.score as ScoreState).counts
 	t.check((clean.score as ScoreState).counts.wall_hits == 0 and rc.wall_hits > 0 and rc.clean_gates < rc.gates and \
@@ -1287,7 +1483,7 @@ func _save() -> void:
 	ok = ok and int(SaveData.load_network("racer").generation) == 7 and int(SaveData.load_network("kestrel").generation) == 3 and \
 		int(SaveData.load_network("vortex").generation) == 9 and SaveData.load_network("thunder") == null and SaveData.load_network("bus") == null and \
 		SaveData.network_cars() == PackedStringArray(["racer", "kestrel", "vortex"]) and on_disk is Dictionary and not (on_disk as Dictionary).has("network") and \
-		JsMath.same(on_disk.get("version"), 2) and int(on_disk.networks.racer.best.generation) == 7 and int(on_disk.networks.kestrel.best.generation) == 3
+		JsMath.same(on_disk.get("version"), SaveData.VERSION) and int(on_disk.networks.racer.best.generation) == 7 and int(on_disk.networks.kestrel.best.generation) == 3
 	t.check(ok, "AI networks per car: a version 1 file's network becomes the Racer's (networks.racer.best); each car keeps its own, read back from the file; an unknown car is refused")
 	# a file with both (a version 1 game wrote the old key into a version 2 file): the newer per-car one stays
 	write.call(JSON.stringify({version = 1, network = net.call(1), networks = {racer = {best = net.call(5)}}}))
@@ -1303,6 +1499,43 @@ func _save() -> void:
 				int(SaveData.load_network().generation) == 2:
 			n_ok += 1
 	t.check(ok and n_ok == njunk.size(), "AI networks: a newer per-car network is not replaced by an old single one; %d of %d kinds of junk read as no network and are replaced by the next save" % [n_ok, njunk.size()])
+
+	# track versions (v6.3): what was made on an older version of a track (v6.2's Ramp Rally, all
+	# asphalt) moves to the archive and is never compared with new runs; unchanged tracks keep theirs
+	var rr_old: String = Tracks.legacy_signature("ramp-rally")
+	var old_ghost: Dictionary = ghost.duplicate(true)
+	old_ghost.track = "ramp-rally"
+	old_ghost.sig = rr_old
+	write.call(JSON.stringify({version = 2,
+		records = {"rookie-oval": {racer = {time = 120.0, splits = [], physics = pv}}, "ramp-rally": {racer = {time = 170.0, splits = [], physics = pv}, dune = {time = 180.0, splits = [], physics = pv}}},
+		scores = {"ramp-rally": {racer = {score = 9000, rules = sr, physics = pv}}, "rookie-oval": {racer = {score = 800, rules = sr, physics = pv}}},
+		ghosts = {"ramp-rally": {racer = old_ghost}}}))
+	SaveData.use_file(p)
+	var arch_rec: Dictionary = SaveData.get_archived("records", "ramp-rally", "racer")
+	ok = Tracks.signature("ramp-rally") != rr_old and Tracks.signature("rookie-oval") == Tracks.legacy_signature("rookie-oval") and \
+		SaveData.get_record("rookie-oval").get("time") == 120.0 and SaveData.get_best_score("rookie-oval", "racer").get("score") == 800.0 and \
+		SaveData.get_record("ramp-rally").is_empty() and SaveData.get_record("ramp-rally", "dune").is_empty() and \
+		SaveData.get_best_score("ramp-rally", "racer").is_empty() and SaveData.load_ghost("ramp-rally", "racer") == null and \
+		arch_rec.keys() == [rr_old] and float(arch_rec[rr_old].time) == 170.0 and \
+		float(SaveData.get_archived("records", "ramp-rally", "dune")[rr_old].time) == 180.0 and \
+		float(SaveData.get_archived("scores", "ramp-rally", "racer")[rr_old].score) == 9000.0 and \
+		SaveData.get_archived("ghosts", "ramp-rally", "racer")[rr_old].sig == rr_old and SaveData.get_archived("records", "rookie-oval", "racer").is_empty()
+	# a slower time and a lower score than the old version's are new bests on the new version
+	ok = ok and SaveData.submit_record("ramp-rally", "racer", 190.0, []) and SaveData.submit_score("ramp-rally", "racer", 5000.0) and \
+		SaveData.get_record("ramp-rally").time == 190.0 and SaveData.get_best_score("ramp-rally", "racer").score == 5000.0
+	SaveData.use_file(p)
+	on_disk = JSON.parse_string(FileAccess.get_file_as_string(p))
+	ok = ok and on_disk is Dictionary and JsMath.same(on_disk.get("version"), 3) and on_disk.records["ramp-rally"].racer.sig == Tracks.signature("ramp-rally") and \
+		float(on_disk.archive.records["ramp-rally"].racer[rr_old].time) == 170.0 and SaveData.get_record("ramp-rally").time == 190.0 and \
+		float(SaveData.get_archived("records", "ramp-rally", "racer")[rr_old].time) == 170.0
+	t.check(ok, "track versions: a version 2 save's records, scores and ghosts on a changed track (Ramp Rally, now with dirt) move to the archive (kept, by old signature); slower runs on the new version are new bests; unchanged tracks keep theirs")
+	# a version 3 entry on a version of a track that is gone (another signature) is archived too; unknown tracks are left alone
+	write.call(JSON.stringify({version = 3, records = {"rookie-oval": {racer = {time = 100.0, splits = [], physics = pv, sig = "1:2"}},
+		"no-such-track": {racer = {time = 50.0, splits = [], physics = pv, sig = "1:2"}}}}))
+	SaveData.use_file(p)
+	ok = SaveData.get_record("rookie-oval").is_empty() and float(SaveData.get_archived("records", "rookie-oval", "racer")["1:2"].time) == 100.0 and \
+		SaveData.get_record("no-such-track").get("time") == 50.0
+	t.check(ok, "an entry made on a version of a track that no longer exists is archived; entries of unknown tracks stay as they are")
 
 	# a save file that can't be written: nothing fails, the session keeps what was saved
 	SaveData.use_file("user://no_such_folder/save.json")

@@ -23,7 +23,8 @@ extends RefCounted
 ##                ai/sensors.gd.
 ##
 ## Shapes returned (plain Dictionaries, so nothing here depends on sim/ types):
-##   track_info(i)   {id, name, difficulty, description, closed, laps, length, sprint_length, theme}
+##   track_info(i)   {id, name, difficulty, description, closed, laps, length, sprint_length, theme,
+##                   surfaces (the road surfaces for the menu: "Asphalt", "Asphalt + dirt", ...)}
 ##   track_map(i)    see TrackMapView.make_map: {points, size, start, finish (or null), closed}
 ##   car_info(id)    {id, name, description, color, accent, top, mass, bars {speed, acceleration,
 ##                   grip, drift, nitro}, rev {idle_rpm, redline, upshift_rpm}}
@@ -60,6 +61,7 @@ static var _maps: Dictionary = {}    # track index -> map dictionary
 static var _world_profiles: Variant = null   # CarModel.profile works: null not asked yet
 static var _tried_tracks := false            # sim/ Tracks asked already
 static var _cars_class: Variant = null       # sim/ Cars script, false when missing, null not asked yet
+static var _surfaces_script: Variant = null  # sim/ Surfaces script, false when missing, null not asked yet
 
 
 # ---------------------------------------------------------------- tracks
@@ -86,13 +88,25 @@ static func track_info(i: int) -> Dictionary:
 			"description": str(d.get("description", "")), "closed": t.get("closed"), "laps": t.get("laps"),
 			"length": t.get("length"), "theme": t.get("theme"),
 			"sprint_length": (int(t.get("finish_idx")) - int(t.get("start_idx"))) * float(t.get("seg_len")),
+			"surfaces": _surfaces_of(t),
 		}
 	var f: Dictionary = fixture().tracks[i]
 	return {
 		"id": f.id, "name": f.name, "difficulty": int(f.difficulty), "description": f.description,
 		"closed": f.closed, "laps": int(f.laps), "length": float(f.length), "theme": f.theme,
-		"sprint_length": float(f.sprint_length),
+		"sprint_length": float(f.sprint_length), "surfaces": "Asphalt",
 	}
+
+
+## The road surfaces of a built track for the menu (sim/ Surfaces.summary: "Asphalt + dirt"),
+## "Asphalt" when sim/ can't tell.
+static func _surfaces_of(t: Object) -> String:
+	if _surfaces_script == null:
+		var sc := _global_script("Surfaces")
+		_surfaces_script = sc if sc != null else false
+	if not (_surfaces_script is Script) or not t.has_method("surfaces_used"):
+		return "Asphalt"
+	return str((_surfaces_script as Script).call("summary", t))
 
 
 ## The track's id (records, scores and medals are keyed by it).

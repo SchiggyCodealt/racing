@@ -24,6 +24,9 @@ extends RefCounted
 ##   finish_idx   sample of the finish line (circuits: 0)
 ##   kickers      [{foot, lip, land, height}] sample indices and lip height (m)
 ##   grid         wall segments and their grid (Collision.WallGrid)
+##   surface      the road surface of every sample (Surfaces index; empty: all asphalt)
+##   surf_w       blend weights: surf_n per sample (sample i, surface s at i * surf_n + s),
+##                smoothed across borders; empty when the track is all asphalt (v6.3)
 ##
 ## The per-sample arrays are PackedFloat32Array like the JS Float32Arrays, so
 ## every value is exactly the JS value (float32), read as a 64-bit float.
@@ -59,6 +62,10 @@ var gate_cache: Dictionary = {}
 ## per-sample physics data, made by CarPhysics.track_phys on first use: slope and smoothed vertical curvature
 var phys_slope: PackedFloat32Array = PackedFloat32Array()
 var phys_kv: PackedFloat32Array = PackedFloat32Array()
+## road surfaces (see the header and sim/surfaces.gd); empty arrays = all asphalt
+var surface: PackedByteArray = PackedByteArray()
+var surf_w: PackedFloat32Array = PackedFloat32Array()
+var surf_n: int = 0
 
 
 ## Sample index wrapped round a circuit / clamped to the ends of a sprint.
@@ -78,6 +85,69 @@ func race_length(n_laps: int = -1) -> float:
 	return TrackBuilder.race_length(self, laps if n_laps < 0 else n_laps)
 
 
-## Short fingerprint of the layout ("count:length"), as ghosts and medals use it.
+## Short fingerprint of the track ("count:length", then "|" and the stretches of every
+## surface other than asphalt, e.g. "1185:2370|dirt120-310"), as ghosts, medals, best times
+## and best scores use it: a track whose layout or surfaces change is a new track for them.
+## An all-asphalt track keeps the signature it had before surfaces existed (v6.2).
 func signature() -> String:
+	var runs: PackedStringArray = surface_runs()
+	return layout_signature() + ("" if runs.is_empty() else "|" + ",".join(runs))
+
+
+## The layout part of the signature alone ("count:length", what v6.0-6.2 used).
+func layout_signature() -> String:
 	return "%d:%d" % [count, JsMath.roundi(length)]
+
+
+## True when part of the road is not asphalt.
+func has_surfaces() -> bool:
+	return not surf_w.is_empty()
+
+
+## The stretches of road that are not asphalt: "<surface id><first sample>-<last sample>".
+func surface_runs() -> PackedStringArray:
+	var out: PackedStringArray = []
+	if surface.is_empty():
+		return out
+	var n: int = surface.size()
+	var i: int = 0
+	while i < n:
+		var s: int = surface[i]
+		var j: int = i
+		while j + 1 < n and surface[j + 1] == s:
+			j += 1
+		if s != Surfaces.ASPHALT:
+			out.append("%s%d-%d" % [Surfaces.id(s), i, j])
+		i = j + 1
+	return out
+
+
+## The surfaces of the road, in Surfaces order (["asphalt"] for an all-asphalt track).
+func surfaces_used() -> PackedStringArray:
+	var seen: Dictionary = {}
+	for s: int in surface:
+		seen[s] = true
+	var out: PackedStringArray = []
+	for k in Surfaces.count():
+		if seen.has(k) or (k == Surfaces.ASPHALT and surface.is_empty()):
+			out.append(Surfaces.id(k))
+	return out
+
+
+## The surface under fractional sample p (nearest sample; asphalt when the track has none).
+func surface_at(p: float) -> int:
+	if surface.is_empty():
+		return Surfaces.ASPHALT
+	return surface[self.wrap(JsMath.roundi(p))]
+
+
+## Blend weight of surface s at fractional sample p (0..1; linear between samples).
+func surface_weight(s: int, p: float) -> float:
+	if surf_w.is_empty():
+		return 1.0 if s == Surfaces.ASPHALT else 0.0
+	var k: int = int(floorf(p))
+	var f: float = p - k
+	var a: int = self.wrap(k)
+	var b: int = self.wrap(k + 1)
+	var wa: float = surf_w[a * surf_n + s]
+	return wa + (surf_w[b * surf_n + s] - wa) * f

@@ -21,6 +21,12 @@ extends RefCounted
 ##  5. Vertical: glued to the road unless it really drops away (kicker ramps);
 ##     ballistic in the air; damped landings that cost a little speed.
 ##  6. Smoothed visual attitude (pitch / roll) through a damped spring.
+##  6b. Road surfaces (v6.3, sim/surfaces.gd): on a track with dirt or snow each
+##     axle reads the surface blend under it once a step: the car's grip share
+##     scales that axle's grip, the surface's stiffness how fast its tyre force
+##     builds with slip (and the steering lock that matches it), the rolling
+##     resistance grows and the ESC can do less. Pure asphalt under both axles
+##     skips all of it, so all-asphalt tracks run the v6.2 physics bit for bit.
 ##  7. Nitro: ctrl.nitro (0..1) burns the tank on the ground in a forward gear,
 ##     not braking, no handbrake; opens the throttle at least that far and adds
 ##     min(nitro_force, nitro_power / speed) of push, fading out below nitro_top.
@@ -176,6 +182,21 @@ var _env_drive: float = 0.0
 var _env_brake: float = 0.0
 var _env_hb: float = 0.0
 var _env_esc: float = 1.0
+# the road surface under the axles (v6.3, _surface_mix), once per step: off (false) on pure asphalt
+var _env_loose: bool = false
+var _env_gf: float = 1.0     # grip share, front / rear axle
+var _env_gr: float = 1.0
+var _env_kf: float = 1.0     # tyre stiffness, front / rear
+var _env_kr: float = 1.0
+var _env_rf: float = 1.0     # rolling resistance factor, front / rear
+var _env_rr: float = 1.0
+var _env_sesc: float = 1.0   # share of the ESC moment left
+var _env_pk: float = 0.0     # front slip angle at the tyre's peak on this surface (the lock's allowance)
+var _mx_g: float = 1.0       # _axle_mix results
+var _mx_k: float = 1.0
+var _mx_r: float = 1.0
+var _mx_e: float = 1.0
+var _mx_pure: bool = true
 # scratch (the JS module's `scratch`, `contact`, `attTmp`), one per car
 var _loc: Collision.Loc = Collision.Loc.new()
 var _contact: Collision.Contact = Collision.Contact.new()
@@ -446,7 +467,84 @@ static func _box(src: PackedFloat32Array, dst: PackedFloat32Array, r: int, close
 		dst[i] = s / c
 
 
+## The surface table's columns, for the physics (sim/surfaces.gd).
+static var _S_ROLL: PackedFloat64Array = Surfaces.column("roll")
+static var _S_STIFF: PackedFloat64Array = Surfaces.column("stiffness")
+static var _S_ESC: PackedFloat64Array = Surfaces.column("esc")
+
+
+## The surface blend under both axles (v6.3): front axle cg_to_front ahead of the car's
+## position along the road, rear axle cg_to_rear behind (projected on the centre line).
+func _surface_mix(P: CarSpec, track: BuiltTrack) -> void:
+	_env_loose = false
+	if track.surf_w.is_empty():
+		return
+	var cos_t: float = sin(yaw) * -_nz + cos(yaw) * _nx # heading against the road's tangent
+	var p0: float = idx + _t
+	_axle_mix(P, track, p0 + (P.cg_to_front * cos_t) / track.seg_len)
+	var pure_f: bool = _mx_pure
+	_env_gf = _mx_g
+	_env_kf = _mx_k
+	_env_rf = _mx_r
+	var esc_f: float = _mx_e
+	_axle_mix(P, track, p0 - (P.cg_to_rear * cos_t) / track.seg_len)
+	if pure_f and _mx_pure:
+		return
+	_env_loose = true
+	_env_gr = _mx_g
+	_env_kr = _mx_k
+	_env_rr = _mx_r
+	_env_sesc = (esc_f + _mx_e) * 0.5
+	_env_pk = atan((P.peak_slip / _env_kf) * P.steer_slip_gain)
+
+
+## Blend of the surfaces at fractional sample p (into _mx_*): the car's grip share, stiffness,
+## rolling resistance and ESC share, each the weights × the surface's number.
+func _axle_mix(P: CarSpec, track: BuiltTrack, p: float) -> void:
+	var n: int = track.count
+	var k: int
+	var f: float
+	if track.closed:
+		var kf: float = floorf(p)
+		f = p - kf
+		k = posmod(int(kf), track.N)
+	elif p <= 0.0:
+		k = 0
+		f = 0.0
+	elif p >= n - 1:
+		k = n - 2
+		f = 1.0
+	else:
+		var kf2: float = floorf(p)
+		k = int(kf2)
+		f = p - kf2
+	var j: int = (k + 1) % track.N if track.closed else k + 1
+	var S: int = track.surf_n
+	var W: PackedFloat32Array = track.surf_w
+	var G: PackedFloat64Array = P.surface_grip
+	var g: float = 0.0
+	var st: float = 0.0
+	var r: float = 0.0
+	var e: float = 0.0
+	var a0: float = 0.0
+	for s in S:
+		var wa: float = W[k * S + s]
+		var w: float = wa + (W[j * S + s] - wa) * f
+		if s == 0:
+			a0 = w
+		g += w * G[s]
+		st += w * _S_STIFF[s]
+		r += w * _S_ROLL[s]
+		e += w * _S_ESC[s]
+	_mx_pure = a0 == 1.0
+	_mx_g = g
+	_mx_k = st
+	_mx_r = r
+	_mx_e = e
+
+
 func _surface_env(track: BuiltTrack) -> void:
+	_surface_mix(spec, track)
 	var i: int = idx
 	var j: int = (i + 1) % track.N if track.closed else mini(i + 1, track.count - 1)
 	var t: float = _t
@@ -643,11 +741,17 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	var load_r0: float = (m * G * a) / L
 	var cap_f: float = _mu_at(P, load_f, load_f0) * load_f
 	var cap_r: float = _mu_at(P, load_r, load_r0) * load_r
+	var loose: bool = _env_loose # dirt / snow under an axle (v6.3)
+	if loose:
+		cap_f *= _env_gf
+		cap_r *= _env_gr
 
 	# rolling resistance (opposes u, never reverses it)
 	var sgn_u: float = 1.0 if u > 0.0 else (-1.0 if u < 0.0 else 0.0)
 	var stop_f: float = (m * absf(u)) / h # force that would stop the car this sub-step
 	var roll_f: float = P.roll_resist * (load_f + load_r)
+	if loose:
+		roll_f = P.roll_resist * (load_f * _env_rf + load_r * _env_rr)
 	if roll_f > stop_f * 0.5:
 		roll_f = stop_f * 0.5
 	fx_e -= roll_f * sgn_u
@@ -716,7 +820,12 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	if u > 0.5:
 		var wf: float = (u - P.steer_slow_speed) / (P.steer_fast_speed - P.steer_slow_speed)
 		wf = 0.0 if wf <= 0.0 else (1.0 if wf >= 1.0 else wf * wf * (3.0 - 2.0 * wf))
-		var lock: float = atan((L * P.steer_ref_accel) / (u * u)) + P.peak_steer + (P.steer_extra_fast - P.peak_steer) * wf
+		var lock: float
+		if loose:
+			# the same lock for the grip and the tyre this surface leaves
+			lock = atan((L * P.steer_ref_accel * _env_gf) / (u * u)) + _env_pk + (P.steer_extra_fast / _env_kf - _env_pk) * wf
+		else:
+			lock = atan((L * P.steer_ref_accel) / (u * u)) + P.peak_steer + (P.steer_extra_fast - P.peak_steer) * wf
 		delta = sc * (lock if lock < P.steer_lock else P.steer_lock)
 		delta_cmd = delta
 		if u > 3.0:
@@ -750,6 +859,10 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	var ur: float = absf(u) if absf(u) > U_MIN else U_MIN
 	var x_r: float = vr / ur
 	var k_r: float = (fy_cap_r * _secant(P, x_r)) / ur
+	if loose:
+		# a softer tyre: the force at slip x is the asphalt force at x × stiffness
+		k_f = (fy_cap_f * (_env_kf * _secant(P, x_f * _env_kf))) / uf
+		k_r = (fy_cap_r * (_env_kr * _secant(P, x_r * _env_kr))) / ur
 	_slip_f = x_f
 	_slip_r = x_r
 
@@ -807,6 +920,8 @@ func _planar_step(P: CarSpec, h: float) -> void:
 			var fade_in: float = (u - P.esc_from) / 4.0 if u < P.esc_from + 4.0 else 1.0
 			var mom: float = iz * P.esc_gain * ae
 			var m_max: float = P.esc_moment * (P.esc_under if under else 1.0)
+			if loose:
+				m_max *= _env_sesc
 			if mom > m_max:
 				mom = m_max
 			mom *= _env_esc * fade_in

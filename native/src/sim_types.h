@@ -54,6 +54,8 @@ struct Spec {
 	// derived (CarSpec.derive())
 	double wheelbase = 2.6, core = 1.2, peak_slip = 0.0, pac_slope0 = 0.0, peak_steer = 0.0;
 	std::vector<double> torque_rpm, torque_nm;
+	// the car's grip share on every road surface (CarSpec.surface_grip, sim/surfaces.gd order)
+	std::vector<double> surf_grip;
 
 	// CarSpec.pacejka(): magic formula force ratio at slip x.
 	double pacejka(double x) const;
@@ -69,6 +71,10 @@ struct Track {
 	double seg_len = 2.0, length = 0.0;
 	std::vector<double> px, py, pz, tx, tz, nx, nz, hw, bank;
 	std::vector<double> phys_slope, phys_kv; // Car.track_phys()
+	// road surfaces (BuiltTrack.surf_w: surf_n blend weights a sample; empty = all asphalt) and the
+	// surface table's physics columns (sim/surfaces.gd: roll, stiffness, esc)
+	std::vector<double> surf_w, surf_roll, surf_stiff, surf_esc;
+	int surf_n = 0;
 	// wall grid (collision.gd WallGrid)
 	double cell = 12.0, min_x = 0.0, min_z = 0.0;
 	int cols = 0, rows = 0;
@@ -133,6 +139,11 @@ struct CarState {
 	double rub_t = 0;
 	// per-step environment shared by the sub-steps (car.gd _env_*)
 	double env_gx = 0, env_gz = 0, env_gn = 9.81, env_drive = 0, env_brake = 0, env_hb = 0, env_esc = 1.0;
+	// the road surface under the axles (car.gd _env_loose ... _env_pk, _mx_*)
+	bool env_loose = false;
+	double env_gf = 1.0, env_gr = 1.0, env_kf = 1.0, env_kr = 1.0, env_rf = 1.0, env_rr = 1.0, env_sesc = 1.0, env_pk = 0.0;
+	double mx_g = 1.0, mx_k = 1.0, mx_r = 1.0, mx_e = 1.0;
+	bool mx_pure = true;
 	// scratch (car.gd _loc, _contact, _att_pitch, _att_roll)
 	Loc loc;
 	Contact contact;

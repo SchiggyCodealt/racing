@@ -102,6 +102,22 @@ static func clone_net(net: Object) -> Object:
 	return net.call("clone") if net != null else null
 
 
+## A network file's best times ({track: {lap, finish, sig}}) without those made on another
+## version of a track: an entry's sig (files before v6.3 have none: the v6.2 signature,
+## Tracks.LEGACY_SIGS) must be the track's signature now. Unknown tracks are kept.
+static func _current_times(best: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if not (best is Dictionary):
+		return out
+	for id: Variant in best:
+		var e: Variant = best[id]
+		var cur: String = Tracks.signature(str(id))
+		var made_on: Variant = (e as Dictionary).get("sig", Tracks.legacy_signature(str(id))) if e is Dictionary else null
+		if cur == "" or made_on == cur:
+			out[id] = e
+	return out
+
+
 ## The menu's summary of car `car_id`'s network {net, meta} (UiData.ai_status's fields), or null.
 ## trained_car is the car the network was trained with (another one than car_id for a file
 ## trained with another car).
@@ -113,7 +129,7 @@ static func status_of(network: Dictionary, car_id: String = Cars.DEFAULT_CAR) ->
 	for n: int in network.net.get("sizes"):
 		sizes.append(n)
 	var on: Variant = meta.get("trainedOn")
-	var best: Variant = meta.get("bestTimes")
+	var best: Variant = _current_times(meta.get("bestTimes"))
 	return {
 		"generation": int(meta.generation) if (meta.get("generation") is float or meta.get("generation") is int) else "?",
 		"fitness": float(meta.fitness) if (meta.get("fitness") is float or meta.get("fitness") is int) else 0.0,

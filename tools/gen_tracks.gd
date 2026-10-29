@@ -28,6 +28,8 @@ extends SceneTree
 ##     finish on a straight
 ##   - sprints have 36 m of straight road before the cars' start position and
 ##     250 m of flat, straight run-off after the FINISH line
+##   - surfaces (v6.3): known ids (sim/surfaces.gd), every stretch other than
+##     asphalt at least 60 m long, and the start grid on asphalt
 
 const OUT_PATH: String = "res://data/tracks.json"
 
@@ -50,6 +52,8 @@ const RULES: Dictionary = {
 	straightTol = 1.0, # degrees of heading change still counted as "straight"
 	sprintRunIn = 36.0, # m of road before a sprint's start position
 	sprintRunOff = 250.0, # m of straight, flat road after a sprint's finish line
+	surfaceMin = 60.0, # m, shortest stretch of a surface other than asphalt
+	startAsphalt = 24.0, # m of asphalt before the start line and after the cars' start position
 }
 const RUN_IN: float = 36.0
 const RUN_OFF: float = 250.0
@@ -96,7 +100,7 @@ func _initialize() -> void:
 			String(e.def.id).rpad(16), s.race / 1000.0, "sprint " if e.def.type == "sprint" else "%d laps" % s.laps,
 			s.minR, s.minMargin, s.minY, s.maxY, s.maxGrade * 100.0, kick.size(), kick_txt, s.cps, JsMath.roundi(gmin), JsMath.roundi(gmax),
 			s.minClear, ("%.0f" % s.minCrest) if is_finite(s.minCrest) else "-", s.wMin, s.wMax, s.maxBank, s.hairpins, s.startRun,
-			("closure %.3f m  " % s.closure) if e.def.type == "circuit" else "", s.points])
+			("closure %.3f m  " % s.closure) if e.def.type == "circuit" else "", s.points] + ("  surface: %s" % s.surfaces if s.surfaces != "" else ""))
 		for msg: String in r.issues:
 			print("   ! " + msg)
 		if r.issues.size():
@@ -171,6 +175,7 @@ func _define() -> void:
 		{minLength = 1600, width = [18, 22], maxGrade = 0.06, kickers = 0})
 
 	# 2 - Hairpin Valley: switchbacks up one side of the valley, a ridge road, switchbacks down the other.
+	# Packed snow (v6.3) from the third switchback over the ridge: the highest, coldest part.
 	_circuit({id = "hairpin-valley", name = "Hairpin Valley", difficulty = 2, width = 13, theme = "alpine",
 		description = "Climb three switchbacks, cross the ridge and drop down two more: brake early, power out."},
 		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 13, y = 1, yaw = PI / 2})
@@ -179,10 +184,12 @@ func _define() -> void:
 			# up: three switchbacks, each leg climbs 5 m at up to 7 %
 			.L(90, 16).S(64).L(90, 16).S(20).climb(110, 6).S(20)
 			.R(90, 16).S(64).R(90, 16).S(20).climb(110, 11).S(20)
+			.surface("snow")
 			.L(90, 16).S(64).L(90, 16).S(20).climb(110, 16)
 			# the ridge
 			.S(100).hill(200, 1.5)
 			.L(90, 40)
+			.surface("asphalt")
 			# down: two hairpins
 			.climb(b, 12.5)
 			.hairpin("R", 17).climb(b - 40, 8)
@@ -193,17 +200,21 @@ func _define() -> void:
 		{minLength = 2200, hairpins = 5, minClimb = 10, kickers = 0})
 
 	# 3 - Ramp Rally: four kicker jumps on long straights, chicanes and dunes in between.
+	# Dirt (v6.3) from the first jump's run-out to the third jump's: the S-bend, the dune and the
+	# banked left become a rally stage (made for the Drifter and the Dune), the big jump takes off from dirt.
 	_circuit({id = "ramp-rally", name = "Ramp Rally", difficulty = 3, width = 15, theme = "desert",
 		description = "Four kicker jumps from 4 to 7 m: hit each ramp straight and land on the long run-outs."},
 		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 15, y = 2})
 			.S(a, {y = 2})
 			.kicker({h = 4.2, ramp = 22, land = 32, run = 130, lead = 30})
+			.surface("dirt")
 			.L(90, 40, {bank = 6})
 			.S(b).SL(30, 70, {}, 20)
 			.kicker({h = 5.5, ramp = 28, land = 42, run = 130})
 			.hill(180, 3)
 			.L(90, 35, {bank = 8})
 			.S(60).kicker({h = 7, ramp = 34, land = 55, run = 130})
+			.surface("asphalt")
 			.L(90, 45, {bank = 6})
 			.S(60).hill(160, 2.5).SR(35, 60, {}, 30)
 			.kicker({h = 5, ramp = 26, land = 45, run = 130, drop = 1.5}).y(0.5)
@@ -313,23 +324,30 @@ func _define() -> void:
 		{minLength = 2800, width = [12, 18], widthSpread = 5.5, kickers = 0})
 
 	# 8 - Mountain Pass: a point-to-point climb over banked switchbacks to 18 m and down the other side.
+	# Surfaces (v6.3): the fast valley sweepers are a dirt road, the summit is packed snow (asphalt
+	# again 60 m before the first hairpin down, so the braking for it is on tarmac).
 	_sprint({id = "mountain-pass", name = "Mountain Pass", difficulty = 4, width = 13, theme = "alpine",
 		description = "A 4.5 km sprint over the pass: banked switchbacks up to the summit and a fast, twisting descent."},
 		func() -> Turtle: return (Turtle.new({width = 14, y = 1, yaw = PI})
 			.S(RUN_IN, {y = 1}) # road behind the start position
 			# valley run north, then a steep pull up the first slope
 			.S(240, {y = 1})
+			.surface("dirt")
 			.L(35, 160, {bank = 6}).R(35, 160, {bank = 6})
 			.S(40).climb(150, 8).S(40).width(13, 40)
+			.surface("asphalt")
 			# the climb: three banked switchbacks
 			.L(90, 40, {bank = 8})
 			.S(40).climb(150, 11.5).S(30).hairpin("R", 18, {bank = 12})
 			.S(40).climb(150, 14.5).S(30).hairpin("L", 18, {bank = 12})
 			.S(40).climb(150, 17).S(30).hairpin("R", 18, {bank = 12})
+			.surface("snow")
 			.climb(240, 17.5)
 			# summit ridge
 			.S(60).L(30, 90, {bank = 10}).R(30, 90, {bank = 10})
-			.S(60).hill(240, 0.5).S(200)
+			.S(60).hill(240, 0.5).S(140)
+			.surface("asphalt")
+			.S(60)
 			# the descent: three banked switchbacks, steep legs
 			.hairpin("R", 19, {bank = 12})
 			.S(30).climb(140, 12.5).S(30).hairpin("L", 19, {bank = 12})
@@ -343,6 +361,8 @@ func _define() -> void:
 		{minLength = 4300, minClimb = 14})
 
 	# 9 - Canyon Run: out along one narrow canyon, back along the next; twisty, narrow and jumpy.
+	# Dirt (v6.3) at the far end: the double-left turnaround between the two canyons is a gravel
+	# track, a place to slide the car round instead of braking to a crawl.
 	_circuit({id = "canyon-run", name = "Canyon Run", difficulty = 5, width = 11, theme = "canyon",
 		description = "Out and back through narrow red-rock badlands with jumps, blind crests and tight S-bends: the hardest circuit."},
 		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 13, y = 4, yaw = PI / 2})
@@ -353,11 +373,14 @@ func _define() -> void:
 			.SL(55, 26, {bank = 8}, 10).width(10, 40)
 			.S(60, {y = 6}).hill(170, 2.5, {y = 7})
 			.SR(65, 24, {bank = 8}, 12)
+			.surface("dirt")
 			.S(80, {y = 9})
 			# far end: a tight double-left onto the north canyon
 			.L(90, 22, {bank = 8}).S(140, {y = 10}).L(90, 22, {bank = 8}).width(12, 40)
 			# back along the north canyon
-			.S(80, {y = 11}).hill(160, 2, {y = 11}).S(60)
+			.S(80, {y = 11})
+			.surface("asphalt")
+			.hill(160, 2, {y = 11}).S(60)
 			.SL(45, 30, {bank = 8}, 10)
 			.kicker({h = 5, drop = 3})
 			.SR(60, 26, {bank = 10}, 8).width(10, 40)
@@ -462,6 +485,8 @@ func _realise(d: Dictionary) -> Dictionary:
 	else:
 		def.startAt = RUN_IN
 		def.runOff = RUN_OFF
+	if not (f.surfaces as Array).is_empty():
+		def.surfaces = f.surfaces # (v6.3; all-asphalt tracks have no key, as before)
 	def.checkpoints = f.checkpoints
 	def.points = f.points
 	return {def = def, f = f, turtle = t, req = req}
@@ -749,6 +774,38 @@ func _validate(e: Dictionary) -> Dictionary:
 			if d * seg_len >= -20.0 and d * seg_len <= posmod(int(k.lip) - int(k.foot), N) * seg_len + RULES.landingZone:
 				issues.append("checkpoint at %.0f m is on the jump at %.0f m" % [c * seg_len, k.s])
 
+	# surfaces: known ids, no short patches, the start grid on asphalt
+	var surf_txt: PackedStringArray = []
+	for r: Variant in def.get("surfaces", []):
+		if not (r is Array) or (r as Array).size() < 3 or not Surfaces.has(String(r[0])):
+			issues.append("bad surface range %s (known: %s)" % [r, ", ".join(Surfaces.DEFS.map(func(d: Dictionary) -> String: return String(d.id)))])
+	if tr.has_surfaces():
+		var runs: Array = [] # [surface, first sample, samples]
+		var i_r: int = 0
+		while i_r < count:
+			var j_r: int = i_r
+			while j_r + 1 < count and tr.surface[j_r + 1] == tr.surface[i_r]:
+				j_r += 1
+			runs.append([int(tr.surface[i_r]), i_r, j_r - i_r + 1])
+			i_r = j_r + 1
+		if closed and runs.size() > 1 and int(runs[0][0]) == int(runs[runs.size() - 1][0]):
+			runs[0][2] = int(runs[0][2]) + int(runs[runs.size() - 1][2]) # one stretch across the line
+			runs.pop_back()
+		var share: Dictionary = {}
+		for r: Array in runs:
+			share[r[0]] = int(share.get(r[0], 0)) + int(r[2])
+			if int(r[0]) != Surfaces.ASPHALT and int(r[2]) * seg_len < RULES.surfaceMin:
+				issues.append("%s stretch at %.0f m is only %.0f m long (at least %s m)" % [Surfaces.id(r[0]), int(r[1]) * seg_len, int(r[2]) * seg_len, RULES.surfaceMin])
+		for k: int in share:
+			if k != Surfaces.ASPHALT:
+				surf_txt.append("%s %.0f%%" % [Surfaces.id(k), 100.0 * share[k] / count])
+		var a_s: int = tr.start_line - JsMath.roundi(RULES.startAsphalt / seg_len)
+		var b_s: int = tr.start_idx + JsMath.roundi(RULES.startAsphalt / seg_len)
+		for i in range(a_s, b_s + 1):
+			if tr.surface[tr.wrap(i)] != Surfaces.ASPHALT:
+				issues.append("the start grid is not on asphalt (%s at %.0f m)" % [Surfaces.id(tr.surface[tr.wrap(i)]), tr.wrap(i) * seg_len])
+				break
+
 	# start / finish on straights
 	var straight_run := func(from: int, dir: int, mx: float) -> float:
 		var h0: float = heading.call(from)
@@ -809,6 +866,7 @@ func _validate(e: Dictionary) -> Dictionary:
 			minR = min_r, minMargin = min_margin, minY = min_y, maxY = max_y, maxGrade = max_grade, minClear = min_clear, closure = closure,
 			wMin = w_min, wMax = w_max, maxBank = max_bank, hairpins = hairpins, cps = cps.size(), minCrest = min_crest, startRun = start_run,
 			prof = prof, kickGrade = kick_grade, landGrade = land_grade, points = (def.points as Array).size(),
+			surfaces = " ".join(surf_txt),
 		},
 	}
 

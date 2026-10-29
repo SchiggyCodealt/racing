@@ -35,8 +35,12 @@ extends RefCounted
 ##   every plan command also accepts o.w (and o.wLen).
 ## Checkpoints: cp() at the current position; without any, finish() spaces
 ##   them evenly (cpSpacing, default 400 m), never on a jump.
+## Surfaces (v6.3): surface("dirt") makes the road from here on dirt (any id of
+##   sim/surfaces.gd), surface("asphalt") goes back; the road starts as asphalt.
+##   finish() gives the stretches as [id, from, to] in control-point indices with
+##   a fraction (the track definition's "surfaces"); they never move a point.
 ## Output: finish({closed, cpSpacing, startAt, runOff}) -> {points,
-##   checkpoints, length, closure, kickers, cpDistances, state} plus
+##   checkpoints, surfaces, length, closure, kickers, cpDistances, state} plus
 ##   profile_at(s) on the turtle for the designed height. points are
 ##   [x, z, height, bankDeg, widthM] (rounded like the JS: 1 cm, 0.1°, 0.1 m).
 ## close_loop(make, opts) solves two straight lengths so a circuit closes.
@@ -62,6 +66,7 @@ var h_keys: Array[Dictionary] = [] # {s, h, flat}
 var kickers: Array[Dictionary] = [] # {s0, s1, foot, lip, landEnd, h, grade, landGrade, y0, drop, T1, T2}
 var w_keys: Array[Dictionary] = [] # {s0, s1, w0, w1}
 var cps: PackedFloat64Array = PackedFloat64Array()
+var surf_keys: Array[Dictionary] = [] # {s, kind}: the road is `kind` from s on
 var _height_closed: int = -1 # cached height function: -1 none, 0 open, 1 closed
 var _base: _PchipKeys = null
 
@@ -282,6 +287,15 @@ func cp() -> Turtle:
 	return self
 
 
+## The road surface from the current position on (an id of sim/surfaces.gd: "asphalt", "dirt", "snow").
+func surface(kind: String) -> Turtle:
+	if not surf_keys.is_empty() and absf(float(surf_keys[surf_keys.size() - 1].s) - float(st.s)) < 1e-6:
+		surf_keys[surf_keys.size() - 1].kind = kind
+	else:
+		surf_keys.append({s = float(st.s), kind = kind})
+	return self
+
+
 ## Height of the designed profile at distance s (closed: as a circuit).
 func profile_at(s: float, closed: bool) -> float:
 	_prepare_height(closed)
@@ -395,13 +409,33 @@ func finish(opts: Dictionary = {}) -> Dictionary:
 				best = i
 		checkpoints.append(best)
 	checkpoints.sort()
+	var surf_out: Array = []
+	for k in surf_keys.size():
+		var key: Dictionary = surf_keys[k]
+		var s0: float = key.s
+		var s1: float = float(surf_keys[k + 1].s) if k + 1 < surf_keys.size() else L_
+		if String(key.kind) == "asphalt" or s1 - s0 < 1e-6:
+			continue
+		surf_out.append([String(key.kind), _ctrl_index(s_list, s0, L_, closed), _ctrl_index(s_list, s1, L_, closed)])
 	var kick_out: Array = []
 	for kk in kickers:
 		kick_out.append({s0 = kk.s0, s1 = kk.s1, foot = kk.foot, lip = kk.lip, landEnd = kk.landEnd, h = kk.h, grade = kk.grade, landGrade = kk.landGrade})
 	return {
-		points = points, checkpoints = checkpoints, length = L_, closure = closure, state = st.duplicate(),
+		points = points, checkpoints = checkpoints, surfaces = surf_out, length = L_, closure = closure, state = st.duplicate(),
 		kickers = kick_out, cpDistances = cp_s, closed = closed,
 	}
+
+
+## Distance s as a control-point index with a fraction (2 decimals): between the points at
+## s_list[i] and the next one (a circuit's last point is followed by point 0 again at L_).
+static func _ctrl_index(s_list: PackedFloat64Array, s: float, L_: float, closed: bool) -> float:
+	var n: int = s_list.size()
+	var i: int = 0
+	while i + 1 < n and s_list[i + 1] <= s:
+		i += 1
+	var nxt: float = s_list[i + 1] if i + 1 < n else (L_ if closed else s_list[i])
+	var f: float = (s - s_list[i]) / (nxt - s_list[i]) if nxt > s_list[i] else 0.0
+	return JsMath.round((i + f) * 100.0) / 100.0
 
 
 static func _h_at(hs: PackedFloat64Array, M: int, x: float) -> float:

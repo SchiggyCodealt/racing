@@ -296,6 +296,7 @@ static func spec_data(s: CarSpec) -> Dictionary:
 	d.peakSteer = s.peak_steer
 	d.torqueRpm = s.torque_rpm
 	d.torqueNm = s.torque_nm
+	d.surfGrip = s.surface_grip
 	return d
 
 
@@ -316,6 +317,8 @@ static func track_data(t: BuiltTrack, laps: int) -> Dictionary:
 		length = t.length, start_idx = t.start_idx, finish_idx = t.finish_idx,
 		px = t.px, py = t.py, pz = t.pz, tx = t.tx, tz = t.tz, nx = t.nx, nz = t.nz, hw = t.hw, bank = t.bank,
 		phys_slope = t.phys_slope, phys_kv = t.phys_kv,
+		surf_w = t.surf_w, surf_n = t.surf_n, surf_roll = Surfaces.column("roll"), surf_stiff = Surfaces.column("stiffness"),
+		surf_esc = Surfaces.column("esc"),
 		grid_cell = g.cell, grid_min_x = g.min_x, grid_min_z = g.min_z, grid_cols = g.cols, grid_rows = g.rows,
 		grid_seg_d = g.seg_d, grid_inward = g.inward, grid_cell_start = g.cell_start, grid_cell_segs = g.cell_segs,
 		grid_seg_cell = g.seg_cell,
@@ -523,9 +526,11 @@ func score(a: Agent) -> float:
 	return f
 
 
+## The best lap / finish on a track ({lap, finish, sig}: sig is the track's signature, so a
+## network file's times on an older version of a track can be told apart, see AiLink.status_of).
 func record_time(t: BuiltTrack, ev: Dictionary) -> void:
 	if not best_times.has(t.id):
-		best_times[t.id] = {lap = null, finish = null}
+		best_times[t.id] = {lap = null, finish = null, sig = t.signature()}
 	var rec: Dictionary = best_times[t.id]
 	if ev.has("lap_time") and (rec.lap == null or float(ev.lap_time) < float(rec.lap)):
 		rec.lap = float(ev.lap_time)
@@ -575,10 +580,10 @@ func _merge_native_times() -> void:
 	var fin: float = float(fleet.call("get_best_finish"))
 	if lap == INF and fin == INF:
 		if not best_times.has(track.id) and bool(fleet.call("get_any_gate")):
-			best_times[track.id] = {lap = null, finish = null}
+			best_times[track.id] = {lap = null, finish = null, sig = track.signature()}
 		return
 	if not best_times.has(track.id):
-		best_times[track.id] = {lap = null, finish = null}
+		best_times[track.id] = {lap = null, finish = null, sig = track.signature()}
 	var rec: Dictionary = best_times[track.id]
 	if lap != INF and (rec.lap == null or lap < float(rec.lap)):
 		rec.lap = lap

@@ -32,7 +32,7 @@ func _initialize() -> void:
 		nets.append(_population(sc).genomes)
 		var ts: Array = []
 		for id: Variant in sc.tracks:
-			ts.append(Tracks.build(String(id)))
+			ts.append(Tracks.build_asphalt(String(id)))
 		built.append(ts)
 	var n_samples: int = bin.size() / per
 	# where each sample is: "scenario:run:step:car" -> offset in bin

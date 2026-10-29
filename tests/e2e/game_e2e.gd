@@ -36,6 +36,12 @@ extends SceneTree
 ##             train_car=<id> (default racer) on train_track=<id> (default lighthouse-bay) (PNGs);
 ##             net=<file> loads that network first (the menu's AI block, training continues it).
 ##   perf      script time per frame of a race (Drive with the autopilot, real time).
+##   surfaces  dirt and snow (v6.3): the menu's track panel names a track's surfaces (Ramp Rally
+##             "Asphalt + dirt", Mountain Pass "Asphalt + dirt + packed snow"); Drive with the Dune
+##             on Ramp Rally (the medal autopilot): no dust on asphalt; on the dirt the tyres throw
+##             up dust (a pooled effect), the tyre marks take the dirt's colour and the camera
+##             rumbles; Hairpin Valley with the Racer: snow spray and grey-blue marks on the snow.
+##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow.
 ## Prints "ok"/"FAIL" lines and "E2E <scenario>: n passed, m failed"; quits with 1 on a failure.
 ## out=<dir> (default user://e2e) also holds the scratch files of the modes scenario;
 ## net=<file> is the network it loads (default the test fixture, a browser-format file).
@@ -86,6 +92,8 @@ func _main() -> void:
 			await shots()
 		"perf":
 			await perf()
+		"surfaces":
+			await surfaces()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -212,9 +220,11 @@ func pick(track_id: String, car: String) -> void:
 
 
 ## Drive the race in progress with the medal autopilot (aLat, lookK), feeding the input layer.
+## It knows the car's grip on dirt and snow, as the medal sweep's autopilot does.
 func autopilot(a_lat: float, look_k: float, nitro: bool = true) -> void:
 	var m: Node = app.mode
-	_pilot = Autopilot.medal(m.get("track"), a_lat, look_k, nitro)
+	var cid: String = str((m.get("car_def") as Dictionary).get("id", Cars.DEFAULT_CAR)) if m.get("car_def") is Dictionary else Cars.DEFAULT_CAR
+	_pilot = Autopilot.medal(m.get("track"), a_lat, look_k, nitro, Autopilot.DECEL, Cars.spec(cid))
 	var inp := app.input
 	inp.feed = func(_speed: float) -> void:
 		var mode: Node = app.mode
@@ -747,6 +757,69 @@ func train_shot(tag: String) -> void:
 	check(tr != null and int(tr.get("generation")) > 0 and not app.get_viewport().disable_3d,
 		"training for the shot: generation %s, the 3D view drawn" % (str(tr.get("generation")) if tr != null else "-"))
 	await shot("train_" + tag)
+
+
+# ---------------------------------------------------------------- road surfaces
+
+func surfaces() -> void:
+	var meta: Label = app.ui.menu.get("_td_meta")
+	for want: Array in [["rookie-oval", "Asphalt"], ["mountain-pass", "Asphalt + dirt + packed snow"], ["ramp-rally", "Asphalt + dirt"]]:
+		await pick(want[0], "dune")
+		await frames(4)
+		check(meta.text.ends_with(" · " + want[1]), "the track panel names the surfaces of %s: \"%s\"" % [want[0], meta.text])
+	await frames(20)
+	await shot("surfaces_menu")
+	await _surface_drive("ramp-rally", "dune", "dirt", true)
+	await _surface_drive("hairpin-valley", "racer", "snow", false)
+
+
+## Drive (medal autopilot) to the first stretch of `sid` on track `tid` with car `cid`: the tyres
+## throw up nothing on asphalt; on the surface they throw up its dust (or snow), leave marks of its
+## colour, and the camera rumbles. transition: a shot just before the border too.
+func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> void:
+	var tag := "%s / %s" % [tid, cid]
+	await pick(tid, cid)
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	var track: BuiltTrack = m.get("track")
+	var si := Surfaces.index_of(sid)
+	var first := -1
+	for i in track.count:
+		if track.surface[i] == si:
+			first = i
+			break
+	if not check(first > 0, "%s: the track has %s (from sample %d)" % [tag, sid, first]):
+		return
+	var last := first
+	while last + 1 < track.count and track.surface[last + 1] == si:
+		last += 1
+	var run: Dictionary = Medals.medal_times(track, cid).get("run", {"aLat": 20.0, "lookK": 1.0})
+	autopilot(float(run.aLat), float(run.lookK))
+	var c: Car = m.get("car")
+	var model: CarModel = m.get("model")
+	var cam: ChaseCamera = m.get("camera")
+	fast(true)
+	await wait_until(func() -> bool: return c.idx >= first - 70, 300.0)
+	fast(false) # (the last stretch at normal speed: a fast frame could jump the border)
+	await wait_until(func() -> bool: return c.idx >= first - 8, 300.0)
+	var pool: CarEffects.Spray = model.dust if sid == "dirt" else model.spray
+	check(pool == null or pool.alive == 0, "%s: on asphalt (sample %d) the tyres throw up no %s" % [tag, c.idx, "dust" if sid == "dirt" else "snow"])
+	if transition:
+		await shot("surfaces_transition")
+	# into the stretch, then a moment sliding on it (or the last of it)
+	await wait_until(func() -> bool: return c.idx >= first + 30 and c.idx < last - 10, 60.0)
+	await wait_until(func() -> bool: return c.slip > 0.35 or c.idx >= mini(last - 10, first + 160), 40.0)
+	await frames(12)
+	pool = model.dust if sid == "dirt" else model.spray
+	var slot := model.skids.newest_tint.x if si == 1 else model.skids.newest_tint.y
+	check(pool != null and pool.alive >= 8 and pool.node.visible, "%s: on the %s (sample %d, %.0f km/h, slip %.2f) the tyres throw up %s: %d puffs alive (pool %d)" % [
+		tag, sid, c.idx, c.speed * 3.6, c.slip, "dust" if sid == "dirt" else "snow", pool.alive if pool != null else 0, pool.max if pool != null else 0])
+	check(model.skids.used > 0 and slot > 0.9, "%s: the newest tyre mark has the %s's colour (weight %.2f)" % [tag, sid, slot])
+	check(cam.ground_rumble > 0.02, "%s: the camera rumbles on the %s (%.3f)" % [tag, sid, cam.ground_rumble])
+	await shot("surfaces_" + sid)
+	stop_autopilot()
+	await key(KEY_ESCAPE)
+	await frames(4)
 
 
 # ---------------------------------------------------------------- performance

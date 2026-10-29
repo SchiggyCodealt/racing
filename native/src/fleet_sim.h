@@ -146,6 +146,8 @@ public:
 	// the sensors' track queries, for tests
 	double debug_sharpest(int l, int r) const;
 	double debug_heading(double s) const;
+	// one car driven by a control tape (steer, throttle, handbrake, nitro a step), for tests
+	godot::PackedFloat64Array debug_drive(int start_idx, const godot::PackedFloat64Array &tape, double dt) const;
 };
 
 } // namespace trackrush

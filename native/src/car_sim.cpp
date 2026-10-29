@@ -503,8 +503,81 @@ void road_attitude(CarState &c, const Track &track, const Loc &loc) {
 	c.att_roll = std::atan(gx * fz - gz * fx); // ground rising to the left -> left side up
 }
 
+// Car._axle_mix: blend of the surfaces at fractional sample p (into c.mx_*).
+void axle_mix(CarState &c, const Spec &P, const Track &track, double p) {
+	int n = track.count;
+	int k;
+	double f;
+	if (track.closed) {
+		double kf = std::floor(p);
+		f = p - kf;
+		k = posmod((int)kf, track.N);
+	} else if (p <= 0.0) {
+		k = 0;
+		f = 0.0;
+	} else if (p >= n - 1) {
+		k = n - 2;
+		f = 1.0;
+	} else {
+		double kf2 = std::floor(p);
+		k = (int)kf2;
+		f = p - kf2;
+	}
+	int j = track.closed ? (k + 1) % track.N : k + 1;
+	int S = track.surf_n;
+	const double *W = track.surf_w.data();
+	double g = 0.0;
+	double st = 0.0;
+	double r = 0.0;
+	double e = 0.0;
+	double a0 = 0.0;
+	for (int s = 0; s < S; s++) {
+		double wa = W[k * S + s];
+		double w = wa + (W[j * S + s] - wa) * f;
+		if (s == 0) {
+			a0 = w;
+		}
+		g += w * P.surf_grip[s];
+		st += w * track.surf_stiff[s];
+		r += w * track.surf_roll[s];
+		e += w * track.surf_esc[s];
+	}
+	c.mx_pure = a0 == 1.0;
+	c.mx_g = g;
+	c.mx_k = st;
+	c.mx_r = r;
+	c.mx_e = e;
+}
+
+// Car._surface_mix: the surface blend under both axles (front cg_to_front ahead, rear cg_to_rear behind).
+void surface_mix(CarState &c, const Spec &P, const Track &track) {
+	c.env_loose = false;
+	if (track.surf_w.empty()) {
+		return;
+	}
+	double cos_t = std::sin(c.yaw) * -c.nz + std::cos(c.yaw) * c.nx; // heading against the road's tangent
+	double p0 = c.idx + c.t;
+	axle_mix(c, P, track, p0 + (P.cg_to_front * cos_t) / track.seg_len);
+	bool pure_f = c.mx_pure;
+	c.env_gf = c.mx_g;
+	c.env_kf = c.mx_k;
+	c.env_rf = c.mx_r;
+	double esc_f = c.mx_e;
+	axle_mix(c, P, track, p0 - (P.cg_to_rear * cos_t) / track.seg_len);
+	if (pure_f && c.mx_pure) {
+		return;
+	}
+	c.env_loose = true;
+	c.env_gr = c.mx_g;
+	c.env_kr = c.mx_k;
+	c.env_rr = c.mx_r;
+	c.env_sesc = (esc_f + c.mx_e) * 0.5;
+	c.env_pk = std::atan((P.peak_slip / c.env_kf) * P.steer_slip_gain);
+}
+
 // Car._surface_env: gravity along the road and the normal load (once per step).
-void surface_env(CarState &c, const Track &track) {
+void surface_env(CarState &c, const Spec &P, const Track &track) {
+	surface_mix(c, P, track);
 	int i = c.idx;
 	int j = track.closed ? (i + 1) % track.N : mini(i + 1, track.count - 1);
 	double t = c.t;
@@ -714,11 +787,19 @@ void planar_step(CarState &c, const Spec &P, double h) {
 	double load_r0 = (m * G * a) / L;
 	double cap_f = mu_at(P, load_f, load_f0) * load_f;
 	double cap_r = mu_at(P, load_r, load_r0) * load_r;
+	bool loose = c.env_loose; // dirt / snow under an axle
+	if (loose) {
+		cap_f *= c.env_gf;
+		cap_r *= c.env_gr;
+	}
 
 	// rolling resistance (opposes u, never reverses it)
 	double sgn_u = u > 0.0 ? 1.0 : (u < 0.0 ? -1.0 : 0.0);
 	double stop_f = (m * std::fabs(u)) / h; // force that would stop the car this sub-step
 	double roll_f = P.roll_resist * (load_f + load_r);
+	if (loose) {
+		roll_f = P.roll_resist * (load_f * c.env_rf + load_r * c.env_rr);
+	}
 	if (roll_f > stop_f * 0.5) {
 		roll_f = stop_f * 0.5;
 	}
@@ -793,7 +874,13 @@ void planar_step(CarState &c, const Spec &P, double h) {
 	if (u > 0.5) {
 		double wf = (u - P.steer_slow_speed) / (P.steer_fast_speed - P.steer_slow_speed);
 		wf = wf <= 0.0 ? 0.0 : (wf >= 1.0 ? 1.0 : wf * wf * (3.0 - 2.0 * wf));
-		double lock = std::atan((L * P.steer_ref_accel) / (u * u)) + P.peak_steer + (P.steer_extra_fast - P.peak_steer) * wf;
+		double lock;
+		if (loose) {
+			// the same lock for the grip and the tyre this surface leaves
+			lock = std::atan((L * P.steer_ref_accel * c.env_gf) / (u * u)) + c.env_pk + (P.steer_extra_fast / c.env_kf - c.env_pk) * wf;
+		} else {
+			lock = std::atan((L * P.steer_ref_accel) / (u * u)) + P.peak_steer + (P.steer_extra_fast - P.peak_steer) * wf;
+		}
 		delta = sc * (lock < P.steer_lock ? lock : P.steer_lock);
 		delta_cmd = delta;
 		if (u > 3.0) {
@@ -830,6 +917,11 @@ void planar_step(CarState &c, const Spec &P, double h) {
 	double ur = std::fabs(u) > U_MIN ? std::fabs(u) : U_MIN;
 	double x_r = vr / ur;
 	double k_r = (fy_cap_r * secant(P, x_r)) / ur;
+	if (loose) {
+		// a softer tyre: the force at slip x is the asphalt force at x * stiffness
+		k_f = (fy_cap_f * (c.env_kf * secant(P, x_f * c.env_kf))) / uf;
+		k_r = (fy_cap_r * (c.env_kr * secant(P, x_r * c.env_kr))) / ur;
+	}
 	c.slip_f = x_f;
 	c.slip_r = x_r;
 
@@ -888,6 +980,9 @@ void planar_step(CarState &c, const Spec &P, double h) {
 			double fade_in = u < P.esc_from + 4.0 ? (u - P.esc_from) / 4.0 : 1.0;
 			double mom = iz * P.esc_gain * ae;
 			double m_max = P.esc_moment * (under ? P.esc_under : 1.0);
+			if (loose) {
+				m_max *= c.env_sesc;
+			}
 			if (mom > m_max) {
 				mom = m_max;
 			}
@@ -1319,7 +1414,7 @@ void car_step(CarState &c, const Spec &P, const Track &track, const Controls &ct
 	c.sc += d > m ? m : (d < -m ? -m : d);
 
 	// --- 2. surface under the car, drivetrain, nitro ---
-	surface_env(c, track);
+	surface_env(c, P, track);
 	drivetrain(c, P, thr, hb, dt);
 	if (boost_now > 0.0) {
 		double u = c.vx * std::sin(c.yaw) + c.vz * std::cos(c.yaw);

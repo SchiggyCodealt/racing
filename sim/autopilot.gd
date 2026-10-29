@@ -14,6 +14,9 @@ extends RefCounted
 ##   Autopilot.basic(track, grip, brake, top)       web/tools/selfTest.mjs makeAutopilot:
 ##       ±4 samples, aims 6 m + 0.35 × speed ahead (4..14 samples), no nitro
 ##   var ctrl: Car.Controls = pilot.drive(car)      every step (the same Controls object)
+##   (both take the car's spec last: on a track with dirt or snow the planned cornering
+##   grip and braking are scaled by the car's grip share on the road there, v6.3; on an
+##   all-asphalt track the plan is the same with or without it)
 ##
 ## Both are deterministic: the same car state gives the same controls.
 
@@ -35,10 +38,10 @@ var ctrl: Car.Controls = Car.Controls.new()
 
 
 ## The medal sweep's autopilot for one setting (aLat m/s² of planned grip, aim lookK).
-static func medal(t: BuiltTrack, a_lat: float, k: float, nitro: bool = false, decel: float = DECEL) -> Autopilot:
+static func medal(t: BuiltTrack, a_lat: float, k: float, nitro: bool = false, decel: float = DECEL, spec: CarSpec = null) -> Autopilot:
 	var p := Autopilot.new()
 	p.track = t
-	p._plan(3, 6.0, 100.0, 1e4, a_lat, decel, false)
+	p._plan(3, 6.0, 100.0, 1e4, a_lat, decel, false, spec)
 	p.look_k = k
 	p.look_min = 3
 	p.look_max = JsMath.roundi(LOOK_MAX / t.seg_len)
@@ -47,10 +50,10 @@ static func medal(t: BuiltTrack, a_lat: float, k: float, nitro: bool = false, de
 
 
 ## The test autopilot (corner speed for `grip` m/s², braking at `brake` m/s², at most `top` m/s).
-static func basic(t: BuiltTrack, grip: float = 11.0, brake: float = 7.5, top: float = 77.0) -> Autopilot:
+static func basic(t: BuiltTrack, grip: float = 11.0, brake: float = 7.5, top: float = 77.0, spec: CarSpec = null) -> Autopilot:
 	var p := Autopilot.new()
 	p.track = t
-	p._plan(4, 8.0, top, 1e5, grip, brake, true)
+	p._plan(4, 8.0, top, 1e5, grip, brake, true, spec)
 	p.look_k = 0.35
 	p.look_min = 4
 	p.look_max = 14
@@ -69,18 +72,28 @@ static func _wrap(a: float) -> float:
 ## Speed targets: corner speed from the heading change over ±window samples, then
 ## lowered backwards from every corner so the car can brake down to it.
 ## (f32: kept in float32 like the test autopilot's Float32Array.)
-func _plan(window: int, span: float, cap: float, straight: float, grip: float, decel: float, f32: bool) -> void:
+func _plan(window: int, span: float, cap: float, straight: float, grip: float, decel: float, f32: bool, spec: CarSpec = null) -> void:
 	var n: int = track.count
 	var closed: bool = track.closed
 	var seg: float = track.seg_len
 	var f := PackedFloat32Array()
 	f.resize(1)
 	vt.resize(n)
+	# the car's grip share on the road at every sample (only on tracks with dirt or snow)
+	var share := PackedFloat64Array()
+	if spec != null and track.has_surfaces():
+		share.resize(n)
+		for i in n:
+			var g: float = 0.0
+			for sf in track.surf_n:
+				g += track.surf_w[i * track.surf_n + sf] * spec.surface_grip[sf]
+			share[i] = g
 	for i in n:
 		var a: int = _at(i - window)
 		var b: int = _at(i + window)
 		var turn: float = absf(_wrap(atan2(track.tx[b], track.tz[b]) - atan2(track.tx[a], track.tz[a])))
-		var v: float = minf(cap, sqrt(grip * ((span * seg) / turn if turn > 1e-4 else straight)))
+		var gr: float = grip if share.is_empty() else grip * share[i]
+		var v: float = minf(cap, sqrt(gr * ((span * seg) / turn if turn > 1e-4 else straight)))
 		if f32:
 			f[0] = v
 			v = f[0]
@@ -89,7 +102,8 @@ func _plan(window: int, span: float, cap: float, straight: float, grip: float, d
 		for i in range(n - 1, -1, -1):
 			var j: int = (i + 1) % n if closed else i + 1
 			if j < n:
-				var v: float = minf(vt[i], sqrt(vt[j] * vt[j] + 2.0 * decel * seg))
+				var dc: float = decel if share.is_empty() else decel * share[i]
+				var v: float = minf(vt[i], sqrt(vt[j] * vt[j] + 2.0 * dc * seg))
 				if f32:
 					f[0] = v
 					v = f[0]
@@ -125,7 +139,7 @@ static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = C
 	var dt: float = 1.0 / 60.0
 	var car := Car.new(t, -1, Cars.spec(car_id))
 	var race := RaceState.new(t)
-	var pilot := Autopilot.medal(t, a_lat, k, nitro)
+	var pilot := Autopilot.medal(t, a_lat, k, nitro, DECEL, car.spec)
 	var score: ScoreState = ScoreState.new(t, true) if nitro else null
 	var steps: int = 0
 	var wall: int = 0

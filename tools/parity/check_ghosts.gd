@@ -17,7 +17,7 @@ func _initialize() -> void:
 	var runs: Array = HexJson.read(OS.get_cmdline_user_args()[0])
 	for r: Dictionary in runs:
 		var name: String = "%s %s" % [r.track, r.kind]
-		var track: BuiltTrack = Tracks.build(r.track)
+		var track: BuiltTrack = Tracks.build_asphalt(r.track)
 		# 1. encode the JS samples
 		var rec := Replay.GhostRecorder.new()
 		rec.steps = PackedInt32Array(r.recSteps)

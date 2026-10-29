@@ -11,7 +11,7 @@ extends RefCounted
 ##   thunder  heavy and powerful, the highest top speed, less grip, slower turn-in
 ##   drifter  loose rally car: slides and drifts easily, lands jumps softly
 ##   dune     open buggy: soft and forgiving, grips well everywhere, lower top speed
-##            (keeps the most grip on dirt: dirtGrip, for surfaces that don't exist yet)
+##            (keeps the most grip on dirt and snow: dirtGrip, snowGrip)
 ##   vortex   hypercar: the most power and top speed, light and twitchy, smallest nitro tank
 ##
 ## Use:
@@ -50,7 +50,7 @@ const DEFS: Array[Dictionary] = [
 		changes = {
 			id = "kestrel",
 			mass = 950, inertia = 1250, cgToFront = 1.12, cgToRear = 1.33, cgHeight = 0.38, wheelRadius = 0.32,
-			mu = 1.72, loadSensitivity = 0.08, dirtGrip = 0.72,
+			mu = 1.72, loadSensitivity = 0.08, dirtGrip = 0.72, snowGrip = 0.58,
 			drag = 0.75, downforce = 0, aeroFront = 0.44,
 			idleRpm = 1100, redline = 9400, upshiftRpm = 9000, downshiftRpm = 5200, launchRpm = 6200,
 			torque = [[1000, 220], [3000, 300], [5000, 335], [6500, 340], [8000, 300], [9000, 240], [9400, 210]],
@@ -70,7 +70,7 @@ const DEFS: Array[Dictionary] = [
 		changes = {
 			id = "thunder",
 			mass = 1650, inertia = 3000, cgToFront = 1.35, cgToRear = 1.55, cgHeight = 0.45, wheelRadius = 0.35,
-			mu = 1.37, loadSensitivity = 0.09, dirtGrip = 0.62,
+			mu = 1.37, loadSensitivity = 0.09, dirtGrip = 0.62, snowGrip = 0.48,
 			drag = 0.66, downforce = 2.2, aeroFront = 0.5,
 			idleRpm = 900, redline = 7500, upshiftRpm = 7100, downshiftRpm = 3800, launchRpm = 4800,
 			torque = [[1000, 450], [2500, 640], [4000, 760], [5500, 790], [6500, 760], [7200, 715], [7500, 670]],
@@ -91,7 +91,7 @@ const DEFS: Array[Dictionary] = [
 		changes = {
 			id = "drifter",
 			mass = 1150, inertia = 1500, cgToFront = 1.15, cgToRear = 1.35, cgHeight = 0.5, wheelRadius = 0.33,
-			mu = 1.57, pacB = 12, pacC = 2.0, pacE = 0.95, loadSensitivity = 0.07, dirtGrip = 0.9,
+			mu = 1.57, pacB = 12, pacC = 2.0, pacE = 0.95, loadSensitivity = 0.07, dirtGrip = 0.74, snowGrip = 0.6,
 			handbrake = 0.95, handbrakeFast = 0.7,
 			drag = 0.7, downforce = 0.35, aeroFront = 0.45,
 			idleRpm = 1000, redline = 7600, upshiftRpm = 7200, downshiftRpm = 4000, launchRpm = 5000,
@@ -114,7 +114,7 @@ const DEFS: Array[Dictionary] = [
 		changes = {
 			id = "dune",
 			mass = 1100, inertia = 1500, cgToFront = 1.25, cgToRear = 1.35, cgHeight = 0.55, wheelRadius = 0.4,
-			mu = 1.68, pacB = 10, pacC = 1.75, pacE = 0.9, loadSensitivity = 0.06, dirtGrip = 0.97,
+			mu = 1.68, pacB = 10, pacC = 1.75, pacE = 0.9, loadSensitivity = 0.06, dirtGrip = 0.97, snowGrip = 0.72,
 			handbrake = 0.85, handbrakeFast = 0.6,
 			drag = 1.05, downforce = 0.1, aeroFront = 0.45,
 			idleRpm = 900, redline = 6800, upshiftRpm = 6400, downshiftRpm = 3600, launchRpm = 4400,
@@ -137,7 +137,7 @@ const DEFS: Array[Dictionary] = [
 		changes = {
 			id = "vortex",
 			mass = 1150, inertia = 1500, cgToFront = 1.3, cgToRear = 1.4, cgHeight = 0.36, wheelRadius = 0.35,
-			mu = 1.55, loadSensitivity = 0.08, dirtGrip = 0.6,
+			mu = 1.55, loadSensitivity = 0.08, dirtGrip = 0.55, snowGrip = 0.42,
 			drag = 0.6, downforce = 1.6, aeroFront = 0.45,
 			idleRpm = 1100, redline = 9200, upshiftRpm = 8800, downshiftRpm = 5000, launchRpm = 4400,
 			torque = [[1000, 380], [3000, 560], [5000, 660], [6500, 690], [8000, 650], [8800, 600], [9200, 550]],

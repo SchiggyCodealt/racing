@@ -20,7 +20,9 @@ extends Node3D
 ##     "headlights" (night, dusk) the lamps burn brighter and light the road
 ##     (two spot lights on high, one on medium, a light pool decal on low)
 ## plus a soft contact shadow, tyre smoke, skid marks, wall sparks and nitro
-## flames (world/car_effects.gd). Under a World on low quality the car uses
+## flames (world/car_effects.gd); on dirt and packed snow (v6.3) the tyres throw
+## up dust or snow and leave marks of the surface's colour (needs the track:
+## update()'s `track`, else the World's). Under a World on low quality the car uses
 ## its lighter mesh and no panel lines.
 ##
 ## Use:
@@ -39,7 +41,7 @@ extends Node3D
 ## yaw, pitch, roll, steer_angle, wheel_rot, vx, vz, speed, forward_speed,
 ## side_speed, grounded, slip, drifting, braking, throttle, steer, boost,
 ## boosting, hit_wall, wall_hits, wall_impact, wall_scrape, wall_x, wall_z,
-## wall_nx, wall_nz); missing fields fall back as in the web game.
+## wall_nx, wall_nz, idx); missing fields fall back as in the web game.
 ## Car frame: x = left, y = up, z = forward; the origin is on the road
 ## between the axles. A ghost makes no smoke, skid marks or sparks and has no
 ## lights or glass; it shows the nitro jets. The car's meshes are on visual
@@ -77,6 +79,9 @@ var wheels: Array = [] # {c: Vector3 centre at rest, r, front}
 var smoke: CarEffects.TyreSmoke = null
 var skids: CarEffects.SkidMarks = null
 var sparks: CarEffects.Sparks = null
+## dust (dirt) and snow spray from the tyres on loose ground (made the first time they are needed)
+var dust: CarEffects.Spray = null
+var spray: CarEffects.Spray = null
 var flame: CarEffects.NitroFlame
 var wall := CarEffects.WallState.new()
 ## The pose drawn last frame (interpolated); the camera can use it.
@@ -117,6 +122,9 @@ var _brake_glow := TAIL_ON
 var _head_glow := HEAD_DAY
 var _set_glow := Vector2(-1, -1)
 var _smoke_acc := 0.0
+var _dust_acc := 0.0
+var _spray_acc := 0.0
+var _spray_wheel := 0
 var _first := true
 var _fade := 1.0
 var _fist_side := 0
@@ -433,7 +441,8 @@ func _lamp_points() -> Array:
 
 ## Draw the car between the previous physics step (prev_state, may be null) and the
 ## last one (state): alpha 0..1 is how far the frame is between them; dt the frame time.
-## `track` (BuiltTrack, optional) is only used when the state has no pitch / roll.
+## `track` (BuiltTrack, optional; else the World's) gives the road's tilt when the state has no
+## pitch / roll, and the surface under the car (dust, snow, the marks' colour).
 func update(state: Variant, prev_state: Variant = null, alpha := 1.0, dt := 1.0 / 60.0, track: BuiltTrack = null) -> void:
 	dt = clampf(dt, 1e-4, 0.1)
 	if _world != null:
@@ -487,24 +496,41 @@ func update(state: Variant, prev_state: Variant = null, alpha := 1.0, dt := 1.0 
 
 	var xf := global_transform if is_inside_tree() else transform
 
-	# tyre smoke and skid marks from the rear wheels
+	# tyre smoke and skid marks from the rear wheels; on dirt and snow (v6.3) the marks take the
+	# surface's colour, faint tracks stay behind even without a slide, and the tyres throw up
+	# dust or snow instead of smoke
 	if smoke != null:
 		var slip := car.slip if car.has_slip else (0.75 if car.drifting else clampf((absf(car.side_speed) - 4.0) / 6.0, 0.0, 1.0))
 		var sliding := car.grounded and slip > 0.3 and car.speed > 4.0
+		var ground := ground_at(car, track if track != null else (_world.track if _world != null else null))
+		var loose := ground.x + ground.y
+		var rolling := car.grounded and loose > 0.4 and car.speed > 4.0
+		var tint := Vector2(ground.z, ground.w)
 		var sx := cos(car.yaw)
 		var sz := -sin(car.yaw) # left vector
 		for wi in 2:
 			var c: Vector3 = wheels[2 + wi]["c"]
 			var p: Vector3 = xf * Vector3(c.x, 0.03, c.z)
 			if sliding:
-				skids.add(wi, p, sx, sz, minf(0.75, 0.25 + slip * 0.6))
-				_smoke_acc += dt * 18.0 * slip
+				skids.add(wi, p, sx, sz, minf(0.75, 0.25 + slip * 0.6), tint)
+				_smoke_acc += dt * 18.0 * slip * (1.0 - minf(1.0, loose))
 				while _smoke_acc >= 1.0:
 					_smoke_acc -= 1.0
 					smoke.emit(p.x, p.y, p.z, car.vx, car.vz, slip)
+			elif rolling:
+				skids.add(wi, p, sx, sz, 0.3 * minf(1.0, loose), tint, 1.5)
 			else:
 				skids.lift(wi)
 		smoke.update(dt)
+		if car.grounded and loose > 0.05 and car.speed > 3.0:
+			var strength := clampf(minf(1.0, (car.speed - 3.0) / 35.0) * 0.6 + slip * 0.8, 0.0, 1.0)
+			var rate := (minf(1.0, (car.speed - 3.0) / 35.0) * 30.0 + slip * 30.0) * CarEffects.spark_share
+			_dust_acc = _spray_emit(ground.x, rate, _dust_acc, "dust", car, xf, strength, dt)
+			_spray_acc = _spray_emit(ground.y, rate * 1.4, _spray_acc, "snow", car, xf, strength, dt)
+		if dust != null:
+			dust.update(dt)
+		if spray != null:
+			spray.update(dt)
 
 	# sparks where the car hits or scrapes a wall (ghosts have none)
 	if sparks != null:
@@ -682,12 +708,67 @@ func _road_tilt(car: CarEffects.Pose, track: BuiltTrack) -> Vector2:
 	return Vector2(atan(slope * rel), -track.bank[i] * rel)
 
 
-## Forget smoke, skid marks, sparks, flames and a celebration (after a restart / respawn).
+## The loose ground under a car (v6.3): Vector4(dust, snow, surface 1, surface 2) weights at its
+## sample: what its "dust" kind is (sim/surfaces.gd) and the weights of table entries 1 and 2
+## (the tyre marks' colours). Zero on asphalt or without a track.
+static func ground_at(car: CarEffects.Pose, tr: BuiltTrack) -> Vector4:
+	if tr == null or tr.surf_w.is_empty() or car.idx < 0:
+		return Vector4.ZERO
+	var n := tr.surf_n
+	var i := clampi(car.idx, 0, tr.count - 1)
+	var out := Vector4.ZERO
+	for s in n:
+		var w := tr.surf_w[i * n + s]
+		var kind: String = Surfaces.def(s).dust
+		if kind == "dust":
+			out.x += w
+		elif kind == "snow":
+			out.y += w
+	out.z = tr.surf_w[i * n + 1] if n > 1 else 0.0
+	out.w = tr.surf_w[i * n + 2] if n > 2 else 0.0
+	return out
+
+
+## Dust or snow puffs from the rear wheels (in turn) at `rate` a second × weight w; returns the
+## accumulator. The pool is made the first time it is needed.
+func _spray_emit(w: float, rate: float, acc: float, kind: String, car: CarEffects.Pose, xf: Transform3D, strength: float, dt: float) -> float:
+	if w <= 0.05:
+		return 0.0
+	acc += dt * rate * w
+	if acc < 1.0:
+		return acc
+	var pool := dust if kind == "dust" else spray
+	if pool == null:
+		var col := Color(0.62, 0.5, 0.37) if kind == "dust" else Color(0.95, 0.97, 1.0)
+		for s in Surfaces.count():
+			if Surfaces.def(s).dust == kind:
+				col = Color.html(Surfaces.def(s).road).lightened(0.38 if kind == "dust" else 0.45)
+				break
+		pool = CarEffects.Spray.new(kind, col, 128 if kind == "dust" else 96)
+		add_child(pool.node)
+		if kind == "dust":
+			dust = pool
+		else:
+			spray = pool
+	while acc >= 1.0:
+		acc -= 1.0
+		_spray_wheel = 1 - _spray_wheel
+		var c: Vector3 = wheels[2 + _spray_wheel]["c"]
+		var p: Vector3 = xf * Vector3(c.x, 0.03, c.z)
+		pool.emit(p.x, p.y, p.z, car.vx, car.vz, strength)
+	return acc
+
+
+## Forget smoke, skid marks, sparks, dust, flames and a celebration (after a restart / respawn).
 func reset_effects() -> void:
 	if skids != null:
 		skids.clear()
 	if smoke != null:
 		smoke.clear()
+	if dust != null:
+		dust.clear()
+	if spray != null:
+		spray.clear()
 	if sparks != null:
 		sparks.clear()
 		wall.ready = false

@@ -1,7 +1,7 @@
 ## textures.gd (procedural textures of web/src/game/trackMesh.js)
 ## ------------------------------------------------------------------
 ## Shared by every track and made once: asphalt (colour, roughness and
-## normal maps), grey detail noise, start-line checker, chevron boards,
+## normal maps), loose ground (dirt and packed snow detail, v6.3), grey detail noise, start-line checker, chevron boards,
 ## sponsor banners, the lamp light pool, sea ripple normals; plus the gate
 ## banner atlas of a track (one row per gate). All mipmapped, repeat where
 ## the JS repeats. Noise comes from FastNoiseLite seamless images (the JS
@@ -70,6 +70,43 @@ static func asphalt() -> Dictionary:
 	nimg.bump_map_to_normal_map(2.4)
 	var out := {"map": _tex(cimg), "rough": _tex(rimg), "normal": _tex(nimg)}
 	_cache["asphalt"] = out
+	return out
+
+
+## Loose ground for world/shaders/road_surface.gdshader: {map, normal} (256 px, 7 m a tile).
+## map is linear data: R dirt detail (grain, light and dark pebbles), G large soft patches (0..1,
+## the ragged border where the road changes surface), B packed snow detail (fine and bright,
+## a few sparkles); normal: the pebbles and grain (the shader keeps it faint on snow).
+static func loose() -> Dictionary:
+	if _cache.has("loose"):
+		return _cache["loose"]
+	var S := 256
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 31
+	var blot := _noise_image(S, 6.0, 4, 41).get_data()
+	var patch := _noise_image(S, 3.0, 3, 43).get_data()
+	var fine := _noise_image(S, 14.0, 3, 47).get_data()
+	var bpp := blot.size() / (S * S)
+	var cd := PackedByteArray()
+	cd.resize(S * S * 3)
+	var hgt := PackedFloat32Array()
+	hgt.resize(S * S)
+	for k in S * S:
+		var b := 0.5 + (blot[k * bpp] / 255.0 - 0.5) * 0.6
+		var f := fine[k * bpp] / 255.0
+		var grain := rng.randf()
+		var r := rng.randf()
+		var pebble := 1.0 if r < 0.018 else (-1.0 if r < 0.04 else 0.0)
+		var dirt := 0.8 + (b - 0.5) * 0.3 + (grain - 0.5) * 0.16 + pebble * (0.2 if pebble > 0.0 else 0.32)
+		var snow := 0.94 + (f - 0.5) * 0.08 + (grain - 0.5) * 0.04 + (0.06 if rng.randf() < 0.004 else 0.0)
+		cd[k * 3] = clampi(int(dirt * 255.0), 0, 255)
+		cd[k * 3 + 1] = patch[k * bpp]
+		cd[k * 3 + 2] = clampi(int(snow * 255.0), 0, 255)
+		hgt[k] = grain * 0.45 + absf(pebble) * 0.9 + b * 0.5
+	var nimg := Image.create_from_data(S, S, false, Image.FORMAT_RF, hgt.to_byte_array())
+	nimg.bump_map_to_normal_map(2.0)
+	var out := {"map": _tex(Image.create_from_data(S, S, false, Image.FORMAT_RGB8, cd)), "normal": _tex(nimg)}
+	_cache["loose"] = out
 	return out
 
 

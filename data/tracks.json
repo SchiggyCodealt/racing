@@ -71,6 +71,7 @@
     "description": "Climb three switchbacks, cross the ridge and drop down two more: brake early, power out.",
     "type": "circuit",
     "laps": 3,
+    "surfaces": [["snow",101.26,172.56]],
     "checkpoints": [24,88,141,171,237],
     "points": [
       [0, 0, 1], [40, 0, 1], [80, 0, 1], [120, 0, 1],
@@ -152,6 +153,7 @@
     "description": "Four kicker jumps from 4 to 7 m: hit each ramp straight and land on the long run-outs.",
     "type": "circuit",
     "laps": 3,
+    "surfaces": [["dirt",38.13,190.85]],
     "checkpoints": [51,116,149,208,243],
     "points": [
       [0, 0, 2], [0, 39.05, 2], [0, 68.34, 2], [0, 90.39, 2],
@@ -715,6 +717,7 @@
     "type": "sprint",
     "startAt": 36,
     "runOff": 250,
+    "surfaces": [["dirt",10.01,65.76],["snow",209.41,276.56]],
     "checkpoints": [33,74,131,181,231,271,316,369,427,467],
     "points": [
       [0, 0, 1, 0, 14], [0, -40, 1, 0, 14], [0, -80, 1, 0, 14], [0, -120, 1, 0, 14],
@@ -853,6 +856,7 @@
     "description": "Out and back through narrow red-rock badlands with jumps, blind crests and tight S-bends: the hardest circuit.",
     "type": "circuit",
     "laps": 3,
+    "surfaces": [["dirt",133.64,194.56]],
     "checkpoints": [32,99,145,197,231,317,383],
     "points": [
       [0, 0, 4, 0, 13], [40, 0, 4, 0, 13], [76.53, 0, 4, 0, 13], [103.81, 0, 4, 0, 13],

@@ -14,6 +14,8 @@ with spinning, steering wheels, working suspension, lights and a driver who stee
 corners and celebrates at the finish (see [The cars](#the-cars)).
 Version 6.2.0 lets you train the AI with any of the six cars: every car keeps its own AI network, which
 Watch the AI and Race the AI ghost use when that car is picked (see [Training the AI](#training-the-ai)).
+Version 6.3.0 adds road surfaces: stretches of dirt and packed snow on four tracks, with less grip, longer
+slides, dust and snow thrown up by the tyres, and a car that suits them, the Dune (see [Road surfaces](#road-surfaces)).
 
 ![The menu: track tiles with minimaps, the selected track's panel with records and medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
 
@@ -128,13 +130,16 @@ There are six cars. Each handles differently and has its own best times, ghosts,
   the faster it goes, so slow corners need patience. It is the quickest car where the straights are long
   (Banked Speedway, Grand Marathon, Night Highway).
 - **Drifter** (teal): a loose rally car. It slides on demand, holds long drifts and lands jumps without losing
-  speed. It is the quickest car over the jumps (Ramp Rally, Seaside Stunts) and scores drift points easily.
+  speed. It is the quickest of the first four cars over the jumps (Ramp Rally, Seaside Stunts) and scores drift
+  points easily; on dirt and snow it keeps a little more grip than the Racer.
 - **Dune** (green): an open buggy on big tyres. Soft and forgiving: strong grip in slow corners, traction on all
   four wheels, gentle slides that are easy to catch and soft landings, but the lowest top speed, so it is the slowest
-  car on these tarmac tracks. It is the easiest car to drive cleanly.
+  car on tarmac. On dirt and snow it keeps far more grip than any other car (97 % of it on dirt, 72 % on snow), which
+  makes it the quickest car of all on Ramp Rally and Hairpin Valley. It is the easiest car to drive cleanly.
 - **Vortex** (orange): a mid-engine hypercar. The most power, the highest top speed and the most grip at speed,
   but light and twitchy at the limit, and its nitro tank lasts only 3 s. In the medal autopilot's hands it is the
-  quickest car on every track; in yours it rewards precise driving.
+  quickest car on every track with little or no loose road; on dirt and snow it keeps the least grip of all, so it is
+  only fifth on Ramp Rally and Hairpin Valley. In your hands it rewards precise driving.
 
 | Car | Mass | 0-100 km/h | 0-200 km/h (with nitro) | Top speed (with nitro) | Nitro tank | 100-0 km/h | Cornering grip, 30 m / 120 m circle | Drift held |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -147,7 +152,8 @@ There are six cars. Each handles differently and has its own best times, ghosts,
 
 The numbers are measured with the game's own physics (`tools/car_stats.gd`, see [Tests and tools](#tests-and-tools)).
 "Drift held" is how long a keyboard driver typically keeps a handbrake slide going. The car picker shows the same
-as five bars (speed, acceleration, grip, drift, nitro).
+as five bars (speed, acceleration, grip, drift, nitro). The numbers are for asphalt; on dirt and snow every car grips,
+brakes and accelerates less (see [Road surfaces](#road-surfaces)).
 
 **Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
 **Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The cards sit three to a row (two in a narrow
@@ -220,14 +226,14 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 3:03). Autho
 | Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
 | --- | --- | --- | --- | --- | --- | --- |
 | Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 | 2:09.683 | 1:52.250 |
-| Hairpin Valley | 3:46.583 | 3:44.050 | 3:48.433 | 3:46.833 | 3:47.233 | 3:31.383 |
-| Ramp Rally | 2:52.417 | 2:55.183 | 2:53.517 | 2:52.083 | 2:58.367 | 2:36.750 |
+| Hairpin Valley | 4:07.233 | 4:02.267 | 4:18.500 | 4:06.783 | 3:58.333 | 4:07.933 |
+| Ramp Rally | 3:05.633 | 3:04.500 | 3:12.917 | 3:03.983 | 3:00.133 | 3:05.700 |
 | Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 | 2:23.150 | 1:48.600 |
 | Technical Trial | 3:45.083 | 3:41.933 | 3:47.950 | 3:45.017 | 3:47.283 | 3:32.783 |
 | Grand Marathon | 2:30.467 | 2:33.017 | 2:29.317 | 2:32.033 | 2:38.433 | 2:18.867 |
 | Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 | 3:16.167 | 2:54.900 |
-| Mountain Pass | 1:47.683 | 1:48.250 | 1:49.150 | 1:48.500 | 1:51.083 | 1:40.433 |
-| Canyon Run | 4:15.450 | 4:11.933 | 4:25.167 | 4:12.150 | 4:17.733 | 4:02.100 |
+| Mountain Pass | 1:53.267 | 1:52.333 | 1:56.517 | 1:53.267 | 1:52.683 | 1:49.233 |
+| Canyon Run | 4:24.067 | 4:19.883 | 4:31.817 | 4:21.400 | 4:18.500 | 4:16.333 |
 | Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 |
 | Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 |
 | Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 |
@@ -237,8 +243,10 @@ nitro tank. The author time is the fastest of 50 runs of a simple autopilot with
 settings, driving each car with the same physics as you: it burns nitro on the straights and its points
 refill the tank as yours do (`tools/medals.gd`, see [Tests and tools](#tests-and-tools)). The autopilot only
 follows the centre line and uses nitro simply, so a driver with a real racing line and good nitro timing can beat
-even the author time. A medal counts to the millisecond the HUD shows. (The first four cars' times are the browser
-version's except the Racer on Technical Trial, 1.05 s slower here: see [HANDOFF.md](HANDOFF.md). The Dune and the
+even the author time. A medal counts to the millisecond the HUD shows. (On the eight all-asphalt tracks the first
+four cars' times are the browser version's except the Racer on Technical Trial, 1.05 s slower here: see
+[HANDOFF.md](HANDOFF.md). Hairpin Valley, Ramp Rally, Mountain Pass and Canyon Run got dirt or snow in version 6.3.0
+and new times, 0.8-37 s slower than before depending on the car: see [Road surfaces](#road-surfaces). The Dune and the
 Vortex exist only in this version.)
 
 ### Your ghost
@@ -288,25 +296,90 @@ gearing, tyres, downforce, brakes and steering. In plain words, the physics (`si
 The physics runs at a fixed 60 steps per second everywhere (the screen draws the cars in between steps), so
 it doesn't depend on the frame rate, and an AI trained at Max speed drives exactly the same when you watch it.
 
+### Road surfaces
+
+Most of the road is asphalt. Since version 6.3.0 four tracks also have stretches of **dirt** and **packed snow**.
+You see them coming: a brown gravel road or a white one of packed snow, with a ragged edge where it meets the asphalt,
+no painted lines or kerbs, and dusty or snow-capped barriers alongside. You also feel them:
+
+| The Dune throwing up dust on Ramp Rally's dirt | The Racer sliding on Hairpin Valley's packed snow |
+| --- | --- |
+| ![The Dune buggy at 150 km/h on the brown dirt stretch of Ramp Rally, a dust trail behind it](docs/screenshots/dirt.png) | ![The red Racer sliding through a snowy hairpin on Hairpin Valley, grey tyre tracks in the packed snow](docs/screenshots/snow.png) |
+
+| Surface | Grip | Rolling resistance | Slides | Where |
+| --- | --- | --- | --- | --- |
+| Asphalt | all of it | normal | as before | every track |
+| Dirt | 55-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Ramp Rally (47 % of a lap), Canyon Run (14 %), Mountain Pass (11 %) |
+| Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Hairpin Valley (28 %), Mountain Pass (19 %) |
+
+How the physics handles it (`sim/surfaces.gd` holds the table, `sim/car.gd` uses it):
+
+- Each car keeps **its own share of its grip** on each surface, for cornering, braking and traction alike. The Dune's
+  big tyres lose almost nothing on dirt; the Vortex's slick hypercar tyres lose the most.
+- On loose ground the tyres build up their force more slowly as they start to slide, so **slides start sooner and
+  last longer**, and the stability control can only do 60 % of its work. Drifts score points as usual.
+- **Rolling resistance** is higher, so the top speed and the acceleration drop a little.
+- The front and rear tyres each feel the road under them, and the change from one surface to the next is **blended
+  over about 10 m**: the grip never jumps, and on the way onto dirt the front tyres lose grip a moment before the rear.
+
+What that does to each car (measured with `tools/car_stats.gd --surface=dirt` and `--surface=snow`):
+
+| Car | Grip kept on dirt / snow | 100-0 km/h: asphalt / dirt / snow | Cornering grip on a 30 m circle: asphalt / dirt / snow | Top speed: dirt / snow (asphalt) | Drift held on dirt / snow |
+| --- | --- | --- | --- | --- | --- |
+| Racer | 70 % / 55 % | 30.7 / 34.0 / 43.0 m | 1.68 / 1.15 / 0.91 g | 266.7 / 271.1 km/h (277.7) | 1.08 / 1.47 s |
+| Kestrel | 72 % / 58 % | 27.7 / 31.2 / 38.4 m | 1.78 / 1.26 / 1.02 g | 225.9 / 227.6 km/h (230.2) | 0.93 / 1.13 s |
+| Thunder | 62 % / 48 % | 33.8 / 43.0 / 55.3 m | 1.47 / 0.90 / 0.68 g | 294.0 / 301.3 km/h (312.7) | 2.42 / 0.90 s |
+| Drifter | 74 % / 60 % | 33.1 / 34.7 / 40.5 m | 1.59 / 1.15 / 0.93 g | 256.7 / 259.7 km/h (264.3) | 2.95 / 4.00 s |
+| Dune | 97 % / 72 % | 31.7 / 31.2 / 33.8 m | 1.71 / 1.63 / 1.21 g | 217.6 / 219.5 km/h (222.4) | 0.58 / 0.63 s |
+| Vortex | 55 % / 42 % | 28.8 / 42.4 / 55.2 m | 1.68 / 0.89 / 0.67 g | 315.8 / 320.3 km/h (321.4) | 3.10 / 3.35 s |
+
+Why these tracks:
+
+- **Ramp Rally** (desert) is a rally stage now: from the first jump's run-out to the third jump, the S-bend, the dune
+  and the banked left are dirt, and the big 7 m jump takes off from it.
+- **Canyon Run**: the tight double-left turnaround between the two canyons is a gravel track, a place to slide the car
+  round instead of braking to a crawl.
+- **Mountain Pass** (alpine): the fast valley sweepers at the start are a dirt road, and the summit ridge is packed
+  snow; the asphalt comes back 60 m before the first hairpin down, so you brake for it on tarmac.
+- **Hairpin Valley** (alpine): packed snow from the third switchback up and over the ridge, the highest and coldest part.
+
+The other eight tracks are all asphalt and unchanged. On loose ground the tyres throw up **dust** on dirt and **snow
+spray** on snow (more when you slide; fewer particles at Medium and Low graphics), leave **tyre tracks in the colour of
+the surface** (faint ones even without sliding), and the camera **rumbles** a little on dirt (less on snow). The
+menu's track panel names a track's surfaces ("Circuit · 3 laps · 2.37 km a lap · Asphalt + dirt").
+
+The four tracks are **new versions** of themselves: best times, best scores and ghosts set on them before 6.3.0 no
+longer count (the menu shows none and the medals are new), and so do the AI's best laps there. They are not deleted:
+the save file keeps them under `"archive"` (see [Saved data](#saved-data)). The new author times compared with the
+old all-asphalt ones:
+
+| Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
+| --- | --- | --- | --- | --- | --- | --- |
+| Hairpin Valley (snow) | +20.65 s | +18.22 s | +30.07 s | +19.95 s | +11.10 s | +36.55 s |
+| Ramp Rally (dirt) | +13.22 s | +9.32 s | +19.40 s | +11.90 s | +1.77 s | +28.95 s |
+| Mountain Pass (dirt and snow) | +5.58 s | +4.08 s | +7.37 s | +4.77 s | +1.60 s | +8.80 s |
+| Canyon Run (dirt) | +8.62 s | +7.95 s | +6.65 s | +9.25 s | +0.77 s | +14.23 s |
+
 ### Tracks
 
-| # | Track | Type | Length | Scenery | Difficulty | What it asks of you |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Rookie Oval | 3 laps | 2.17 km/lap | meadow | ★ | Learn the car, carry speed through sweepers |
-| 2 | Hairpin Valley | 3 laps | 2.42 km/lap | alpine | ★★ | Five switchbacks over a ridge: brake early, power out |
-| 3 | Ramp Rally | 3 laps | 2.37 km/lap | desert | ★★★ | Four kicker jumps of 4-7 m: hit each ramp straight |
-| 4 | Banked Speedway | 3 laps | 2.84 km/lap | dusk | ★★★ | Steep banked bowls (24-28°): trust the banking |
-| 5 | Technical Trial | 3 laps | 2.59 km/lap | canyon | ★★★★ | A 10 m chicane, a jump, banked sweepers and a switchback climb |
-| 6 | Grand Marathon | Sprint | 7.18 km | meadow | ★★★★★ | Everything from 1-5 in one long point-to-point run |
-| 7 | Coastal GP | 3 laps | 2.90 km/lap | dusk | ★★★ | Fast grand-prix circuit: big braking zones, quick esses |
-| 8 | Mountain Pass | Sprint | 4.50 km | alpine | ★★★★ | Banked switchbacks up to the summit and a twisting descent |
-| 9 | Canyon Run | 3 laps | 2.85 km/lap | canyon | ★★★★★ | Narrow road, jumps, blind crests and tight S-bends |
-| 10 | Night Highway | 3 laps | 3.12 km/lap | night | ★★ | Kilometre-long straights and slow corners under the lights: brake hard, then fire the nitro |
-| 11 | Lighthouse Bay | 3 laps | 2.35 km/lap | seaside | ★★★ | Long sweeping bends round a bay, past a lighthouse: hold the drift |
-| 12 | Seaside Stunts | Sprint | 3.02 km | seaside | ★★★★ | Six kickers down the coast road, with step-downs and a 7.5 m launch |
+| # | Track | Type | Length | Scenery | Surface | Difficulty | What it asks of you |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Rookie Oval | 3 laps | 2.17 km/lap | meadow | asphalt | ★ | Learn the car, carry speed through sweepers |
+| 2 | Hairpin Valley | 3 laps | 2.42 km/lap | alpine | asphalt, packed snow over the ridge | ★★ | Five switchbacks over a ridge: brake early, power out |
+| 3 | Ramp Rally | 3 laps | 2.37 km/lap | desert | asphalt, dirt from the first jump to the third | ★★★ | Four kicker jumps of 4-7 m: hit each ramp straight |
+| 4 | Banked Speedway | 3 laps | 2.84 km/lap | dusk | asphalt | ★★★ | Steep banked bowls (24-28°): trust the banking |
+| 5 | Technical Trial | 3 laps | 2.59 km/lap | canyon | asphalt | ★★★★ | A 10 m chicane, a jump, banked sweepers and a switchback climb |
+| 6 | Grand Marathon | Sprint | 7.18 km | meadow | asphalt | ★★★★★ | Everything from 1-5 in one long point-to-point run |
+| 7 | Coastal GP | 3 laps | 2.90 km/lap | dusk | asphalt | ★★★ | Fast grand-prix circuit: big braking zones, quick esses |
+| 8 | Mountain Pass | Sprint | 4.50 km | alpine | asphalt, a dirt valley road, packed snow on the summit | ★★★★ | Banked switchbacks up to the summit and a twisting descent |
+| 9 | Canyon Run | 3 laps | 2.85 km/lap | canyon | asphalt, a dirt turnaround at the far end | ★★★★★ | Narrow road, jumps, blind crests and tight S-bends |
+| 10 | Night Highway | 3 laps | 3.12 km/lap | night | asphalt | ★★ | Kilometre-long straights and slow corners under the lights: brake hard, then fire the nitro |
+| 11 | Lighthouse Bay | 3 laps | 2.35 km/lap | seaside | asphalt | ★★★ | Long sweeping bends round a bay, past a lighthouse: hold the drift |
+| 12 | Seaside Stunts | Sprint | 3.02 km | seaside | asphalt | ★★★★ | Six kickers down the coast road, with step-downs and a 7.5 m launch |
 
 Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map of every track is in
-[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (the tracks are the same in both versions).
+[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (the layouts are the same in both versions; the browser
+version has no dirt or snow).
 
 ## Training the AI
 
@@ -463,7 +536,11 @@ trained AI network of every car (a save file from version 6.0-6.1 had one networ
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
 it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, close the game
-and delete the file. Best times and ghosts made with another version of the physics are not used.
+and delete the file. Best times and ghosts made with another version of the physics are not used. Best times, best
+scores and ghosts also remember the version of the track they were set on: when a track changes (as four did in
+6.3.0, when they got dirt and snow), the old ones stop counting and are moved to an `"archive"` section of the file
+(the next time the game saves anything), where they are kept but not shown. A save file from an older version is
+upgraded when it is loaded.
 
 Saves from the browser version (kept in the browser's storage) can't be carried over; AI networks can (save the
 network in the browser, then use **Load network…** here).
@@ -488,7 +565,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.2.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.3.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -510,12 +587,12 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 3-4 minutes: `sim` (tracks, physics, race, points, ghosts, medals, save file; the numbers are compared with the browser version's), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 4 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file; the numbers are compared with the browser version's on the all-asphalt versions of the tracks), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
-| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads) |
-| `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute) |
+| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks) |
+| `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
 | `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
 
@@ -532,9 +609,13 @@ fleet's). Each file says how to run it. The native training library is built as 
 
 Tracks are designed in `tools/gen_tracks.gd` with a "turtle" (`tools/turtle.gd`) that you drive around with
 commands like `S(200)` (straight), `L(90, 40, {bank = 12})` (left turn, 90°, radius 40 m, 12° banking), hairpins,
-S-bends, climbs, crests and self-sizing kicker ramps. Add a `_circuit(...)` or `_sprint(...)` entry there, run
+S-bends, climbs, crests and self-sizing kicker ramps; `.surface("dirt")` (or `"snow"`) makes the road from there on
+dirt until `.surface("asphalt")`. Add a `_circuit(...)` or `_sprint(...)` entry there, run
 `tools/gen_tracks.gd` (it refuses a track that breaks the design rules: overlaps, too-tight corners, too-steep
-grades, short landing zones, sprints without a run-off) and then `tools/medals.gd`. The menu, minimaps, scenery and
+grades, short landing zones, sprints without a run-off, dirt or snow patches under 60 m or on the start grid) and then
+`tools/medals.gd`. A new surface is an entry in `sim/surfaces.gd` (its grip, rolling resistance and looks; FleetSim
+gets the table as data), a grip-share field in `CarSpec` if each car should differ on it, and a third slot in the road
+shader (`world/shaders/road_surface.gdshader`, which has two: dirt and snow). The menu, minimaps, scenery and
 AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked with
 the mouse, arrows or gamepad.
 
@@ -546,15 +627,15 @@ main.tscn               the main scene: one node with game/app.gd
 game/                   the game shell: modes, threaded track loading, quality, settings, AI network files (app.gd),
                         keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages
 modes/                  menu, play (Drive, Race the AI ghost), watch (Watch the AI) and train (the training screen)
-sim/                    game logic without any graphics: tracks, car physics and nitro, the six cars, collisions,
-                        race timing, points, ghosts, medals, the save file, the autopilot
+sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the six cars,
+                        collisions, race timing, points, ghosts, medals, the save file, the autopilot
 ai/                     the AI: network, evolution, sensors and driver, trainer
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
 world/                  3D: track mesh, terrain and scenery, sky and themes, car models (car_shapes.gd: the six
                         bodies; car_build.gd + car_kit.gd: one skinned mesh per car with its driver; car_model.gd:
-                        the skeleton's animation and lights), effects (smoke, skids, sparks, nitro), chase camera,
-                        the AI fleet and sensor rays; shaders/
+                        the skeleton's animation and lights), effects (smoke, dust, snow spray, skids, sparks, nitro),
+                        chase camera, the AI fleet and sensor rays; shaders/ (road_surface: dirt and snow roads)
 ui/                     the interface, built in code: style, menu, Controls and Settings screens, HUD, finish panel,
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)

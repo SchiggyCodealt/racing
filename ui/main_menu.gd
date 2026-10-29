@@ -581,8 +581,8 @@ func _render_detail() -> void:
 	_td_num.text = UiFormat.track_number(i)
 	_td_name.text = t.name
 	_td_diff.level = t.difficulty
-	_td_meta.text = ("Circuit · %d laps · %s km a lap" % [t.laps, UiFormat.km(t.length)]) if t.closed \
-		else ("Sprint · %s km" % UiFormat.km(t.sprint_length))
+	_td_meta.text = (("Circuit · %d laps · %s km a lap" % [t.laps, UiFormat.km(t.length)]) if t.closed \
+		else ("Sprint · %s km" % UiFormat.km(t.sprint_length))) + " · " + str(t.get("surfaces", "Asphalt"))
 	_td_desc.text = t.description
 	_td_map.map = _maps[i]
 	_td_car_name.text = cinfo.name

@@ -12,6 +12,10 @@ extends SceneTree
 ##     --js=/abs/path   also compare with the web game's medal times (a JSON dump of
 ##                      web/src/tracks/medals.js MEDALS, see tools/parity/dump_medals.mjs)
 ##     --tracks=a,b     --cars=a,b   only these (for quick checks; nothing is written)
+##     --update         with --tracks (and --cars): sweep only those and merge them into the
+##                      existing data/medals.json, every other entry kept as it is (after
+##                      changing some tracks only; refused when the physics or scoring
+##                      rules of the file are not the current ones)
 ## Re-run it after changing the car physics (and Car.PHYSICS_VERSION), a car's spec
 ## (sim/cars.gd), the scoring rules (sim/score.gd; bump SCORE_RULES), a track or its laps.
 ##
@@ -43,6 +47,7 @@ func _initialize() -> void:
 	var js_path: String = ""
 	var only_tracks: PackedStringArray = []
 	var only_cars: PackedStringArray = []
+	var update: bool = args.has("--update")
 	for a: String in args:
 		if a.begins_with("--jobs="):
 			threads = clampi(a.substr(7).to_int(), 1, 16)
@@ -55,6 +60,10 @@ func _initialize() -> void:
 		elif a.begins_with("--cars="):
 			only_cars = a.substr(7).split(",")
 	var partial: bool = only_tracks.size() > 0 or only_cars.size() > 0
+	if update and (only_tracks.is_empty() or check):
+		print("--update needs --tracks=a,b (and no --check)")
+		quit(1)
+		return
 	var t0: int = Time.get_ticks_msec()
 	var track_ids: PackedStringArray = only_tracks if only_tracks.size() else Tracks.ids()
 	var car_ids: PackedStringArray = only_cars if only_cars.size() else Cars.ids()
@@ -108,7 +117,20 @@ func _initialize() -> void:
 	if js_path != "":
 		code = maxi(code, _compare_js(tracks, js_path))
 	var text: String = medals_json(tracks)
-	if partial:
+	if update and not missing:
+		var merged: Variant = merge_into(FileAccess.get_file_as_string(out_path), tracks)
+		if merged is String:
+			var f := FileAccess.open(out_path, FileAccess.WRITE)
+			f.store_string(merged)
+			f.close()
+			print("updated %s: %s" % [out_path, ", ".join(only_tracks)])
+		else:
+			print(merged.error)
+			code = 1
+	elif update:
+		print("a track has no finishing run with some car: medals.json NOT updated")
+		code = 1
+	elif partial:
 		print("(--tracks / --cars: a partial sweep; nothing written)")
 	elif missing:
 		print("a track has no finishing run with some car: medals.json NOT written")
@@ -167,6 +189,36 @@ static func car_medals(track: BuiltTrack, car_id: String) -> Dictionary:
 	var entry: Dictionary = Medals.medal_set(author)
 	entry.run = {aLat = best.a_lat, lookK = best.look_k, steps = best.steps, wallSteps = best.wall}
 	return {runs = runs, finished = finished, entry = entry, best = best}
+
+
+## medals.json text `old` with the swept `tracks` merged in (every other track as it was; a swept
+## track keeps the old entries of cars not swept only when its layout is the same), in the
+## order of Tracks.ids(); or {error} when `old` is not a medals.json of the current physics
+## and scoring rules.
+static func merge_into(old: String, tracks: Dictionary) -> Variant:
+	var d: Variant = JSON.parse_string(old)
+	if not (d is Dictionary) or not ((d as Dictionary).get("tracks") is Dictionary):
+		return {error = "--update: cannot read the old medals.json; run a full sweep"}
+	if not JsMath.same(d.get("physics"), Car.PHYSICS_VERSION) or not JsMath.same(d.get("scoreRules"), ScoreState.SCORE_RULES):
+		return {error = "--update: medals.json was made with other physics or scoring rules; run a full sweep"}
+	var old_tracks: Dictionary = d.tracks
+	var out: Dictionary = {}
+	for id: String in Tracks.ids():
+		if tracks.has(id):
+			var e: Dictionary = (tracks[id] as Dictionary).duplicate(true)
+			var o: Variant = old_tracks.get(id)
+			if o is Dictionary and o.get("sig") == e.sig and JsMath.same(o.get("laps"), e.laps):
+				var cars: Dictionary = (o.get("cars", {}) as Dictionary).duplicate(true)
+				cars.merge(e.cars, true)
+				var ordered: Dictionary = {}
+				for c: String in Cars.ids():
+					if cars.has(c):
+						ordered[c] = cars[c]
+				e.cars = ordered
+			out[id] = e
+		elif old_tracks.get(id) is Dictionary:
+			out[id] = old_tracks[id]
+	return medals_json(out)
 
 
 ## data/medals.json, one car per line (numbers written the shortest way, as JS would).

@@ -2,7 +2,9 @@ class_name CarEffects
 ## car_effects.gd
 ## ------------------------------------------------------------------
 ## Car effects in world space (carMesh.js TyreSmoke, SkidMarks, Sparks,
-## NitroFlame, wallEvents, emitSparks) and Pose, the drawn state of a car.
+## NitroFlame, wallEvents, emitSparks; v6.3: Spray, the dust and snow the tyres
+## throw up on loose ground, and tyre marks coloured by the surface) and Pose,
+## the drawn state of a car.
 ##
 ## Each effect is a fixed pool drawn with one MultiMeshInstance3D (one draw
 ## call, nothing allocated per frame): the particles are simulated on the
@@ -23,7 +25,8 @@ const SPARK_SHADER = preload("res://world/shaders/spark.gdshader")
 const JET_SHADER = preload("res://world/shaders/jet.gdshader")
 const GLOW_SHADER = preload("res://world/shaders/glow.gdshader")
 
-## Share of the full spark and nitro-glow emission (graphics quality: 1 high, 0.65 medium, 0.3 low).
+## Share of the full spark, nitro-glow, dust and snow-spray emission (graphics quality: 1 high,
+## 0.65 medium, 0.3 low).
 static var spark_share := 1.0
 
 const STEP := 1.0 / 60.0      # the physics step (wall_hits counts steps)
@@ -432,27 +435,37 @@ class TyreSmoke:
 # Skid marks
 # =============================================================================
 
+## Strip pieces behind the rear wheels. Each piece's colour mixes the asphalt mark with the
+## marks of surfaces 1 and 2 of sim/surfaces.gd (custom data .z / .w: their weights), so the
+## marks are dark on asphalt, brown in the dirt and grey-blue in the snow.
 class SkidMarks:
 	var max := 240
 	var node: MultiMeshInstance3D
 	var next := 0
 	var used := 0
 	var last := [null, null] # per rear wheel: [Vector3 pos, Vector2 side, alpha] or null
+	## the surface weights (tint) of the newest piece
+	var newest_tint := Vector2.ZERO
 	const HW := 0.13
 
 	func _init(n := 240) -> void:
 		max = n
 		var mat := CarEffects.shader_mat(CarEffects.SKID_SHADER)
+		mat.set_shader_parameter("color", Color.html(Surfaces.def(Surfaces.ASPHALT).marks))
+		for slot in [1, 2]:
+			if slot < Surfaces.count():
+				mat.set_shader_parameter("color_%d" % slot, Color.html(Surfaces.def(slot).marks))
 		node = CarEffects.pool_node("corners", max, mat, "SkidMarks")
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	## A strip piece for wheel w from its last point to p; side vector (sx, sz).
-	func add(w: int, p: Vector3, sx: float, sz: float, alpha: float) -> void:
+	## A strip piece for wheel w from its last point to p; side vector (sx, sz). tint: the
+	## weights of surfaces 1 and 2 under the wheel; spacing: the shortest piece (m).
+	func add(w: int, p: Vector3, sx: float, sz: float, alpha: float, tint := Vector2.ZERO, spacing := 0.5) -> void:
 		var l = last[w]
 		if l != null:
 			var lp: Vector3 = l[0]
 			var d2 := (p.x - lp.x) * (p.x - lp.x) + (p.z - lp.z) * (p.z - lp.z)
-			if d2 < 0.25:
+			if d2 < spacing * spacing:
 				return
 			if d2 < 9.0:
 				var k := next
@@ -465,7 +478,8 @@ class SkidMarks:
 				var d := p + Vector3(sx, 0, sz) * HW
 				var mm := node.multimesh
 				mm.set_instance_transform(k, Transform3D(Basis(a, b, c), d))
-				mm.set_instance_custom_data(k, Color(l[2], alpha, 0, 0))
+				mm.set_instance_custom_data(k, Color(l[2], alpha, tint.x, tint.y))
+				newest_tint = tint
 				mm.visible_instance_count = used
 				node.visible = true
 		last[w] = [p, Vector2(sx, sz), alpha]
@@ -479,6 +493,99 @@ class SkidMarks:
 		next = 0
 		node.visible = false
 		last = [null, null]
+
+
+# =============================================================================
+# Dust and snow spray (v6.3)
+# =============================================================================
+
+## What the tyres throw up on loose ground: "dust" (dirt: big soft brown puffs that hang in the
+## air and drift up) or "snow" (small white clumps thrown back and up that fall again). A fixed
+## pool of lit soft discs (the tyre smoke's shader, coloured), one draw call; a full pool reuses
+## the oldest. The caller scales the emission by spark_share (graphics quality).
+class Spray:
+	var max := 96
+	var kind := "dust"
+	var node: MultiMeshInstance3D
+	var buf := PackedFloat32Array()
+	var p := PackedVector3Array()
+	var v := PackedVector3Array()
+	var life := PackedFloat32Array()
+	var full := PackedFloat32Array()
+	var s0 := PackedFloat32Array()
+	var al := PackedFloat32Array()
+	var fl := PackedFloat32Array()
+	var next := 0
+	var alive := 0
+
+	func _init(p_kind: String, color: Color, n := 96) -> void:
+		max = n
+		kind = p_kind
+		var mat := CarEffects.shader_mat(CarEffects.SMOKE_SHADER)
+		mat.set_shader_parameter("color", color)
+		node = CarEffects.pool_node("disc", max, mat, "Dust" if kind == "dust" else "SnowSpray")
+		node.multimesh.visible_instance_count = max
+		buf.resize(max * CarEffects.FLOATS)
+		for a in [p, v]:
+			a.resize(max)
+		for a in [life, full, s0, al, fl]:
+			a.resize(max)
+		full.fill(1.0)
+
+	## One puff at a wheel (x, y, z) of a car moving at (vx, vz); strength 0..1 (speed, slide).
+	func emit(x: float, y: float, z: float, vx: float, vz: float, strength: float) -> void:
+		var k := next
+		next = (next + 1) % max
+		alive = maxi(alive, 1) # (update() counts them)
+		fl[k] = y + 0.05
+		if kind == "snow":
+			life[k] = 0.45 + randf() * 0.45
+			p[k] = Vector3(x + (randf() - 0.5) * 0.4, y + 0.15, z + (randf() - 0.5) * 0.4)
+			v[k] = Vector3(vx * 0.55 + (randf() - 0.5) * 3.0, 1.2 + randf() * 2.6 * (0.5 + strength), vz * 0.55 + (randf() - 0.5) * 3.0)
+			s0[k] = 0.3 + randf() * 0.3
+			al[k] = 0.35 + 0.45 * strength
+		else:
+			life[k] = 1.4 + randf() * 1.3
+			p[k] = Vector3(x + (randf() - 0.5) * 0.6, y + 0.35, z + (randf() - 0.5) * 0.6)
+			v[k] = Vector3(vx * 0.45 + (randf() - 0.5) * 2.4, 0.9 + randf() * 1.6, vz * 0.45 + (randf() - 0.5) * 2.4)
+			s0[k] = 1.1 + randf() * 0.8
+			al[k] = 0.2 + 0.35 * strength
+		full[k] = life[k]
+
+	func update(dt: float) -> void:
+		if alive == 0 and not node.visible:
+			return
+		alive = 0
+		var snow := kind == "snow"
+		var drag := exp(-dt * (1.2 if snow else 1.8))
+		var dragy := exp(-dt * (0.3 if snow else 1.0))
+		var grav := (9.0 if snow else 0.0) * dt
+		var grow := 1.1 if snow else 4.5
+		for k in max:
+			if life[k] > 0.0:
+				life[k] -= dt
+				var w := v[k]
+				w = Vector3(w.x * drag, w.y * dragy - grav, w.z * drag)
+				var q := p[k] + w * dt
+				if q.y < fl[k]:
+					q.y = fl[k]
+					w = Vector3(w.x * 0.5, 0.0, w.z * 0.5)
+				v[k] = w
+				p[k] = q
+			var t := 1.0 - life[k] / full[k] if life[k] > 0.0 else 1.0
+			var a := al[k] * (1.0 - t) * minf(1.0, t * 10.0) if life[k] > 0.0 else 0.0
+			# (dust balloons out at once, then drifts: the growth follows sqrt(t))
+			CarEffects.put(buf, k, p[k], Vector3.ZERO, s0[k] + (t * grow if snow else sqrt(t) * grow), a)
+			if life[k] > 0.0:
+				alive += 1
+		node.visible = alive > 0
+		if alive > 0:
+			node.multimesh.buffer = buf
+
+	func clear() -> void:
+		life.fill(0.0)
+		alive = 0
+		node.visible = false
 
 
 # =============================================================================

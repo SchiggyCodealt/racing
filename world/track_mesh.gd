@@ -4,7 +4,10 @@ extends Node3D
 ## Builds the visible 3D world of one built track (sim/ BuiltTrack):
 ##
 ##   - road: procedural asphalt (colour, roughness and normal maps) with
-##     rubbered racing line, painted edge/centre lines, start grid boxes
+##     rubbered racing line, painted edge/centre lines, start grid boxes;
+##     dirt and packed snow stretches (v6.3, sim/surfaces.gd) blend in with a
+##     ragged border (world/shaders/road_surface.gdshader) and have no paint
+##     or curbs; the barriers along them get dusty feet or snow on top
 ##   - raised 3D curbs on corners, concrete barriers with coloured panels,
 ##     embankments under raised road
 ##   - checkpoint and start/finish gates with emissive light strips
@@ -37,6 +40,7 @@ const TrackCtx = preload("res://world/track_ctx.gd")
 const Terrain = preload("res://world/track_terrain.gd")
 const Scenery = preload("res://world/track_scenery.gd")
 const PAINT_SHADER = preload("res://world/shaders/road_paint.gdshader")
+const SURFACE_SHADER = preload("res://world/shaders/road_surface.gdshader")
 
 const BARRIER_H := TrackCtx.BARRIER_H
 const BARRIER_W := TrackCtx.BARRIER_W
@@ -328,15 +332,20 @@ func _build_road() -> MeshInstance3D:
 	var tan := PackedFloat32Array()
 	# the tint goes up to ~1.12, over what 8-bit vertex colours hold: scaled down here, up in the material
 	var K := 1.13
+	# dirt and snow (v6.3): their blend weights ride in the green and blue of the vertex colour
+	var loose := t.has_surfaces()
+	var S := t.surf_n
 	for k in rows:
 		var i := c.wrap(k)
 		var s := k * t.seg_len
 		var patch := 0.94 + 0.12 * VNoise.fbm(s * 0.02, 3.7, 2, c.seed + 21)
+		var w1 := t.surf_w[i * S + 1] if loose and S > 1 else 0.0
+		var w2 := t.surf_w[i * S + 2] if loose and S > 2 else 0.0
 		for cc in C:
 			var lat: float = cols[cc] * t.hw[i]
 			var tint: float = wear[cc] * patch / K
 			g.vert(Vector3(t.px[i] + t.nx[i] * lat, c.surf_y(i, lat), t.pz[i] + t.nz[i] * lat), Vector3.UP,
-				Vector2(lat / 7.0, s / 7.0), Color(tint, tint, tint))
+				Vector2(lat / 7.0, s / 7.0), Color(tint, w1, w2) if loose else Color(tint, tint, tint))
 			tan.append_array([t.nx[i], 0.0, t.nz[i], -1.0])
 	for k in c.segs:
 		for cc in C - 1:
@@ -350,6 +359,8 @@ func _build_road() -> MeshInstance3D:
 	var arr := g.to_arrays()
 	arr[Mesh.ARRAY_TANGENT] = tan
 	var tex := Tex.asphalt()
+	if loose:
+		return _road_node(arr, _surface_mat(tex, K))
 	var mat := std_mat(Color(K, K, K).linear_to_srgb(), 1.0)
 	mat.albedo_texture = tex["map"]
 	mat.roughness_texture = tex["rough"]
@@ -359,6 +370,10 @@ func _build_road() -> MeshInstance3D:
 	mat.normal_scale = 0.55
 	mat.vertex_color_use_as_albedo = true
 	mat.vertex_color_is_srgb = true
+	return _road_node(arr, mat)
+
+
+func _road_node(arr: Array, mat: Material) -> MeshInstance3D:
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	m.surface_set_material(0, mat)
@@ -366,6 +381,37 @@ func _build_road() -> MeshInstance3D:
 	mi.mesh = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
+
+
+## The road material of a track with dirt or snow: asphalt as the plain road's material
+## draws it, blended with surfaces 1 and 2 of the table (road_surface.gdshader).
+static func _surface_mat(tex: Dictionary, K: float) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = SURFACE_SHADER
+	var lt := Tex.loose()
+	m.set_shader_parameter("asphalt_map", tex["map"])
+	m.set_shader_parameter("asphalt_rough", tex["rough"])
+	m.set_shader_parameter("asphalt_normal", tex["normal"])
+	m.set_shader_parameter("loose_map", lt["map"])
+	m.set_shader_parameter("loose_normal", lt["normal"])
+	m.set_shader_parameter("tint_scale", K)
+	m.set_shader_parameter("asphalt_normal_scale", 0.55)
+	for slot in [1, 2]:
+		if slot < Surfaces.count():
+			var d: Dictionary = Surfaces.def(slot)
+			m.set_shader_parameter("color_%d" % slot, Color.html(d.road))
+			m.set_shader_parameter("rough_%d" % slot, float(d.rough))
+			m.set_shader_parameter("normal_%d" % slot, float(d.bumps))
+	return m
+
+
+## True when paint (lines, curbs) belongs on the road between samples i and j: both on a
+## surface that has it (asphalt; not dirt or snow).
+func _painted(i: int, j: int) -> bool:
+	var t := ctx.track
+	if t.surface.is_empty():
+		return true
+	return bool(Surfaces.def(t.surface[i]).lines) and bool(Surfaces.def(t.surface[j]).lines)
 
 
 ## Painted edge lines, dashed centre line and the start grid boxes.
@@ -378,6 +424,8 @@ func _build_lines() -> MeshInstance3D:
 	for k in c.segs:
 		var i := c.wrap(k)
 		var j := c.wrap(k + 1)
+		if not _painted(i, j):
+			continue
 		if not c.corner[i] or not c.corner[j]:
 			for s: float in [1.0, -1.0]:
 				_strip(g, i, j, s * (t.hw[i] - 0.38), s * (t.hw[i] - 0.62), s * (t.hw[j] - 0.38), s * (t.hw[j] - 0.62), lift, white)
@@ -440,7 +488,7 @@ func _build_curbs() -> void:
 	for k in c.segs:
 		var i := c.wrap(k)
 		var j := c.wrap(k + 1)
-		if not c.corner[i] or not c.corner[j]:
+		if not c.corner[i] or not c.corner[j] or not _painted(i, j):
 			continue
 		var hi := H * _taper(i)
 		var hj := H * _taper(j)
@@ -543,6 +591,8 @@ func _build_barriers() -> void:
 			var panel := panel_a if (k / 5) % 2 else panel_b
 			var u0 := k * t.seg_len / 3.0
 			var u1 := (k + 1) * t.seg_len / 3.0
+			var dust_i := _barrier_dust(i)
+			var dust_j := _barrier_dust(j)
 			var oix := t.nx[i] * s
 			var oiz := t.nz[i] * s
 			var ojx := t.nx[j] * s
@@ -558,10 +608,10 @@ func _build_barriers() -> void:
 				var color := panel if part == 1 else (cap if part == 2 else concrete)
 				var ni := Vector3(oix * nO, nY, oiz * nO)
 				var nj := Vector3(ojx * nO, nY, ojz * nO)
-				var v0 := g.vert(ei + Vector3(oix * pa.x, pa.y, oiz * pa.x), ni, Vector2(u0, pa.y / 3.0), color)
-				var v1 := g.vert(ej + Vector3(ojx * pa.x, pa.y, ojz * pa.x), nj, Vector2(u1, pa.y / 3.0), color)
-				var v2 := g.vert(ej + Vector3(ojx * pb.x, pb.y, ojz * pb.x), nj, Vector2(u1, pb.y / 3.0), color)
-				var v3 := g.vert(ei + Vector3(oix * pb.x, pb.y, oiz * pb.x), ni, Vector2(u0, pb.y / 3.0), color)
+				var v0 := g.vert(ei + Vector3(oix * pa.x, pa.y, oiz * pa.x), ni, Vector2(u0, pa.y / 3.0), _dusted(color, dust_i, pa.y, nY))
+				var v1 := g.vert(ej + Vector3(ojx * pa.x, pa.y, ojz * pa.x), nj, Vector2(u1, pa.y / 3.0), _dusted(color, dust_j, pa.y, nY))
+				var v2 := g.vert(ej + Vector3(ojx * pb.x, pb.y, ojz * pb.x), nj, Vector2(u1, pb.y / 3.0), _dusted(color, dust_j, pb.y, nY))
+				var v3 := g.vert(ei + Vector3(oix * pb.x, pb.y, oiz * pb.x), ni, Vector2(u0, pb.y / 3.0), _dusted(color, dust_i, pb.y, nY))
 				# counter-clockwise around the outward profile normal
 				if s > 0.0:
 					g.quad(v0, v1, v2, v3)
@@ -614,6 +664,39 @@ func _build_barriers() -> void:
 		for key: Vector2i in stripes:
 			_add_geo(stripes[key], sm, "glow-stripes-%d" % n)
 			n += 1
+
+
+## What the road's surface does to the barrier at sample i: Vector2(dust, snow) weights (0..1)
+## from the surfaces whose "dust" is "dust" or "snow".
+func _barrier_dust(i: int) -> Vector2:
+	var t := ctx.track
+	if t.surf_w.is_empty():
+		return Vector2.ZERO
+	var out := Vector2.ZERO
+	for s in t.surf_n:
+		var kind: String = Surfaces.def(s).dust
+		if kind == "dust":
+			out.x += t.surf_w[i * t.surf_n + s]
+		elif kind == "snow":
+			out.y += t.surf_w[i * t.surf_n + s]
+	return out
+
+
+const DUST_TINT := Color(0.42, 0.31, 0.2)
+const SNOW_TINT := Color(0.86, 0.9, 0.95)
+
+
+## A barrier vertex colour at height y (m) with face normal-y ny: brown dust up to ~0.5 m on
+## dirt, snow lying on the upward faces (and a little on the rest) on snow.
+static func _dusted(col: Color, d: Vector2, y: float, ny: float) -> Color:
+	if d == Vector2.ZERO:
+		return col
+	var out := col
+	if d.x > 0.0:
+		out = out.lerp(DUST_TINT, d.x * clampf(0.75 - y * 0.9, 0.0, 0.7))
+	if d.y > 0.0:
+		out = out.lerp(SNOW_TINT, d.y * (0.9 if ny > 0.5 else clampf(0.25 + y * 0.35, 0.0, 0.6)))
+	return out
 
 
 func _glow_stripe(g: Geo, i: int, j: int, s: float) -> void:

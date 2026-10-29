@@ -1,6 +1,8 @@
 extends RefCounted
 ## test_world.gd: headless checks of the 3D world (world/): noise and random ports,
-## themes and quality levels, car models, chase camera, track meshes, fleet.
+## themes and quality levels, car models, chase camera, track meshes, fleet; the road
+## surfaces (v6.3): dirt and snow roads, no paint on them, dusty / snowy barriers, dust and
+## snow spray (pooled, scaled by quality), surface-coloured tyre marks, the camera's rumble.
 ## The pictures themselves are checked by eye with tests/visual/world_*.gd.
 
 const VNoise = preload("res://world/noise.gd")
@@ -17,6 +19,7 @@ func run(t) -> bool:
 	_cars(t)
 	_camera(t)
 	_tracks(t)
+	_surfaces(t)
 	_fleet(t)
 	_threaded(t)
 	return true
@@ -329,6 +332,128 @@ func _tracks(t) -> void:
 		if id == "lighthouse-bay":
 			t.check(node.find_child("lighthouse", false, false) != null and node.find_child("sea", false, false) != null, "seaside: sea and lighthouse")
 		node.free()
+
+
+func _surfaces(t) -> void:
+	t.section("road surfaces: dirt and snow")
+	# the road: the plain asphalt material on asphalt tracks; on Ramp Rally the surface shader
+	# with the dirt's weight in the vertex colours; no lines or curbs on the dirt
+	var plain := TrackMesh.build(Tracks.build("rookie-oval"))
+	var pm: Material = (plain.find_child("road", false, false) as MeshInstance3D).mesh.surface_get_material(0)
+	var rr := Tracks.build("ramp-rally")
+	var node := TrackMesh.build(rr)
+	var road := node.find_child("road", false, false) as MeshInstance3D
+	var sm: Material = road.mesh.surface_get_material(0)
+	var cols: PackedColorArray = road.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	var dirt := Surfaces.index_of("dirt")
+	var on_dirt := 0
+	var off_dirt := 0
+	var n_dirt := 0
+	var n_plain := 0
+	for k in cols.size() / 7: # (a row of 7 vertices across the road a sample)
+		var i := node.ctx.wrap(k)
+		var g: float = cols[k * 7 + 3].g # (the centre column; stored as sRGB)
+		var w := rr.surf_w[i * rr.surf_n + dirt]
+		if w == 1.0:
+			n_dirt += 1
+			on_dirt += 1 if g > 0.99 else 0
+		elif w == 0.0:
+			n_plain += 1
+			off_dirt += 1 if g == 0.0 else 0
+	var asphalt := TrackMesh.build(Tracks.build_asphalt("ramp-rally"))
+	var lines_v: int = (node.find_child("lines", false, false) as MeshInstance3D).mesh.surface_get_array_len(0)
+	var lines_a: int = (asphalt.find_child("lines", false, false) as MeshInstance3D).mesh.surface_get_array_len(0)
+	var curbs: MeshInstance3D = node.find_child("curbs", false, false)
+	var curbs_a: MeshInstance3D = asphalt.find_child("curbs", false, false)
+	var curb_v: int = curbs.mesh.surface_get_array_len(0) if curbs != null else 0
+	var curb_a: int = curbs_a.mesh.surface_get_array_len(0) if curbs_a != null else 0
+	t.check(pm is StandardMaterial3D and sm is ShaderMaterial and (sm as ShaderMaterial).shader.resource_path.ends_with("road_surface.gdshader") and \
+		on_dirt == n_dirt and off_dirt == n_plain,
+		"the road: asphalt tracks keep the plain material; on Ramp Rally the surface shader, the dirt's weight in every vertex colour (%d samples all dirt, %d all asphalt)" % [n_dirt, n_plain])
+	t.check(lines_v < lines_a * 0.75 and curb_v < curb_a, "no paint on the dirt: %d line vertices (all asphalt: %d), %d curb vertices (%d)" % [lines_v, lines_a, curb_v, curb_a])
+	plain.free()
+	asphalt.free()
+	node.free()
+	# barriers: snow on top along Hairpin Valley's snow, plain concrete elsewhere
+	var hv := Tracks.build("hairpin-valley")
+	var hnode := TrackMesh.build(hv)
+	var hplain := TrackMesh.build(Tracks.build_asphalt("hairpin-valley"))
+	var bc := PackedColorArray()
+	var bp := PackedColorArray()
+	for n: Node in hnode.get_children():
+		if String(n.name).begins_with("barriers-"):
+			bc.append_array((n as MeshInstance3D).mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR])
+			bp.append_array((hplain.find_child(n.name, false, false) as MeshInstance3D).mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR])
+	var changed := 0
+	var same := 0
+	var lum := 0.0
+	for k in mini(bc.size(), bp.size()):
+		if bc[k] == bp[k]:
+			same += 1
+		else:
+			changed += 1
+			lum += bc[k].get_luminance() - bp[k].get_luminance()
+	t.check(bc.size() == bp.size() and changed > 500 and same > changed and lum > 0.0,
+		"barriers: snow on them along the snow (%d vertices, %.2f brighter on average), the rest as on the all-asphalt track (%d)" % [
+			changed, lum / maxi(1, changed), same])
+	hnode.free()
+	hplain.free()
+
+	# the tyres on loose ground: dust on dirt, snow spray on snow, made only when needed, pooled;
+	# tyre marks of the surface's colour (faint ones without a slide); fewer puffs at low quality
+	var counts: Dictionary = {}
+	for q: float in [1.0, 0.3]:
+		CarEffects.spark_share = q
+		for sid: String in ["dirt", "snow", "asphalt"]:
+			var tr := rr if sid != "snow" else hv
+			var i := 0
+			for k in tr.count:
+				if tr.surface[k] == Surfaces.index_of(sid) and tr.surface[tr.wrap(k + 40)] == Surfaces.index_of(sid) and k > 20:
+					i = k + 10
+					break
+			var car := CarModel.new("dune")
+			t.tree.root.add_child(car)
+			var y := tr.heading(i)
+			var st := {"x": tr.px[i], "y": tr.py[i], "z": tr.pz[i], "yaw": y, "vx": sin(y) * 25.0, "vz": cos(y) * 25.0, "speed": 25.0,
+				"forward_speed": 25.0, "idx": i, "grounded": true, "slip": 0.5}
+			var emitted := 0
+			for f in 60:
+				st.x = tr.px[i] + sin(y) * 25.0 * f / 60.0
+				st.z = tr.pz[i] + cos(y) * 25.0 * f / 60.0
+				car.update(st, null, 1.0, 1.0 / 60.0, tr)
+				var pool: CarEffects.Spray = car.dust if sid == "dirt" else car.spray
+				emitted = pool.alive if pool != null else 0
+			var mark := Color(0, 0, car.skids.newest_tint.x, car.skids.newest_tint.y) if car.skids.used > 0 else Color(0, 0, 0, 0)
+			counts["%s %s" % [sid, q]] = {alive = emitted, dust = car.dust != null, spray = car.spray != null, mark = mark, smoke = car.smoke.node.visible}
+			car.free()
+	CarEffects.spark_share = 1.0
+	var d1: Dictionary = counts["dirt 1.0"]
+	var s1: Dictionary = counts["snow 1.0"]
+	var a1: Dictionary = counts["asphalt 1.0"]
+	t.check(d1.dust and not d1.spray and d1.alive > 12 and s1.spray and not s1.dust and s1.alive > 12 and not a1.dust and not a1.spray and a1.smoke and not d1.smoke,
+		"a sliding Dune at 90 km/h for 1 s: %d dust puffs on dirt, %d snow puffs on snow (pools made only there), tyre smoke only on asphalt" % [d1.alive, s1.alive])
+	t.check(counts["dirt 0.3"].alive < d1.alive * 0.5 and counts["snow 0.3"].alive < s1.alive * 0.5,
+		"low quality: %d dust and %d snow puffs (30 %% of the emission)" % [counts["dirt 0.3"].alive, counts["snow 0.3"].alive])
+	t.check(d1.mark.b > 0.99 and d1.mark.a == 0.0 and s1.mark.a > 0.99 and a1.mark.b == 0.0 and a1.mark.a == 0.0,
+		"tyre marks take the colour of the surface: dirt %.2f, snow %.2f, none on asphalt" % [d1.mark.b, s1.mark.a])
+
+	# the camera rumbles on dirt at speed (not on asphalt, not with reduced motion)
+	var rumble: Dictionary = {}
+	for sid: String in ["dirt", "asphalt", "dirt reduced"]:
+		ChaseCamera.reduce_motion = sid == "dirt reduced"
+		var cam := ChaseCamera.new()
+		cam.set_track(rr)
+		var i := 400 if sid != "asphalt" else 40
+		var y := rr.heading(i)
+		var st := {"x": rr.px[i], "y": rr.py[i], "z": rr.pz[i], "yaw": y, "vx": sin(y) * 35.0, "vz": cos(y) * 35.0, "speed": 35.0, "idx": i, "grounded": true}
+		cam.snap(st, rr)
+		for f in 90:
+			cam.update(st, 1.0 / 60.0)
+		rumble[sid] = Vector2(cam.ground_rumble, cam.shake)
+		cam.free()
+	ChaseCamera.reduce_motion = false
+	t.check(rumble.dirt.x > 0.3 and rumble.dirt.y > 0.05 and rumble.asphalt.y == 0.0 and rumble["dirt reduced"].y == 0.0,
+		"the camera rumbles on dirt at 126 km/h (shake %.3f), not on asphalt, not with reduced motion" % rumble.dirt.y)
 
 
 func _fleet(t) -> void:

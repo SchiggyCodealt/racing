@@ -7,6 +7,8 @@ extends SceneTree
 ##     --check       measure and compare with the stats stored in sim/cars.gd;
 ##                   exits 1 when one is off by more than its tolerance
 ##     --jobs=N      measure on N threads (default: one per car, at most 4); same numbers
+##     --surface=id  measure on another road surface (dirt, snow: sim/surfaces.gd), every
+##                   synthetic road made of it; prints the table only (v6.3)
 ## tests/test_sim.gd runs the same check (measure_car + stats_mismatch), so the numbers on
 ## the car picker can't go stale: after changing a spec, run this and paste the printed
 ## stats lines into sim/cars.gd. About 15 s per car on one core, no scene.
@@ -44,9 +46,9 @@ const STAT_KEYS: Array[String] = ["mass", "accel100", "accel200", "top", "accel2
 ## The keyboard steering ramp of the game's input (web/src/game/input.js).
 const KEYS: Dictionary = {rateSlow = 7.0, rateFast = 3.2, fastSpeed = 50.0, ret = 10.0}
 
-static var _straight: BuiltTrack = null
-static var _circles: Dictionary = {}
-static var _pad: BuiltTrack = null
+## The road surface of the synthetic roads (Surfaces id; set before prepare()).
+static var surface: String = "asphalt"
+static var _roads: Dictionary = {} # "<road>|<surface>" -> BuiltTrack
 
 
 ## Builds the synthetic roads (call once on the main thread before measuring on threads).
@@ -57,36 +59,43 @@ static func prepare() -> void:
 	pad()
 
 
+## A synthetic road made of `surface` all the way.
+static func _build(key: String, d: Dictionary) -> BuiltTrack:
+	var k: String = "%s|%s" % [key, surface]
+	if not _roads.has(k):
+		if surface != "asphalt":
+			d.surfaces = [[surface, 0, (d.points as Array).size()]]
+		_roads[k] = Tracks.build_def(d)
+	return _roads[k]
+
+
 static func road() -> BuiltTrack:
-	if _straight == null:
-		var pts: Array = []
+	var pts: Array = []
+	if not _roads.has("straight|" + surface):
 		for k in 126:
 			pts.append([0, k * 200, 0])
-		_straight = Tracks.build_def({id = "stats-straight", name = "Stats straight", type = "sprint", laps = 1, width = 30,
-			checkpoints = [], points = pts})
-	return _straight
+	return _build("straight", {id = "stats-straight", name = "Stats straight", type = "sprint", laps = 1, width = 30,
+		checkpoints = [], points = pts})
 
 
 static func circle(R: float) -> BuiltTrack:
-	if not _circles.has(R):
-		var pts: Array = []
+	var pts: Array = []
+	if not _roads.has("circle-%d|%s" % [R, surface]):
 		for k in 96:
 			var a: float = (k / 96.0) * PI * 2.0
 			pts.append([R * sin(a), R * cos(a) - R, 0])
-		_circles[R] = Tracks.build_def({id = "stats-circle-%d" % R, name = "Stats circle", type = "circuit", laps = 1,
-			width = minf(30.0, 2.0 * (R - 4.0)), checkpoints = [], points = pts})
-	return _circles[R]
+	return _build("circle-%d" % R, {id = "stats-circle-%d" % R, name = "Stats circle", type = "circuit", laps = 1,
+		width = minf(30.0, 2.0 * (R - 4.0)), checkpoints = [], points = pts})
 
 
 static func pad() -> BuiltTrack:
-	if _pad == null:
-		var pts: Array = []
+	var pts: Array = []
+	if not _roads.has("pad|" + surface):
 		for k in 400:
 			var a: float = (k / 400.0) * PI * 2.0
 			pts.append([3000.0 * sin(a), 3000.0 * cos(a) - 3000.0, 0])
-		_pad = Tracks.build_def({id = "stats-pad", name = "Stats pad", type = "circuit", laps = 1, width = 1200,
-			checkpoints = [], points = pts})
-	return _pad
+	return _build("pad", {id = "stats-pad", name = "Stats pad", type = "circuit", laps = 1, width = 1200,
+		checkpoints = [], points = pts})
 
 
 ## Keep a car going straight down the stats road.
@@ -285,7 +294,15 @@ func _initialize() -> void:
 	for a: String in args:
 		if a.begins_with("--jobs="):
 			threads = clampi(a.substr(7).to_int(), 1, 16)
+		elif a.begins_with("--surface="):
+			surface = a.substr(10)
+			if not Surfaces.has(surface):
+				print("unknown surface ", surface)
+				quit(1)
+				return
 	var t0: int = Time.get_ticks_msec()
+	if surface != "asphalt":
+		print("on %s (every synthetic road)\n" % Surfaces.def(Surfaces.index_of(surface)).name)
 	_ids = Cars.ids()
 	prepare()
 	threads = mini(threads, _ids.size())
@@ -306,7 +323,9 @@ func _initialize() -> void:
 		var m: Dictionary = _measured[id]
 		print(table_row(id, m))
 		lines.append("\t\t%s  # %s" % [stats_line(m), id])
-		var off: Array[Dictionary] = stats_mismatch(Cars.get_car(id).stats, m)
+		var off: Array[Dictionary] = []
+		if surface == "asphalt":
+			off = stats_mismatch(Cars.get_car(id).stats, m)
 		if off.size():
 			bad += 1
 			var what: PackedStringArray = []
@@ -314,7 +333,9 @@ func _initialize() -> void:
 				what.append("%s %s -> %s" % [o.key, o.stored, JsMath.num_to_js(float(o.measured))])
 			print("   sim/cars.gd differs: ", ", ".join(what))
 	print("\n%.1f s on %d thread%s" % [(Time.get_ticks_msec() - t0) / 1000.0, threads, "s" if threads > 1 else ""])
-	if not check:
+	if surface != "asphalt":
+		pass
+	elif not check:
 		print("\nstats lines for sim/cars.gd:\n%s" % "\n".join(lines))
 	else:
 		print("%d car(s) OUT OF DATE in sim/cars.gd: run tools/car_stats.gd and paste the stats" % bad if bad else "sim/cars.gd stats are up to date")

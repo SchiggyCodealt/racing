@@ -4,10 +4,11 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-28 (v6.2.0: feature 2 of 9, AI training with every car; v6.1.0: feature 1, two more cars
-and detailed car models with a moving driver; v6.0.0 was the port from the browser to the Godot 4.7 engine)._
+_Last updated: 2026-10-29 (v6.3.0: feature 3 of 9, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI
+training with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was
+the port from the browser to the Godot 4.7 engine)._
 
-## Status: v6.2.0, features 1-2 of 9 done (two more cars and detailed models; AI training with every car)
+## Status: v6.3.0, features 1-3 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -18,8 +19,15 @@ into corners, leans and pumps a fist at the finish. The Racer is unchanged bit f
 networks still count. v6.2.0 adds feature 2: the AI trains with any of the six cars (a car choice on the training
 screen, FleetSim and the GDScript trainer take the car's spec as data), every car keeps its own AI network in the
 save file, and Watch the AI / Race the AI ghost use the picked car's network driving that car. Racer networks
-(old saves, old files, the browser's) drive exactly as before. Features 3-9 are not built yet; nothing was designed
-out of them (the car list, medal ratios, settings rows and track list are data).
+(old saves, old files, the browser's) drive exactly as before. v6.3.0 adds feature 3: road surfaces as data
+(`sim/surfaces.gd`: asphalt, dirt, packed snow), with less grip (each car its own share: the Dune keeps 97 % on
+dirt, the Vortex 55 %), more rolling resistance and easier slides, mixed per axle and blended over about 10 m;
+dirt on Ramp Rally, Canyon Run and Mountain Pass, packed snow on Hairpin Valley and Mountain Pass's summit; dirt and
+snow roads, dust, snow spray, coloured tyre marks and a camera rumble; the menu names a track's surfaces. Those four
+tracks are new versions: records, scores and ghosts now carry the track's signature, and old ones move to an
+archive in the save file. The eight all-asphalt tracks and every car on them run the v6.2 physics bit for bit.
+Features 4-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
+list and surfaces are data).
 
 | Area | State | Where |
 | --- | --- | --- |
@@ -28,11 +36,12 @@ out of them (the car list, medal ratios, settings rows and track list are data).
 | Car models (v6.1.0): one skinned mesh per car (17 bones) with spinning / steering wheels, suspension, head and brake lights, panel lines, a driver who moves; headlights at night and dusk; a cheaper level of detail on low and for the AI fleet | done, checked by tests and screenshots (software rendering only) | `world/car_shapes.gd`, `world/car_build.gd`, `world/car_kit.gd`, `world/car_model.gd`, `world/shaders/car*.gdshader` |
 | Interface: menu (1 Track / 2 Car / 3 Drive; six car cards, three a row from a 780 px wide picker), Controls and Settings screens, HUD, finish panel, pad navigation, Barlow fonts | done, layout checked at 6 window sizes | `ui/`, `assets/fonts/` |
 | AI: network, evolution, sensors and driver, trainer (walls ride / crash, multi-track), training screen with 1× / Fast ×6 / Max on a background thread | done, lockstep-identical to the browser version (the Racer) | `ai/`, `modes/train_mode.gd`, `ui/train_*.gd` |
+| Road surfaces (v6.3.0): the surface table, per-sample surfaces and blend weights on `BuiltTrack`, per-axle physics (GDScript and FleetSim), track signatures on records / scores / ghosts with an archive, dirt and snow road shader, dust and snow spray, tinted tyre marks, camera rumble, the menu's surface line | done, FleetSim bit-identical on the surface tracks for all six cars, asphalt tracks bit-identical to v6.2; new medal times for the four changed tracks | `sim/surfaces.gd`, `sim/car.gd`, `sim/track_builder.gd`, `sim/save.gd`, `sim/tracks.gd`, `native/src/`, `world/track_mesh.gd`, `world/shaders/road_surface.gdshader`, `world/car_effects.gd` |
 | AI with every car (v6.2.0): the training screen's car tiles, a session per car, one network per car in the save file, network files that name their car, Watch / Race the AI with the picked car's network | done, every car checked in lockstep (FleetSim against GDScript) and by a short training run | `ui/car_chip.gd`, `modes/train_mode.gd`, `sim/save.gd`, `game/app.gd` |
 | FleetSim: the C++ GDExtension that steps the whole population (sensors, network, physics, rules) on several threads | done, bit-identical to the GDScript simulation for all six cars; Linux and Windows libraries built | `native/`, `bin/`, `trackrush.gdextension` |
 | Game shell: modes (menu, Drive, Race the AI ghost, Watch the AI, training), keyboard and gamepad, threaded track loading, quality governor, fullscreen / vsync, network files, messages | done | `main.tscn`, `game/`, `modes/` |
 | New in the Godot version: Settings screen (quality, fullscreen, vsync, interface size, ghost), native file dialogs for networks, the save file instead of browser storage | done | `ui/settings_screen.gd`, `game/app.gd`, `sim/save.gd` |
-| Tests: headless suite (509 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (534 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -54,7 +63,7 @@ Godot code; numbers travel as hex bits because Godot's JSON reader is not exact 
 | Race timing and points | 72 runs, 2,964 events (48 medal-autopilot races + 24 random-key tapes with respawns) | 71 runs identical (every event, total, breakdown, split, nitro); 1 random wall-banging tape has one wall-contact end 2 steps later after 90 s |
 | Ghosts | recorded runs packed by both | byte-identical (format 3 = the browser's format 2 bytes in base64); replay within 3 cm of the run (8 mm measured) |
 | Car stats | `tools/car_stats.gd` against `web/tools/carStats.mjs` | identical, 4 cars × 12 stats (the Dune and Vortex have no browser counterpart) |
-| Medal times | `tools/medals.gd` (50 autopilot runs per track and car) | 47 of 48 identical; Technical Trial with the Racer 3:45.083 against 3:44.033 (see Known limitations). The v6.1.0 sweep for six cars left the 48 old entries unchanged |
+| Medal times | `tools/medals.gd` (50 autopilot runs per track and car) | 47 of 48 identical; Technical Trial with the Racer 3:45.083 against 3:44.033 (see Known limitations). The v6.1.0 sweep for six cars left the 48 old entries unchanged. (v6.3.0 put dirt and snow on four tracks, which have new times; the parity scripts compare the all-asphalt versions, `Tracks.build_asphalt`) |
 | AI | sensors and network in lockstep (683k inputs, 76k controls); the browser's saved network driving from two track starts | 0 differences, bit for bit; GDScript and FleetSim give the same numbers at every step |
 | Interface | screenshots against the approved v5 ones | about 4 % of pixels differ on the menu (font rendering); 0 layout problems at 1024x600 to 1920x1080 |
 | 3D world | 14 moments side by side with the browser version | close; draw calls 158-216 at high (web 106-127), 74-99 at low (web 78-102) |
@@ -80,6 +89,80 @@ end-to-end scenarios pass (cars 17 with the Vortex and a trained network on Ligh
 Rookie Oval; modes 29, menu 24, races 108: every car on Rookie Oval, shots 4); the four FleetSim libraries were
 rebuilt; the Windows release export was made from a fresh import (no errors or warnings) and zipped as
 `build/TrackRush-6.2.0-windows.zip` (not started: no Windows here).
+
+v6.3.0 (2026-10-29): the headless suite passes (534 checks: sim 64, ui 123, world 133, game 76, ai 138); the
+end-to-end scenarios pass (surfaces 13 with `gfx=high`; races 324: every car on Rookie Oval, Seaside Stunts and
+Mountain Pass, which now has dirt and snow, finishing exactly on the new author times; modes 29, menu 24, cars 16,
+perf 1: 1.65 ms of script time a race frame on Ramp Rally with the dust, 1.36 ms on Night Highway); the four FleetSim
+libraries were rebuilt; the Windows release export was made from a fresh import (no errors or warnings) and zipped
+as `build/TrackRush-6.3.0-windows.zip` (not started: no Windows here).
+
+## How v6.3.0 (road surfaces) was verified
+
+- **Design**: one table, `sim/surfaces.gd` `DEFS` (asphalt, dirt, packed snow): CarSpec-independent physics columns
+  (`grip` default share, `roll` × rolling resistance, `stiffness` × tyre cornering stiffness, `esc` share of the
+  stability control) and look columns. Each car's share is a `CarSpec` field (`dirt_grip`, new `snow_grip`;
+  `surface_grip` holds all of them in table order). A track definition's `"surfaces"` is a list of
+  `[id, from, to]` in fractional control-point indices (from the turtle's `.surface()`); `TrackBuilder` makes a
+  surface per sample and blend weights box-filtered over ±`Surfaces.BLEND` samples (about 10 m). `sim/car.gd`
+  reads the weights at the front and rear axle (`_surface_mix`), scales each axle's grip, stiffness and rolling
+  resistance and the ESC moment, and skips all of it when both axles are on pure asphalt (`_env_loose`), so asphalt
+  runs the old code path. FleetSim does the same (`native/src/car_sim.cpp`, "trackrush-native 3").
+- **Asphalt unchanged**: medal-autopilot runs (nitro on, 2,400 steps) with all six cars on all 12 tracks hashed every
+  50 steps: the 48 runs on the eight all-asphalt tracks are identical to v6.2's (only the four surface tracks
+  differ). The browser parity scripts, run on the all-asphalt versions (`Tracks.build_asphalt`), give exactly the
+  v6.0-6.2 results: car lockstep 39,906 of 46,200 steps bit-identical, races and points 71 of 72 runs, ghosts 12
+  of 12, collision 1 number in 66,216 by 1 ulp, and the AI report (`check_ai.gd`) identical line for line to the one
+  from the v6.2.0 checkout (0 of 683,352 inputs and 0 of 75,928 controls different).
+- **FleetSim on dirt and snow**: `FleetSim.debug_drive` drives one car with a control tape; `tests/test_ai.gd`
+  compares every step (position, yaw, velocity, speed, yaw rate, progress, slip) with `sim/car.gd` for all six cars
+  from several starts on Ramp Rally, Hairpin Valley and Mountain Pass: bit-identical (about 23,000 steps on loose
+  ground). The network's 18 inputs are unchanged (`SENSOR_VERSION` 2).
+- **What the surfaces do** (`tools/car_stats.gd --surface=`; README "Road surfaces"): e.g. 100-0 km/h for the Racer
+  30.7 / 34.0 / 43.0 m on asphalt / dirt / snow, the Dune 31.7 / 31.2 / 33.8, the Vortex 28.8 / 42.4 / 55.2; a 30 m
+  circle on dirt 1.63 g for the Dune against 0.89 g for the Vortex (both about 1.7 g on asphalt). `tests/test_sim.gd`
+  "road surfaces" checks the table, the four tracks and their blend, that the Racer on Ramp Rally drives bit for bit
+  as on the all-asphalt version until its front axle reaches the dirt (9.9 s), the change onto dirt at 90 km/h (the
+  front grip share goes from 1 to 0.70 over 10.4 m, at most 0.012 a step), braking and cornering per car.
+- **Tuning**: with the first shares (Drifter 0.9 on dirt, Vortex 0.6) a sweep made the Drifter the quickest car on
+  Ramp Rally (2:58.4 against the Dune's 3:00.1); the Drifter went to 0.74 / 0.6 and the Vortex to 0.55 / 0.42, so the
+  Dune is the dirt and snow car: quickest of all on Ramp Rally and Hairpin Valley, second on Canyon Run, and it loses
+  the least time on every changed track (0.8-11.1 s, the Vortex 8.8-36.6 s).
+- **Medal times**: `tools/medals.gd --update --tracks=hairpin-valley,ramp-rally,mountain-pass,canyon-run --jobs=3`
+  (1,023 s); the other 48 entries of `data/medals.json` are untouched. The medal and test autopilots take the car's
+  spec and scale their planned corner speed and braking by its grip share on each sample (only on tracks with
+  surfaces). Author times before (all asphalt) and after:
+
+  | Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | Hairpin Valley | 3:46.583 → 4:07.233 | 3:44.050 → 4:02.267 | 3:48.433 → 4:18.500 | 3:46.833 → 4:06.783 | 3:47.233 → 3:58.333 | 3:31.383 → 4:07.933 |
+  | Ramp Rally | 2:52.417 → 3:05.633 | 2:55.183 → 3:04.500 | 2:53.517 → 3:12.917 | 2:52.083 → 3:03.983 | 2:58.367 → 3:00.133 | 2:36.750 → 3:05.700 |
+  | Mountain Pass | 1:47.683 → 1:53.267 | 1:48.250 → 1:52.333 | 1:49.150 → 1:56.517 | 1:48.500 → 1:53.267 | 1:51.083 → 1:52.683 | 1:40.433 → 1:49.233 |
+  | Canyon Run | 4:15.450 → 4:24.067 | 4:11.933 → 4:19.883 | 4:25.167 → 4:31.817 | 4:12.150 → 4:21.400 | 4:17.733 → 4:18.500 | 4:02.100 → 4:16.333 |
+
+- **Walls still cost time**: one Racer lap with the medal autopilot against the same autopilot never braking:
+  Hairpin Valley 1:24.817 against 1:25.367, Ramp Rally 1:07.267 / 1:09.833, Mountain Pass 1:54.667 / 1:56.350,
+  Canyon Run 1:29.933 / 1:37.183 (a test). On Hairpin Valley's snow the gap is small (0.55 s a lap, 4.6 s on the
+  asphalt version): see Known limitations.
+- **AI on dirt and snow** (`tools/headless_train.gd`, FleetSim, 80 cars): Ramp Rally (47 % dirt) with the Racer,
+  walls crash: first finish in generation 1, best lap 1:21.283 by generation 7; walls ride: a finish in generation 0,
+  1:10.033 by generation 6. Hairpin Valley (snow) with the Dune, walls crash: first finish in generation 23 (2:19.417).
+- **Track versions** (`SaveData.VERSION` 3): records and scores get `sig` (`Tracks.signature()`: "count:length", plus
+  "|dirt168-730,..." for a track with surfaces); version 2 files are tagged with the v6.2 signatures
+  (`Tracks.LEGACY_SIGS`) on load; any entry (records, scores, ghosts) whose signature is not the track's current one
+  moves to `archive[section][track][car][sig]` (`SaveData.get_archived`). The AI's best times carry `sig` too and the
+  menu ignores stale ones (`AiLink._current_times`). Tests: a version 2 save's records, scores and ghosts on Ramp
+  Rally move to the archive (by old signature) while Rookie Oval's stay; a slower run on the new Ramp Rally is a new
+  best; a version 3 entry with a signature that no longer exists is archived, entries of unknown tracks are left alone.
+- **Looks** (`tests/test_world.gd` "road surfaces", 7 checks; e2e `surfaces`, 13 checks): the road of a surface track
+  is one mesh with a `ShaderMaterial` (`road_surface.gdshader`: vertex colour G / B = dirt / snow weight, a ragged
+  border from noise, the asphalt texture elsewhere), all-asphalt tracks keep their `StandardMaterial3D`; no lane
+  lines or kerbs where the road is loose; barrier vertices along dirt get dusty feet, along snow white tops; dust and
+  snow pools (`CarEffects.Spray`, one MultiMesh each, made the first time a car touches loose ground) scale with the
+  quality (`spark_share` 1 / 0.65 / 0.3); tyre marks carry the surface weights (`skid.gdshader` mixes the colours);
+  `ChaseCamera.ground_rumble` (0 on asphalt, off with `reduce_motion`). Screenshots (software rendering only): a Dune
+  throwing dust on Ramp Rally's dirt, the asphalt / dirt border ahead, a Racer sliding on Hairpin Valley's snow, the
+  menu's surface line.
 
 ## How v6.2.0 (AI training with every car) was verified
 
@@ -172,7 +255,20 @@ rebuilt; the Windows release export was made from a fresh import (no errors or w
   `class_name`, run `godot --headless --path . --import` once before running scripts.
 - **Data, not code**, where the next features will grow: the cars (`sim/cars.gd` `CARS`), medals (`sim/medals.gd`
   `ORDER` / `FACTORS`, stored with the times in `data/medals.json`), the settings rows (`ui/settings_screen.gd`
-  `ROWS`, with an `action` row type for a terminal), the tracks (`data/tracks.json`), the themes (`world/themes.gd`).
+  `ROWS`, with an `action` row type for a terminal), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
+  the road surfaces (`sim/surfaces.gd` `DEFS`: physics and look columns; FleetSim gets the physics columns from
+  `Trainer.track_data`, the road shader has colour slots for table entries 1 and 2).
+- **Road surfaces** are marked in the track designs (`tools/gen_tracks.gd`, turtle `.surface("dirt")` ...
+  `.surface("asphalt")`; the design rules want stretches of 60 m or more and the start grid on asphalt). A track
+  without them has no `"surfaces"` key and an empty `BuiltTrack.surf_w`, and every surface branch in `sim/car.gd`,
+  the autopilots and FleetSim is skipped for it: keep it that way, so asphalt tracks stay bit-identical.
+  `Tracks.build_asphalt(id)` is a track with its surfaces stripped (the browser's version, for the parity tools and
+  the web checks in `tests/test_sim.gd`).
+- **Track signatures**: `BuiltTrack.signature()` is "count:length" (the layout) plus "|dirt168-730,..." when the track
+  has surfaces; `Tracks.signature(id)` caches it. Records, best scores and ghosts store it as `sig`; an entry whose
+  `sig` is not the track's current one is archived when the save is loaded (`SaveData._archive_stale`).
+  `Tracks.LEGACY_SIGS` holds the v6.2 signatures for untagged (version 2) entries: never change it. Changing a track
+  (layout or surfaces) therefore retires its old records by itself; re-run `tools/medals.gd --update --tracks=<id>`.
 - **Car models are made in code and are only looks**: nothing in `sim/` reads them. `world/car_shapes.gd` holds each
   car's shape as data (body sections, wheel places, wing, cockpit, suit and glove colours; the paint comes from
   `look` in `sim/cars.gd`), `world/car_build.gd` turns a shape into one skinned mesh per car and detail level
@@ -181,10 +277,11 @@ rebuilt; the Windows release export was made from a fresh import (no errors or w
   rear flap). One opaque and one glass surface: 2-4 draw calls a car whatever the detail. To add a car: an entry in
   `sim/cars.gd` (spec, look, description; `tools/car_stats.gd`, `tools/medals.gd`), a shape in `car_shapes.gd`, then
   look at it with `tests/visual/car_studio.gd`.
-- **Version tags** decide what old saved data still counts: `Car.PHYSICS_VERSION` (3: best times, ghosts, medals),
-  `ScoreState.SCORE_RULES` (1: best scores, medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION`
-  (2: one network per car; `_migrate` upgrades version 1), ghost format 3, FleetSim's `version()` ("trackrush-native
-  2": the sensors scale by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
+- **Version tags** decide what old saved data still counts: `Car.PHYSICS_VERSION` (3: best times, ghosts, medals;
+  unchanged by the surfaces, which only change tracks that have them), `ScoreState.SCORE_RULES` (1: best scores,
+  medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION` (3: track signatures on records and
+  scores, the archive; `_migrate` upgrades versions 1 and 2), ghost format 3, the track signatures above, FleetSim's
+  `version()` ("trackrush-native 3": road surfaces; 2 scaled the sensors by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
   change to the physics, a car, the points, a track or its laps, and `tools/car_stats.gd` after changing a car.
 - **AI networks belong to a car.** `SaveData.load_network(car, slot)` / `save_network(data, car, slot)` keep one
   network per car and slot (`"best"`, the one the player trains; more slots per car can sit beside it, e.g. shipped
@@ -226,13 +323,27 @@ rebuilt; the Windows release export was made from a fresh import (no errors or w
 - **Track building is slower** (0.8-1.7 s against 0.16-0.45 s in the browser); the menu builds on a worker thread so
   the orbit never stops, and a race waits for its track.
 - **GDScript physics is about 40× slower than the browser's JS**: fine for playing, but `tools/medals.gd` takes about
-  35 minutes for six cars on 3 cores (`--jobs=3`; it only writes `data/medals.json` after a full sweep) and
+  35 minutes for six cars on 3 cores (`--jobs=3`; it only writes `data/medals.json` after a full sweep; `--update
+  --tracks=...` sweeps some tracks and keeps the rest, 17 minutes for four) and
   `tools/car_stats.gd` about a minute (52 s for six cars on 4 threads).
 - **Car models and headlights were only ever seen through software rendering** (llvmpipe): the headlight
   brightness (high: two spotlights a car, medium: one, low: a glowing pool on the road), the panel lines and the
   driver's colours were tuned on screenshots from it. The low-quality headlight pool looks blocky up close.
-- **The Vortex is the fastest car on every track and the Dune the slowest** by the medal autopilot (the Dune's
-  strength, grip on dirt, is a `dirtGrip` field that nothing reads until feature 3 adds dirt).
+- **The Vortex is the fastest car on the eight all-asphalt tracks, Mountain Pass and Canyon Run, and the Dune the
+  slowest on asphalt** by the medal autopilot; on Ramp Rally and Hairpin Valley the Dune is the fastest and the
+  Vortex fifth. The balance comes from the medal autopilot, which follows the centre line and slows for the grip
+  share it is told; people may find dirt and snow easier or harder than that.
+- **On snow the walls are nearly as good a brake as the brakes** for the simple autopilot: on Hairpin Valley a
+  never-braking autopilot is only 0.55 s a lap slower than the best clean-ish one (4.6 s on the asphalt version),
+  because the brakes lose grip on snow and the wall model does not. Walls still cost time on every track (a test), and
+  the score punishes them; a wall-friction factor per surface would be the fix if players abuse it.
+- **The AI does not see the surface**: its 18 inputs are unchanged (`SENSOR_VERSION` 2); a network learns where the
+  dirt is on the tracks it trains on. A Racer network trained on an all-asphalt track brakes too late on snow.
+- **Surfaces were only seen through software rendering** (llvmpipe): the dirt and snow colours, the border noise,
+  the dust and spray density were tuned on its screenshots. The snow spray is hard to see against the white road.
+- Archived records, scores and ghosts (save file `"archive"`) are kept but nothing in the game shows them yet
+  (`SaveData.get_archived` reads them).
+- `web/docs/tracks-overview.svg` shows the layouts only, not the surfaces.
 - A ghost car on High and Medium now costs about 16,500 triangles (was about 10,600) because it is the full model
   in the ghost material (on Low about 6,700); it is 2 draw calls instead of 38.
 - **The Linux training library needs glibc 2.38** (Ubuntu 24.04 or newer); on older Linux the game falls back to
@@ -245,8 +356,6 @@ rebuilt; the Windows release export was made from a fresh import (no errors or w
   to the file.
 - A network loaded from a file trained with another car drives the picked car as it is; the game says so but does
   not stop it, and it usually drives worse than the car's own network (see the v6.2.0 verification).
-- Best times are not tagged with the track's layout (ghosts and medals are, with `BuiltTrack.signature()`): changing a
-  track keeps its old best times. Tag records with the signature before reworking tracks (see Next, item 6).
 - There is no "reduce motion" option (the browser followed the system setting): the camera shake on wall hits and
   the nitro kick are always on (`ChaseCamera.reduce_motion` exists, nothing sets it).
 - Browser saves (localStorage) can't be carried over; AI network files can, both ways.
@@ -277,7 +386,7 @@ re-run the medal times.
    braking and bumps on landings, and who pumps a fist after the finish (`CarModel.celebrate()`). The menu picker
    shows three cards a row (two on narrow windows); the silhouettes come from `CarModel.profile`. Left for later
    items: buying cars and **starting with only the Racer** (item 5), the AI driving other cars (item 2, done in
-   v6.2.0), dirt reading `dirtGrip` (item 3).
+   v6.2.0), dirt reading `dirtGrip` (item 3, done in v6.3.0).
 2. **AI training with different vehicles.** **Done in v6.2.0.** The training screen's form and run view have a Car
    row of six tiles (`ui/car_chip.gd`; "gen N" marks a car with a saved network); the session trains that car on
    both paths (FleetSim gets the spec as data), and picking another car while training starts a new session, asking
@@ -286,11 +395,17 @@ re-run the medal times.
    files name their car (`"car"`). The menu's AI block, Watch the AI and Race the AI ghost use the picked car's
    network and say so when there is none. `tools/headless_train.gd --car` trains any car with FleetSim. No
    pre-trained networks are shipped.
-3. **Terrain such as dirt.** Default: **dirt sections with less grip and dust**. A per-sample surface in the track
-   data (for example ranges of samples or checkpoints marked `dirt` in `tools/gen_tracks.gd`), a surface array on
-   `BuiltTrack`, a grip factor in `sim/car.gd` (where `_surface_env` reads the road under the car) and the same in
-   `native/src/car_sim.cpp`, a dirt road material in `world/track_mesh.gd` and dust in `world/car_effects.gd`. Old
-   tracks without dirt keep their numbers; tracks that get dirt need new medal times.
+3. **Terrain such as dirt.** **Done in v6.3.0.** Three surfaces as data (`sim/surfaces.gd`): asphalt, dirt (each
+   car's `dirt_grip` share of its grip, 3 × rolling resistance, softer tyres that slide sooner, 60 % stability
+   control) and packed snow (`snow_grip`, the lowest grip, 2.2 × rolling resistance). Per axle and blended over
+   about 10 m in `sim/car.gd` and FleetSim (bit for bit). Dirt on Ramp Rally (a rally stage over the jumps), Canyon
+   Run (the gravel turnaround) and Mountain Pass (the valley road), packed snow on Hairpin Valley (over the ridge)
+   and Mountain Pass (the summit); the other eight tracks are unchanged bit for bit. Dirt and snow road shader,
+   no lines or kerbs on loose road, dusty / snowy barriers, dust and snow spray (pooled, scaled by quality), tyre
+   marks in the surface's colour, a camera rumble, the surfaces on the menu's track panel. The Dune keeps 97 % of its
+   grip on dirt and 72 % on snow and is the quickest car on Ramp Rally and Hairpin Valley; the Vortex keeps 55 % /
+   42 %. New medal times for the four tracks; records, scores and ghosts are tagged with the track's signature and
+   old ones archived (`SaveData.VERSION` 3). Drifts on dirt score as usual.
 4. **Three new maps.** Design them with the turtle in `tools/gen_tracks.gd` (the design rules check them), maybe on a
    new theme in `world/themes.gd`, then `tools/medals.gd`. The menu grid is 6 columns, so 15 tracks make a third row:
    check the menu still fits at 1280x720 without scrolling (`ui/main_menu.gd`, `tests/visual/ui_preview.gd`); keys
@@ -298,7 +413,7 @@ re-run the medal times.
 5. **Money and points from beating medal times and AIs (more for more skilled AIs).** Defaults: **money buys cars
    (start with the Racer); points are a career total** (separate from the per-run style score); **AI opponents from
    Rookie to Elite, harder ones paying more**. Needs: new save fields (money, career points, owned cars, rewards
-   already paid per track / car / medal so they are paid once) in `sim/save.gd` with `VERSION` 3 and a migration
+   already paid per track / car / medal so they are paid once) in `sim/save.gd` with `VERSION` 4 and a migration
    (`SaveData._migrate`), a data-driven reward table, AI opponents as shipped networks of rising skill (train them
    with `tools/headless_train.gd --car`, put them in `data/`; the per-car network slots of `SaveData` are ready for
    more than the player's "best"), racing them through the existing Race the AI ghost path
@@ -306,9 +421,10 @@ re-run the medal times.
    picker.
 6. **Rework the tight corners on the old maps** (make them more forgiving). The hairpins have a 13-19 m radius
    (Canyon Run 13 m, Technical Trial 15 m, Grand Marathon 16 m, Hairpin Valley 17 m, Mountain Pass 18-19 m) and are
-   taken at about 55-65 km/h: widen the radius or the road there in `tools/gen_tracks.gd`. Changed tracks need new medal times and invalidate old ghosts automatically, but old best
-   times would stay: first tag records with `BuiltTrack.signature()` (see Known limitations) and ignore or archive
-   records of a changed layout.
+   taken at about 55-65 km/h: widen the radius or the road there in `tools/gen_tracks.gd`. Changed tracks need new
+   medal times (`tools/medals.gd --update --tracks=...`); since v6.3.0 their old best times, scores and ghosts stop
+   counting and move to the save file's archive by themselves (track signatures, see Conventions). Keep the surface
+   stretches in place when reworking Hairpin Valley, Mountain Pass and Canyon Run (`.surface()` calls in the designs).
 7. **A terminal in Settings** for adding points, money and so on. Default: **in Settings and on the ` key, with
    commands like `money 5000`, `points 200`, `unlock all`**. The Settings screen already has an `action` row type
    (`ui/settings_screen.gd`, emits `action(key)`); the menu input names keys like the browser (`ui/menu_input.gd`

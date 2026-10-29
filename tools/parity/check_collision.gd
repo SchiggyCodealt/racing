@@ -11,7 +11,7 @@ func _initialize() -> void:
 	var loc := Collision.Loc.new()
 	var c := Collision.Contact.new()
 	for q: Dictionary in qs:
-		var t: BuiltTrack = Tracks.build(q.track)
+		var t: BuiltTrack = Tracks.build_asphalt(q.track)
 		var x: float = q.x
 		var z: float = q.z
 		Collision.locate(t, x, z, int(q.hint), loc)
