@@ -10,15 +10,16 @@ extends "res://ui/dialog_screen.gd"
 ## Rows are data (ROWS, or add_row for more): {key, label, hint, type, options?, section?}
 ##   type "choice"  options [[value, "Label"], ...]
 ##   type "toggle"  On / Off (a bool setting)
-##   type "action"  a button; pressing it emits action(key) (e.g. a terminal, later)
+##   type "action"  a button (def.button, default "Open", with def.cap's key cap when given);
+##                  pressing it emits action(key): v6.7.0's Terminal row ("terminal")
 ##   type "custom"  any Control in def.control (it handles its own input)
 ## Values are read and written with UiData.get_setting / set_setting; every change also emits
 ## setting_changed(key, value) for the game. "fullscreen" and "vsync" are window settings with
 ## no game meaning, so this screen applies them itself (apply_display; off in tests).
 ##
-## Keys: up / down (W / S) pick a row, left / right (A / D) or Enter / Space change it, Esc,
-## Backspace or O closes. Gamepad: d-pad / stick, A changes, B or Menu closes. The mouse
-## clicks the segments.
+## Keys: up / down (W / S) pick a row, left / right (A / D) or Enter / Space change it (or press
+## an action row's button), Esc, Backspace or O closes; ` opens the terminal over it (MainMenu).
+## Gamepad: d-pad / stick, A changes, B or Menu closes. The mouse clicks the segments.
 
 signal setting_changed(key: String, value: Variant)
 signal action(key: String)
@@ -36,6 +37,8 @@ const ROWS := [
 		"hint": "The size of the menus and the HUD. Auto: 100% up to 1920x1080, bigger on larger screens."},
 	{"section": "Race", "key": "ghost", "label": "Race my best-run ghost", "type": "toggle",
 		"hint": "In Drive, a see-through copy of your best run with the same car races with you (G or Y switches it during a race)."},
+	{"section": "Career", "key": "terminal", "label": "Terminal", "type": "action", "button": "Open", "cap": "`",
+		"hint": "Change your career by typing: money 5000, points 200, unlock all (help lists all). The ` key opens it too."},
 ]
 
 ## Apply "fullscreen" and "vsync" to the window when they change.
@@ -97,7 +100,7 @@ func add_row(def: Dictionary) -> Control:
 				entry.segs.append(b)
 			line.add_child(segs)
 		"action":
-			var b := UiStyle.button(str(def.get("button", "Open")), "SmallButton", 30)
+			var b := button_with_cap(str(def.get("button", "Open")), str(def.cap)) if def.has("cap") else UiStyle.button(str(def.get("button", "Open")), "SmallButton", 30)
 			b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			b.pressed.connect(func() -> void: action.emit(str(def.key)))
 			line.add_child(b)
@@ -201,10 +204,12 @@ func handle_keys(inp: Object) -> void:
 		step_row(selected_row, 1)
 
 
-## Short windows (1024x600): rows and sections closer together, so every setting fits.
+## Short windows (1280x720 and less since v6.7.0's Terminal row; 1024x600 tighter still): rows and
+## sections closer together, so every setting fits.
 func _on_layout(_w: float) -> void:
-	var short := size.y <= 700
-	_row_pad = UiStyle.S1 + 2 if short else UiStyle.S2 + 2
+	var short := size.y <= 760
+	var tiny := size.y <= 640
+	_row_pad = UiStyle.S1 if tiny else UiStyle.S1 + 2 if short else UiStyle.S2 + 2
 	for g in _section_gaps:
 		g.custom_minimum_size.y = UiStyle.S2 if short else UiStyle.S4
 	_render()

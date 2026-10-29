@@ -26,6 +26,9 @@ Version 6.6.0 makes the tightest corners of five of the old tracks more forgivin
 Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon Run are rounder (22-25 m instead of 13-19 m)
 and their road 2-3 m wider; they are still hairpins, and the tracks keep their shape and their dirt and snow (see
 [The reworked corners](#the-reworked-corners-version-660)).
+Version 6.7.0 adds a terminal: in Settings (or with the `` ` `` key on the menu) you type commands such as `money 5000`,
+`points 200`, `car vortex` or `unlock all` to add money and points, get cars and open everything (see
+[The terminal](#the-terminal)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows, the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -39,7 +42,7 @@ and their road 2-3 m wider; they are still hairpins, and the tracks keep their s
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.6.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.7.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -99,6 +102,7 @@ On the menu:
 | Enter or Space | A | Drive |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
+| `` ` `` (the key under Esc) | Settings, highlight **Terminal**, then A | The **terminal**: commands for money, points and cars (not during a race) |
 | Mouse | | Click a track tile or a car card to pick it, double-click to drive straight away |
 
 Each run starts with a 3-2-1-GO countdown. Circuits are 3 laps, and a lap only counts when you pass
@@ -621,9 +625,39 @@ The **Settings** screen (the button in the menu's header, or **O**) has:
 | Vertical sync | On (default) / Off | Match the monitor's refresh rate: no tearing, a little more input lag. |
 | Interface size | Auto (default), 100 %-200 % | The size of the menus and the HUD. Auto: 100 % up to 1920x1080, bigger on larger screens. |
 | Race my best-run ghost | On (default) / Off | The same as the option on the menu and **G** in a race. |
+| Terminal | Open | Opens [the terminal](#the-terminal) (also the `` ` `` key). |
 
 Up / down (or W / S, the d-pad) pick a row, left / right or Enter change it, Esc or O closes the screen. The
 choices are saved straight away.
+
+### The terminal
+
+The terminal is a small console for changing your career by typing. Open it with **Terminal: Open** in Settings or
+with the `` ` `` key (the key under Esc) on the menu or in Settings; it never opens during a race (`` ` `` does
+nothing there). Type a command and press **Enter**; it prints what it did and the new value, saves at once, and the menu
+behind it shows the new money, points and cars straight away.
+
+![The terminal over the menu after help, money 25000, points 200, a typing mistake, a bad number and status](docs/screenshots/terminal.png)
+
+| Command | What it does |
+| --- | --- |
+| `help` / `help <command>` | Lists the commands / explains one (`help money`) |
+| `money <n>` | Adds n dollars (`money 5000`); a minus takes money away (`money -2000`), never below $0. Commas are fine (`5,000`) |
+| `money set <n>` | Sets your money to exactly n (`money set 12000`). `money` alone shows it |
+| `points <n>` / `points set <n>` | The same for career points (`points 200`, `points set 1000`) |
+| `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
+| `buy <name>` | Buys a car with your money, as BUY on the car picker does (`buy kestrel`) |
+| `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
+| `status` | Your money, points, the cars you own and how many medals you hold |
+| `reset career` | Starts the career over: $0, 0 points, only the Racer, and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). It asks first: type `reset career confirm` to do it |
+| `clear` | Clears the terminal (Ctrl+L too) |
+| `exit` | Closes the terminal (Esc or `` ` `` too) |
+
+**Tab** completes a command's name and its first word (`unl` Tab gives `unlock `, `car v` Tab gives `car vortex `;
+with several matches it lists them), **Up** / **Down** bring back the lines you typed before, and a typing mistake
+gets a short message saying what to type instead (`mony 5000`: "Did you mean money?"). Typing needs a keyboard; a
+gamepad can open the terminal from Settings (highlight Terminal, A) and close it (B). Every track is open in this
+version anyway; `unlock all` is remembered for when tracks unlock one by one.
 
 ## Saved data
 
@@ -638,7 +672,8 @@ Everything is kept in one file, `trackrush_save.json`:
 The same folder is used whether you run the exported game or the project from the Godot editor. It holds your
 best time and splits, the ghost of that run and your best score for every track and car, the settings, the
 trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's),
-and the career: money, points, the cars you own and the rewards already paid. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+and the career: money, points, the cars you own, the rewards already paid and whether the terminal's `unlock all`
+opened every track. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -675,7 +710,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.6.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.7.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -697,8 +732,8 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks) |
@@ -749,7 +784,8 @@ sideways) so the rest of the track stays put, run `tools/corners.gd` before and 
 project.godot           the Godot project (Forward+, 1280x720 base size, main scene main.tscn)
 main.tscn               the main scene: one node with game/app.gd
 game/                   the game shell: modes, threaded track loading, quality, settings, AI network files (app.gd),
-                        keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages
+                        keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages, the terminal's
+                        commands (terminal.gd: one table of commands)
 modes/                  menu, play (Drive, Race the AI), watch (Watch the AI) and train (the training screen)
 sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the six cars,
                         collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
@@ -761,7 +797,7 @@ world/                  3D: track mesh, terrain and scenery, sky and themes, car
                         bodies; car_build.gd + car_kit.gd: one skinned mesh per car with its driver; car_model.gd:
                         the skeleton's animation and lights), effects (smoke, dust, snow spray, skids, sparks, nitro),
                         chase camera, the AI fleet and sensor rays; shaders/ (road_surface: dirt and snow roads)
-ui/                     the interface, built in code: style, menu, Controls and Settings screens, HUD, finish panel,
+ui/                     the interface, built in code: style, menu, Controls, Settings and terminal screens, HUD, finish panel,
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)
 data/                   tracks.json, medals.json and opponents/ (an AI opponent network per track and car, with its

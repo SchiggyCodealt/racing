@@ -1977,6 +1977,38 @@ func _career() -> void:
 		(((disk.get("archive", {}) as Dictionary).get("records", {}) as Dictionary).get("hairpin-valley", {}) as Dictionary).has("racer"),
 		"a version 4 save from v6.5: its record, score and ghost on the old Hairpin Valley (%s) move to the archive, Rookie Oval's stay; nothing is paid or taken on loading; the rewards paid there stay paid: a gold and a Rookie win on the new version (%s) pay $0, author and an Amateur win $%s" % [
 			hv_old, hv.signature(), UiFormat.points(want_more)])
+
+	# v6.7.0, the terminal: the "tracks unlocked" flag and the career reset (save version 4 kept)
+	write.call(JSON.stringify({version = 4, records = {"rookie-oval": {racer = rec.call(float(mro.gold), ro.signature())}},
+		career = {money = 700, points = 30, cars = ["racer", "dune"], paid = {"rookie-oval": {racer = ["bronze", "silver", "gold"]}}}}))
+	SaveData.use_file(path)
+	ok = not SaveData.tracks_unlocked() and SaveData.unlock_tracks(true) and SaveData.tracks_unlocked() and not SaveData.unlock_tracks(true)
+	SaveData.use_file(path) # read back from the file
+	disk = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and SaveData.tracks_unlocked() and disk is Dictionary and JsMath.same(disk.get("version"), 4) and disk.career.get("tracks_unlocked") == true and \
+		SaveData.get_money() == 700 and SaveData.owned_cars() == PackedStringArray(["racer", "dune"])
+	ok = ok and SaveData.unlock_tracks(false) and not SaveData.tracks_unlocked() and not SaveData.unlock_tracks(false)
+	SaveData.use_file(path)
+	disk = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and not SaveData.tracks_unlocked() and not (disk.career as Dictionary).has("tracks_unlocked")
+	var junk_ok: int = 0
+	for v: String in ["\"yes\"", "1", "false", "null", "{}"]:
+		write.call("{\"version\": 4, \"career\": {\"money\": 5, \"tracks_unlocked\": %s}}" % v)
+		SaveData.use_file(path)
+		if not SaveData.tracks_unlocked() and SaveData.get_money() == 5:
+			junk_ok += 1
+	t.check(ok and junk_ok == 5, "the tracks flag (v6.7.0): off in a v6.6 file; unlock_tracks turns it on once (true when it changed), it is in the file's career (still version 4) and read back; off again removes the key; %d of 5 junk values read as off" % junk_ok)
+	write.call(JSON.stringify({version = 4, records = {"rookie-oval": {racer = rec.call(float(mro.gold), ro.signature())}},
+		settings = {car = "dune", ghost = false}, networks = {racer = {best = {network = {layers = [1]}}}},
+		career = {money = 700, points = 30, cars = ["racer", "dune"], tracks_unlocked = true, paid = {"rookie-oval": {racer = ["bronze", "silver", "gold"]}}}}))
+	SaveData.use_file(path)
+	SaveData.reset_career()
+	SaveData.use_file(path)
+	ok = SaveData.get_money() == 0 and SaveData.get_points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and not SaveData.tracks_unlocked() and \
+		SaveData.paid_rewards("rookie-oval", "racer").is_empty() and not SaveData.get_record("rookie-oval", "racer").is_empty() and \
+		SaveData.get_setting("car") == "dune" and SaveData.get_setting("ghost") == false and SaveData.load_network("racer") is Dictionary and SaveData.take_welcome().is_empty()
+	var again_paid: int = int(Economy.claim("rookie-oval", "racer", "gold", "").money)
+	t.check(ok and again_paid == 300 + 500 + 800, "reset_career: $0, 0 points, only the Racer, the tracks flag off, nothing paid (a gold pays $1,600 again); the record, settings and network stay; no welcome note")
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean.call()
 

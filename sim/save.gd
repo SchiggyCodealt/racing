@@ -36,12 +36,21 @@ extends RefCounted
 ##   SaveData.pay_rewards(track_id, car_id, ids, money, points)  mark them paid and add the money and points
 ##   SaveData.take_welcome()                          -> {money, points, medals} paid by the upgrade to
 ##                                                    version 4 for the medals already held, once ({} after)
+## The terminal (v6.7.0, game/terminal.gd) also uses:
+##   SaveData.tracks_unlocked() -> bool                every track open whatever the medals (the terminal's
+##                                                    `unlock all`; tracks unlocking one by one is item 8)
+##   SaveData.unlock_tracks(on)                       set or clear that flag (true when it changed)
+##   SaveData.reset_career()                          a new career: $0, 0 points, the starting cars, nothing
+##                                                    paid, the tracks flag off (records, ghosts, scores,
+##                                                    networks and settings stay)
 ##
 ## File layout: {version, records: {track: {car: {time, splits, date, physics, sig}}},
 ## ghosts: {track: {car: ghost}}, scores: {track: {car: {score, date, rules, physics, sig}}},
 ## settings: {...}, networks: {car: {slot: network file}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
-## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?}}. Records and ghosts made under
+## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?}}.
+## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
+## stays: older games keep the key as it is.) Records and ghosts made under
 ## another Car.PHYSICS_VERSION, and scores under other ScoreState.SCORE_RULES, are not read.
 ## Track versions: records, scores and ghosts carry the signature of the track they were made on
 ## (BuiltTrack.signature(): its layout and road surfaces). When a track changes (v6.3 put dirt and
@@ -245,6 +254,8 @@ static func _repair_career(d: Dictionary) -> void:
 			c.paid[track][car] = clean
 	if c.has("welcome") and not (c.welcome is Dictionary):
 		c.erase("welcome")
+	if c.has("tracks_unlocked") and not (c.tracks_unlocked is bool and c.tracks_unlocked):
+		c.erase("tracks_unlocked") # (only true is kept: absent means off)
 
 
 ## Entries kept from older versions of a track: {signature: entry} (section: "records",
@@ -587,3 +598,37 @@ static func take_welcome() -> Dictionary:
 		_write()
 	_mutex.unlock()
 	return out
+
+
+## True when every track is open whatever the medals held (the terminal's `unlock all`, v6.7.0).
+## Item 8 (the next track unlocks after a bronze on the previous one) reads this first.
+static func tracks_unlocked() -> bool:
+	_mutex.lock()
+	var on: bool = _career().get("tracks_unlocked") == true
+	_mutex.unlock()
+	return on
+
+
+## Open every track (on) or go back to unlocking them by medals (off). True when it changed.
+static func unlock_tracks(on: bool = true) -> bool:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var was: bool = c.get("tracks_unlocked") == true
+	if on and not was:
+		c.tracks_unlocked = true
+		_write()
+	elif not on and was:
+		c.erase("tracks_unlocked")
+		_write()
+	_mutex.unlock()
+	return on != was
+
+
+## Start the career over (the terminal's `reset career confirm`): $0, 0 points, only the starting
+## cars, no rewards paid (so medals and AI wins pay again when they are next won), the tracks flag
+## off. Best times, scores, ghosts, AI networks and settings are kept.
+static func reset_career() -> void:
+	_mutex.lock()
+	_all().career = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}}
+	_write()
+	_mutex.unlock()

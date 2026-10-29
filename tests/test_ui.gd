@@ -3,7 +3,8 @@ extends RefCounted
 ## rules, the minimap fitting, the key names, gamepad geometry, the menu's keyboard and gamepad
 ## navigation (menu.js handleKeys / handlePad), the Controls and Settings screens, the HUD's
 ## states and the finish panel; (v6.5.0) money and points on the menu, the car shop's locks and
-## prices, the opponent picker and the finish panel's payout. The look is checked by eye with tests/visual/ui_preview.gd.
+## prices, the opponent picker and the finish panel's payout; (v6.7.0) the terminal screen (log, input,
+## history, Tab, the keys that open and close it on the menu and Settings). The look is checked by eye with tests/visual/ui_preview.gd.
 ## No frames pass here, so the containers are laid out by hand (_settle).
 
 const Fx := preload("res://tests/visual/ui_fixture.gd")
@@ -24,6 +25,7 @@ func run(t) -> bool:
 	_menu_cars(t)
 	_menu_tracks(t)
 	_settings(t)
+	_terminal(t)
 	_hud(t)
 	_finish(t)
 	_career(t)
@@ -147,6 +149,7 @@ func _keys(t) -> void:
 	t.check(MenuInput.key_code(_key(KEY_KP_3)) == "Numpad3" and MenuInput.key_code(_key(KEY_KP_ENTER)) == "NumpadEnter", "Numpad3, NumpadEnter")
 	t.check(MenuInput.key_code(_key(KEY_MINUS)) == "Minus" and MenuInput.key_code(_key(KEY_EQUAL)) == "Equal", "Minus, Equal")
 	t.check(MenuInput.key_code(_key(KEY_UP)) == "ArrowUp" and MenuInput.key_code(_key(KEY_ESCAPE)) == "Escape", "ArrowUp, Escape")
+	t.check(MenuInput.key_code(_key(KEY_QUOTELEFT)) == "Backquote", "the key under Esc is Backquote (the terminal, v6.7.0)")
 	var inp := MenuInput.new()
 	inp.press("KeyC")
 	t.check(inp.consume(["KeyX", "KeyC"]) and not inp.consume(["KeyC"]), "consume takes a press once")
@@ -393,12 +396,172 @@ func _settings(t) -> void:
 	t.check(s.selected_row == 2, "up a row")
 	var acted := []
 	s.action.connect(func(k: String) -> void: acted.append(k))
-	s.add_row({"section": "Tools", "key": "terminal", "label": "Terminal", "type": "action", "button": "Open", "hint": "A test row."})
+	var rows: Array = s.get("_rows")
+	var last: Dictionary = rows[rows.size() - 1]
+	t.check(str(last.def.key) == "terminal" and str(last.def.type) == "action" and str(last.def.section) == "Career" and
+		(last.segs[0] as Button).has_meta("label") and str((last.segs[0] as Button).get_meta("label").text) == "Open",
+		"the last row is the Terminal (v6.7.0, section Career): an Open button with its ` key cap")
+	s.step_row(rows.size() - 1, 1)
+	(last.segs[0] as Button).pressed.emit()
+	t.check(acted == ["terminal", "terminal"], "Enter on the Terminal row and a click on Open emit action(\"terminal\")")
+	acted.clear()
+	s.add_row({"section": "Tools", "key": "tool", "label": "A tool", "type": "action", "button": "Open", "hint": "A test row."})
 	s.step_row(s.get("_rows").size() - 1, 1)
-	t.check(acted == ["terminal"], "an added action row emits action(key)")
+	t.check(acted == ["tool"], "an added action row emits action(key)")
 	s.handle_keys(_press(inp, ["PadB"], true))
 	t.check(not s.is_open, "B closes it")
 	h.free()
+	UiData.reset()
+
+
+## A stand-in for game/terminal.gd: run echoes the line (or closes / clears / changes on
+## exit / clear / money), complete offers some names.
+class FakeTerminal:
+	extends RefCounted
+	var ran: Array = []
+	func run(line: String) -> Dictionary:
+		ran.append(line)
+		var w := line.strip_edges()
+		return {"lines": [["ok", "ran " + w], ["row", "Money", "$5"]], "changed": w.begins_with("money"), "close": w == "exit", "clear": w == "clear"}
+	func complete(line: String) -> Dictionary:
+		if line == "mo":
+			return {"line": "money ", "options": ["money"]}
+		if line == "c":
+			return {"line": "c", "options": ["car", "clear"]}
+		return {"line": line, "options": []}
+
+
+## A key press through the viewport (as a keyboard sends it to the focused control).
+func _type_key(t, code: Key, ch: String = "", ctrl := false) -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.keycode = code
+	e.unicode = ch.unicode_at(0) if ch != "" else 0
+	e.ctrl_pressed = ctrl
+	e.pressed = true
+	t.tree.root.push_input(e)
+	var up := e.duplicate() as InputEventKey
+	up.pressed = false
+	up.unicode = 0
+	t.tree.root.push_input(up)
+
+
+func _terminal(t) -> void:
+	t.section("the terminal screen (v6.7.0)")
+	UiData.reset()
+	var h := _holder(t)
+	var term := TerminalScreen.new()
+	h.add_child(term)
+	var fake := FakeTerminal.new()
+	term.commands = fake
+	var changes := [0]
+	term.changed.connect(func() -> void: changes[0] += 1)
+	term.open()
+	_settle(h)
+	t.check(term.is_open and term.line.has_focus() and term.log_text().contains("Type help for the commands"), "open: the input has the focus, a welcome line in the log")
+	for ch in "hi":
+		_type_key(t, (ch.to_upper().unicode_at(0)) as Key, ch)
+	_type_key(t, KEY_ENTER)
+	t.check(fake.ran == ["hi"] and term.line.text == "" and term.log_text().contains("> hi") and term.log_text().contains("ran hi") and
+		term.log_text().contains("Money") and term.history == PackedStringArray(["hi"]), "typing hi and Enter (key events): the line runs, the log shows it and the result (a row too); the input is empty")
+	term.submit("money 5")
+	term.submit("money 5")
+	t.check(changes[0] == 2 and term.history == PackedStringArray(["hi", "money 5"]), "a command that changed the career emits changed; the same line twice is kept once in the history")
+	_type_key(t, KEY_D, "d")
+	_type_key(t, KEY_UP)
+	var a := term.line.text
+	_type_key(t, KEY_UP)
+	var b := term.line.text
+	_type_key(t, KEY_UP)
+	var c := term.line.text
+	_type_key(t, KEY_DOWN)
+	_type_key(t, KEY_DOWN)
+	var d := term.line.text
+	_type_key(t, KEY_DOWN)
+	t.check(a == "money 5" and b == "hi" and c == "hi" and d == "d" and term.line.text == "d" and term.line.has_focus(), "Up / Down: the lines run before (newest first, stopping at the oldest), then back to what was being typed (%s, %s, %s, %s)" % [a, b, c, d])
+	term.line.text = "mo"
+	term.line.caret_column = 2
+	_type_key(t, KEY_TAB)
+	t.check(term.line.text == "money " and term.line.caret_column == 6 and term.line.has_focus(), "Tab completes mo to \"money \" (the focus stays on the input)")
+	term.line.text = "c"
+	_type_key(t, KEY_TAB)
+	t.check(term.line.text == "c" and term.log_text().contains("Tab: car, clear"), "Tab with several matches lists them")
+	term.line.text = ""
+	_type_key(t, KEY_QUOTELEFT, "`")
+	_type_key(t, KEY_ESCAPE)
+	t.check(term.line.text == "" and term.is_open, "` and Esc type nothing into the input (handle_keys closes on them)")
+	var inp := Fx.FakeInput.new()
+	term.handle_keys(_press(inp, ["KeyO", "Enter", "Digit1"]))
+	t.check(term.is_open, "other keys leave it open")
+	for code: String in ["Backquote", "Escape", "PadB", "PadStart"]:
+		term.open()
+		inp.clear_pressed()
+		term.handle_keys(_press(inp, [code], code.begins_with("Pad")))
+		t.check(not term.is_open and not term.line.has_focus(), "%s closes it (the input lets go of the focus)" % code)
+	term.open()
+	term.submit("clear")
+	t.check(not term.log_text().contains("ran hi") and term.log_text().contains("ran clear"), "a command that clears: the log starts over")
+	_type_key(t, KEY_L, "l", true)
+	t.check(term.log_text().strip_edges() == "" and term.line.text == "", "Ctrl+L clears the log")
+	term.submit("exit")
+	t.check(not term.is_open, "a command that closes (exit) closes it")
+	term.open()
+	for i in TerminalScreen.MAX_LINES:
+		term.print_lines([["info", "line %d" % i]])
+	t.check((term.get("_entries") as Array).size() == TerminalScreen.MAX_LINES and term.log_text().contains("line %d" % (TerminalScreen.MAX_LINES - 1)) and
+		not term.log_text().contains("ran clear"), "the log keeps the last %d lines" % TerminalScreen.MAX_LINES)
+	for i in TerminalScreen.MAX_HISTORY + 10:
+		term.submit("x%d" % i)
+	t.check(term.history.size() == TerminalScreen.MAX_HISTORY and term.history[term.history.size() - 1] == "x%d" % (TerminalScreen.MAX_HISTORY + 9), "the history keeps the last %d lines" % TerminalScreen.MAX_HISTORY)
+	term.commands = null
+	term.submit("anything")
+	t.check(term.log_text().contains("No commands here"), "without commands it says so (no script error)")
+	term.close()
+	h.free()
+
+	t.section("the terminal on the menu (v6.7.0)")
+	Fx.save_data_v5()
+	var hm := _menu(t)
+	var menu: MainMenu = hm[1]
+	menu.terminal.commands = FakeTerminal.new()
+	inp = Fx.FakeInput.new()
+	menu.handle_keys(_press(inp, ["Backquote"]))
+	t.check(menu.terminal.is_open and menu.terminal.line.has_focus(), "` on the menu opens the terminal")
+	var drives := [0]
+	menu.drive.connect(func() -> void: drives[0] += 1)
+	var sel := menu.selected_track
+	menu.handle_keys(_press(inp, ["KeyO", "KeyH", "KeyC", "Digit3", "Enter", "ArrowRight"]))
+	t.check(menu.terminal.is_open and not menu.settings.is_open and not menu.controls.is_open and drives[0] == 0 and menu.selected_track == sel and
+		UiData.picked_car() == "racer", "keys typed into it never reach the menu (O, H, C, 3, Enter, →)")
+	menu.handle_keys(_press(inp, ["Escape"]))
+	t.check(not menu.terminal.is_open and not menu.settings.is_open, "Esc closes it")
+	menu.handle_keys(_press(inp, ["KeyO"]))
+	menu.handle_keys(_press(inp, ["Backquote"]))
+	t.check(menu.terminal.is_open and menu.settings.is_open, "` on Settings opens it over Settings")
+	menu.handle_keys(_press(inp, ["Backquote"]))
+	t.check(not menu.terminal.is_open and menu.settings.is_open, "` closes it: back to Settings")
+	var srows: Array = menu.settings.get("_rows")
+	menu.settings.selected_row = srows.size() - 1
+	menu.handle_keys(_press(inp, ["PadA"], true))
+	t.check(menu.terminal.is_open, "pad A on Settings' Terminal row opens it")
+	menu.handle_keys(_press(inp, ["PadB"], true))
+	menu.handle_keys(_press(inp, ["PadB"], true))
+	t.check(not menu.terminal.is_open and not menu.settings.is_open, "pad B closes it, then Settings")
+	menu.handle_keys(_press(inp, ["KeyH"]))
+	menu.handle_keys(_press(inp, ["Backquote"]))
+	t.check(menu.controls.is_open and not menu.terminal.is_open, "on Controls ` does nothing")
+	menu.handle_keys(_press(inp, ["Escape"]))
+	menu.show_terminal(true)
+	menu.handle_keys(_press(inp, []))
+	menu.terminal.submit("exit")
+	menu.handle_keys(_press(inp, ["Enter"])) # (the Enter that ran exit, read by the menu in the same frame)
+	t.check(not menu.terminal.is_open and drives[0] == 0, "exit + Enter closes it without driving (that frame's keys were typed into it)")
+	menu.handle_keys(_press(inp, ["Enter"]))
+	t.check(drives[0] == 1, "the next Enter drives again")
+	menu.show_terminal(true)
+	menu.show_menu(false)
+	t.check(not menu.terminal.is_open, "leaving the menu closes it")
+	hm[0].free()
 	UiData.reset()
 
 

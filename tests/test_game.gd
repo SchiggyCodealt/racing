@@ -3,11 +3,14 @@ extends RefCounted
 ## actions, keyboard steering ramps, the stick and trigger curves, key presses), the save data
 ## wiring of the interface (UiData -> SaveData), the app's mode switching and the race modes'
 ## helpers (respawn, roll-out, the stuck watchdog, a short race through the play mode), and
-## (v6.5.0) the career in the app: the car shop, races against the AI opponents and their payout.
+## (v6.5.0) the career in the app: the car shop, races against the AI opponents and their payout;
+## (v6.7.0) the terminal's commands (game/terminal.gd: every command, bad input, Tab, the save file)
+## and the terminal in the app (opened from the menu and Settings, the menu redrawn, ` in a race).
 ## The real game under a display is checked by tests/e2e/game_e2e.gd.
 
 const AiLink := preload("res://game/ai_link.gd")
 const PlayMode := preload("res://modes/play_mode.gd")
+const Terminal := preload("res://game/terminal.gd")
 const SAVE := "user://test_game_save.json"
 
 
@@ -16,6 +19,7 @@ func run(t) -> bool:
 	_save_wiring(t)
 	_helpers(t)
 	_app(t)
+	_terminal(t)
 	UiData.reset()
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	if FileAccess.file_exists(SAVE):
@@ -44,6 +48,7 @@ func _input(t) -> void:
 		"steer_left": [KEY_LEFT, KEY_A], "steer_right": [KEY_RIGHT, KEY_D], "accelerate": [KEY_UP, KEY_W], "brake": [KEY_DOWN, KEY_S],
 		"handbrake": [KEY_SPACE], "nitro": [KEY_SHIFT], "restart": [KEY_R], "respawn": [KEY_ENTER, KEY_BACKSPACE, KEY_KP_ENTER],
 		"ghost": [KEY_G], "menu": [KEY_ESCAPE], "menu_accept": [KEY_ENTER, KEY_SPACE], "menu_back": [KEY_ESCAPE, KEY_BACKSPACE],
+		"menu_terminal": [KEY_QUOTELEFT],
 	}
 	var bad := []
 	for a: String in binds:
@@ -340,6 +345,9 @@ func _app(t) -> void:
 		_app_career(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	_app_terminal(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	app.free()
 	UiData.reset()
 
@@ -552,3 +560,258 @@ func _app_career(t, app: GameApp) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	menu.refresh()
+
+
+## v6.7.0: the terminal in the app: ` opens it on the menu and on Settings (and Settings' Terminal
+## row), its commands change the save file and the menu at once, the keys typed into it never
+## reach the menu, and ` in a race does nothing.
+func _app_terminal(t, app: GameApp) -> void:
+	t.section("the app: the terminal (v6.7.0)")
+	var path := "user://test_game_terminal.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var menu: MainMenu = app.ui.menu
+	var term: TerminalScreen = menu.terminal
+	var inp: GameInput = app.input
+	var money_l: Label = menu.get("_money_l")
+	var points_l: Label = menu.get("_points_l")
+	var drive_btn: Button = menu.get("_drive_btn")
+	menu.select_car("racer")
+	menu.refresh()
+	t.check(term.commands != null and term.commands.has_method("run") and not term.is_open, "the app hands the terminal its commands (game/terminal.gd)")
+	inp.clear_pressed()
+	inp.press("Backquote")
+	menu.handle_keys(inp)
+	t.check(term.is_open and app.mode == app.menu_mode, "` on the menu opens it")
+	term.submit("money 25000")
+	term.submit("points 200")
+	t.check(SaveData.get_money() == 25000 and money_l.text == "$25,000" and points_l.text == "200 pts", "money 25000, points 200: the menu's header shows %s, %s at once" % [money_l.text, points_l.text])
+	term.submit("car dune")
+	menu.select_car("dune")
+	t.check(SaveData.owns_car("dune") and drive_btn.text == "DRIVE", "car dune: the Dune is yours (Drive, not BUY)")
+	term.submit("buy kestrel")
+	t.check(SaveData.owns_car("kestrel") and SaveData.get_money() == 15000 and money_l.text == "$15,000", "buy kestrel: bought with the money, $15,000 left")
+	inp.press("Escape")
+	menu.handle_keys(inp)
+	t.check(not term.is_open and app.mode == app.menu_mode, "Esc closes it (the Esc doesn't reach the menu)")
+	inp.press("KeyO")
+	menu.handle_keys(inp)
+	inp.press("Backquote")
+	menu.handle_keys(inp)
+	t.check(term.is_open and menu.settings.is_open, "O, then `: the terminal over Settings")
+	inp.press("Backquote")
+	menu.handle_keys(inp)
+	var rows: Array = menu.settings.get("_rows")
+	menu.settings.step_row(rows.size() - 1, 1)
+	t.check(term.is_open and menu.settings.is_open, "` closes it; Settings' Terminal row opens it again")
+	term.submit("reset career")
+	t.check(SaveData.get_money() == 15000 and SaveData.owns_car("dune"), "reset career only asks")
+	term.submit("reset career confirm")
+	t.check(SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and drive_btn.text == "LOCKED",
+		"reset career confirm: $0, only the Racer; the picked Dune is for sale again (%s)" % drive_btn.text)
+	term.submit("unlock all")
+	t.check(SaveData.owned_cars().size() == Cars.ids().size() and SaveData.tracks_unlocked() and drive_btn.text == "DRIVE", "unlock all: every car (Drive), every track")
+	term.submit("exit")
+	inp.press("Enter")
+	menu.handle_keys(inp)
+	t.check(not term.is_open and app.mode == app.menu_mode, "exit + Enter: closed, still on the menu (the Enter doesn't drive)")
+	inp.press("Escape")
+	menu.handle_keys(inp)
+	t.check(not menu.settings.is_open, "Esc closes Settings")
+	# in a race ` does nothing (on the menu's track: going back builds no other track on a thread)
+	var m: Node = app.start_play({"track": app.tracks[app.selected_track], "driver": "human"})
+	for i in 60 * 4:
+		inp.held = {"accelerate": true}
+		app.mode.update(1.0 / 60.0)
+	inp.press("Backquote")
+	inp.press("menu_terminal")
+	var step0 := int(m.get("race_step"))
+	for i in 10:
+		app.mode.update(1.0 / 60.0)
+	inp.held = {}
+	t.check(app.mode == m and m.get("phase") == "race" and int(m.get("race_step")) == step0 + 10 and not term.is_open and not menu.visible,
+		"in a race ` does nothing: the race goes on, no terminal")
+	app.show_menu()
+	app._finish_build_task()
+	t.check(not term.is_open and menu.visible, "back on the menu: the terminal is closed")
+	SaveData.use_file(SAVE)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	menu.refresh()
+
+
+## v6.7.0: game/terminal.gd on its own save file: every command with good and bad input, Tab,
+## what reaches the file. Nothing typed may raise a script error.
+func _terminal(t) -> void:
+	t.section("the terminal's commands (v6.7.0, game/terminal.gd)")
+	var path := "user://test_terminal.json"
+	var fresh := func() -> void:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+		SaveData.use_file(path)
+	fresh.call()
+	var term: Object = Terminal.new()
+	var kinds := ["ok", "info", "gain", "loss", "error", "warn", "row"]
+	var text_of := func(r: Dictionary) -> String:
+		var out := PackedStringArray()
+		for l: Array in r.lines:
+			out.append(" | ".join(PackedStringArray(l.slice(1).map(func(x: Variant) -> String: return str(x)))))
+		return "\n".join(out)
+	var kind_of := func(r: Dictionary) -> String: return str(r.lines[0][0]) if not (r.lines as Array).is_empty() else ""
+	# the table: every command has its help text, its method and a usage line
+	var bad := []
+	for c: Dictionary in Terminal.COMMANDS:
+		if str(c.get("help", "")) == "" or not term.has_method(str(c.run)) or not c.has("args"):
+			bad.append(c.name)
+	t.check(bad.is_empty() and term.names() == PackedStringArray(["help", "money", "points", "car", "buy", "unlock", "status", "reset", "clear", "exit"]),
+		"one table: %d commands, each with its help, usage and method %s" % [Terminal.COMMANDS.size(), bad])
+	var r: Dictionary = term.run("")
+	t.check((r.lines as Array).is_empty() and not r.changed and (term.run("   \t ").lines as Array).is_empty(), "an empty line does nothing")
+	r = term.run("help")
+	var rows := (r.lines as Array).filter(func(l: Array) -> bool: return l[0] == "row")
+	t.check(rows.size() == Terminal.COMMANDS.size() and text_of.call(r).contains("money <n> | set <n>") and text_of.call(r).contains("unlock all | cars | tracks"), "help: a row per command")
+	r = term.run("help money")
+	t.check(kind_of.call(r) == "ok" and text_of.call(r).contains("money set 12000") and (r.lines as Array).size() >= 3, "help money explains it")
+	r = term.run("help bogus")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("no command \"bogus\""), "help bogus: an error naming the commands")
+	r = term.run("mony 5000")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("Did you mean money?") and SaveData.get_money() == 0 and not r.changed, "mony 5000: unknown, did you mean money; nothing changes")
+	r = term.run("xyzzy")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("Unknown command \"xyzzy\"") and not text_of.call(r).contains("Did you mean"), "xyzzy: unknown, no wild guess")
+
+	# money and points
+	r = term.run("money")
+	t.check(text_of.call(r).contains("Money: $0") and not r.changed, "money on its own shows it")
+	r = term.run("money 5000")
+	t.check(kind_of.call(r) == "gain" and text_of.call(r) == "Money +$5,000: now $5,000" and r.changed and SaveData.get_money() == 5000, "money 5000: +$5,000")
+	r = term.run("money -200")
+	t.check(kind_of.call(r) == "loss" and text_of.call(r).contains("−$200: now $4,800") and SaveData.get_money() == 4800, "money -200: takes $200")
+	r = term.run("money -999999")
+	t.check(SaveData.get_money() == 0 and text_of.call(r).contains("now $0") and text_of.call(r).contains("never goes below $0"), "money -999999: stops at $0, says so")
+	r = term.run("money -5")
+	t.check(kind_of.call(r) == "info" and text_of.call(r).contains("unchanged") and not r.changed, "taking money from $0: unchanged")
+	r = term.run("money set 1234")
+	var r2: Dictionary = term.run("money set 1234")
+	t.check(SaveData.get_money() == 1234 and r.changed and not r2.changed and text_of.call(r2).contains("unchanged"), "money set 1234 sets it (again: unchanged)")
+	r = term.run("MONEY 5,000")
+	var r3: Dictionary = term.run("money +$1_000")
+	t.check(SaveData.get_money() == 7234 and r.changed and r3.changed, "MONEY 5,000 and money +$1_000: any case, commas, a sign, a $ and _ are fine")
+	var errs := 0
+	for l: String in ["money abc", "money 1.5", "money 5 6", "money set", "money set -5", "money --5", "money $", "money 5k", "money 99999999999", "money set x",
+			"points lots", "points set -1", "points 1e3", "money ５０００"]:
+		r = term.run(l)
+		if kind_of.call(r) == "error" and not r.changed and (r.lines as Array).size() == 1:
+			errs += 1
+	t.check(errs == 14 and SaveData.get_money() == 7234 and SaveData.get_points() == 0, "14 bad amounts (letters, decimals, two numbers, none, below 0, too big, ...): one short error each, nothing changes")
+	r = term.run("money 1000000000")
+	t.check(SaveData.get_money() == 1000007234 and r.changed, "the most at a time: 1,000,000,000")
+	term.run("money set 0")
+	r = term.run("points 200")
+	t.check(kind_of.call(r) == "gain" and text_of.call(r) == "Points +200 pts: now 200 pts" and SaveData.get_points() == 200, "points 200")
+	r = term.run("points set 10")
+	t.check(kind_of.call(r) == "loss" and SaveData.get_points() == 10, "points set 10: down to 10 (a loss)")
+	r = term.run("points -50")
+	t.check(SaveData.get_points() == 0 and text_of.call(r).contains("never go below 0"), "points -50: stops at 0")
+
+	# cars
+	r = term.run("car")
+	t.check((r.lines as Array).filter(func(l: Array) -> bool: return l[0] == "row").size() == 6 and text_of.call(r).contains("Racer | yours") and
+		text_of.call(r).contains("Vortex | $30,000 in the shop") and not r.changed, "car on its own lists the six cars and their prices")
+	r = term.run("car Vortex")
+	t.check(kind_of.call(r) == "gain" and SaveData.owns_car("vortex") and r.changed and SaveData.get_money() == 0, "car Vortex (any case): yours, free")
+	r = term.run("car vortex")
+	t.check(kind_of.call(r) == "info" and text_of.call(r).contains("Already yours: Vortex") and not r.changed, "car vortex again: already yours")
+	r = term.run("car bus")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("no car called \"bus\"") and text_of.call(r).contains("racer, kestrel") and not r.changed, "car bus: an error listing the cars")
+	r = term.run("car kestrel THUNDER")
+	t.check(SaveData.owns_car("kestrel") and SaveData.owns_car("thunder") and text_of.call(r).contains("Kestrel, Thunder"), "car kestrel THUNDER: two at once")
+	r = term.run("car all")
+	t.check(SaveData.owned_cars().size() == 6 and text_of.call(r).contains("Now yours: Drifter, Dune") and text_of.call(r).contains("6 of 6"), "car all: every car")
+	r = term.run("car all")
+	t.check(text_of.call(r).contains("You already own every car") and not r.changed, "car all again: already")
+
+	# buy (the shop's Economy.buy)
+	fresh.call()
+	r = term.run("buy kestrel")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("$10,000 short") and text_of.call(r).contains("Try: money 10000") and not SaveData.owns_car("kestrel"), "buy kestrel with $0: $10,000 short")
+	term.run("money 12000")
+	r = term.run("buy Kestrel")
+	t.check(kind_of.call(r) == "loss" and SaveData.owns_car("kestrel") and SaveData.get_money() == 2000 and r.changed and text_of.call(r).contains("$2,000 left"), "with $12,000: bought, $2,000 left")
+	r = term.run("buy kestrel")
+	var r4: Dictionary = term.run("buy")
+	var r5: Dictionary = term.run("buy bus")
+	t.check(kind_of.call(r) == "info" and SaveData.get_money() == 2000 and kind_of.call(r4) == "error" and kind_of.call(r5) == "error", "buy it again: already yours; buy alone or an unknown car: errors")
+
+	# unlock
+	r = term.run("unlock")
+	var r6: Dictionary = term.run("unlock everything")
+	t.check(kind_of.call(r) == "error" and kind_of.call(r6) == "error" and not SaveData.tracks_unlocked(), "unlock alone or unlock everything: try unlock all")
+	r = term.run("unlock tracks")
+	t.check(SaveData.tracks_unlocked() and SaveData.owned_cars().size() == 2 and r.changed, "unlock tracks: the tracks flag only")
+	fresh.call()
+	r = term.run("unlock cars")
+	t.check(SaveData.owned_cars().size() == 6 and not SaveData.tracks_unlocked(), "unlock cars: the cars only")
+	fresh.call()
+	r = term.run("unlock all")
+	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	t.check(SaveData.owned_cars().size() == 6 and SaveData.tracks_unlocked() and r.changed and disk is Dictionary and JsMath.same(disk.version, 4) and
+		disk.career.tracks_unlocked == true and (disk.career.cars as Array).size() == 6, "unlock all: every car and the tracks flag, in the save file (still version 4)")
+	r = term.run("unlock all")
+	t.check(not r.changed and text_of.call(r).contains("already"), "unlock all again: nothing new")
+
+	# status (a gold on Rookie Oval with the Racer)
+	var ro := Tracks.build("rookie-oval")
+	SaveData.submit_record("rookie-oval", "racer", float(Medals.medal_times(ro, "racer").gold) - 0.1, [])
+	SaveData.submit_record("rookie-oval", "dune", float(Medals.medal_times(ro, "dune").bronze), [])
+	term.run("money set 4321")
+	r = term.run("status")
+	var st: String = text_of.call(r)
+	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(6 of 6)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
+		st.contains("1 of 15 tracks") and st.contains("all 15 open for good"), "status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag")
+	var mc: Dictionary = Terminal.medal_counts()
+	t.check(int(mc.gold) == 1 and int(mc.bronze) == 1 and int(mc.tracks) == 1, "medal_counts: the best medal of each track and car")
+
+	# reset (asks first)
+	r = term.run("reset career")
+	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset career confirm") and SaveData.get_money() == 4321 and not r.changed, "reset career: says what it would do and how to confirm; nothing changes")
+	r = term.run("reset")
+	var r7: Dictionary = term.run("reset records confirm")
+	var r8: Dictionary = term.run("money 5 confirm")
+	t.check(kind_of.call(r) == "error" and kind_of.call(r7) == "error" and kind_of.call(r8) == "error" and SaveData.get_money() == 4321,
+		"reset alone, reset records confirm, money 5 confirm: errors (confirm only follows a command that wipes)")
+	r = term.run("Reset Career CONFIRM")
+	t.check(r.changed and SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and not SaveData.tracks_unlocked() and
+		not SaveData.get_record("rookie-oval", "racer").is_empty(), "reset career confirm: $0, only the Racer, the flag off; the records stay")
+	# clear, exit
+	r = term.run("clear")
+	r2 = term.run("exit")
+	t.check(r.clear and not r.close and r2.close and not r2.clear and (r.lines as Array).is_empty(), "clear asks the screen to clear, exit to close")
+
+	# Tab
+	var tab_ok := true
+	var cases := [["", "", 10], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 2], ["car v", "car vortex ", 1], ["car ", "car ", 7], ["car D", "car D", 2],
+		["help m", "help money ", 1], ["unlock a", "unlock all ", 1], ["reset c", "reset career ", 1], ["zz", "zz", 0], ["money s", "money set ", 1],
+		["car all x", "car all x", 0], ["status x", "status x", 0], ["p", "points ", 1]]
+	var tab_bad := []
+	for c: Array in cases:
+		var res: Dictionary = term.complete(c[0])
+		if res.line != c[1] or (res.options as PackedStringArray).size() != int(c[2]):
+			tab_bad.append([c[0], res.line, res.options])
+	t.check(tab_bad.is_empty(), "Tab: the command name, then its first argument (cars, set, all ...); several matches go as far as they agree %s" % [tab_bad])
+
+	# nothing typed raises a script error (a script error would stop this file)
+	var weird := 0
+	for l: String in ["\u0001", "[b]money[/b]", "money 5000 5000 5000", "car " + "x".repeat(300), "help help help", "--", "$$$", "money -", "points +",
+			"reset career confirm confirm", "unlock all all", "buy all", "status now", "exit please", "clear 5", "😀", "money 0", "points -0"]:
+		r = term.run(l)
+		var ok_kinds := true
+		for line: Array in r.lines:
+			ok_kinds = ok_kinds and kinds.has(str(line[0]))
+		if r.lines is Array and ok_kinds:
+			weird += 1
+	t.check(weird == 18, "%d of 18 odd lines answered with known kinds of lines (no script error)" % weird)
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+

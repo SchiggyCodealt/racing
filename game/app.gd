@@ -26,6 +26,9 @@ extends Node
 ## AI use the menu's opponent: an AI level (the shipped network of the track and car with the
 ## level's speed cap, sim/opponents.gd) or "My AI" (the picked car's own network, as before). A
 ## save file upgraded to version 4 gets a one-time message about the money its medals paid.
+## v6.7.0: the terminal (ui/terminal_screen.gd, opened from Settings or with ` on the menu) runs
+## game/terminal.gd's commands (money, points, cars, unlock all ...) on the save file; the menu
+## redraws after one changed the career.
 ##
 ## Command line (after "--"; tools and the end-to-end tests): gfx=high|medium|low pins the
 ## quality (governor off), save=<path> uses another save file, track=<id> starts on that track.
@@ -35,6 +38,7 @@ const MenuMode := preload("res://modes/menu_mode.gd")
 const PlayMode := preload("res://modes/play_mode.gd")
 const WatchMode := preload("res://modes/watch_mode.gd")
 const MessageScreen := preload("res://game/message_screen.gd")
+const Terminal := preload("res://game/terminal.gd")
 const TRAIN_MODE_PATH := "res://modes/train_mode.gd"
 const TITLE := "Track Rush"
 
@@ -118,6 +122,7 @@ func _ready() -> void:
 	ui.input.free()
 	ui.input = input
 	ui.menu.input = input
+	ui.menu.terminal.commands = Terminal.new()
 	input.notice = ui.notice.show_text
 	add_child(ui)
 	message = MessageScreen.new()

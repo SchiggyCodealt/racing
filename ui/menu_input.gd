@@ -6,7 +6,8 @@ extends Node
 ## the menu logic ports line for line:
 ##   keys      the physical key's web code: "ArrowUp", "KeyH", "Digit1", "Numpad1", "Minus",
 ##             "Equal", "NumpadSubtract", "NumpadAdd", "Slash", "Enter", "NumpadEnter", "Space",
-##             "Backspace", "Escape", "ShiftLeft" ...; a press with Shift held is also kept as
+##             "Backspace", "Escape", "Backquote" (the key under Esc, whatever it types),
+##             "ShiftLeft" ...; a press with Shift held is also kept as
 ##             "Shift+<code>" (the menu's Shift+C). A typed "?" counts as "Slash" on any layout.
 ##   pad       "PadA" "PadB" "PadX" "PadY" "PadLB" "PadRB" "PadLT" "PadRT" "PadBack" (View)
 ##             "PadStart" (Menu) "PadL3" "PadR3" "PadUp" ... "PadHome"
@@ -114,6 +115,7 @@ static func key_code(e: InputEventKey) -> String:
 		KEY_KP_ADD: return "NumpadAdd"
 		KEY_SLASH: return "Slash"
 		KEY_TAB: return "Tab"
+		KEY_QUOTELEFT: return "Backquote" # (the key under Esc: the terminal, v6.7.0)
 		KEY_SHIFT: return "ShiftRight" if e.location == KEY_LOCATION_RIGHT else "ShiftLeft"
 	return ""
 

@@ -52,6 +52,18 @@ extends SceneTree
 ##             author run): the finish panel's payout, the money and points on the menu; the
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
+##   terminal  the terminal (v6.7.0) from a new career: ` on the menu opens it with the input
+##             focused; typed commands (key events with their characters) run: help, money 25000
+##             (the menu's header shows it at once, the save file holds it), points 200, status; a
+##             mistyped command and a bad number give an error and change nothing; Up / Down bring
+##             back earlier lines, Tab completes; letters typed there never reach the menu (O, H, C,
+##             Enter); ` closes it. Then the money buys the Kestrel on the car picker (BUY asks
+##             first); Settings shows the Terminal row, its Open button (clicked) opens the terminal
+##             over Settings, where buy dune is short of money, money 3000 then buy dune buys it,
+##             Esc closes it back to Settings; ` opens it over Settings and closes it again; the pad
+##             opens it from the Terminal row (A) and closes it (B); exit + Enter closes it without
+##             driving; in a race (Drive with the Dune) ` does nothing. Shots: terminal_menu,
+##             terminal_settings, terminal_over_settings.
 ##   Every other scenario starts by owning every car and picking My AI as the opponent (they
 ##   were written before the career: they drive every car and race the car's own network).
 ## Prints "ok"/"FAIL" lines and "E2E <scenario>: n passed, m failed"; quits with 1 on a failure.
@@ -87,7 +99,7 @@ func _main() -> void:
 	await frames(3)
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
 	var t0 := Time.get_ticks_msec()
-	if scenario != "economy":
+	if not (scenario in ["economy", "terminal"]):
 		for c: String in Cars.ids():
 			SaveData.give_car(c)
 		app.ui.menu.select_opponent(UiData.MY_AI)
@@ -112,6 +124,8 @@ func _main() -> void:
 			await surfaces()
 		"economy":
 			await economy()
+		"terminal":
+			await terminal()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -1073,3 +1087,170 @@ func _sum(tid: String, ids: Array) -> Vector2i:
 		var r := Economy.reward(tid, id)
 		v += Vector2i(int(r.money), int(r.points))
 	return v
+
+
+# ---------------------------------------------------------------- the terminal (v6.7.0)
+
+## Type `text` as key presses with their characters (letters, digits, space, minus; others by
+## character only), then Enter when `enter`.
+func type_text(text: String, enter: bool = true) -> void:
+	for ch in text:
+		var k: Key = KEY_NONE
+		var c := ch.to_upper().unicode_at(0)
+		if (c >= KEY_A and c <= KEY_Z) or (c >= KEY_0 and c <= KEY_9):
+			k = c as Key
+		elif ch == " ":
+			k = KEY_SPACE
+		elif ch == "-":
+			k = KEY_MINUS
+		for down: bool in [true, false]:
+			var e := InputEventKey.new()
+			e.keycode = k
+			e.physical_keycode = k
+			e.unicode = ch.unicode_at(0) if down else 0
+			e.pressed = down
+			Input.parse_input_event(e)
+		await frames(1)
+	if enter:
+		await key(KEY_ENTER)
+	await frames(1)
+
+
+func terminal() -> void:
+	var menu: MainMenu = app.ui.menu
+	var term: TerminalScreen = menu.terminal
+	var money_l: Label = menu.get("_money_l")
+	var points_l: Label = menu.get("_points_l")
+	var drive_btn: Button = menu.get("_drive_btn")
+	check(UiData.money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and not term.visible, "a new career: $0, only the Racer; the terminal is closed")
+	await key(KEY_QUOTELEFT)
+	check(term.visible and term.line.has_focus() and app.mode == app.menu_mode, "` on the menu opens the terminal, the input has the keyboard focus")
+	await type_text("help")
+	check(term.log_text().contains("> help") and term.log_text().contains("money <n> | set <n>") and term.log_text().contains("unlock all"), "help lists the commands")
+	await type_text("money 25000")
+	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.path))
+	check(UiData.money() == 25000 and money_l.text == "$25,000" and term.log_text().contains("Money +$25,000: now $25,000") and
+		disk is Dictionary and int(disk.career.money) == 25000, "money 25000: +$25,000 (the menu's header %s at once, the save file too)" % money_l.text)
+	await type_text("points 200")
+	check(UiData.points() == 200 and points_l.text == "200 pts", "points 200: %s" % points_l.text)
+	await type_text("mony 5")
+	await type_text("money lots")
+	check(UiData.money() == 25000 and term.log_text().contains("Did you mean money?") and term.log_text().contains("\"lots\" is not a whole number"),
+		"a mistyped command and a bad number: short errors, nothing changes")
+	await type_text("status")
+	check(term.log_text().contains("$25,000") and term.log_text().contains("Racer (1 of 6)") and term.log_text().contains("0 author"), "status: money, points, cars, medals")
+	check(menu.selected_track == 0 and not menu.settings.visible and not menu.controls.visible and app.mode == app.menu_mode and UiData.picked_car() == "racer",
+		"the letters and Enter typed there never reached the menu (no Settings on O, no Controls on H, no next car on C, no Drive on Enter)")
+	await frames(10)
+	await shot("terminal_menu")
+	# history and Tab
+	await key(KEY_UP)
+	var first := term.line.text
+	await key(KEY_UP)
+	var second := term.line.text
+	await key(KEY_DOWN)
+	await key(KEY_DOWN)
+	check(first == "status" and second == "money lots" and term.line.text == "" and term.line.has_focus(), "Up / Down: the lines typed before (%s, %s), then the empty line again" % [first, second])
+	await type_text("unl", false)
+	await key(KEY_TAB)
+	check(term.line.text == "unlock " and term.line.has_focus() and term.visible, "Tab completes unl to \"unlock \" (the focus stays)")
+	for i in term.line.text.length():
+		await key(KEY_BACKSPACE)
+	await type_text("c", false)
+	await key(KEY_TAB)
+	check(term.line.text == "c" and term.log_text().contains("Tab: car, clear"), "Tab with two matches lists them (car, clear)")
+	await key(KEY_BACKSPACE)
+	await key(KEY_QUOTELEFT)
+	check(not term.visible and app.mode == app.menu_mode and not menu.settings.visible, "` closes it")
+	await key(KEY_QUOTELEFT)
+	check(term.visible and term.line.text == "", "` again: open, and no ` was typed into the input")
+	await key(KEY_ESCAPE)
+	check(not term.visible and app.mode == app.menu_mode, "Esc closes it (still on the menu)")
+
+	# the money buys the Kestrel on the car picker
+	while UiData.picked_car() != "kestrel":
+		await key(KEY_C)
+	await frames(4)
+	check(drive_btn.text == "BUY $10,000", "the Kestrel: BUY $10,000 (the terminal's money counts)")
+	await key(KEY_ENTER)
+	await frames(4)
+	check(app.message.asking, "BUY asks first")
+	await key(KEY_ENTER)
+	await frames(4)
+	check(SaveData.owns_car("kestrel") and UiData.money() == 15000 and money_l.text == "$15,000" and drive_btn.text == "DRIVE", "bought: the Kestrel is yours, $15,000 left")
+
+	# Settings: the Terminal row and its button
+	await key(KEY_O)
+	await frames(4)
+	var set_bar := (menu.settings.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	check(set_bar.max_value <= set_bar.page + 0.5, "Settings with the Terminal row fits 1280 x 720 without scrolling (content %.0f px, page %.0f)" % [set_bar.max_value, set_bar.page])
+	var rows: Array = menu.settings.get("_rows")
+	var row: Dictionary = rows[rows.size() - 1]
+	var open_btn: Button = row.segs[0]
+	check(menu.settings.visible and str(row.def.key) == "terminal" and open_btn.is_visible_in_tree(), "Settings shows the Terminal row with its Open button")
+	await frames(10)
+	await shot("terminal_settings")
+	await click(open_btn)
+	check(term.visible and menu.settings.visible and term.line.has_focus(), "Open (clicked) opens the terminal over Settings")
+	await type_text("buy dune")
+	check(not SaveData.owns_car("dune") and term.log_text().contains("$3,000 short"), "buy dune with $15,000: $3,000 short, nothing bought")
+	await type_text("money 3000")
+	await type_text("buy dune")
+	check(SaveData.owns_car("dune") and UiData.money() == 0 and money_l.text == "$0" and term.log_text().contains("Bought the Dune for $18,000"), "money 3000, buy dune: the Dune is bought with it ($0 left)")
+	await frames(6)
+	await shot("terminal_over_settings")
+	await key(KEY_ESCAPE)
+	check(not term.visible and menu.settings.visible, "Esc closes the terminal: back to Settings")
+	await key(KEY_QUOTELEFT)
+	check(term.visible and menu.settings.visible, "` on Settings opens it again")
+	await key(KEY_QUOTELEFT)
+	check(not term.visible and menu.settings.visible, "and ` closes it")
+	await key(KEY_ESCAPE)
+	check(not menu.settings.visible and app.mode == app.menu_mode, "Esc closes Settings")
+	# the gamepad: Settings' Terminal row, A opens it, B closes it
+	var inp := app.input
+	inp.pad_active = true
+	await key(KEY_O)
+	for i in rows.size():
+		if menu.settings.selected_row == rows.size() - 1:
+			break
+		inp.pad_active = true
+		inp.press("NavDown")
+		await frames(2)
+	check(menu.settings.selected_row == rows.size() - 1, "pad: down to the Terminal row")
+	inp.pad_active = true
+	inp.press("PadA")
+	await frames(2)
+	check(term.visible, "pad A opens the terminal")
+	inp.pad_active = true
+	inp.press("PadB")
+	await frames(2)
+	check(not term.visible and menu.settings.visible, "pad B closes it (back to Settings)")
+	inp.press("PadB")
+	await frames(2)
+	check(not menu.settings.visible, "pad B closes Settings")
+	# exit + Enter closes it without the Enter reaching the menu
+	await key(KEY_QUOTELEFT)
+	await type_text("exit")
+	await frames(3)
+	check(not term.visible and app.mode == app.menu_mode, "exit + Enter closes the terminal and doesn't drive")
+
+	# in a race ` does nothing
+	while UiData.picked_car() != "dune":
+		await key(KEY_C)
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	check(m != app.menu_mode and str((m.get("car_def") as Dictionary).id) == "dune", "Enter drives the Dune")
+	await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+	app.input.held = {"accelerate": true}
+	await frames(30)
+	var step0 := int(m.get("race_step"))
+	await key(KEY_QUOTELEFT)
+	await frames(30)
+	app.input.held = {}
+	check(app.mode == m and m.get("phase") == "race" and int(m.get("race_step")) > step0 and not term.visible and not menu.visible,
+		"in a race ` does nothing: no terminal, the race goes on (step %d -> %d)" % [step0, int(m.get("race_step"))])
+	await key(KEY_ESCAPE)
+	await frames(4)
+	check(app.mode == app.menu_mode and not term.visible, "Esc: back on the menu, the terminal closed")
+

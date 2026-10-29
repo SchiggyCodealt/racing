@@ -4,13 +4,13 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-29 (v6.6.0: feature 6 of 9, the tightest corners of five old tracks made more forgiving;
-v6.5.0: feature 5, money and career points from medals and AI opponents, a car shop; v6.4.0: feature 4, three new
+_Last updated: 2026-10-29 (v6.7.0: feature 7 of 9, a terminal in Settings and on the `` ` `` key for money, points, cars
+and unlocks; v6.6.0: feature 6, the tightest corners of five old tracks made more forgiving; v6.5.0: feature 5, money and career points from medals and AI opponents, a car shop; v6.4.0: feature 4, three new
 tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI training
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.6.0, features 1-6 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners)
+## Status: v6.7.0, features 1-7 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -57,8 +57,18 @@ new signatures (old records, scores and ghosts move to the archive), new medal t
 networks retrained, levels recalibrated); rewards already paid on them stay paid, on purpose (see Known
 limitations). The tests and the parity tools compare with the browser game on its own layouts
 (`Tracks.build_web`).
-Features 7-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
-list, surfaces, rewards and AI levels are data).
+v6.7.0 adds feature 7: a terminal. Settings has a Career section with a Terminal row (Open, or A on the pad), and the
+`` ` `` key (the key under Esc, by physical position) opens it on the menu and on Settings; in a race `` ` `` does nothing. It
+is a console in the dialogs' style (`ui/terminal_screen.gd`): a scrolling log, a one-line input with a blinking
+caret, history on Up / Down, Tab completion of command names and their first argument, Esc or `` ` `` to close. The
+commands are one table in `game/terminal.gd` (name, usage, help, method, Tab words, `wipes`): `help [command]`,
+`money <n>` / `money set <n>`, `points <n>` / `points set <n>`, `car <name> | all`, `buy <car>`, `unlock all | cars |
+tracks`, `status`, `reset career` (asks: `reset career confirm`), `clear`, `exit`. Each prints what it did and the new
+value and goes through the save file's own functions (`SaveData.add_money`, `add_points`, `give_car`, the new
+`unlock_tracks` and `reset_career`, `Economy.buy`); the menu redraws at once. `unlock all` also sets a new
+`career.tracks_unlocked` flag in the save file (version 4 kept: absent = off) for item 8 to read.
+Features 8-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
+list, surfaces, rewards, AI levels and terminal commands are data).
 
 | Area | State | Where |
 | --- | --- | --- |
@@ -76,7 +86,8 @@ list, surfaces, rewards and AI levels are data).
 | Career (v6.5.0): money and points (the reward table, paid once), the car shop, the save file's `career` (VERSION 4, migration pays held medals once), the menu's wallet and locked cards, the finish panel's payout | done; reward table, paid-once rule, shop, migrations (v1-v3) and junk are tests; prices checked against a simulated career | `sim/economy.gd`, `sim/save.gd`, `sim/cars.gd` (`price`), `ui/main_menu.gd`, `ui/car_card.gd`, `ui/finish_panel.gd`, `game/app.gd`, `game/message_screen.gd` |
 | AI opponents (v6.5.0): 90 shipped networks with five levels each (a speed cap and the race's time), the menu's opponent chips, Race / Watch the AI against a level | done; every level of every track and car finishes and is slower than the one above (tests); stored races re-run to the millisecond | `data/opponents/`, `sim/opponents.gd`, `ai/opponent_race.gd`, `ai/sensors.gd` (`AIDriver.speed_cap`), `tools/opponents.gd`, `modes/play_mode.gd`, `game/ai_link.gd` |
 | Reworked corners (v6.6.0): five old tracks with rounder, wider hairpins in `tools/gen_tracks.gd`; their medal times and AI opponents; `tools/corners.gd` (each corner's radius, width and how the medal autopilot takes it); `Tracks.build_web` (the browser's layouts for the parity checks) | done; the new minimum radius and width, the unchanged hairpin count and surfaces, the ten untouched tracks and their medal entries, and a v6.5 save's archive and paid rewards are tests | `tools/gen_tracks.gd`, `data/tracks.json`, `data/medals.json`, `data/opponents/`, `tools/corners.gd`, `sim/tracks.gd` |
-| Tests: headless suite (642 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Terminal (v6.7.0): the console screen (log, input, history, Tab), the commands table, the Settings row, the `` ` `` key on the menu and Settings, the save file's tracks flag and career reset | done; every command with good and bad input, Tab, the save effects, the keys that open and close it, `` ` `` in a race are tests; e2e `terminal` | `game/terminal.gd`, `ui/terminal_screen.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/menu_input.gd`, `sim/save.gd` |
+| Tests: headless suite (733 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -148,6 +159,57 @@ race frame on Night Highway); the FleetSim libraries were not touched (the speed
 which the opponents use in the game); the Windows release export was made from a fresh import (no errors or
 warnings; the opponents' data and scripts are in the pack) and zipped as `build/TrackRush-6.5.0-windows.zip` (not
 started: no Windows here).
+
+v6.7.0 (2026-10-29): the headless suite passes (733 checks: sim 88, ui 187, world 160, game 150, ai 148; 312 s); the
+end-to-end scenarios pass at 1280 x 720 (terminal 34 with `gfx=high`, menu 28, settings1 5 + settings2 6, economy 19,
+modes 29); the FleetSim libraries were not touched (nothing in the simulation changed); the Windows release export
+was made from a fresh import (no errors or warnings) and zipped as `build/TrackRush-6.7.0-windows.zip` (not
+started: no Windows here).
+
+## How v6.7.0 (the terminal) was verified
+
+- **Commands** (`tests/test_game.gd` "the terminal's commands", on its own save file): the table (10 commands, each
+  with help, usage and a method), an empty line, `help` and `help money`, an unknown command (`mony 5000`: "Did you
+  mean money?"; `xyzzy`: no guess), money and points up, down (stopping at 0 and saying so), `set`, any case,
+  commas / sign / `$` / `_`, the largest amount (1,000,000,000 at a time), 14 bad amounts (letters, decimals, two
+  numbers, none, below 0 for `set`, too big, `5k`, full-width digits) each giving one error and changing nothing;
+  `car` (the list), `car Vortex`, again, `car bus`, two cars, `car all`; `buy` short of money (it says how much and
+  what to type), bought, again, unknown; `unlock` / `unlock everything` (errors), `unlock tracks`, `unlock cars`,
+  `unlock all` (in the file, version 4), again; `status` with a gold and a bronze on Rookie Oval (`medal_counts`);
+  `reset career` (only warns), bad `reset` / `confirm` lines, `Reset Career CONFIRM` (records stay); `clear`, `exit`;
+  15 Tab cases; 18 odd lines (control characters, BBCode, 300 characters, emoji) answered with known line kinds.
+- **The save file** (`tests/test_sim.gd`): a v6.6 file has the flag off; `unlock_tracks` turns it on once, it is in
+  the file's career (still version 4) and read back; off removes the key; five junk values read as off;
+  `reset_career` gives $0, 0 points, only the Racer, the flag off and nothing paid (a gold pays $1,600 again on
+  Rookie Oval) while the record, settings and AI network stay.
+- **The screen** (`tests/test_ui.gd`, key events pushed through the viewport to the focused input): typing and
+  Enter run a line, the log shows it and the result (a table row too), `changed` is emitted, the history keeps a
+  repeated line once and the last 50, Up / Down step through it and back to the draft, Tab completes and lists
+  several matches, `` ` `` and Esc type nothing into the input, Backquote / Escape / PadB / PadStart close it and release
+  the focus, other keys don't, a command can clear or close it, Ctrl+L clears, the log keeps the last 300 lines, no
+  commands is not an error. On the menu: `` ` `` opens it; O, H, C, 3, Enter and → typed into it never reach the menu; Esc
+  closes it; `` ` `` over Settings opens and closes it; the pad's A on the Terminal row opens it, B closes it and then
+  Settings; `` ` `` on the Controls screen does nothing; `exit` + the Enter that ran it closes it without driving (that
+  frame's keys are dropped: `MainMenu._terminal_was_open`), the next Enter drives; leaving the menu closes it.
+  `MenuInput.key_code(KEY_QUOTELEFT)` is "Backquote" and `menu_terminal` maps the key.
+- **In the app** (`tests/test_game.gd` "the app: the terminal"): the app hands over the commands; money, points,
+  `car dune`, `buy kestrel`, `reset career confirm` (the picked Dune shows LOCKED) and `unlock all` change the
+  menu's header and Drive button at once; `` ` `` over Settings and the Terminal row; `exit` + Enter stays on the menu; in a
+  race `` ` `` (and its action) changes nothing: 10 more race steps, no terminal; back on the menu it is closed.
+- **End to end** (`scenario=terminal`, 1280 x 720, 34 checks: 69 s with `gfx=low`, 478 s with `gfx=high`): from a new career, `` ` `` opens it with the input focused;
+  typed key events run help, money 25000 (header and save file at once), points 200, a typo, a bad number,
+  status; the typed letters and Enters never reached the menu; Up / Down and Tab; `` ` `` closes and reopens it with
+  nothing typed; the money buys the Kestrel on the car picker; Settings fits 1280 x 720 without scrolling and shows
+  the Terminal row; its Open button (clicked) opens the terminal over Settings, where buy dune is $3,000 short,
+  money 3000 and buy dune buy it; Esc back to Settings, `` ` `` opens and closes it there; the pad opens it from the row
+  (A) and closes it (B); exit + Enter doesn't drive; Drive with the Dune: `` ` `` in the race does nothing (the race steps
+  on). Screenshots: the terminal over the menu (`docs/screenshots/terminal.png`), Settings with the Terminal row,
+  the terminal over Settings.
+- **Fit** (real frames under xvfb): the Settings content is 668 px in a 720 px window at 1280 x 720 (it was 748 with
+  the old spacing: Settings now uses its compact spacing up to 760 px high and a tighter one up to 640), 596 in 600 at
+  1024 x 600, 748 in 768 at 1366 x 768; the terminal's panel is 558 px at 1280 x 720 and 474 at 1024 x 600 (its log
+  is half the window's height, 140-460 px); the Controls screen, with its Terminal row and tip, is 700 px in 720 at
+  1280 x 720 (a longer first wording was 735 and scrolled).
 
 ## How v6.6.0 (more forgiving corners) was verified
 
@@ -491,7 +553,8 @@ started: no Windows here).
   `class_name`, run `godot --headless --path . --import` once before running scripts.
 - **Data, not code**, where the next features will grow: the cars (`sim/cars.gd` `CARS`), medals (`sim/medals.gd`
   `ORDER` / `FACTORS`, stored with the times in `data/medals.json`), the settings rows (`ui/settings_screen.gd`
-  `ROWS`, with an `action` row type for a terminal), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
+  `ROWS`, with an `action` row type: v6.7.0's Terminal row), the terminal's commands (`game/terminal.gd` `COMMANDS`:
+  name, usage, help, the method that runs it, the words Tab offers, `wipes` for commands that ask for `confirm`), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
   the road surfaces (`sim/surfaces.gd` `DEFS`: physics and look columns; FleetSim gets the physics columns from
   `Trainer.track_data`, the road shader has colour slots for table entries 1 and 2; v6.4.0 added the optional look
   column `spray`, the colour of what the tyres throw up), the rewards (`sim/economy.gd` `REWARDS`, `TRACK_STEP`), the
@@ -552,9 +615,20 @@ started: no Windows here).
   has one car; another car is a new session.
 - **The career goes through `SaveData`** (v6.5.0): `get_money` / `get_points`, `add_money(n)` / `add_points(n)`
   (never below 0), `owned_cars` / `owns_car` / `give_car(id)` / `purchase_car(id, price)`, `paid_rewards(track, car)`
-  / `pay_rewards(...)`; `Economy` builds the payouts, the prices and `buy()` on top. Item 7's terminal should call
-  `add_money`, `add_points` and `give_car` (they write the file) and refresh the menu. The paid list is per track id
-  and car, not per track signature, on purpose (see Known limitations).
+  / `pay_rewards(...)`; `Economy` builds the payouts, the prices and `buy()` on top. The terminal (v6.7.0) calls
+  `add_money`, `add_points`, `give_car`, `Economy.buy` and the new `unlock_tracks(on)` / `tracks_unlocked()` (the
+  `career.tracks_unlocked` flag: true or absent, so the file stays version 4 and older games keep it) and
+  `reset_career()` ($0, 0 points, the starting cars, nothing paid, the flag off; records, ghosts, scores, networks and
+  settings stay); each writes the file, and the screen's `changed` signal redraws the menu. The paid list is per
+  track id and car, not per track signature, on purpose (see Known limitations).
+- **The terminal** (v6.7.0): `ui/terminal_screen.gd` is only the console (it takes any object with `run(line)` and
+  `complete(line)`; the app gives it `game/terminal.gd`), so ui/ doesn't depend on game/. A command method gets the
+  arguments (lower case) and an `Out` (`add(kind, text)`, `row(label, value)`, `confirm(what)`, `changed`, `close`,
+  `clear`); line kinds are ok / info / gain / loss / error / warn / row, coloured by the screen (gains green, losses
+  red, errors and warnings in the accent). It opens only where the menu reads keys (`MainMenu.handle_keys`: the menu
+  and Settings), never in a race. While it is open the menu hands every key to it and drops the rest; when it closes
+  itself (`exit`, its Close button) the keys of that frame are dropped too (`_terminal_was_open`), so the Enter that
+  ran `exit` doesn't drive.
 - **AI opponents are data made by a tool**: `data/opponents/<car>.json` holds, per track, the network (the web
   game's file format), the track signature it was trained on, and each level's `{cap, time}` (cap in m/s, null =
   none). `Opponents.entry()` refuses an entry whose `physics` or `sig` no longer match, so a changed track or physics
@@ -638,6 +712,12 @@ started: no Windows here).
 - **Surfaces were only seen through software rendering** (llvmpipe): the dirt and snow colours, the border noise,
   the dust and spray density were tuned on its screenshots. The snow spray (v6.4.0: blue-grey `spray` colour in the
   surface table, bigger and denser puffs) shows on the white road there; on a real screen it may need another look.
+- **The terminal (v6.7.0) is a cheat on purpose**: money, points and cars it gives are the same as earned ones (no
+  mark, no log), and nothing stops a player from using it. Its typing was only tested with simulated key events
+  (Godot `InputEventKey`s with their characters): no real keyboard, no IME, no Windows. `` ` `` is the key under Esc by
+  position (`physical_keycode` `KEY_QUOTELEFT`), whatever it types on the layout: on a German keyboard that is ^,
+  which Windows may treat as a dead key (the terminal still opens and closes, the input ignores the key). A backquote
+  typed with another key (German Shift+´) goes into the input as a character and does not close it.
 - Archived records, scores and ghosts (save file `"archive"`) are kept but nothing in the game shows them yet
   (`SaveData.get_archived` reads them).
 - `web/docs/tracks-overview.svg` shows the layouts only, not the surfaces, and only the first 12 tracks.
@@ -752,17 +832,25 @@ re-run the medal times.
    hits them about half the laps, as before), and the other ten tracks, whose tightest corners are 28 m or more.
    Medal times (`tools/medals.gd --update`), AI opponents (`tools/opponents.gd --train` and the levels) and
    signatures are new for the five; see "How v6.6.0 was verified". Not done: the bronze ratio (item 9).
-7. **A terminal in Settings** for adding points, money and so on. Default: **in Settings and on the ` key, with
-   commands like `money 5000`, `points 200`, `unlock all`**. The Settings screen already has an `action` row type
-   (`ui/settings_screen.gd`, emits `action(key)`); the menu input names keys like the browser (`ui/menu_input.gd`
-   `key_code`), so add `KEY_QUOTELEFT` as "Backquote" there. Commands should go through the same save functions as
-   the game (item 5: `SaveData.add_money(n)`, `add_points(n)`, `give_car(id)`, each returning the new value or
-   whether it changed; then `app.ui.menu.refresh()`) and print what they did.
+7. **A terminal in Settings** for adding points, money and so on. **Done in v6.7.0.** Settings' Career section has a
+   Terminal row (Open; the pad's A), and `` ` `` (the key under Esc) opens it on the menu and on Settings, never in a race
+   (the Controls screen says so). A console in the game's style: log, input with a blinking caret, Up / Down history,
+   Tab completion, Esc / `` ` `` / the pad's B to close; typing needs a keyboard. Commands (one table, `game/terminal.gd`):
+   `help [command]`, `money <n>` / `money set <n>`, `points <n>` / `points set <n>`, `car <name> | all`, `buy <car>`,
+   `unlock all | cars | tracks`, `status`, `reset career` (then `reset career confirm`), `clear`, `exit`; each prints
+   what it did and the new value, saves through `SaveData` / `Economy.buy` and redraws the menu. Choices made for the
+   owner: `buy` and `reset career` were added (buying with the terminal's money; a fresh start), amounts take commas
+   and are capped at 1,000,000,000 a command, only `reset career` asks for `confirm` (setting money or points lower is
+   an explicit command, not a wipe), `reset career` keeps best times, ghosts, networks and settings.
 8. **Unlock the next map after bronze.** Default: **the next track unlocks after a bronze (or better) on the previous
    one, with any car**. Track 1 is always open; "previous" is the menu order (`data/tracks.json`). It can be derived
-   from the saved best times (`Medals.medal_for` per car), so nothing new needs saving except the terminal's
-   `unlock all`. Locked tiles need a look on the menu, and the keys / pad must skip or refuse them. Decide with the
-   owner whether Watch / Train the AI may use locked tracks.
+   from the saved best times (`Medals.medal_for` per car), so nothing new needs saving: the terminal's `unlock all` /
+   `unlock tracks` is already saved (v6.7.0) as `SaveData.tracks_unlocked()`; a track is open when that is true, or
+   it is the first, or the previous track has a bronze or better with any car. Add a `UiData` wrapper for the menu
+   (and a store entry for tests), and update the terminal's `status` "Tracks" row (`game/terminal.gd` `_status`: it
+   says "all 15 open" today) to count the open tracks; `reset career` already clears the flag, but tracks opened by
+   medals stay open after it (best times are kept). Locked tiles need a look on the menu, and the keys / pad must skip
+   or refuse them. Decide with the owner whether Watch / Train the AI may use locked tracks.
 9. **Faster bronze.** Default: **bronze = 1.3 × the author time (was 1.5 ×)**, still rounded up to a whole second.
    Change `Medals.FACTORS.bronze` and the method text in `tools/medals.gd` (it names the factors); the bronze times in `data/medals.json` can be
    recomputed from the stored author times (`Medals.medal_set`) without the 20-minute sweep. Medals are worked out from

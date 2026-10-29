@@ -14,6 +14,9 @@ extends Control
 ## - Drive, the best-run ghost option, the AI block for the picked car (its network's status, or
 ##   that it has none yet; Load / Save network, Race the AI ghost, Watch the AI, Train the AI);
 ##   the Controls screen and the Settings screen.
+## - v6.7.0, the terminal (ui/terminal_screen.gd): opened by Settings' Terminal row or the ` key on
+##   the menu and on Settings (not on Controls, never in a race: the menu isn't there); a command
+##   that changed the career redraws the menu.
 ## - v6.5.0, the career: the header shows your money and career points; the car cards of cars you
 ##   don't own show a lock and their price (their stats stay readable), and with such a car picked
 ##   Drive becomes BUY (or LOCKED when the money is short: it says how much is missing); the AI
@@ -24,7 +27,7 @@ extends Control
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
 ## C / Shift+C (next / previous car),
-## Enter or Space drives, H or ? opens Controls, O opens Settings.
+## Enter or Space drives, H or ? opens Controls, O opens Settings, ` opens the terminal.
 ## Gamepad: a highlight moved with the d-pad / stick over the track tiles (moving onto one
 ## selects it), the car cards under them (moving onto one picks it) and the buttons; A drives
 ## or presses, B goes back to the tracks, LB / RB pick the car, View opens Controls.
@@ -72,6 +75,7 @@ var input: Object = null
 var selected_track := 0
 var controls: ControlsScreen
 var settings: SettingsScreen
+var terminal: TerminalScreen
 
 # layout state
 var map_h := 56.0
@@ -129,6 +133,7 @@ var _controls_btn: Button
 var _settings_btn: Button
 var _ring: Control
 var _pad_at: Control = null   # the button or car the pad highlight is on (null: the selected track tile)
+var _terminal_was_open := false
 var _maps: Array = []
 
 
@@ -158,6 +163,12 @@ func _init() -> void:
 	add_child(controls)
 	settings = SettingsScreen.new()
 	add_child(settings)
+	terminal = TerminalScreen.new() # (over Settings when opened from it)
+	add_child(terminal)
+	settings.action.connect(func(key: String) -> void:
+		if key == "terminal":
+			show_terminal(true))
+	terminal.changed.connect(refresh)
 	resized.connect(_layout)
 	_main.minimum_size_changed.connect(_place)
 
@@ -246,7 +257,7 @@ func _build_head() -> void:
 	_hint_holder.add_child(_hint)
 	_head.add_child(_hint_holder)
 	_settings_btn = Dialog.button_with_cap("Settings", "O")
-	_settings_btn.tooltip_text = "Graphics, ghost, fullscreen and vsync"
+	_settings_btn.tooltip_text = "Graphics, ghost, fullscreen, vsync and the terminal"
 	_settings_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_settings_btn.pressed.connect(func() -> void: show_settings(true))
 	_head.add_child(_settings_btn)
@@ -788,6 +799,7 @@ func show_menu(on: bool) -> void:
 		_ring.set_target(null)
 		show_controls(false)
 		show_settings(false)
+		show_terminal(false)
 
 
 func show_controls(on: bool) -> void:
@@ -804,6 +816,15 @@ func show_settings(on: bool) -> void:
 		settings.open()
 	else:
 		settings.close()
+
+
+## The terminal (over the menu, or over Settings when opened from there).
+func show_terminal(on: bool) -> void:
+	if on:
+		_ring.set_target(null)
+		terminal.open()
+	else:
+		terminal.close()
 
 
 var controls_open: bool:
@@ -827,8 +848,26 @@ func handle_keys(inp: Object) -> void:
 			show_controls(false)
 		inp.clear_pressed()
 		return
+	if terminal.visible or _terminal_was_open:
+		# the terminal: the typing goes to its input; Esc, `, the pad's B or Menu close it. When it
+		# closed itself this frame (exit + Enter, its Close button), this frame's keys were typed
+		# into it: they don't reach the menu either.
+		if terminal.visible:
+			terminal.handle_keys(inp)
+		_terminal_was_open = terminal.visible
+		inp.clear_pressed()
+		return
 	if settings.visible:
-		settings.handle_keys(inp)
+		if inp.consume(["Backquote"]):
+			show_terminal(true)
+		else:
+			settings.handle_keys(inp)
+		_terminal_was_open = terminal.visible
+		inp.clear_pressed()
+		return
+	if inp.consume(["Backquote"]):
+		show_terminal(true)
+		_terminal_was_open = terminal.visible
 		inp.clear_pressed()
 		return
 	if inp.consume(["KeyH", "Slash", "PadBack"]):

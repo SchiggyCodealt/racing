@@ -22,6 +22,7 @@ extends MenuInput
 ##   menu_accept / menu_back            Enter / Space, A; Esc / Backspace, B    screens of ui/
 ##   menu_car_next / menu_car_prev      C, RB; LB                  read the same keys by their
 ##   menu_controls / menu_settings      H, View; O                 web names through MenuInput)
+##   menu_terminal                      ` (the key under Esc)      (v6.7.0; never in a race)
 ## A press of an action is kept like a key press (consume(["restart"])) until it is consumed
 ## or the frame's presses are cleared; held keys never repeat a press (the web ignored key
 ## auto-repeat too); the pad's menu directions repeat while held (0.4 s, then every 0.13 s).
@@ -66,6 +67,7 @@ const ACTIONS := {
 	"menu_car_prev": {"buttons": [JOY_BUTTON_LEFT_SHOULDER]},
 	"menu_controls": {"keys": [KEY_H, KEY_SLASH], "buttons": [JOY_BUTTON_BACK]},
 	"menu_settings": {"keys": [KEY_O]},
+	"menu_terminal": {"keys": [KEY_QUOTELEFT]},
 }
 ## Analogue actions: no dead zone of their own (the curve above has one).
 const ANALOG := ["pad_steer_left", "pad_steer_right", "pad_throttle", "pad_brake"]
