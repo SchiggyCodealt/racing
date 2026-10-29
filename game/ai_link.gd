@@ -12,7 +12,10 @@ extends RefCounted
 ##   AiLink.network_file(net, meta)     -> the web file format       (Trainer.network_file)
 ##   AiLink.saved_wall_rule(meta)       -> "ride" | "crash" | ""
 ##   AiLink.network_car(meta)           -> the car id a network file was trained with (none: "racer")
-##   AiLink.driver(net)                 -> a Sensors.AIDriver: drive(track, car, race) -> Car.Controls, rays
+##   AiLink.driver(net, cap = INF)      -> a Sensors.AIDriver: drive(track, car, race) -> Car.Controls, rays
+##                                         (cap: an AI opponent level's speed cap, m/s; INF: none)
+##   AiLink.opponent(track_id, car_id)  -> the shipped AI opponents' network of a track and car {net, meta}
+##                                         (data/opponents, sim/opponents.gd), or {error}
 ##   AiLink.sensor_range(), AiLink.labels() -> {inputs, outputs}
 ## A network handed around the game is {net: NeuralNetwork, meta: Dictionary} (the parsed file).
 ## Every car has its own (SaveData.load_network(car)): the network a car's AI drives with. Its
@@ -24,6 +27,7 @@ const TRAINER_PATH := "res://ai/trainer.gd"
 
 static var _scripts: Dictionary = {}
 static var _tried := false
+static var _opponents: Dictionary = {}
 
 
 ## Load the AI scripts once. False when any of them is missing or doesn't compile.
@@ -78,12 +82,33 @@ static func network_car(meta: Variant) -> String:
 	return str(_trainer().call("network_car", meta)) if ready() else Cars.DEFAULT_CAR
 
 
-## A driver for one AI car (Watch the AI, the AI ghost): drive(track, car, race) every step.
-static func driver(net: Object) -> Object:
+## A driver for one AI car (Watch the AI, the AI ghost, the AI opponents): drive(track, car, race)
+## every step. `cap`: the top speed an AI opponent level keeps to (m/s; INF: none).
+static func driver(net: Object, cap: float = INF) -> Object:
 	if not ready():
 		return null
 	var cls: Variant = _sensors().get("AIDriver")
-	return (cls as Variant).new(net) if cls != null else null
+	return (cls as Variant).new(net, cap) if cls != null else null
+
+
+## The network of the AI opponents of track `track_id` with car `car_id` (sim/opponents.gd, the
+## same network for every level; each level adds its speed cap): {net, meta}, or {error: why
+## there is none}. Parsed once per track and car.
+static func opponent(track_id: String, car_id: String) -> Dictionary:
+	var key := "%s|%s" % [track_id, car_id]
+	if _opponents.has(key):
+		return _opponents[key]
+	var out: Dictionary
+	var e: Dictionary = Opponents.entry(track_id, car_id)
+	if not ready():
+		out = {"error": not_ready_text()}
+	elif e.is_empty():
+		out = {"error": "There are no AI opponents for %s with the %s in this version of the game." % [
+			Tracks.def(track_id).get("name", track_id), Cars.get_car(car_id).name]}
+	else:
+		out = parse_network_file(e.network)
+	_opponents[key] = out
+	return out
 
 
 static func sensor_range() -> float:

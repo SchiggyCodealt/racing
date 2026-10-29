@@ -26,11 +26,22 @@ extends RefCounted
 ##   SaveData.get_archived(section, track_id, car_id) -> {signature: entry} kept from older versions of a
 ##                                                    track (section: "records", "scores" or "ghosts")
 ##   SaveData.use_file(path)                          another file (tests); SaveData.path is the current one
+## The career (v6.5.0; sim/economy.gd decides what is paid and what cars cost):
+##   SaveData.get_money() / get_points()              -> the career's money and points (int, never below 0)
+##   SaveData.add_money(n) / add_points(n)            -> the new total (n may be negative; the total stops at 0)
+##   SaveData.owned_cars() -> the cars owned (picker order);  SaveData.owns_car(id) -> bool
+##   SaveData.give_car(id)                            own car `id` without paying (true when it is new)
+##   SaveData.purchase_car(id, price)                 -> "" (bought), "owned", "money" (not enough) or "unknown"
+##   SaveData.paid_rewards(track_id, car_id)          -> the reward ids paid on a track with a car
+##   SaveData.pay_rewards(track_id, car_id, ids, money, points)  mark them paid and add the money and points
+##   SaveData.take_welcome()                          -> {money, points, medals} paid by the upgrade to
+##                                                    version 4 for the medals already held, once ({} after)
 ##
 ## File layout: {version, records: {track: {car: {time, splits, date, physics, sig}}},
 ## ghosts: {track: {car: ghost}}, scores: {track: {car: {score, date, rules, physics, sig}}},
 ## settings: {...}, networks: {car: {slot: network file}},
-## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}}}. Records and ghosts made under
+## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
+## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?}}. Records and ghosts made under
 ## another Car.PHYSICS_VERSION, and scores under other ScoreState.SCORE_RULES, are not read.
 ## Track versions: records, scores and ghosts carry the signature of the track they were made on
 ## (BuiltTrack.signature(): its layout and road surfaces). When a track changes (v6.3 put dirt and
@@ -44,10 +55,14 @@ extends RefCounted
 ## drove the Racer), so loading a version 1 file moves it to networks.racer.best (_migrate).
 ## 2 (v6.2) had no track signatures on records and scores: they get the signature the track had
 ## then (Tracks.LEGACY_SIGS), so those of the tracks v6.3 changed move to the archive.
+## 3 (v6.3-6.4) had no career: version 4 starts one with only the starting cars (price 0: the
+## Racer) and pays, once, every medal the best times already hold (those that still count:
+## current physics and track versions), as if each had just been won (_start_career; the sum
+## is kept as career.welcome for the menu's message). Points and money start at 0 otherwise.
 ## Times are written with 17 significant digits; Godot's JSON reader may return a
 ## stored time one unit in the last place (~1e-14 s) off, which no screen shows.
 
-const VERSION: int = 3
+const VERSION: int = 4
 ## The sections whose entries belong to one version of a track (moved to "archive" when it changes).
 const TRACK_SECTIONS: PackedStringArray = ["records", "scores", "ghosts"]
 ## The network slot the player's training fills (see the header).
@@ -55,8 +70,9 @@ const BEST_SLOT: String = "best"
 const DEFAULT_PATH: String = "user://trackrush_save.json"
 ## Settings, their defaults and (by the default's type) the type a stored value must have.
 ## car: the car picked on the menu (Cars.get_car() turns an unknown id into the racer);
-## quality: the graphics quality ("auto" | "high" | "medium" | "low").
-const SETTINGS: Dictionary = {ghost = true, car = "racer", quality = "auto"}
+## quality: the graphics quality ("auto" | "high" | "medium" | "low"); opponent (v6.5.0): the menu's
+## AI opponent (an AI level id, sim/opponents.gd, or "mine": the player's own network).
+const SETTINGS: Dictionary = {ghost = true, car = "racer", quality = "auto", opponent = "rookie"}
 
 static var path: String = DEFAULT_PATH
 static var _data: Dictionary = {}
@@ -88,8 +104,14 @@ static func _all() -> Dictionary:
 		for k: String in ["records", "ghosts", "scores", "settings", "networks", "archive"]:
 			if not (_data.get(k) is Dictionary):
 				_data[k] = {}
+		# (version 3 and older have no career; a career is kept whatever the version says: an older
+		# game that rewrote a version 4 file kept it)
+		var new_career: bool = not (_data.get("career") is Dictionary)
 		_migrate(_data)
 		_archive_stale(_data)
+		if new_career:
+			_start_career(_data)
+		_repair_career(_data)
 		_data.version = VERSION
 	return _data
 
@@ -146,6 +168,83 @@ static func _archive_stale(d: Dictionary) -> void:
 					arch[section][track][car] = {}
 				arch[section][track][car][sig] = e
 				cars.erase(car)
+
+
+## Version 4: a new career ({money, points, cars, paid}) with the starting cars, paid for the
+## medals the current best times hold (records of the current physics and track versions, on the
+## tracks and cars the game knows), as Economy.payout would pay them; the sum is remembered as
+## career.welcome for the menu's one-time message ({money, points, medals}; nothing when 0).
+static func _start_career(d: Dictionary) -> void:
+	var c: Dictionary = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}}
+	d.career = c
+	var medals: int = 0
+	var recs: Dictionary = d.records
+	for track: Variant in recs:
+		var tid: String = str(track)
+		var t: BuiltTrack = Tracks.build(tid) if Tracks.index_of(tid) >= 0 else null
+		if t == null or not (recs[track] is Dictionary):
+			continue
+		for car: Variant in recs[track]:
+			var cid: String = str(car)
+			var r: Variant = recs[track][car]
+			if not Cars.has_car(cid) or not (r is Dictionary) or not JsMath.same(r.get("physics"), Car.PHYSICS_VERSION) or \
+					not _same_track(r, tid) or not _is_num(r.get("time")):
+				continue
+			var medal: String = Medals.medal_for(Medals.medal_times(t, cid), float(r.time))
+			if medal == "":
+				continue
+			var p: Dictionary = Economy.payout(tid, medal, "", PackedStringArray())
+			var ids: Array = []
+			for it: Dictionary in p.items:
+				ids.append(String(it.id))
+			if not (c.paid.get(tid) is Dictionary):
+				c.paid[tid] = {}
+			c.paid[tid][cid] = ids
+			c.money += int(p.money)
+			c.points += int(p.points)
+			medals += ids.size()
+	if medals > 0:
+		c.welcome = {money = c.money, points = c.points, medals = medals}
+
+
+## The cars owned from the start: those that cost nothing (the Racer).
+static func _starting_cars() -> PackedStringArray:
+	var out: PackedStringArray = []
+	for id: String in Cars.ids():
+		if int(Cars.get_car(id).get("price", 0)) <= 0:
+			out.append(id)
+	return out
+
+
+## Make the career section well-formed (a hand-edited or damaged file): money and points whole
+## numbers of at least 0, the owned cars a list of known ids with the starting cars in it, the
+## paid rewards lists of strings.
+static func _repair_career(d: Dictionary) -> void:
+	var c: Dictionary = d.career
+	for k: String in ["money", "points"]:
+		c[k] = maxi(0, int(c[k])) if _is_num(c.get(k)) else 0
+	var cars: Array = []
+	var had: Variant = c.get("cars")
+	for id: String in Cars.ids():
+		if _starting_cars().has(id) or (had is Array and (had as Array).has(id)):
+			cars.append(id)
+	c.cars = cars
+	if not (c.get("paid") is Dictionary):
+		c.paid = {}
+	for track: Variant in c.paid.keys():
+		if not (c.paid[track] is Dictionary):
+			c.paid.erase(track)
+			continue
+		for car: Variant in c.paid[track].keys():
+			var ids: Variant = c.paid[track][car]
+			var clean: Array = []
+			if ids is Array:
+				for id: Variant in ids:
+					if id is String and not clean.has(id):
+						clean.append(id)
+			c.paid[track][car] = clean
+	if c.has("welcome") and not (c.welcome is Dictionary):
+		c.erase("welcome")
 
 
 ## Entries kept from older versions of a track: {signature: entry} (section: "records",
@@ -357,3 +456,134 @@ static func network_cars(slot: String = BEST_SLOT) -> PackedStringArray:
 
 static func _now() -> String:
 	return Time.get_datetime_string_from_system(true) + "Z"
+
+
+# ---- the career (v6.5.0: money, points, cars, rewards paid; see sim/economy.gd) -----------
+
+static func _career() -> Dictionary:
+	return _all().career
+
+
+static func get_money() -> int:
+	_mutex.lock()
+	var n: int = int(_career().money)
+	_mutex.unlock()
+	return n
+
+
+static func get_points() -> int:
+	_mutex.lock()
+	var n: int = int(_career().points)
+	_mutex.unlock()
+	return n
+
+
+## Add `n` to the money (negative takes it away; the total never goes below 0). Returns the total.
+static func add_money(n: int) -> int:
+	return _add("money", n)
+
+
+## Add `n` to the career points (negative takes them away; never below 0). Returns the total.
+static func add_points(n: int) -> int:
+	return _add("points", n)
+
+
+static func _add(key: String, n: int) -> int:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	c[key] = maxi(0, int(c[key]) + n)
+	var total: int = c[key]
+	_write()
+	_mutex.unlock()
+	return total
+
+
+## The cars owned, in picker order (the starting cars always).
+static func owned_cars() -> PackedStringArray:
+	_mutex.lock()
+	var out := PackedStringArray(_career().cars)
+	_mutex.unlock()
+	return out
+
+
+static func owns_car(id: String) -> bool:
+	return owned_cars().has(id)
+
+
+## Own car `id` without paying (the terminal's unlock, tests). True when it was not owned yet.
+static func give_car(id: String) -> bool:
+	if not Cars.has_car(id):
+		return false
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var is_new: bool = not (c.cars as Array).has(id)
+	if is_new:
+		(c.cars as Array).append(id)
+		_repair_career(_data) # (picker order)
+		_write()
+	_mutex.unlock()
+	return is_new
+
+
+## Buy car `id` for `price`: "" when bought (the money is taken and the car owned, in one
+## write), "owned" when it already is, "money" when the money is short, "unknown" for an id the
+## game doesn't know.
+static func purchase_car(id: String, price: int) -> String:
+	if not Cars.has_car(id):
+		return "unknown"
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var err: String = ""
+	if (c.cars as Array).has(id):
+		err = "owned"
+	elif int(c.money) < price:
+		err = "money"
+	else:
+		c.money = int(c.money) - maxi(0, price)
+		(c.cars as Array).append(id)
+		_repair_career(_data)
+		_write()
+	_mutex.unlock()
+	return err
+
+
+## The reward ids already paid on a track with a car (sim/economy.gd).
+static func paid_rewards(track_id: String, car_id: String) -> PackedStringArray:
+	_mutex.lock()
+	var p: Variant = (_career().paid as Dictionary).get(track_id)
+	var out := PackedStringArray(p.get(car_id, []) if p is Dictionary and p.get(car_id) is Array else [])
+	_mutex.unlock()
+	return out
+
+
+## Mark rewards `ids` paid on a track with a car and add `money` and `points` (one write).
+static func pay_rewards(track_id: String, car_id: String, ids: PackedStringArray, money: int, points: int) -> bool:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	if not (c.paid.get(track_id) is Dictionary):
+		c.paid[track_id] = {}
+	if not (c.paid[track_id].get(car_id) is Array):
+		c.paid[track_id][car_id] = []
+	var list: Array = c.paid[track_id][car_id]
+	for id: String in ids:
+		if not list.has(id):
+			list.append(id)
+	c.money = maxi(0, int(c.money) + money)
+	c.points = maxi(0, int(c.points) + points)
+	var ok: bool = _write()
+	_mutex.unlock()
+	return ok
+
+
+## What the upgrade to save version 4 paid for the medals already held ({money, points, medals}),
+## once: {} afterwards (and for a new career that held no medals).
+static func take_welcome() -> Dictionary:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var w: Variant = c.get("welcome")
+	var out: Dictionary = (w as Dictionary).duplicate() if w is Dictionary else {}
+	if c.has("welcome"):
+		c.erase("welcome")
+		_write()
+	_mutex.unlock()
+	return out

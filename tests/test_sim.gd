@@ -84,6 +84,7 @@ func run(checker: Variant) -> bool:
 	_ghosts()
 	_medals()
 	_save()
+	_career()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
 		"format_time rounds correctly (119.9996 s -> 2:00.000; no time -> --:--.---)")
@@ -1640,7 +1641,7 @@ func _save() -> void:
 		SaveData.get_record("ramp-rally").time == 190.0 and SaveData.get_best_score("ramp-rally", "racer").score == 5000.0
 	SaveData.use_file(p)
 	on_disk = JSON.parse_string(FileAccess.get_file_as_string(p))
-	ok = ok and on_disk is Dictionary and JsMath.same(on_disk.get("version"), 3) and on_disk.records["ramp-rally"].racer.sig == Tracks.signature("ramp-rally") and \
+	ok = ok and on_disk is Dictionary and JsMath.same(on_disk.get("version"), SaveData.VERSION) and on_disk.records["ramp-rally"].racer.sig == Tracks.signature("ramp-rally") and \
 		float(on_disk.archive.records["ramp-rally"].racer[rr_old].time) == 170.0 and SaveData.get_record("ramp-rally").time == 190.0 and \
 		float(SaveData.get_archived("records", "ramp-rally", "racer")[rr_old].time) == 170.0
 	t.check(ok, "track versions: a version 2 save's records, scores and ghosts on a changed track (Ramp Rally, now with dirt) move to the archive (kept, by old signature); slower runs on the new version are new bests; unchanged tracks keep theirs")
@@ -1663,3 +1664,184 @@ func _save() -> void:
 	for f: String in [p, p + ".bad", p + ".tmp"]:
 		if FileAccess.file_exists(f):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+
+
+# ---- money and points (v6.5.0: sim/economy.gd, the career in sim/save.gd) ------------------
+
+func _career() -> void:
+	t.section("money and points: the reward table, payouts, the shop, the save file's career (v6.5.0)")
+	var ids: PackedStringArray = Tracks.ids()
+	# the reward table: every medal and every AI level has a reward; harder ones pay more money and
+	# more points; every track pays more than the one before it
+	var medals: Array = []
+	medals.append_array(Economy.MEDALS_UP)
+	var keys: Array = medals.duplicate()
+	for l: String in Opponents.ids():
+		keys.append(Economy.AI_PREFIX + l)
+	var ok: bool = Economy.REWARDS.size() == keys.size()
+	for k: String in keys:
+		ok = ok and Economy.REWARDS.has(k)
+	for group: Array in [medals, keys.slice(medals.size())]:
+		for k in range(1, group.size()):
+			var a: Dictionary = Economy.reward(ids[0], group[k - 1])
+			var b: Dictionary = Economy.reward(ids[0], group[k])
+			ok = ok and int(b.money) > int(a.money) and int(b.points) > int(a.points)
+	var later: bool = true
+	for k: String in keys:
+		for i in range(1, ids.size()):
+			var a: Dictionary = Economy.reward(ids[i - 1], k)
+			var b: Dictionary = Economy.reward(ids[i], k)
+			later = later and int(b.money) > int(a.money) and int(b.points) >= int(a.points) and int(b.money) % 10 == 0
+	var last: String = ids[ids.size() - 1]
+	t.check(ok and later and Medals.ORDER.size() == Economy.MEDALS_UP.size() and Economy.reward(ids[0], "gold") == {money = 800, points = 40} and
+		Economy.reward(last, "gold") == {money = 1920, points = 96} and Economy.reward(ids[0], "ai-elite") == {money = 1600, points = 80} and
+		Economy.reward(ids[0], "nope").is_empty(),
+		"reward table: %d rewards (4 medals, %d AI levels), each harder one pays more money and points, every track more than the one before (gold: $800 / 40 pts on track 1, $1,920 / 96 pts on track %d)" % [
+		keys.size(), Opponents.ids().size(), ids.size()])
+	# payouts: a medal pays the medals below it, an AI level the levels below it; paid ones are skipped
+	var p: Dictionary = Economy.payout("rookie-oval", "gold", "pro", PackedStringArray())
+	var got: Array = p.items.map(func(it: Dictionary) -> String: return String(it.id))
+	var sum: int = 0
+	for it: Dictionary in p.items:
+		sum += int(it.money)
+	ok = got == ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro"] and int(p.money) == sum and sum == 300 + 500 + 800 + 200 + 400 + 700 and \
+		int(p.points) == 10 + 20 + 40 + 5 + 10 + 20 and p.repeat.is_empty() and p.items[2].label == "Gold medal" and p.items[5].label == "Beat the Pro AI" and \
+		p.items[0].kind == "medal" and p.items[3].kind == "ai"
+	var p2: Dictionary = Economy.payout("rookie-oval", "gold", "pro", PackedStringArray(["bronze", "silver", "ai-rookie"]))
+	ok = ok and p2.items.map(func(it: Dictionary) -> String: return String(it.id)) == ["gold", "ai-amateur", "ai-pro"] and \
+		Array(p2.repeat) == ["bronze", "silver", "ai-rookie"] and int(p2.money) == 800 + 400 + 700
+	var p3: Dictionary = Economy.payout("rookie-oval", "", "", PackedStringArray())
+	ok = ok and p3.items.is_empty() and int(p3.money) == 0 and int(p3.points) == 0
+	t.check(ok, "payout: gold + beating the Pro pays bronze, silver, gold, Rookie, Amateur, Pro ($2,900, 105 pts on track 1); what was paid before is skipped and listed; no medal and no win pays nothing")
+
+	# the save file's career: a new player has $0, 0 points and only the Racer
+	var path: String = "user://test_career_save.json"
+	var write := func(text: String) -> void:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(text)
+		f.close()
+	var clean := func() -> void:
+		for f: String in [path, path + ".bad", path + ".tmp"]:
+			if FileAccess.file_exists(f):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	clean.call()
+	SaveData.use_file(path)
+	t.check(SaveData.get_money() == 0 and SaveData.get_points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and
+		SaveData.owns_car("racer") and not SaveData.owns_car("vortex") and SaveData.take_welcome().is_empty() and
+		Economy.price("racer") == 0 and Economy.price("kestrel") > 0, "a new career: $0, 0 points, only the Racer (the cars that cost nothing); no welcome note")
+
+	# paid once per track, car and reward
+	var c1: Dictionary = Economy.claim("rookie-oval", "racer", "silver", "")
+	var c2: Dictionary = Economy.claim("rookie-oval", "racer", "silver", "")
+	var c3: Dictionary = Economy.claim("rookie-oval", "racer", "author", "rookie")
+	var c4: Dictionary = Economy.claim("rookie-oval", "kestrel", "bronze", "")
+	var c5: Dictionary = Economy.claim("hairpin-valley", "racer", "bronze", "")
+	var c6: Dictionary = Economy.claim("rookie-oval", "racer", "gold", "amateur")
+	var m_after: int = 800 + 2000 + 200 + 300 + 330 + 400
+	ok = int(c1.money) == 800 and int(c2.money) == 0 and Array(c2.repeat) == ["bronze", "silver"] and int(c3.money) == 800 + 1200 + 200 and \
+		int(c4.money) == 300 and int(c5.money) == 330 and int(c6.money) == 400 and Array(c6.repeat) == ["bronze", "silver", "gold", "ai-rookie"] and \
+		int(c6.money_total) == m_after and SaveData.get_money() == m_after
+	SaveData.use_file(path) # read back from the file
+	var paid: PackedStringArray = SaveData.paid_rewards("rookie-oval", "racer")
+	ok = ok and SaveData.get_money() == m_after and SaveData.get_points() == int(c1.points) + int(c3.points) + int(c4.points) + int(c5.points) + int(c6.points) and \
+		paid == PackedStringArray(["bronze", "silver", "gold", "author", "ai-rookie", "ai-amateur"]) and \
+		SaveData.paid_rewards("rookie-oval", "kestrel") == PackedStringArray(["bronze"]) and int(Economy.claim("rookie-oval", "racer", "author", "amateur").money) == 0
+	t.check(ok, "paid once: silver pays $800, the same again $0; author + Rookie then pay only what is new ($2,200); another car (Kestrel) and another track pay on their own; read back from the file, the paid rewards stay paid")
+
+	# the shop
+	write.call(JSON.stringify({version = 4, career = {money = 9000, points = 3, cars = ["racer"], paid = {}}}))
+	SaveData.use_file(path)
+	var b1: Dictionary = Economy.buy("kestrel")
+	var m1: int = SaveData.get_money()
+	SaveData.add_money(1000)
+	var b2: Dictionary = Economy.buy("kestrel")
+	var b3: Dictionary = Economy.buy("kestrel")
+	var b4: Dictionary = Economy.buy("racer")
+	var b5: Dictionary = Economy.buy("bus")
+	SaveData.use_file(path)
+	ok = not b1.ok and b1.error == "money" and int(b1.short) == 1000 and m1 == 9000 and not SaveData.owns_car("thunder") and \
+		b2.ok and b2.error == "" and int(b2.price) == 10000 and not b3.ok and b3.error == "owned" and not b4.ok and b4.error == "owned" and \
+		not b5.ok and b5.error == "unknown" and SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer", "kestrel"]) and SaveData.get_points() == 3
+	ok = ok and SaveData.give_car("vortex") and not SaveData.give_car("vortex") and not SaveData.give_car("bus") and \
+		SaveData.owned_cars() == PackedStringArray(["racer", "kestrel", "vortex"]) and SaveData.add_money(-50) == 0 and SaveData.add_points(-10) == 0 and \
+		SaveData.add_money(5000) == 5000 and SaveData.add_points(25) == 25
+	t.check(ok, "the shop: $9,000 can't buy the $10,000 Kestrel ($1,000 short, nothing taken); with $10,000 it can (money $0, owned, in the file); an owned car and an unknown one can't be bought; give_car owns one without paying (in picker order); money and points never go below 0")
+
+	# version 3 (and older) saves: a career starts, paid once for the medals the best times hold
+	var pv: int = Car.PHYSICS_VERSION
+	var ro: BuiltTrack = Tracks.build("rookie-oval")
+	var hv: BuiltTrack = Tracks.build("hairpin-valley")
+	var mro: Dictionary = Medals.medal_times(ro, "racer")
+	var mrk: Dictionary = Medals.medal_times(ro, "kestrel")
+	var mhv: Dictionary = Medals.medal_times(hv, "racer")
+	var rec := func(time: float, sig: String, physics: int = pv) -> Dictionary: return {time = time, splits = [], physics = physics, sig = sig, date = "x"}
+	var v3: Dictionary = {version = 3, settings = {car = "vortex"}, records = {
+		"rookie-oval": {racer = rec.call(float(mro.gold) - 0.5, ro.signature()), kestrel = rec.call(float(mrk.bronze), ro.signature()),
+			bus = rec.call(100.0, ro.signature())},
+		"hairpin-valley": {racer = rec.call(float(mhv.bronze) + 5.0, hv.signature()), dune = rec.call(float(mhv.author), "1:2"),
+			vortex = rec.call(10.0, hv.signature(), pv - 1)},
+		"no-such-track": {racer = rec.call(1.0, "1:2")}}}
+	write.call(JSON.stringify(v3))
+	SaveData.use_file(path)
+	var want: int = 300 + 500 + 800 + 300 # racer gold (bronze, silver, gold) and kestrel bronze on Rookie Oval
+	var want_pts: int = 10 + 20 + 40 + 10
+	var w: Dictionary = SaveData.take_welcome()
+	ok = SaveData.get_money() == want and SaveData.get_points() == want_pts and SaveData.owned_cars() == PackedStringArray(["racer"]) and \
+		SaveData.paid_rewards("rookie-oval", "racer") == PackedStringArray(["bronze", "silver", "gold"]) and \
+		SaveData.paid_rewards("rookie-oval", "kestrel") == PackedStringArray(["bronze"]) and SaveData.paid_rewards("hairpin-valley", "racer").is_empty() and \
+		SaveData.paid_rewards("hairpin-valley", "dune").is_empty() and SaveData.paid_rewards("hairpin-valley", "vortex").is_empty() and \
+		w == {money = want, points = want_pts, medals = 4} and SaveData.take_welcome().is_empty() and SaveData.get_setting("car") == "vortex"
+	# the upgrade is paid once: the file is version 4 now (a later load pays nothing more); a medal held is not paid again by a race
+	SaveData.add_points(0) # (writes the file)
+	SaveData.use_file(path)
+	var on_disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and SaveData.get_money() == want and SaveData.take_welcome().is_empty() and on_disk is Dictionary and JsMath.same(on_disk.get("version"), 4) and \
+		int(Economy.claim("rookie-oval", "racer", "gold", "").money) == 0 and int(Economy.claim("rookie-oval", "racer", "author", "").money) == 1200
+	t.check(ok, "a version 3 save: paid once for its 4 medals ($%s, %d pts: the Racer's gold and the Kestrel's bronze on Rookie Oval; not a time without a medal, one on an older version of a track, under other physics, an unknown car or track); only the Racer owned (the picked Vortex stays picked, locked); a one-time welcome note; loaded again, nothing is paid twice" % [
+		UiFormat.points(want), want_pts])
+	# version 2 (records without track signatures, v6.2) and version 1 saves are upgraded the same way
+	write.call(JSON.stringify({version = 2, records = {"rookie-oval": {racer = {time = float(mro.bronze), splits = [], physics = pv}},
+		"ramp-rally": {racer = {time = 1.0, splits = [], physics = pv}}}}))
+	SaveData.use_file(path)
+	ok = SaveData.get_money() == 300 and SaveData.paid_rewards("rookie-oval", "racer") == PackedStringArray(["bronze"]) and \
+		SaveData.paid_rewards("ramp-rally", "racer").is_empty() and SaveData.get_record("ramp-rally").is_empty()
+	write.call(JSON.stringify({version = 1, records = {"rookie-oval": {racer = {time = float(mro.author), splits = [], physics = pv}}}, network = {network = {layers = [1]}}}))
+	SaveData.use_file(path)
+	ok = ok and SaveData.get_money() == 300 + 500 + 800 + 1200 and SaveData.get_points() == 150 and SaveData.load_network("racer") is Dictionary and \
+		int(SaveData.take_welcome().get("medals", 0)) == 4
+	t.check(ok, "version 2 and 1 saves: upgraded the same way (a version 2 record on v6.2's Ramp Rally is archived, so not paid; a version 1 author time pays all four medals, $2,800)")
+	# junk in the career section is repaired, never a script error
+	var cjunk: Array[String] = ["{\"career\": 5}", "{\"career\": []}", "{\"career\": {\"money\": \"x\", \"points\": -4, \"cars\": 3, \"paid\": []}}",
+		"{\"version\": 4, \"career\": {\"money\": 1e999, \"cars\": [\"bus\", 7], \"paid\": {\"rookie-oval\": 3, \"x\": {\"racer\": [1, \"gold\", \"gold\"]}}}}"]
+	var j_ok: int = 0
+	for j: String in cjunk:
+		write.call(j)
+		SaveData.use_file(path)
+		if SaveData.get_money() == 0 and SaveData.get_points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and \
+				SaveData.paid_rewards("rookie-oval", "racer").is_empty() and int(Economy.claim("rookie-oval", "racer", "bronze", "").money) == 300:
+			j_ok += 1
+	write.call("{\"version\": 4, \"career\": {\"money\": 70, \"points\": 2.6, \"cars\": [\"vortex\", \"racer\", \"vortex\"], \"paid\": {\"x\": {\"racer\": [1, \"gold\", \"gold\"]}}}}")
+	SaveData.use_file(path)
+	ok = SaveData.get_money() == 70 and SaveData.get_points() == 2 and SaveData.owned_cars() == PackedStringArray(["racer", "vortex"]) and \
+		SaveData.paid_rewards("x", "racer") == PackedStringArray(["gold"])
+	t.check(ok and j_ok == cjunk.size(), "a damaged career section: %d of %d kinds of junk read as a new career; a hand-edited one is cleaned (whole numbers, known cars once each, the Racer always)" % [j_ok, cjunk.size()])
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	clean.call()
+
+	# the prices: a player who drives well (gold medals, which also beat the Expert AI at 1.13 x the
+	# author time) can buy a second car after three tracks and all five by the end of the career
+	var prices: Array = []
+	var total: int = 0
+	for id: String in Cars.ids():
+		if Economy.price(id) > 0:
+			prices.append(Economy.price(id))
+			total += Economy.price(id)
+	prices.sort()
+	var good: PackedInt32Array = Economy.career({medal = "gold", ai = "expert"})
+	var fair: PackedInt32Array = Economy.career({medal = "silver", ai = "pro"})
+	var n: int = good.size()
+	ok = prices.size() == Cars.ids().size() - 1 and good[1] < prices[0] and good[2] >= prices[0] and good[n - 2] < total and good[n - 1] >= total and \
+		fair[3] < prices[0] and fair[4] >= prices[0]
+	t.check(ok, "prices (%s, all five $%s): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after %d and $%s after %d (all five); silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
+		", ".join(PackedStringArray(prices.map(func(v: int) -> String: return UiFormat.money(v)))), UiFormat.points(total), UiFormat.points(good[1]),
+		UiFormat.points(good[2]), UiFormat.points(good[n - 2]), n - 1, UiFormat.points(good[n - 1]), n, UiFormat.points(fair[4]), UiFormat.points(fair[n - 1])])

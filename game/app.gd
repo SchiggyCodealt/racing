@@ -21,6 +21,11 @@ extends Node
 ## sim/save.gd's file), the AI networks (one per car, from the save file; the menu's AI block,
 ## Watch the AI and Race the AI ghost use the picked car's; Load / Save network through file
 ## dialogs in the web game's JSON format), and short messages.
+## v6.5.0: the career (sim/economy.gd): Drive and Race the AI need a car you own; a locked car's
+## Drive buys it (asking first, or saying how much money is missing). Race the AI and Watch the
+## AI use the menu's opponent: an AI level (the shipped network of the track and car with the
+## level's speed cap, sim/opponents.gd) or "My AI" (the picked car's own network, as before). A
+## save file upgraded to version 4 gets a one-time message about the money its medals paid.
 ##
 ## Command line (after "--"; tools and the end-to-end tests): gfx=high|medium|low pins the
 ## quality (governor off), save=<path> uses another save file, track=<id> starts on that track.
@@ -136,6 +141,18 @@ func _ready() -> void:
 	menu_mode.setup(self)
 	add_child(menu_mode)
 	show_menu()
+	_welcome()
+
+
+## A save file from before v6.5.0 was paid for the medals it holds: say so once.
+func _welcome() -> void:
+	var w := SaveData.take_welcome()
+	if w.is_empty():
+		return
+	show_message("Money and points", ("New in this version: medals and wins against the AI opponents pay money and career points, and money buys cars. " +
+		"The %d medals you already hold paid %s and %s points. You own the Racer; buy the other cars on the car picker (pick one, then Buy).") % [
+		int(w.medals), UiFormat.money(int(w.money)), UiFormat.points(int(w.points))])
+	ui.menu.refresh()
 
 
 func _process(delta: float) -> void:
@@ -212,21 +229,60 @@ func show_menu() -> void:
 	set_mode(menu_mode)
 
 
-## Drive (driver "human"), Race the AI ghost (ghost) or Watch the AI (driver "ai") on the
-## selected track. The AI is the picked car's network, driving that car.
+## Drive (driver "human"), Race the AI (ghost) or Watch the AI (driver "ai") on the selected
+## track. You drive only a car you own (a locked one is offered for sale instead). The AI drives
+## the picked car: the menu's opponent level (the shipped network with that level's speed cap),
+## or with "My AI" the car's own trained network.
 func play(driver: String, ghost: bool) -> void:
 	var car := UiData.picked_car()
+	if driver == "human" and not UiData.owns_car(car):
+		offer_car(car)
+		return
 	if driver == "ai" or ghost:
 		if not AiLink.ready():
 			show_message("AI not ready", AiLink.not_ready_text())
 			return
+		var level := UiData.opponent()
+		var t := tracks[selected_track]
+		if level != UiData.MY_AI:
+			var opp := AiLink.opponent(t.id, car)
+			if opp.has("error"):
+				show_message("No AI opponent", str(opp.error))
+				return
+			start_play({"track": t, "driver": driver, "ghost": ghost, "ai_car": car, "net": AiLink.clone_net(opp.net),
+				"level": level, "cap": Opponents.cap_of(t.id, car, level)})
+			return
 		_sync_network()
 		if network.is_empty():
-			show_message("No AI network", "The %s has no trained AI network yet. Train the AI teaches one (it starts with the %s), or Load network… uses a saved file." % [
+			show_message("No AI network", "The %s has no trained AI network yet. Train the AI teaches one (it starts with the %s), or Load network… uses a saved file. Or race one of the AI opponents (Rookie to Elite)." % [
 				Cars.get_car(car).name, Cars.get_car(car).name])
 			return
 	start_play({"track": tracks[selected_track], "driver": driver, "ghost": ghost, "ai_car": car,
 		"net": AiLink.clone_net(network.net) if not network.is_empty() else null})
+
+
+## A locked car was asked to drive: offer it for its price (asking first), or say how much money
+## is missing.
+func offer_car(car_id: String) -> void:
+	var cname: String = Cars.get_car(car_id).name
+	var price := UiData.car_price(car_id)
+	var have := UiData.money()
+	if have < price:
+		show_message("The %s is locked" % cname, "The %s costs %s and you have %s: %s more to go. Medals and wins against the AI opponents pay money (the finish panel shows what each run earned)." % [
+			cname, UiFormat.money(price), UiFormat.money(have), UiFormat.money(price - have)])
+		return
+	ui.menu.input = null
+	message.ask("Buy the %s?" % cname, "The %s costs %s. You have %s, so %s is left after buying it. It is yours for good: drive it on every track, and train its AI." % [
+		cname, UiFormat.money(price), UiFormat.money(have), UiFormat.money(have - price)], "Buy for %s" % UiFormat.money(price), buy_car.bind(car_id))
+
+
+## Buy car `car_id` now (Economy.buy): {ok, error, price, short}. The menu shows it as yours.
+func buy_car(car_id: String) -> Dictionary:
+	var r := UiData.buy_car(car_id)
+	if not r.ok and r.error == "money":
+		show_message("Not enough money", "The %s costs %s: %s more to go." % [Cars.get_car(car_id).name, UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
+	ui.menu.refresh()
+	return r
 
 
 ## Start a race mode (opts: see modes/play_mode.gd; return_to: where Esc goes, default the

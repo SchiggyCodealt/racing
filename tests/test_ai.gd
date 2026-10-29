@@ -16,7 +16,11 @@ extends RefCounted
 ## - the training screen with a stand-in game: setup, the car choice, 1×, Fast, Max on its
 ##   thread, pause, Save best network (the car's own network), switching car (asking first when
 ##   a better network is not saved), loading another car's network, Stop
-## About 30 s with the extension (most of it the GDScript simulation), longer without.
+## - the AI opponents (v6.5.0, data/opponents): every track and car has all five levels, each
+##   finishes and is slower than the level above, Elite at gold pace or faster, Rookie slower
+##   than bronze; a sample of their races re-run (ai/opponent_race.gd) finish on the stored time
+##   to the millisecond; the speed cap of AIDriver
+## About a minute with the extension (most of it the GDScript simulation), longer without.
 
 const FIXTURE := "res://tests/fixtures/ai_web_network.json"
 const TrainModeScript := preload("res://modes/train_mode.gd")
@@ -58,6 +62,7 @@ func run(checker: Variant) -> bool:
 	_training_cars()
 	_train_screen()
 	_train_screen_cars()
+	_opponents()
 	return true
 
 
@@ -989,3 +994,109 @@ func _train_screen_cars() -> void:
 		for fl in dir.get_files():
 			dir.remove(fl)
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_ai_networks"))
+
+
+# ================================================================= the AI opponents (v6.5.0)
+
+func _opponents() -> void:
+	t.section("AI opponents: five levels on every track with every car (v6.5.0)")
+	var ids: PackedStringArray = Opponents.ids()
+	t.check(ids == PackedStringArray(["rookie", "amateur", "pro", "expert", "elite"]) and Opponents.rank("rookie") == 0 and Opponents.rank("elite") == 4 and
+		Opponents.rank("x") == -1, "five levels, Rookie to Elite")
+	var missing: Array = []
+	var order_bad: Array = []
+	var elite_slow: Array = []
+	var rookie_fast: Array = []
+	var off: Array = []
+	var n: int = 0
+	var worst_elite: float = 0.0
+	var best_elite: float = INF
+	var rookie_min: float = INF
+	var gap_min: float = INF
+	for car: String in Cars.ids():
+		for tid: String in Tracks.ids():
+			if not Opponents.has_track(tid, car):
+				missing.append("%s/%s" % [car, tid])
+				continue
+			n += 1
+			var e: Dictionary = Opponents.entry(tid, car)
+			var m: Dictionary = Medals.medal_times(Tracks.build(tid), car)
+			var above: float = 0.0
+			for k in range(ids.size() - 1, -1, -1):
+				var lv: Dictionary = e.levels[ids[k]]
+				var time: float = float(lv.time)
+				var target: float = maxf(float(Opponents.level(ids[k]).pace) * float(m.author), above * Opponents.MIN_GAP)
+				if above > 0.0:
+					gap_min = minf(gap_min, time / above)
+					if time < above * (Opponents.MIN_GAP - 0.025):
+						order_bad.append("%s/%s %s" % [car, tid, ids[k]])
+				if lv.cap != null and absf(time - target) > 0.02 * target:
+					off.append("%s/%s %s %.3f" % [car, tid, ids[k], time / target])
+				above = time
+			var elite: float = float(e.levels.elite.time)
+			var rookie: float = float(e.levels.rookie.time)
+			worst_elite = maxf(worst_elite, elite / float(m.gold))
+			best_elite = minf(best_elite, elite / float(m.author))
+			rookie_min = minf(rookie_min, rookie / float(m.bronze))
+			if elite > float(m.gold):
+				elite_slow.append("%s/%s" % [car, tid])
+			if rookie <= float(m.bronze):
+				rookie_fast.append("%s/%s" % [car, tid])
+	t.check(missing.is_empty() and n == Cars.ids().size() * Tracks.ids().size(), "every track has all five levels with every car (%d of %d) %s" % [
+		n, Cars.ids().size() * Tracks.ids().size(), missing])
+	t.check(order_bad.is_empty() and gap_min > 1.0, "lap times get faster from Rookie to Elite everywhere: each level at least %.3f × the next one up's time %s" % [gap_min, order_bad])
+	t.check(elite_slow.is_empty() and best_elite > 0.97, "Elite at gold pace or faster everywhere (at most %.3f × gold) and held to about the author time (at least %.3f × author) %s" % [
+		worst_elite, best_elite, elite_slow])
+	t.check(rookie_fast.is_empty(), "Rookie slower than the bronze medal everywhere (at least %.3f × bronze) %s" % [rookie_min, rookie_fast])
+	t.check(off.is_empty(), "each slowed level within 2 %% of its target (pace × author, at least %.2f × the level above) %s" % [Opponents.MIN_GAP, off])
+
+	# the races: re-run with ai/opponent_race.gd (the game's AI ghost race), they finish on the stored time
+	var runs: Array = []
+	for id: String in ids:
+		runs.append(["racer", "rookie-oval", id])
+	var cars: PackedStringArray = Cars.ids()
+	for k in cars.size():
+		runs.append([cars[k], Tracks.ids()[(3 * k + 1) % Tracks.ids().size()], ids[(k + 2) % ids.size()]])
+	var same: int = 0
+	var bad: Array = []
+	var cap_ok: bool = true
+	var t0: int = Time.get_ticks_msec()
+	for r: Array in runs:
+		var opp: Dictionary = Trainer.parse_network_file(Opponents.entry(r[1], r[0]).network)
+		var cap: float = Opponents.cap_of(r[1], r[0], r[2])
+		var res: Dictionary = OpponentRace.run(opp.net, Tracks.build(r[1]), r[0], cap)
+		var stored: float = Opponents.time_of(r[1], r[0], r[2])
+		if res.finished and JsMath.roundi(float(res.time) * 1000.0) == JsMath.roundi(stored * 1000.0):
+			same += 1
+		else:
+			bad.append("%s/%s %s: %s, stored %s" % [r[0], r[1], r[2], RaceState.format_time(res.time), RaceState.format_time(stored)])
+		if cap < INF and float(res.top) > cap + 3.0:
+			cap_ok = false
+	t.check(same == runs.size(), "%d races re-run (all five levels of the Racer on Rookie Oval, a level of every car on another track): each finishes on its stored time to the ms (%.0f s) %s" % [
+		runs.size(), (Time.get_ticks_msec() - t0) / 1000.0, bad])
+	t.check(cap_ok, "a slowed level never goes more than 3 m/s over its speed cap")
+
+	# the speed cap of AIDriver: none (INF) drives exactly as the network; a cap holds the throttle back
+	var net: NeuralNetwork = Trainer.parse_network_file(Opponents.entry("rookie-oval", "racer").network).net
+	var tr: BuiltTrack = Tracks.build("rookie-oval")
+	var free := Sensors.AIDriver.new(net.clone())
+	var capped := Sensors.AIDriver.new(net.clone(), 20.0)
+	var c1 := Car.new(tr, tr.start_idx)
+	var c2 := Car.new(tr, tr.start_idx)
+	var same_ctrl: bool = true
+	var held: bool = true
+	var inputs := PackedFloat32Array()
+	inputs.resize(Sensors.INPUT_COUNT)
+	var mirrored := PackedFloat32Array()
+	mirrored.resize(Sensors.INPUT_COUNT)
+	var raw := Car.Controls.new()
+	for i in 600:
+		var a: Car.Controls = free.drive(tr, c1)
+		Sensors.sense(tr, c1, inputs, PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]))
+		Sensors.drive_network(net, inputs, mirrored, raw)
+		same_ctrl = same_ctrl and a.throttle == raw.throttle and a.steer == raw.steer
+		c1.step(tr, a, 1.0 / 60.0)
+		var b: Car.Controls = capped.drive(tr, c2)
+		held = held and b.throttle <= maxf(-1.0, (20.0 - c2.speed) * Sensors.CAP_GAIN) + 1e-9
+		c2.step(tr, b, 1.0 / 60.0)
+	t.check(same_ctrl and held and c1.speed > 30.0 and c2.speed < 20.5 and c2.speed > 18.0, "AIDriver: no cap drives exactly as the network; a 20 m/s cap holds the car at %.1f m/s (free: %.1f)" % [c2.speed, c1.speed])

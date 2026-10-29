@@ -7,7 +7,8 @@ extends "res://modes/play_mode.gd"
 ## makes no progress for STUCK_TIME seconds (nose against a wall: walls don't bounce cars
 ## back), it is put back at its last checkpoint, standing, like a player pressing Enter, and
 ## the HUD says so. The finish panel compares its time with your best with that car.
-## setup(app, {track, net, ai_car, return_to}) as play_mode.gd (the driver is always "ai").
+## setup(app, {track, net, ai_car, return_to, level, cap}) as play_mode.gd (the driver is always "ai";
+## level / cap: watch an AI opponent level, sim/opponents.gd).
 
 var rays: SensorRays = null
 var _net_view := {}
@@ -22,11 +23,13 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 
 
 func _mode_text(cname: String) -> String:
+	if level != "":
+		return "WATCHING THE %s AI · %s · %s" % [Opponents.level_name(level).to_upper(), track.name, cname]
 	return "WATCHING AI · %s · %s" % [track.name, cname]
 
 
 func _enter_view() -> void:
-	ai = AiLink.driver(net)
+	ai = AiLink.driver(net, cap) # (an AI opponent level drives with its speed cap)
 	rays = SensorRays.new()
 	app.world.add_child(rays)
 	app.ui.hud.show_watch(true)

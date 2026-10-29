@@ -14,6 +14,12 @@ extends Control
 ## - Drive, the best-run ghost option, the AI block for the picked car (its network's status, or
 ##   that it has none yet; Load / Save network, Race the AI ghost, Watch the AI, Train the AI);
 ##   the Controls screen and the Settings screen.
+## - v6.5.0, the career: the header shows your money and career points; the car cards of cars you
+##   don't own show a lock and their price (their stats stay readable), and with such a car picked
+##   Drive becomes BUY (or LOCKED when the money is short: it says how much is missing); the AI
+##   block picks the opponent of Race / Watch the AI: an AI level (Rookie to Elite, its finish
+##   time on this track with this car and what beating it pays now) or My AI (the picked car's
+##   own trained network, as before).
 ## Every bit of game data comes through UiData; the buttons only emit signals.
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
@@ -33,6 +39,7 @@ signal load_network
 signal save_network
 signal track_selected(index: int)
 signal car_selected(id: String)
+signal opponent_selected(id: String)
 
 const W := preload("res://ui/widgets.gd")
 const TrackTile := preload("res://ui/track_tile.gd")
@@ -111,6 +118,13 @@ var _save_btn: Button
 var _ghost_btn: Button
 var _watch_btn: Button
 var _train_btn: Button
+## The opponent buttons (v6.5.0): AI level id or UiData.MY_AI -> Button.
+var _opp_btns: Dictionary = {}
+var _opp_row: HBoxContainer
+var _wallet: HBoxContainer
+var _money_l: Label
+var _points_l: Label
+var _car_lock: Label
 var _controls_btn: Button
 var _settings_btn: Button
 var _ring: Control
@@ -199,6 +213,24 @@ func _build_head() -> void:
 	mark.add_child(bar)
 	mark.add_child(UiStyle.label("Track Rush", "display_bold", UiStyle.FS_XL, UiStyle.TEXT, 0.04, true, false, false, UiStyle.FS_XL))
 	_head.add_child(mark)
+	# the career: money and points (v6.5.0)
+	_wallet = UiStyle.hbox(UiStyle.S3)
+	_wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_wallet.mouse_filter = Control.MOUSE_FILTER_PASS
+	_wallet.tooltip_text = "Your money buys cars (the car picker); career points add up everything you have won. Medals and wins against the AI opponents pay both, once per track, car and medal or AI level; later tracks pay more."
+	_money_l = UiStyle.label("", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.02, false, true, false, UiStyle.FS_L)
+	_money_l.size_flags_vertical = Control.SIZE_SHRINK_END
+	_money_l.mouse_filter = Control.MOUSE_FILTER_PASS
+	_wallet.add_child(_money_l)
+	_points_l = UiStyle.label("", "display_bold", UiStyle.FS_M, UiStyle.ACCENT, 0.06, true, true, false, UiStyle.FS_M)
+	_points_l.size_flags_vertical = Control.SIZE_SHRINK_END
+	_points_l.mouse_filter = Control.MOUSE_FILTER_PASS
+	var pm := UiStyle.margin([0, 0, 0, 1]) # (on the money's baseline)
+	pm.size_flags_vertical = Control.SIZE_SHRINK_END
+	pm.mouse_filter = Control.MOUSE_FILTER_PASS
+	pm.add_child(_points_l)
+	_wallet.add_child(pm)
+	_head.add_child(_wallet)
 	# the hint line takes the room the buttons leave; items it has no room for go, last first
 	# (the web hides it under 760 px; the Godot header also has the Settings button)
 	_hint_holder = Control.new()
@@ -283,6 +315,9 @@ func _build_cars() -> void:
 		_cars_grid.add_child(card)
 		_cards.append(card)
 	var desc := UiStyle.hbox(UiStyle.S1)
+	_car_lock = UiStyle.label("", "text_semi", UiStyle.FS_S, UiStyle.ACCENT, 0.0, false, false, false, 18)
+	_car_lock.visible = false
+	desc.add_child(_car_lock)
 	_car_desc_name = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT, 0.0, false, false, false, 18)
 	_car_desc = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, false, false, 18)
 	_car_desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -432,6 +467,21 @@ func _build_go() -> void:
 	_save_btn.pressed.connect(func() -> void: save_network.emit())
 	head.add_child(_save_btn)
 	_side.add_child(head)
+	# the opponent: an AI level, or the car's own network (v6.5.0)
+	_opp_row = UiStyle.hbox(UiStyle.S1)
+	var ids: Array = Array(Opponents.ids())
+	ids.append(UiData.MY_AI)
+	for id: String in ids:
+		var b := UiStyle.button("My AI" if id == UiData.MY_AI else Opponents.level_name(id), "ChipButton", 26)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.custom_minimum_size.x = 1
+		b.clip_text = true
+		b.pressed.connect(select_opponent.bind(id))
+		_opp_row.add_child(b)
+		_opp_btns[id] = b
+	var om := UiStyle.margin([0, UiStyle.S1, 0, 0])
+	om.add_child(_opp_row)
+	_side.add_child(om)
 	_ai_status = RichTextLabel.new()
 	_ai_status.bbcode_enabled = true
 	_ai_status.fit_content = true
@@ -482,11 +532,24 @@ func refresh() -> void:
 		_tiles[i].set_record(UiFormat.time(t) if t != null else "", UiData.medal_for(UiData.medal_times(id, car), t))
 	_render_detail()
 	_render_cars()
-	# the AI block is the picked car's: its network's status, two lines at most (the whole text
-	# is in the tooltip), or that it has none yet
+	_render_wallet()
+	# the AI block is the picked car's: the opponent picked (an AI level, or its own network: that
+	# network's status, two lines at most (the whole text is in the tooltip), or that it has none yet)
 	var st := UiData.ai_status()
 	var cname: String = UiData.car_info(car).name
+	var opp := UiData.opponent()
+	var owned := UiData.owns_car(car)
 	_ai_cap.text = "AI driver · %s" % cname
+	for id: String in _opp_btns:
+		(_opp_btns[id] as Button).theme_type_variation = "ChipOnButton" if id == opp else "ChipButton"
+	if opp != UiData.MY_AI:
+		_render_opponent(opp, car, cname, owned)
+		_ghost_check.checked = bool(UiData.get_setting("ghost"))
+		_save_btn.disabled = not st.ready
+		_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
+		return
+	_ghost_btn.text = "Race my AI"
+	_watch_btn.text = "Watch my AI"
 	if st.ready:
 		var s := "[color=#a7a9ae][b]Ready[/b][/color]: "
 		var trained := str(st.get("trained_car", car))
@@ -506,14 +569,59 @@ func refresh() -> void:
 	_ai_status.tooltip_text = _strip_bbcode(_ai_status_text)
 	_clamp_status()
 	_ghost_check.checked = bool(UiData.get_setting("ghost"))
-	_ghost_btn.disabled = not st.ready
+	_ghost_btn.disabled = not st.ready or not owned
 	_watch_btn.disabled = not st.ready
 	_save_btn.disabled = not st.ready
-	_ghost_btn.tooltip_text = "Race the %s AI's ghost: a see-through %s driven by its network" % [cname, cname] if st.ready \
-		else "The %s has no AI network yet: train one first" % cname
+	_ghost_btn.tooltip_text = ("Race your %s AI: a see-through %s driven by the network you trained (it pays no AI rewards)" % [cname, cname] if owned
+		else "Buy the %s to race it" % cname) if st.ready else "The %s has no AI network yet: train one first" % cname
 	_watch_btn.tooltip_text = "Watch the %s AI drive this track, with its sensors and network" % cname if st.ready \
 		else "The %s has no AI network yet: train one first" % cname
 	_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
+
+
+## The AI block with AI level `opp` picked: its finish time here with the picked car and what
+## beating it pays now; Race / Watch drive it.
+func _render_opponent(opp: String, car: String, cname: String, owned: bool) -> void:
+	var lv: Dictionary = {}
+	for l: Dictionary in UiData.opponent_levels(UiData.track_id(selected_track), car):
+		if l.id == opp:
+			lv = l
+	var lname := str(lv.get("name", opp))
+	var has := float(lv.get("time", -1.0)) > 0.0
+	var good := "#" + UiStyle.GOOD.to_html(false)
+	if not has:
+		_ai_status_text = "[color=#a7a9ae][b]No %s AI here[/b][/color]: this track has no AI opponents with the %s in this version." % [lname, cname]
+	else:
+		var s := "[color=#a7a9ae][b]%s AI[/b][/color] (%s) finishes in [b]%s[/b]" % [lname, str(lv.get("blurb", "")), UiFormat.time(float(lv.time))]
+		var pays: Dictionary = lv.get("pays", {})
+		if int(pays.get("money", 0)) > 0:
+			s += ". Beat it: [color=%s]+%s[/color] · +%s pts" % [good, UiFormat.money(int(pays.money)), UiFormat.points(int(pays.points))]
+		else:
+			s += ". Beaten: paid"
+		_ai_status_text = s
+	_ai_status.tooltip_text = _strip_bbcode(_ai_status_text)
+	_clamp_status()
+	_ghost_btn.text = "Race the %s AI" % lname
+	_watch_btn.text = "Watch the %s AI" % lname
+	_ghost_btn.disabled = not has or not owned
+	_watch_btn.disabled = not has
+	_ghost_btn.tooltip_text = ("Race the %s AI: a see-through %s next to you; finish ahead of it to win" % [lname, cname] if owned
+		else "Buy the %s to race it" % cname) if has else "No %s AI on this track with the %s" % [lname, cname]
+	_watch_btn.tooltip_text = "Watch the %s AI drive this track with the %s, with its sensors and network" % [lname, cname] if has \
+		else "No %s AI on this track with the %s" % [lname, cname]
+
+
+## The header's money and points.
+func _render_wallet() -> void:
+	_money_l.text = UiFormat.money(UiData.money())
+	_points_l.text = "%s pts" % UiFormat.points(UiData.points())
+
+
+## Pick the opponent of Race / Watch the AI: an AI level id or UiData.MY_AI (remembered).
+func select_opponent(id: String) -> void:
+	UiData.set_setting("opponent", id)
+	opponent_selected.emit(id)
+	refresh()
 
 
 func _track_name(id: Variant) -> String:
@@ -559,12 +667,33 @@ func _clamp_status() -> void:
 
 func _render_cars() -> void:
 	var car := UiData.picked_car()
+	var have := UiData.money()
 	for c in _cards:
 		c.selected = c.car_id == car
+		var price := UiData.car_price(c.car_id)
+		c.set_lock(not UiData.owns_car(c.car_id), price, have >= price)
 	var info := UiData.car_info(car)
 	_car_desc_name.text = info.name
 	_car_desc.text = info.description
 	_car_desc.tooltip_text = "%s: %s" % [info.name, info.description]
+	# a car you don't own: its price on the line under the cards, and Drive buys it
+	var owned := UiData.owns_car(car)
+	var price := UiData.car_price(car)
+	_car_lock.visible = not owned
+	_car_lock.text = ("Locked · %s ·" % UiFormat.money(price)) if not owned else ""
+	if owned:
+		_drive_btn.text = "DRIVE"
+		_drive_btn.theme_type_variation = "PrimaryButton"
+		_drive_btn.tooltip_text = ""
+	elif have >= price:
+		_drive_btn.text = "BUY %s" % UiFormat.money(price)
+		_drive_btn.theme_type_variation = "PrimaryButton"
+		_drive_btn.tooltip_text = "Buy the %s for %s (you have %s): it asks first" % [info.name, UiFormat.money(price), UiFormat.money(have)]
+	else:
+		_drive_btn.text = "LOCKED"
+		_drive_btn.theme_type_variation = ""
+		_drive_btn.tooltip_text = "The %s costs %s: %s more to go. Medals and wins against the AI opponents pay money." % [
+			info.name, UiFormat.money(price), UiFormat.money(price - have)]
 
 
 ## The panel of the selected track, with your records and its medal times with the picked car.
@@ -758,7 +887,9 @@ func _fit_hint() -> void:
 ## The controls the pad highlight can go to (shown and enabled), in the web's order.
 func _pad_controls() -> Array:
 	var out: Array = []
-	for c in [_controls_btn, _settings_btn, _drive_btn, _ghost_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]:
+	var list: Array = [_controls_btn, _settings_btn, _drive_btn, _ghost_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]
+	list.append_array(_opp_btns.values())
+	for c in list:
 		if c.is_visible_in_tree() and not (c is BaseButton and c.disabled):
 			out.append(c)
 	return out

@@ -2,7 +2,8 @@ extends RefCounted
 ## test_game.gd: headless checks of the game shell (game/, modes/): the input layer (InputMap
 ## actions, keyboard steering ramps, the stick and trigger curves, key presses), the save data
 ## wiring of the interface (UiData -> SaveData), the app's mode switching and the race modes'
-## helpers (respawn, roll-out, the stuck watchdog, a short race through the play mode).
+## helpers (respawn, roll-out, the stuck watchdog, a short race through the play mode), and
+## (v6.5.0) the career in the app: the car shop, races against the AI opponents and their payout.
 ## The real game under a display is checked by tests/e2e/game_e2e.gd.
 
 const AiLink := preload("res://game/ai_link.gd")
@@ -253,6 +254,8 @@ func _app(t) -> void:
 	t.check(app.mode == app.menu_mode and app.ui.menu.visible and not app.ui.hud.visible, "starts on the menu")
 	t.check(app.tracks.size() == 15 and app.world.track == app.tracks[0], "15 tracks, the first one shown")
 	t.check(app.ui.input == app.input and app.ui.menu.input == app.input, "the interface reads the game's input")
+	# (the player's own network first: the opponent "My AI"; the AI levels are checked in _app_career)
+	app.ui.menu.select_opponent(UiData.MY_AI)
 	t.check(app.ui.menu.get("_ghost_btn").disabled and app.network.is_empty(), "no AI network yet: Race the AI ghost is off")
 	app.play("ai", false)
 	var msg: Label = app.message.get("_text")
@@ -333,6 +336,10 @@ func _app(t) -> void:
 		_app_cars(t, app, fixture)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	if AiLink.ready():
+		_app_career(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	app.free()
 	UiData.reset()
 
@@ -343,6 +350,7 @@ func _app_cars(t, app: GameApp, fixture: String) -> void:
 	t.section("the app: an AI network per car")
 	var menu: Node = app.ui.menu
 	var msg: Label = app.message.get("_text")
+	SaveData.give_car("dune") # (the shop is checked in _app_career)
 	menu.select_car("racer")
 	var racer_net: Dictionary = app.network
 	menu.select_car("dune")
@@ -381,3 +389,166 @@ func _app_cars(t, app: GameApp, fixture: String) -> void:
 	t.check(app.network.is_empty() and SaveData.network_cars() == PackedStringArray(["racer", "dune"]), "the Kestrel has none; the save file holds the Racer's and the Dune's")
 	menu.select_car("racer")
 
+
+
+## Feed the race in progress with `pilot` (the e2e tests' way: the input layer's stick and
+## triggers, so the car goes through the game's own controls()); an invalid pilot stops it.
+func _feed(app: GameApp, pilot: Autopilot) -> void:
+	var inp := app.input
+	inp.held.clear()
+	inp.pad_steer = 0.0
+	inp.pad_throttle = 0.0
+	inp.pad_brake = 0.0
+	if pilot == null:
+		inp.feed = Callable()
+		return
+	inp.feed = func(_speed: float) -> void:
+		var c: Car.Controls = pilot.drive(app.mode.get("car"))
+		inp.pad_steer = c.steer
+		inp.pad_throttle = maxf(0.0, c.throttle)
+		inp.pad_brake = maxf(0.0, -c.throttle)
+		if c.nitro > 0.0:
+			inp.held["nitro"] = true
+		else:
+			inp.held.erase("nitro")
+
+
+## Run the race mode `m` until cond() or `max_s` seconds of race steps.
+func _run_until(m: Node, cond: Callable, max_s: float) -> void:
+	var n := 0
+	while not cond.call() and n < int(max_s * 60.0):
+		m.update(1.0 / 60.0)
+		n += 1
+
+
+## v6.5.0: the career in the app, on a new save file: $0, 0 points and only the Racer; a locked
+## car's Drive says how much money is missing, or (with the money) asks and buys it; Race the AI
+## against a level is the shipped network with that level's speed cap, which finishes in its
+## stored time; the finish pays the medal and the win (once); losing to the Elite pays nothing
+## new; an older save file's medals are paid once, with a message.
+func _app_career(t, app: GameApp) -> void:
+	t.section("the app: money, points, the car shop and the AI opponents (v6.5.0)")
+	var path := "user://test_game_career.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var menu: Node = app.ui.menu
+	var msg: Label = app.message.get("_text")
+	var money_l: Label = menu.get("_money_l")
+	var points_l: Label = menu.get("_points_l")
+	var drive_btn: Button = menu.get("_drive_btn")
+	var ghost_btn: Button = menu.get("_ghost_btn")
+	menu.select_car("racer")
+	menu.select_opponent("rookie")
+	t.check(UiData.money() == 0 and UiData.points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and
+		points_l.text == "0 pts" and drive_btn.text == "DRIVE", "a new career: $0, 0 points, only the Racer (the menu's header: %s, %s)" % [money_l.text, points_l.text])
+
+	# the shop: a locked car's Drive
+	menu.select_car("kestrel")
+	var lock: Label = menu.get("_car_lock")
+	t.check(drive_btn.text == "LOCKED" and lock.visible and lock.text.contains("$10,000") and ghost_btn.disabled and not (menu.get("_watch_btn") as Button).disabled,
+		"the Kestrel picked: locked at $10,000 (Drive reads LOCKED, Race the AI is off, Watch the AI is on)")
+	app.play("human", false)
+	t.check(app.mode == app.menu_mode and app.message.visible and not app.message.asking and msg.text.contains("costs $10,000") and
+		msg.text.contains("$10,000 more to go"), "Drive it with $0: a message says how much is missing; still on the menu")
+	app.message.close()
+	SaveData.add_money(12500)
+	menu.refresh()
+	t.check(drive_btn.text == "BUY $10,000" and money_l.text == "$12,500", "with $12,500 Drive reads BUY $10,000")
+	app.play("human", false)
+	t.check(app.message.asking and msg.text.contains("costs $10,000") and msg.text.contains("$2,500 is left") and app.mode == app.menu_mode,
+		"BUY asks first (what it costs, what is left)")
+	app.message.close()
+	t.check(not SaveData.owns_car("kestrel") and UiData.money() == 12500, "Cancel: nothing bought")
+	app.play("human", false)
+	app.message.confirm()
+	t.check(SaveData.owns_car("kestrel") and UiData.money() == 2500 and drive_btn.text == "DRIVE" and not lock.visible and money_l.text == "$2,500" and
+		app.mode == app.menu_mode and not app.message.visible, "yes: the Kestrel is yours, $2,500 left (the header says so)")
+	app.play("human", false)
+	t.check(app.mode != app.menu_mode and str(app.mode.get("car_def").id) == "kestrel", "now Drive drives it")
+	app.show_menu()
+
+	# Race the Rookie AI on Seaside Stunts with the Racer (the author run of the medal sweep)
+	var tid := "seaside-stunts"
+	var ti := Tracks.ids().find(tid)
+	menu.select_car("racer")
+	menu.select(ti)
+	var track: BuiltTrack = app.tracks[ti]
+	var rookie_t := Opponents.time_of(tid, "racer", "rookie")
+	var elite_t := Opponents.time_of(tid, "racer", "elite")
+	var st := str(menu.get("_ai_status_text"))
+	var pays: int = int(Economy.payout(tid, "", "rookie", PackedStringArray()).money)
+	t.check(rookie_t > 0.0 and st.contains("Rookie AI") and st.contains(UiFormat.time(rookie_t)) and st.contains("+" + UiFormat.money(pays)) and
+		ghost_btn.text == "Race the Rookie AI" and not ghost_btn.disabled, "the AI block: the Rookie AI finishes Seaside Stunts in %s; beating it pays %s" % [
+		UiFormat.time(rookie_t), UiFormat.money(pays)])
+	var money0 := UiData.money()
+	var points0 := UiData.points()
+	app.play("human", true)
+	var m: Node = app.mode
+	t.check(m != app.menu_mode and m.get("with_ghost") == true and m.get("level") == "rookie" and float(m.get("cap")) == Opponents.cap_of(tid, "racer", "rookie") and
+		str(app.ui.hud.get("_mode").text).begins_with("VS ROOKIE AI") and (m.get("ghost").car as Car).spec == Cars.get_car("racer").spec,
+		"Race the Rookie AI: its car next to yours (cap %.1f m/s); the HUD says VS ROOKIE AI" % float(m.get("cap")))
+	var medals := Medals.medal_times(track, "racer")
+	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
+	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
+	_feed(app, null)
+	var race: RaceState = m.get("race")
+	var fs: Dictionary = m.get("finish_state")
+	var p: Dictionary = fs.get("payout", {})
+	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
+	var want := ["bronze", "silver", "gold", "author", "ai-rookie"]
+	var w_money := 0
+	var w_points := 0
+	for id: String in want:
+		w_money += int(Economy.reward(tid, id).money)
+		w_points += int(Economy.reward(tid, id).points)
+	t.check(race.finished and absf(race.finish_time - float(medals.author)) < 0.0005 and ids == want and int(p.money) == w_money and int(p.points) == w_points and
+		p.get("won") == true and p.get("level") == "rookie" and str(fs.get("lines", [""])[0]).contains("Rookie AI hasn't finished: you win!") and
+		UiData.money() == money0 + w_money and UiData.points() == points0 + w_points and app.ui.hud.panel_open,
+		"the author time beats the Rookie AI: paid bronze, silver, gold, author and the Rookie win, %s and %d pts (the finish panel's payout)" % [UiFormat.money(w_money), w_points])
+	var gr: RaceState = m.get("ghost").race
+	_run_until(m, func() -> bool: return gr.finished, 120.0)
+	t.check(gr.finished and absf(gr.finish_time - rookie_t) < 0.0005, "the Rookie AI finishes in its stored time %s (%s: the race against it is the one tools/opponents.gd measured)" % [
+		UiFormat.time(rookie_t), RaceState.format_time(gr.finish_time)])
+	app.show_menu()
+	t.check(money_l.text == UiFormat.money(money0 + w_money) and str(menu.get("_ai_status_text")).contains("Beaten: paid"), "back on the menu: %s; the Rookie AI is paid" % money_l.text)
+
+	# lose to the Elite AI: nothing new is paid
+	menu.select_opponent("elite")
+	var money1 := UiData.money()
+	app.play("human", true)
+	m = app.mode
+	_feed(app, Autopilot.medal(track, 15.0, 1.3, false, Autopilot.DECEL, Cars.spec("racer")))
+	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
+	_feed(app, null)
+	race = m.get("race")
+	gr = m.get("ghost").race
+	fs = m.get("finish_state")
+	p = fs.get("payout", {})
+	t.check(race.finished and gr.finished and absf(gr.finish_time - elite_t) < 0.0005 and race.finish_time > gr.finish_time and
+		str(fs.get("lines", [""])[0]).contains("the AI wins by") and m.get("level") == "elite" and p.get("won") == false and (p.get("items", [1]) as Array).is_empty() and
+		int(p.get("money", -1)) == 0 and UiData.money() == money1, "a slower run (%s) loses to the Elite AI (%s, its stored time): nothing new is paid" % [
+		RaceState.format_time(race.finish_time), RaceState.format_time(gr.finish_time)])
+	app.show_menu()
+
+	# My AI: the player's own network as before (no AI rewards)
+	menu.select_opponent(UiData.MY_AI)
+	t.check(ghost_btn.text == "Race my AI" and UiData.get_setting("opponent") == UiData.MY_AI, "My AI: the buttons race and watch the car's own network again")
+	menu.select_opponent("rookie")
+
+	# an older save file: its medals are paid once, with a message
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"version": 3, "records": {"rookie-oval": {"racer": {"time": float(Medals.medal_times(app.tracks[0], "racer").gold) - 0.1,
+		"splits": [], "physics": Car.PHYSICS_VERSION, "sig": app.tracks[0].signature(), "date": "x"}}}}))
+	f.close()
+	SaveData.use_file(path)
+	app._welcome()
+	t.check(app.message.visible and msg.text.contains("3 medals you already hold paid $1,600 and 70 points") and money_l.text == "$1,600" and
+		UiData.money() == 1600, "a version 3 save file with a gold time: paid $1,600 and 70 points once, and a message says so")
+	app.message.close()
+	app._welcome()
+	t.check(not app.message.visible, "the message shows once")
+	SaveData.use_file(SAVE)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	menu.refresh()

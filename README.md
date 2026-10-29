@@ -19,12 +19,15 @@ slides, dust and snow thrown up by the tyres, and a car that suits them, the Dun
 Version 6.4.0 adds three tracks at the end of the list, each in a scenery of its own: **Forest Rally**, a dirt rally
 stage through autumn woods; **Northern Lights**, banked bowls of packed snow under the aurora; and **Summit Rush**, a
 sprint over a mountain on asphalt, dirt and snow (see [Tracks](#tracks)).
+Version 6.5.0 adds a career: medals and wins against five AI opponents (Rookie, Amateur, Pro, Expert and Elite) pay
+money and career points, and money buys cars: you start with the Racer and buy the other five on the car picker
+(see [Money, points and cars](#money-points-and-cars)).
 
-![The menu: 15 track tiles with minimaps in three rows, the selected track's panel with a record, its medal and the medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 15 track tiles with minimaps in three rows, the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
-| ![Driving on Night Highway with the headlights on and the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel: time, medal, score breakdown](docs/screenshots/finish.png) |
+| ![Driving on Night Highway with the headlights on and the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel after beating the Elite AI: time, gold medal, what the run earned (three medals and five AI wins, $5,600 and 225 points), the score breakdown](docs/screenshots/finish.png) |
 
 ![Training the AI with the Vortex: the population on Lighthouse Bay with the leader's sensor rays, its live network and the stats](docs/screenshots/training.png)
 
@@ -32,7 +35,7 @@ sprint over a mountain on asphalt, dirt and snow (see [Tracks](#tracks)).
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.4.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.5.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -47,7 +50,7 @@ The game is not signed with a certificate, so the first time Windows may show a 
 **"Windows protected your PC"** (SmartScreen) box. Click **More info**, then **Run anyway**.
 
 Nothing is installed and nothing is written next to the game: your best times, ghosts,
-settings and AI network are kept in one save file (see [Saved data](#saved-data)).
+settings, money, cars and AI networks are kept in one save file (see [Saved data](#saved-data)).
 To remove the game, delete the folder (and the save folder, if you want your records gone too).
 
 ### From the project, with Godot 4.7.2
@@ -105,10 +108,12 @@ from the next medal, your points with their breakdown, and the lap times; **R** 
 outline (the dot is the start; sprints have a second dot at the finish), its number, how hard it is
 (1-5 bars), and the medal and best time you have with the picked car. The panel on the right is the
 selected track: its description, length and laps, then with the picked car your best time, best
-score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive**, the
-**Race my best-run ghost** option and the **AI driver** block (the picked car's AI network, Load / Save
-network, Race the AI ghost, Watch the AI, Train the AI). The header line shows a few key hints; the
-**Controls** button lists the rest, and the **Settings** button opens the settings.
+score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive** (**BUY** or
+**LOCKED** when the picked car is not yours yet), the **Race my best-run ghost** option and the **AI driver** block:
+the opponent (**Rookie** to **Elite**, or **My AI**, the picked car's own network), what it does on this track and
+what beating it pays, Race the AI, Watch the AI, Train the AI and Load / Save network. The header shows your money
+and career points and a few key hints; the **Controls** button lists the rest, and the **Settings** button opens the
+settings.
 
 **Drifting:** pull the handbrake (Space) into a corner to make the rear step out, then countersteer
 and use the throttle to hold the slide. Braking hard while turning only tightens the line a little.
@@ -160,8 +165,10 @@ brakes and accelerates less (see [Road surfaces](#road-surfaces)).
 
 **Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
 **Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The cards sit three to a row (two in a narrow
-window); the line under them describes the picked car. The choice is remembered, and Drive and Race the AI ghost
-use it. The track tiles, the records and the medal times follow the picked car, and so does the AI driver block:
+window); the line under them describes the picked car. The choice is remembered, and Drive and Race the AI use it.
+A new player owns only the Racer: the other cards show a padlock and the car's price, and their stats stay
+readable. With a locked car picked, Drive reads **BUY $10,000** (or **LOCKED** when your money is short) and buys it
+after asking (see [Money, points and cars](#money-points-and-cars)). The track tiles, the records and the medal times follow the picked car, and so does the AI driver block:
 each car has its own AI network (see [Training the AI](#training-the-ai)).
 
 **The models.** Every car is drawn in detail: tyres with tread grooves, spoked rims in the car's own style, brake
@@ -254,6 +261,45 @@ four cars' times are the browser version's except the Racer on Technical Trial, 
 [HANDOFF.md](HANDOFF.md). Hairpin Valley, Ramp Rally, Mountain Pass and Canyon Run got dirt or snow in version 6.3.0
 and new times, 0.8-37 s slower than before depending on the car: see [Road surfaces](#road-surfaces). The Dune and the
 Vortex, and the three tracks of version 6.4.0, exist only in this version.)
+
+### Money, points and cars
+
+Beating medal times and AI opponents pays **money** and **career points**. Money buys cars; points are your career
+total (they buy nothing and are not the style score of one run). The menu's header shows both, and the finish panel
+lists what a run earned and why.
+
+| Reward (on Rookie Oval) | Money | Points |
+| --- | --- | --- |
+| Bronze / silver / gold / author medal | $300 / $500 / $800 / $1,200 | 10 / 20 / 40 / 80 |
+| Beat the Rookie / Amateur / Pro / Expert / Elite AI | $200 / $400 / $700 / $1,100 / $1,600 | 5 / 10 / 20 / 40 / 80 |
+
+- **Each reward is paid once** per track, car and medal (or AI level). A better medal later pays only what is new,
+  the same result again pays nothing (the finish panel says "paid before").
+- A medal pays the medals below it too (a first gold pays bronze, silver and gold), and beating an AI pays the
+  easier levels on that track with that car as well (they are slower).
+- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more.
+- Each car earns on its own: a gold with the Kestrel pays again after a gold with the Racer.
+
+**The AI opponents.** Pick one in the menu's AI driver block, then **Race the ... AI**: its car drives next to yours
+(see-through: you can drive through it) and you win by finishing ahead of it. Every track and car has its own
+opponents, driven by AI networks shipped with the game (trained on that track with that car; your own network is
+not touched). The levels are the same network held to a lower top speed: Rookie finishes in about 1.6 × the author
+time (slower than bronze), Amateur 1.4 ×, Pro 1.25 × (about silver), Expert 1.13 × (between gold and silver) and
+Elite about the author time (always faster than gold). The menu shows the picked opponent's time on the selected
+track. **My AI** races and watches the picked car's own trained network as before; it pays no AI rewards (medals
+still pay). Watch the AI shows any opponent drive.
+
+![Racing the Elite AI on Rookie Oval: its see-through purple car 7 m ahead, the HUD's "VS ELITE AI" line and the gap at the last checkpoint](docs/screenshots/race-ai.png)
+
+**The car shop.** Pick a locked car and press Drive (BUY): it asks first, then the car is yours for good.
+
+| Car | Racer | Kestrel | Drifter | Dune | Thunder | Vortex |
+| --- | --- | --- | --- | --- | --- | --- |
+| Price | owned | $10,000 | $14,000 | $18,000 | $22,000 | $30,000 |
+
+A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
+$13,200 after three (a second car), and $102,000 after all 15, enough for all five cars ($94,000). Silver and the Pro
+everywhere buy the Kestrel after five tracks.
 
 ### Your ghost
 
@@ -498,13 +544,16 @@ and are refused with a message.
 
 ### Watching and racing the AI
 
+The menu's AI driver block races either an **AI opponent** (Rookie to Elite, shipped with the game, see
+[Money, points and cars](#money-points-and-cars)) or **My AI**, the network you trained for the picked car.
+
 - **Watch the AI** (menu) or **Watch best** (training screen): the AI drives a full race on the selected track
   with its car (on the menu the picked car, on the training screen the session's car), with its network and
   sensor rays shown live. If it gets stuck for 3 s it is put back at its last checkpoint.
-- **Race the AI ghost** (menu) or **Race best (ghost)** (training screen): you race the AI with the car you picked;
-  the AI is a see-through copy of its car you can drive through. The HUD shows how far ahead or behind you are at
-  each checkpoint.
-- When the picked car has no network yet, the AI driver block says so, and Watch the AI and Race the AI ghost stay
+- **Race the AI** (menu: "Race the Pro AI", "Race my AI") or **Race best (ghost)** (training screen): you race the
+  AI with the car you picked; the AI is a see-through copy of its car you can drive through. The HUD shows how far
+  ahead or behind you are at each checkpoint, and the finish panel who won and by how much.
+- With **My AI** picked and no network for that car yet, the AI driver block says so, and Watch and Race stay
   off until you train one (**Train the AI** starts with that car) or load a network file.
 
 ### Training without the game window (optional)
@@ -551,8 +600,9 @@ Everything is kept in one file, `trackrush_save.json`:
 | macOS | `~/Library/Application Support/TrackRush/` |
 
 The same folder is used whether you run the exported game or the project from the Godot editor. It holds your
-best time and splits, the ghost of that run and your best score for every track and car, the settings, and the
-trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's). Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+best time and splits, the ghost of that run and your best score for every track and car, the settings, the
+trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's),
+and the career: money, points, the cars you own and the rewards already paid. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -561,7 +611,8 @@ and delete the file. Best times and ghosts made with another version of the phys
 scores and ghosts also remember the version of the track they were set on: when a track changes (as four did in
 6.3.0, when they got dirt and snow), the old ones stop counting and are moved to an `"archive"` section of the file
 (the next time the game saves anything), where they are kept but not shown. A save file from an older version is
-upgraded when it is loaded.
+upgraded when it is loaded. A save from before 6.5.0 is paid once for the medals its best times hold (a message says
+how much); it owns only the Racer, like a new player.
 
 Saves from the browser version (kept in the browser's storage) can't be carried over; AI networks can (save the
 network in the browser, then use **Load network…** here).
@@ -586,7 +637,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.4.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.5.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -608,17 +659,20 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 4 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file; the numbers are compared with the browser version's on the all-asphalt versions of the tracks), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points; the numbers are compared with the browser version's on the all-asphalt versions of the tracks), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks) |
+| `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
 | `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
 
-Run `tools/medals.gd` after changing the physics, a car, the scoring rules, a track or its laps, and
-`tools/car_stats.gd` (then paste its lines into `sim/cars.gd`) after changing a car. Screenshot and preview scripts
+Run `tools/medals.gd` after changing the physics, a car, the scoring rules, a track or its laps, then
+`tools/opponents.gd` (the opponents' levels follow the author times; after a change to the physics, a car, the
+sensors or a track's layout, `--train --retrain` the affected networks first), and `tools/car_stats.gd` (then paste
+its lines into `sim/cars.gd`) after changing a car. Screenshot and preview scripts
 for the 3D world and the interface are in `tests/visual/`; for the car models: `car_studio.gd` (any car from any
 side, steering, cornering, braking, in the air or celebrating, `noglass=1` to see the driver), `car_corner.gd` (a
 car driven by the autopilot on a real track, stopped mid-corner, close up or from the chase camera), `world_cars.gd`
@@ -652,10 +706,11 @@ project.godot           the Godot project (Forward+, 1280x720 base size, main sc
 main.tscn               the main scene: one node with game/app.gd
 game/                   the game shell: modes, threaded track loading, quality, settings, AI network files (app.gd),
                         keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages
-modes/                  menu, play (Drive, Race the AI ghost), watch (Watch the AI) and train (the training screen)
+modes/                  menu, play (Drive, Race the AI), watch (Watch the AI) and train (the training screen)
 sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the six cars,
-                        collisions, race timing, points, ghosts, medals, the save file, the autopilot
-ai/                     the AI: network, evolution, sensors and driver, trainer
+                        collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
+                        points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd)
+ai/                     the AI: network, evolution, sensors and driver, trainer, an opponent's race (opponent_race.gd)
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
 world/                  3D: track mesh, terrain and scenery, sky and themes, car models (car_shapes.gd: the six
@@ -665,8 +720,10 @@ world/                  3D: track mesh, terrain and scenery, sky and themes, car
 ui/                     the interface, built in code: style, menu, Controls and Settings screens, HUD, finish panel,
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)
-data/                   tracks.json and medals.json (made by tools/)
-tools/                  track generator, turtle, medal times, car stats, headless trainer, benchmark, parity checks
+data/                   tracks.json, medals.json and opponents/ (an AI opponent network per track and car, with its
+                        levels; made by tools/)
+tools/                  track generator, turtle, medal times, AI opponents, car stats, headless trainer, benchmark,
+                        parity checks
 tests/                  run_tests.gd and test_*.gd (headless), e2e/ (the real game), visual/ (screenshots), fixtures/
 docs/screenshots/       the pictures in this file (Godot ignores docs/: it holds a .gdignore file)
 web/                    the browser version 5.0.0 (ignored by Godot)

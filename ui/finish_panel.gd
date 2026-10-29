@@ -19,6 +19,9 @@ extends PanelContainer
 ##   best        {car: "Racer", time: 215.05}: your best before this run (not a record)
 ##   next        {medal: "gold", time: 208.0}: the next medal above the best time
 ##   lines       ["AI ghost: 3:40.000, you win!"]: plain lines (the AI ghost's result)
+##   payout      (v6.5.0) what the run was paid: {items: [{id, kind "medal" | "ai", label, money,
+##               points}], money, points, money_total, points_total, repeat: [reward ids paid before],
+##               medal (the run's medal, "" none), level (the AI level raced, "" none), won (beat it)}
 ##   score       {total, new_best: bool, prev: int (-1 none), car, rows: [{label, note, points}],
 ##               nitro_earned, nitro_lost} (absent: no score, e.g. the AI drove)
 ##   laps        [lap times] (shown when there are two or more)
@@ -203,6 +206,8 @@ func _rebuild() -> void:
 			_delta(t - float(nx.time))], 2))
 	for line in s.get("lines", []):
 		_box.add_child(_line([[str(line), "text", small, UiStyle.TEXT]]))
+	if s.has("payout"):
+		_box.add_child(_payout(s.payout))
 	if s.has("score"):
 		_box.add_child(_score(s.score))
 	# lap times
@@ -233,6 +238,104 @@ func _rebuild() -> void:
 	km.add_child(keys)
 	_box.add_child(km)
 	_place()
+
+
+## The payout block (v6.5.0): EARNED with the money and points of this run and the career's totals
+## beside it, then each reward paid (two columns like the score breakdown), or one line saying why
+## nothing was paid.
+func _payout(p: Dictionary) -> Control:
+	var small := _fs_small()
+	var lh := roundf(small * 1.4)
+	var outer := UiStyle.margin([0, UiStyle.S2 if _short else UiStyle.S3, 0, 0])
+	var col := UiStyle.vbox(0)
+	outer.add_child(col)
+	var rule := ColorRect.new()
+	rule.color = UiStyle.LINE
+	rule.custom_minimum_size = Vector2(0, 1)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(rule)
+	col.add_child(UiStyle.gap(0, UiStyle.S2 if _short else UiStyle.S3))
+	var items: Array = p.get("items", [])
+	var money := int(p.get("money", 0))
+	var pts := int(p.get("points", 0))
+	var head := UiStyle.hbox(UiStyle.S3, BoxContainer.ALIGNMENT_CENTER)
+	var cap := UiStyle.caption("Earned", UiStyle.TEXT_2, small)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(cap)
+	var big := UiStyle.FS_L if _tiny else (22 if _short else 26)
+	var m := UiStyle.label("+" + UiFormat.money(money), "display_bold", big, UiStyle.GOOD if money > 0 else UiStyle.TEXT_2, 0.0, false, true, false, big)
+	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(m)
+	var pl := UiStyle.label("+%s pts" % UiFormat.points(pts), "display_bold", UiStyle.FS_M if not _tiny else small,
+		UiStyle.ACCENT if pts > 0 else UiStyle.TEXT_2, 0.04, false, true, false, UiStyle.FS_M)
+	pl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(pl)
+	var tot := UiStyle.label("You have %s · %s pts" % [UiFormat.money(int(p.get("money_total", 0))), UiFormat.points(int(p.get("points_total", 0)))],
+		"text", small, UiStyle.TEXT_2, 0.0, false, true, false, lh)
+	tot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(tot)
+	col.add_child(head)
+	if items.is_empty():
+		col.add_child(_line([[_nothing_paid(p), "text", small, UiStyle.TEXT_3]], UiStyle.S1))
+		return outer
+	var grid := GridContainer.new()
+	grid.columns = 1 if _one_col or items.size() == 1 else 2
+	grid.add_theme_constant_override("h_separation", UiStyle.S4 if _narrow else UiStyle.S6)
+	grid.add_theme_constant_override("v_separation", 0)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row_pad := 0 if _short else 2
+	# (read down the left column, then the right: medals first, then the AI levels, slowest first)
+	var rows := ceili(items.size() / float(grid.columns))
+	var order: Array = []
+	for r in rows:
+		for k in grid.columns:
+			if k * rows + r < items.size():
+				order.append(items[k * rows + r])
+	for it: Dictionary in order:
+		var line := UiStyle.hbox(UiStyle.S3)
+		var left := UiStyle.hbox(UiStyle.S2)
+		if str(it.get("kind")) == "medal":
+			var dot: Control = MedalDot.make(str(it.id), roundf(small * 0.78))
+			dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			left.add_child(dot)
+		var l := UiStyle.label(str(it.label), "text", small, UiStyle.TEXT, 0.0, false, false, false, lh)
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		left.add_child(l)
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(left)
+		var v := UiStyle.label("+%s" % UiFormat.money(int(it.money)), "display", UiStyle.FS_S if _tiny else UiStyle.FS_M, UiStyle.GOOD,
+			0.0, false, true, false, lh)
+		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(v)
+		var q := UiStyle.label("+%d" % int(it.points), "text", small, UiStyle.ACCENT, 0.0, false, true, false, lh)
+		q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		q.custom_minimum_size.x = 30
+		q.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		line.add_child(q)
+		var mm := UiStyle.margin([0, row_pad, 0, row_pad])
+		mm.add_child(line)
+		mm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(mm)
+		_bd_rows.append(mm)
+	var gm := UiStyle.margin([0, UiStyle.S1 if _short else UiStyle.S2, 0, 0])
+	gm.add_child(grid)
+	col.add_child(gm)
+	var rep: Array = Array(p.get("repeat", []))
+	if not rep.is_empty() and not _short:
+		col.add_child(_line([["Paid before: " + ", ".join(PackedStringArray(rep.map(func(id: Variant) -> String: return Economy.label(str(id))))),
+			"text", small, UiStyle.TEXT_3]], UiStyle.S1))
+	return outer
+
+
+## Why a run earned nothing: its medal and AI win were paid before, or it won neither.
+func _nothing_paid(p: Dictionary) -> String:
+	var rep: Array = Array(p.get("repeat", []))
+	if not rep.is_empty():
+		return "Nothing new: %s paid before. A better medal or a harder AI pays more." % ", ".join(
+			PackedStringArray(rep.map(func(id: Variant) -> String: return Economy.label(str(id)))))
+	if str(p.get("level", "")) != "" and not p.get("won", false):
+		return "No medal and no win: beat the bronze time or the %s AI to earn money." % Opponents.level_name(str(p.level))
+	return "No medal: beat the bronze time (or an AI opponent) to earn money."
 
 
 ## The score block: total and best, the breakdown in two columns (one in very narrow windows), the nitro note.
@@ -295,7 +398,7 @@ func _score(sc: Dictionary) -> Control:
 		grid.add_child(m)
 		rows.append(m)
 	# both columns as wide as the widest row (CSS 1fr 1fr): _place measures them once they are in the tree
-	_bd_rows = rows
+	_bd_rows.append_array(rows) # (with the payout's rows: one column width for both)
 	var gm := UiStyle.margin([0, UiStyle.S1 if _short else UiStyle.S3, 0, 0])
 	gm.add_child(grid)
 	col.add_child(gm)

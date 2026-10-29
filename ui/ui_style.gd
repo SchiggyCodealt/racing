@@ -152,7 +152,8 @@ static func empty_box() -> StyleBoxEmpty:
 # ---------------------------------------------------------------- the theme
 
 ## The game's Theme: default type, Label, Button (and its variations PrimaryButton,
-## SmallButton, QuietButton, SmallQuietButton, SegButton), CheckBox, tooltips, scroll bars.
+## SmallButton, QuietButton, SmallQuietButton, SegButton, ChipButton / ChipOnButton), CheckBox,
+## tooltips, scroll bars.
 static func theme() -> Theme:
 	if _theme:
 		return _theme
@@ -177,6 +178,10 @@ static func theme() -> Theme:
 	t.set_color("font_hover_color", "SmallQuietButton", TEXT)
 	var seg_on := {"normal": ACCENT, "hover": ACCENT_HI, "pressed": ACCENT, "disabled": BG_2, "hover_pressed": ACCENT}
 	_button_type(t, "SegOnButton", seg_on, FS_S, "text_semi", 0.0, [S3, 0, S3, 0], ACCENT_INK)
+	# small choice chips in a row (the menu's AI opponents): off and on
+	_button_type(t, "ChipButton", states, FS_S, "text_semi", 0.0, [S1, 0, S1, 0], TEXT_2)
+	t.set_color("font_hover_color", "ChipButton", TEXT)
+	_button_type(t, "ChipOnButton", seg_on, FS_S, "text_semi", 0.0, [S1, 0, S1, 0], ACCENT_INK)
 	# tooltips
 	t.set_stylebox("panel", "TooltipPanel", box(BG_1, false, [S2, S1 + 2, S2, S1 + 2]))
 	t.set_color("font_color", "TooltipLabel", TEXT_2)

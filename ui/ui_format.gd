@@ -34,6 +34,11 @@ static func points(n: float) -> String:
 	return ("−" if v < 0 else "") + s + out
 
 
+## Money (v6.5.0): 12345 -> "$12,345" (negatives "−$50").
+static func money(n: int) -> String:
+	return ("−$" if n < 0 else "$") + points(absi(n))
+
+
 ## Track number as two digits: 0 -> "01".
 static func track_number(i: int) -> String:
 	return "%02d" % (i + 1)

@@ -2,7 +2,8 @@ extends RefCounted
 ## test_ui.gd: headless checks of the interface (ui/): the formats, the data adapter and medal
 ## rules, the minimap fitting, the key names, gamepad geometry, the menu's keyboard and gamepad
 ## navigation (menu.js handleKeys / handlePad), the Controls and Settings screens, the HUD's
-## states and the finish panel. The look is checked by eye with tests/visual/ui_preview.gd.
+## states and the finish panel; (v6.5.0) money and points on the menu, the car shop's locks and
+## prices, the opponent picker and the finish panel's payout. The look is checked by eye with tests/visual/ui_preview.gd.
 ## No frames pass here, so the containers are laid out by hand (_settle).
 
 const Fx := preload("res://tests/visual/ui_fixture.gd")
@@ -25,6 +26,7 @@ func run(t) -> bool:
 	_settings(t)
 	_hud(t)
 	_finish(t)
+	_career(t)
 	_scale(t)
 	UiData.reset()
 	return true
@@ -472,6 +474,118 @@ func _finish(t) -> void:
 	_settle(h)
 	t.check(is_equal_approx(f.size.x, 800.0 - 24.0), "narrow window: full width less 24 px (%s)" % f.size.x)
 	h.free()
+
+
+## v6.5.0: money, points, the car shop and the AI opponents on the menu (the in-memory store's
+## career), and the finish panel's payout block.
+func _career(t) -> void:
+	t.section("money, points, the car shop and the AI opponents (v6.5.0)")
+	t.check(UiFormat.money(12345) == "$12,345" and UiFormat.money(0) == "$0" and UiFormat.money(-50) == "−$50", "money: $12,345, $0, −$50")
+	Fx.save_data_v5()
+	UiData.store.career.money = 15000
+	UiData.store.career.points = 1234
+	var hm := _menu(t)
+	var menu: MainMenu = hm[1]
+	var money_l: Label = menu.get("_money_l")
+	var points_l: Label = menu.get("_points_l")
+	t.check(money_l.text == "$15,000" and points_l.text == "1,234 pts" and money_l.is_visible_in_tree() and
+		money_l.get_global_rect().end.x <= 1280.0 and money_l.get_global_rect().position.y >= 0.0, "the header shows the money and the points: %s, %s" % [money_l.text, points_l.text])
+	var cards: Array = menu.get("_cards")
+	var locked: Array = []
+	var can: Array = []
+	for c: Control in cards:
+		if c.get("locked"):
+			locked.append(c.get("car_id"))
+		if c.get("affordable"):
+			can.append(c.get("car_id"))
+	t.check(locked == ["kestrel", "thunder", "drifter", "dune", "vortex"] and int(cards[1].get("price")) == 10000 and can.has("kestrel") and can.has("drifter") and
+		not can.has("vortex"), "five cars locked, each with its price (the Kestrel $10,000); with $15,000 the Kestrel and the Drifter are affordable")
+	var drive_btn: Button = menu.get("_drive_btn")
+	var lock: Label = menu.get("_car_lock")
+	t.check(drive_btn.text == "DRIVE" and not lock.visible, "the Racer (owned): DRIVE")
+	UiData.set_setting("car", "drifter")
+	menu.refresh()
+	t.check(drive_btn.text == "BUY $14,000" and lock.visible and lock.text.contains("$14,000") and (menu.get("_car_desc_name") as Label).text == "Drifter" and
+		(menu.get("_car_desc") as Label).text != "", "the Drifter picked: BUY $14,000, its stats and description still shown")
+	UiData.set_setting("car", "vortex")
+	menu.refresh()
+	t.check(drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("$15,000 more to go") and (menu.get("_ghost_btn") as Button).disabled,
+		"the Vortex ($30,000): LOCKED, $15,000 more to go; Race the AI off")
+	var r1 := UiData.buy_car("drifter")
+	var r2 := UiData.buy_car("vortex")
+	var r3 := UiData.buy_car("drifter")
+	menu.refresh()
+	t.check(r1.ok and not r2.ok and r2.error == "money" and int(r2.short) == 29000 and r3.error == "owned" and UiData.money() == 1000 and
+		UiData.owns_car("drifter") and not cards[3].get("locked") and money_l.text == "$1,000", "buying the Drifter: $1,000 left, its card unlocked; the Vortex is $29,000 short")
+	# the opponent picker
+	UiData.set_setting("car", "racer")
+	var btns: Dictionary = menu.get("_opp_btns")
+	menu.refresh()
+	t.check(btns.size() == 6 and btns.has(UiData.MY_AI) and UiData.opponent() == "rookie" and (btns["rookie"] as Button).theme_type_variation == "ChipOnButton" and
+		(btns["pro"] as Button).theme_type_variation == "ChipButton", "six opponent chips (Rookie to Elite, My AI); the Rookie by default")
+	menu.select_opponent("pro")
+	var tid := UiData.track_id(menu.selected_track)
+	var pro_t := Opponents.time_of(tid, "racer", "pro")
+	var pays := Economy.payout(tid, "", "pro", PackedStringArray())
+	var st := str(menu.get("_ai_status_text"))
+	t.check(UiData.opponent() == "pro" and (btns["pro"] as Button).theme_type_variation == "ChipOnButton" and (menu.get("_ghost_btn") as Button).text == "Race the Pro AI" and
+		(menu.get("_watch_btn") as Button).text == "Watch the Pro AI" and st.contains("Pro AI") and st.contains(UiFormat.time(pro_t)) and
+		st.contains("+" + UiFormat.money(int(pays.money))) and not (menu.get("_ghost_btn") as Button).disabled,
+		"Pro picked: Race / Watch the Pro AI; it finishes %s in %s; beating it pays %s (Rookie, Amateur and Pro)" % [tid, UiFormat.time(pro_t), UiFormat.money(int(pays.money))])
+	UiData.store.career.paid["%s|racer" % tid] = ["ai-rookie", "ai-amateur", "ai-pro"]
+	menu.refresh()
+	t.check(str(menu.get("_ai_status_text")).contains("Beaten: paid") and UiData.opponent_levels(tid, "racer")[2].paid and
+		int(UiData.opponent_levels(tid, "racer")[3].pays.money) == int(Economy.reward(tid, "ai-expert").money), "beaten before: paid; the Expert now pays only its own reward")
+	UiData.set_setting("opponent", "nobody")
+	t.check(UiData.opponent() == "rookie", "an unknown stored opponent reads as the Rookie")
+	menu.select_opponent(UiData.MY_AI)
+	t.check((menu.get("_ghost_btn") as Button).text == "Race my AI" and (btns[UiData.MY_AI] as Button).theme_type_variation == "ChipOnButton", "My AI: the car's own network")
+	# 1280 x 720: the six opponent chips share the side panel's width in one row (the heights need
+	# real frames: the e2e menu and economy scenarios check that the whole menu fits)
+	_settle(hm[0])
+	var fit := true
+	var side: Rect2 = (menu.get("_side") as Control).get_global_rect()
+	var y0: float = (btns["rookie"] as Button).get_global_rect().position.y
+	for b: Button in btns.values():
+		var r := b.get_global_rect()
+		fit = fit and r.position.x >= side.position.x - 0.5 and r.end.x <= side.end.x + 0.5 and r.end.x <= 1280.5 and r.size.x >= 40.0 and \
+			is_equal_approx(r.position.y, y0) and \
+			b.get_theme_font("font").get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, b.get_theme_font_size("font_size")).x + \
+			b.get_theme_stylebox("normal").get_minimum_size().x <= r.size.x + 0.5
+	t.check(fit, "1280 x 720: the six opponent chips in one row across the side panel, each name whole (each %d px wide)" % roundi((btns["rookie"] as Button).size.x))
+	hm[0].free()
+
+	# the finish panel's payout
+	var h := _holder(t)
+	var f := FinishPanel.new()
+	h.add_child(f)
+	f.set_window_size(Vector2(1280, 720))
+	var p := Fx.panel_payout()
+	f.update(p)
+	_settle(h)
+	var texts := _texts(f)
+	var want_m: int = 0
+	for id: String in ["silver", "gold", "ai-rookie", "ai-amateur", "ai-pro"]:
+		want_m += int(Economy.reward("night-highway", id).money)
+	t.check(int(p.payout.money) == want_m and texts.has("Earned") and texts.has("+" + UiFormat.money(want_m)) and texts.has("+%d pts" % int(p.payout.points)) and
+		texts.has("You have $24,350 · 862 pts") and texts.has("Silver medal") and texts.has("Gold medal") and texts.has("Beat the Pro AI") and
+		texts.has("+" + UiFormat.money(int(Economy.reward("night-highway", "gold").money))) and texts.has("Paid before: Bronze medal") and
+		texts.has("Pro AI: 3:40.000, you win by 12.567 s!"), "payout: EARNED %s and %d pts, each reward (silver and gold, the Rookie, Amateur and Pro wins), the totals, what was paid before" % [
+		UiFormat.money(want_m), int(p.payout.points)])
+	t.check(f.get_global_rect().end.y <= 720.5 and f.get_global_rect().position.y >= -0.5, "with the payout the panel fits 1280 x 720 (%d px high)" % roundi(f.size.y))
+	p.payout = {"items": [], "money": 0, "points": 0, "money_total": 100, "points_total": 5, "repeat": ["bronze", "silver"], "medal": "silver", "level": "", "won": false}
+	f.update(p)
+	texts = _texts(f)
+	t.check(texts.has("+$0") and texts.has("Nothing new: Bronze medal, Silver medal paid before. A better medal or a harder AI pays more."), "nothing new: says what was paid before")
+	p.payout = {"items": [], "money": 0, "points": 0, "money_total": 0, "points_total": 0, "repeat": [], "medal": "", "level": "elite", "won": false}
+	f.update(p)
+	t.check(_texts(f).has("No medal and no win: beat the bronze time or the Elite AI to earn money."), "no medal, lost to the Elite: how to earn money")
+	f.set_window_size(Vector2(800, 600))
+	f.update(Fx.panel_payout())
+	_settle(h)
+	t.check(f.get_global_rect().end.y <= 600.5, "800 x 600: the payout panel still fits (%d px high)" % roundi(f.size.y))
+	h.free()
+	UiData.reset()
 
 
 func _texts(n: Node) -> PackedStringArray:

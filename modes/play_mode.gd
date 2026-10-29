@@ -30,6 +30,13 @@ extends Node
 ## the score, the combo, what is building up and a popup per event; the finish panel the
 ## breakdown and the best score for this track and car (saved when beaten).
 ##
+## Money and points (v6.5.0, sim/economy.gd): at the finish the player's run is paid the medal
+## it won (and the medals below it) and, racing an AI opponent level, that level and the levels
+## below it when you finish ahead of it (or it has not finished); each reward once per track and
+## car. The finish panel shows what was paid and why (`payout`). The AI opponent is the shipped
+## network of the track and car with its level's speed cap (opts.level, opts.cap); without a
+## level the AI ghost is the car's own trained network and pays nothing.
+##
 ## Physics runs at a fixed 60 Hz with an accumulator (the step the AI trains with); the
 ## frame draws the cars between the last two steps (render interpolation), so any display
 ## rate stays smooth. AI cars (watched or ghost) are not eliminated by walls: one that makes
@@ -39,7 +46,8 @@ extends Node
 ## becomes the active mode, update(dt) every frame, exit() when it is left (then freed).
 ## opts: {track: BuiltTrack, driver: "human" | "ai", net: NeuralNetwork (AI and the AI ghost),
 ## ai_car: the car id the network drives (default the racer), ghost: bool (race the AI ghost),
-## car: the player's car id (default: the picked car), return_to: Callable}
+## car: the player's car id (default: the picked car), return_to: Callable, level: the AI
+## opponent's level id ("" or none: the car's own network), cap: its speed cap (m/s, INF none)}
 
 const AiLink := preload("res://game/ai_link.gd")
 
@@ -61,6 +69,9 @@ var net: Object = null
 ## The car the AI network drives (Watch the AI: car_def is this car; the AI ghost).
 var ai_def: Dictionary = {}
 var with_ghost := false
+## The AI opponent's level ("" : the player's own network, or no AI) and its speed cap (m/s).
+var level := ""
+var cap := INF
 var car_def: Dictionary = {}
 var rec: Replay.GhostRecorder = null
 var pb_shown := true
@@ -116,6 +127,8 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	driver = str(opts.get("driver", "human"))
 	net = opts.get("net")
 	with_ghost = bool(opts.get("ghost", false)) and net != null and driver == "human"
+	level = str(opts.get("level", "")) if Opponents.rank(str(opts.get("level", ""))) >= 0 else ""
+	cap = float(opts.get("cap", INF)) if (opts.get("cap") is float or opts.get("cap") is int) and float(opts.get("cap")) > 0.0 else INF
 	# the player's car (opts.car or the one picked on the menu); the AI drives its network's car
 	ai_def = Cars.get_car(str(opts.get("ai_car", Cars.DEFAULT_CAR)))
 	var cid: String = str(opts.get("car", UiData.picked_car())) if driver == "human" else String(ai_def.id)
@@ -170,9 +183,15 @@ func enter() -> void:
 ## The HUD's top line.
 func _mode_text(cname: String) -> String:
 	if with_ghost:
-		var vs := "VS AI GHOST" if ai_def.id == car_def.id else "VS AI GHOST (%s)" % ai_def.name
+		var who := ("%s AI" % Opponents.level_name(level).to_upper()) if level != "" else "AI GHOST"
+		var vs := "VS " + who if ai_def.id == car_def.id else "VS %s (%s)" % [who, ai_def.name]
 		return "%s · %s · %s" % [vs, track.name, cname]
 	return "%s · %s" % [track.name, cname]
+
+
+## What the HUD and the finish panel call the AI car: "Pro AI", or "AI ghost" (the player's own network).
+func ai_name() -> String:
+	return "%s AI" % Opponents.level_name(level) if level != "" else "AI ghost"
 
 
 ## Hook for the AI view (watch_mode.gd).
@@ -211,7 +230,7 @@ func restart() -> void:
 	best_score = SaveData.get_best_score(track.id, car_def.id) if score != null else {}
 	note = {}
 	if with_ghost:
-		ghost = {"car": Car.new(track, track.start_idx, ai_def.spec), "race": RaceState.new(track), "ai": AiLink.driver(net)}
+		ghost = {"car": Car.new(track, track.start_idx, ai_def.spec), "race": RaceState.new(track), "ai": AiLink.driver(net, cap)}
 		ghost.watch = _new_watch(ghost.car, 0.0)
 	watch = _new_watch(car, 0.0)
 	ai_note = 0.0
@@ -348,7 +367,7 @@ func _on_gate(ev: Dictionary) -> void:
 	hud.split(label, ev.time, delta)
 	if not ghost.is_empty():
 		var gs: PackedFloat64Array = (ghost.race as RaceState).splits
-		ghost_text = ("AI ghost %s" % RaceState.format_delta(float(ev.time) - gs[gi])) if gi < gs.size() else "AI ghost behind you"
+		ghost_text = ("%s %s" % [ai_name(), RaceState.format_delta(float(ev.time) - gs[gi])]) if gi < gs.size() else "%s behind you" % ai_name()
 	_update_gates(ev.kind != "cp")
 	if ev.kind == "finish":
 		_on_finish()
@@ -371,12 +390,17 @@ func _on_finish() -> void:
 		var nx := _next_medal(t, t if is_record else prev)
 		if not nx.is_empty():
 			s.next = nx
+		var won := false
 		if not ghost.is_empty():
 			var gr: RaceState = ghost.race
+			won = not gr.finished or t <= gr.finish_time
 			if gr.finished:
-				s.lines = ["AI ghost: %s, %s" % [RaceState.format_time(gr.finish_time), "you win!" if t <= gr.finish_time else "the AI wins"]]
+				var by := absf(gr.finish_time - t)
+				s.lines = ["%s: %s, %s" % [ai_name(), RaceState.format_time(gr.finish_time),
+					("you win by %s s!" % JsMath.to_fixed(by, 3)) if won else ("the AI wins by %s s" % JsMath.to_fixed(by, 3))]]
 			else:
-				s.lines = ["AI ghost hasn't finished: you win!"]
+				s.lines = ["%s hasn't finished: you win!" % ai_name()]
+		s.payout = _payout(t, level if won else "")
 		s.score = _score_state()
 		record = SaveData.get_record(track.id, car_def.id)
 	else:
@@ -388,6 +412,19 @@ func _on_finish() -> void:
 	s.pad = app.input.pad_connected # name the gamepad buttons too
 	finish_state = s
 	app.ui.hud.show_panel(s)
+
+
+## Pay the run (Economy.claim): the medal time `t` won and the AI level `beaten` ("" none). The
+## finish panel's payout: {items [{id, kind, label, money, points}], money, points, money_total,
+## points_total, repeat [reward ids earned before], medal (the run's), level (the AI raced, "" none),
+## won (beat it)}.
+func _payout(t: float, beaten: String) -> Dictionary:
+	var medal := Medals.medal_for(medals, t)
+	var p := Economy.claim(track.id, car_def.id, medal, beaten)
+	p.medal = medal
+	p.level = level
+	p.won = beaten != ""
+	return p
 
 
 ## Queue score events for the HUD's popups (only the last few are kept between frames).

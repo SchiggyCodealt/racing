@@ -343,7 +343,14 @@ static func drive_network(net: NeuralNetwork, inputs: PackedFloat32Array, mirror
 	return ctrl
 
 
-## Driver for a single AI car (Watch the AI, the AI ghost).
+## The speed governor of a slowed-down AI opponent (v6.5: the levels below Elite, see
+## sim/opponents.gd): throttle at most CAP_GAIN × (cap - speed), so the car settles just under
+## its cap on the straights and brakes gently when a downhill takes it over; harder braking
+## from the network itself (a corner ahead) is kept.
+const CAP_GAIN: float = 0.5
+
+
+## Driver for a single AI car (Watch the AI, the AI ghost, the AI opponents).
 ## Call drive() once per physics step before car.step().
 class AIDriver:
 	var net: NeuralNetwork
@@ -352,13 +359,20 @@ class AIDriver:
 	## ray distances (m) of the last drive()
 	var rays := PackedFloat32Array()
 	var ctrl := Car.Controls.new()
+	## Top speed (m/s) the driver keeps to (INF: none, the network as it is). Training never
+	## sets it: only the AI opponents' skill levels (sim/opponents.gd) do.
+	var speed_cap: float = INF
 
-	func _init(p_net: NeuralNetwork) -> void:
+	func _init(p_net: NeuralNetwork, p_speed_cap: float = INF) -> void:
 		net = p_net
+		speed_cap = p_speed_cap
 		inputs.resize(INPUT_COUNT)
 		mirrored.resize(INPUT_COUNT)
 		rays.resize(NR)
 
 	func drive(track: BuiltTrack, car: Car, _race: Variant = null) -> Car.Controls:
 		Sensors.sense(track, car, inputs, rays)
-		return Sensors.drive_network(net, inputs, mirrored, ctrl)
+		Sensors.drive_network(net, inputs, mirrored, ctrl)
+		if speed_cap < INF:
+			ctrl.throttle = minf(ctrl.throttle, clampf((speed_cap - car.speed) * CAP_GAIN, -1.0, 1.0))
+		return ctrl

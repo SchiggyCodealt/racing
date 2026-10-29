@@ -120,6 +120,21 @@ static func panel_stress() -> Dictionary:
 	return p
 
 
+## v6.5.0: a gold run that beat the Pro AI on Night Highway (track 10, rewards x1.9), its bronze
+## paid before: the payout block with the career's totals.
+static func panel_payout() -> Dictionary:
+	var p := panel_record()
+	p.lines = ["Pro AI: 3:40.000, you win by 12.567 s!"]
+	var pay: Dictionary = Economy.payout("night-highway", "gold", "pro", PackedStringArray(["bronze"]))
+	pay.money_total = 24350
+	pay.points_total = 862
+	pay.medal = "gold"
+	pay.level = "pro"
+	pay.won = true
+	p.payout = pay
+	return p
+
+
 ## The AI's finish (Watch the AI).
 static func panel_ai() -> Dictionary:
 	return {"title": "AI finished", "time": 219.4, "ai": true, "medal": {"got": "silver", "new": false},

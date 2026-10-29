@@ -33,6 +33,12 @@ extends RefCounted
 ##   medal_times(t, c) {author, gold, silver, bronze} (s) or {} (none for this track and car)
 ##   ai_status()     {ready, generation, fitness, sizes, trained_on [track ids], walls, best_times {id: {lap, finish}},
 ##                   car (whose network it is: the picked car), trained_car (the car it was trained with)}
+##   the career (v6.5.0): money() and points() (int), owns_car(id), car_price(id), buy_car(id) ->
+##                   {ok, error, price, short}: sim/ Economy and SaveData in the game; in tests the
+##                   in-memory store's "career" {money, points, cars, paid}
+##   opponents       opponent() (the picked opponent: an AI level id or "mine", the player's own
+##                   network), opponent_levels(t, c) [{id, name, blurb, time (s or -1), pays {money,
+##                   points} (what beating it would pay now; 0 when paid), paid (bool)}]
 
 const FIXTURE_PATH := "res://ui/fixtures/web_v5.json"
 const TRACKS_JSON := "res://data/tracks.json"
@@ -40,7 +46,10 @@ const MEDALS_JSON := "res://data/medals.json"
 const TrackMapView := preload("res://ui/track_map_view.gd")
 
 ## Settings and their defaults (the web's trackrush.settings plus the Godot port's display settings).
-const SETTING_DEFAULTS := {"car": "racer", "ghost": true, "quality": "high", "fullscreen": false, "vsync": true, "ui_scale": "auto"}
+const SETTING_DEFAULTS := {"car": "racer", "ghost": true, "quality": "high", "fullscreen": false, "vsync": true, "ui_scale": "auto",
+	"opponent": "rookie"}
+## The menu's opponent choice for the player's own trained network (the others are AI level ids).
+const MY_AI := "mine"
 ## Score rules the menu's tooltips quote (score.js SCORE.comboMax).
 const COMBO_MAX := 5
 
@@ -48,7 +57,7 @@ const COMBO_MAX := 5
 ##   records  {"track_id|car_id": {time, splits}},  scores {"track_id|car_id": int},
 ##   ghosts   {"track_id|car_id": true},  settings {key: value},
 ##   network  null or {generation, fitness, sizes, trained_on, walls, best_times}
-static var store := {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, "network": null}
+static var store := {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, "network": null, "career": _new_career()}
 
 ## Emitted-style hook: called with (key, value) after set_setting (the game applies quality etc.).
 static var on_setting_changed: Callable = Callable()
@@ -365,6 +374,70 @@ static func network_labels() -> Dictionary:
 	return {"inputs": fixture().input_labels, "outputs": fixture().output_labels}
 
 
+# ---------------------------------------------------------------- the career (v6.5.0)
+
+static func _new_career() -> Dictionary:
+	return {"money": 0, "points": 0, "cars": ["racer"], "paid": {}, "prices": {}}
+
+
+## The career's money (the save file's in the game).
+static func money() -> int:
+	return SaveData.get_money() if _save else int(store.career.money)
+
+
+## The career's points.
+static func points() -> int:
+	return SaveData.get_points() if _save else int(store.career.points)
+
+
+## True when car `id` is owned (can be driven).
+static func owns_car(id: String) -> bool:
+	return SaveData.owns_car(id) if _save else (store.career.cars as Array).has(id)
+
+
+## What car `id` costs in the shop (0 for a car owned from the start).
+static func car_price(id: String) -> int:
+	if _save or not (store.career.prices as Dictionary).has(id):
+		var cars := _cars_script()
+		return int((cars.call("get_car", id) as Dictionary).get("price", 0)) if cars != null else 0
+	return int(store.career.prices[id])
+
+
+## Buy car `id` (Economy.buy in the game): {ok, error ("" | "owned" | "money" | "unknown"), price, short}.
+static func buy_car(id: String) -> Dictionary:
+	if _save:
+		return Economy.buy(id)
+	var c: Dictionary = store.career
+	var p := car_price(id)
+	if (c.cars as Array).has(id):
+		return {"ok": false, "error": "owned", "price": p, "short": 0}
+	if int(c.money) < p:
+		return {"ok": false, "error": "money", "price": p, "short": p - int(c.money)}
+	c.money = int(c.money) - p
+	(c.cars as Array).append(id)
+	return {"ok": true, "error": "", "price": p, "short": 0}
+
+
+## The picked opponent of Race the AI / Watch the AI: an AI level id (sim/opponents.gd) or MY_AI.
+static func opponent() -> String:
+	var v := str(get_setting("opponent"))
+	return v if v == MY_AI or Opponents.rank(v) >= 0 else str(SETTING_DEFAULTS.opponent)
+
+
+## The AI opponents of a track with a car for the menu, slowest first: [{id, name, blurb, time (s;
+## -1 when there is none for this track and car), pays {money, points} (what beating it would
+## pay now, with the levels below it not paid yet), paid (it was beaten before)}].
+static func opponent_levels(track: String, car: String) -> Array:
+	var out: Array = []
+	var paid: PackedStringArray = SaveData.paid_rewards(track, car) if _save else \
+		PackedStringArray(store.career.paid.get("%s|%s" % [track, car], []))
+	for l: Dictionary in Opponents.LEVELS:
+		var p := Economy.payout(track, "", String(l.id), paid)
+		out.append({"id": l.id, "name": l.name, "blurb": l.blurb, "time": Opponents.time_of(track, car, String(l.id)),
+			"pays": {"money": p.money, "points": p.points}, "paid": paid.has(Economy.AI_PREFIX + String(l.id))})
+	return out
+
+
 # ---------------------------------------------------------------- settings
 
 ## A remembered setting ("car", "ghost", "quality", "fullscreen", "vsync", "ui_scale"), from
@@ -424,5 +497,5 @@ static func _has_static(script: Script, fn: String) -> bool:
 ## Forget everything stored and cached (tests and previews).
 static func reset() -> void:
 	_save = false
-	store = {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, "network": null}
+	store = {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, "network": null, "career": _new_career()}
 	_maps.clear()

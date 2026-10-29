@@ -45,6 +45,14 @@ extends SceneTree
 ##             up dust (a pooled effect), the tyre marks take the dirt's colour and the camera
 ##             rumbles; Hairpin Valley with the Racer: snow spray and grey-blue marks on the snow.
 ##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow.
+##   economy   money, points and the car shop (v6.5.0) from a new career: $0 and only the Racer;
+##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting a
+##             second late: the AI car leads, then loses) and the Expert AI on Seaside Stunts (the
+##             author run): the finish panel's payout, the money and points on the menu; the
+##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
+##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
+##   Every other scenario starts by owning every car and picking My AI as the opponent (they
+##   were written before the career: they drive every car and race the car's own network).
 ## Prints "ok"/"FAIL" lines and "E2E <scenario>: n passed, m failed"; quits with 1 on a failure.
 ## out=<dir> (default user://e2e) also holds the scratch files of the modes scenario;
 ## net=<file> is the network it loads (default the test fixture, a browser-format file).
@@ -78,6 +86,10 @@ func _main() -> void:
 	await frames(3)
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
 	var t0 := Time.get_ticks_msec()
+	if scenario != "economy":
+		for c: String in Cars.ids():
+			SaveData.give_car(c)
+		app.ui.menu.select_opponent(UiData.MY_AI)
 	match scenario:
 		"races":
 			await races()
@@ -97,6 +109,8 @@ func _main() -> void:
 			await perf()
 		"surfaces":
 			await surfaces()
+		"economy":
+			await economy()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -929,3 +943,132 @@ func perf() -> void:
 	first.queue_free()
 	last.queue_free()
 	stop_autopilot()
+
+
+# ---------------------------------------------------------------- money, points, the car shop (v6.5.0)
+
+func economy() -> void:
+	var menu: MainMenu = app.ui.menu
+	var btns: Dictionary = menu.get("_opp_btns")
+	var money_l: Label = menu.get("_money_l")
+	var points_l: Label = menu.get("_points_l")
+	var drive_btn: Button = menu.get("_drive_btn")
+	check(UiData.money() == 0 and UiData.points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and
+		points_l.text == "0 pts" and money_l.is_visible_in_tree(), "a new career: $0, 0 pts, only the Racer; the header shows them")
+	await pick("rookie-oval", "racer")
+	await click(btns["elite"])
+	check(UiData.opponent() == "elite" and (menu.get("_ghost_btn") as Button).text == "Race the Elite AI", "the Elite chip (clicked) picks the Elite AI")
+	# the menu still fits 1280 x 720 with the wallet and the opponent chips
+	var win := Vector2(root.size)
+	var bar := (menu.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	var inside := true
+	for c: Control in btns.values() + [menu.get("_ghost_btn"), menu.get("_watch_btn"), menu.get("_train_btn"), drive_btn, money_l, points_l]:
+		var r := c.get_global_rect()
+		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
+	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5, "1280 x 720: the money, the points, the opponent chips and the race buttons on screen, no scrolling")
+
+	# race the Elite AI on Rookie Oval: start a second late, so its car leads for the shot
+	var money0 := UiData.money()
+	await click(menu.get("_ghost_btn"))
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and m.get("with_ghost") == true and m.get("level") == "elite" and str(app.ui.hud.get("_mode").text).begins_with("VS ELITE AI"),
+			"Race the Elite AI (clicked): %s" % app.ui.hud.get("_mode").text):
+		return
+	var track: BuiltTrack = m.get("track")
+	var run: Dictionary = Medals.medal_times(track, "racer").run
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "race" and (m.get("race") as RaceState).time >= 1.0, 60.0)
+	autopilot(float(run.aLat), float(run.lookK))
+	var gcar: Car = m.get("ghost").car
+	var c: Car = m.get("car")
+	# (the shot when the player has closed in on it: under 22 m behind, from 15 s)
+	await wait_until(func() -> bool: return (m.get("race") as RaceState).time >= 15.0 and gcar.prog > c.prog and \
+		Vector3(gcar.x - c.x, gcar.y - c.y, gcar.z - c.z).length() < 22.0 or (m.get("race") as RaceState).time >= 40.0, 120.0)
+	fast(false)
+	await frames(20)
+	var gap := Vector3(gcar.x - c.x, gcar.y - c.y, gcar.z - c.z).length()
+	check(gcar.prog > c.prog and gap < 60.0 and (m.get("ghost_model") as CarModel).visible, "the Elite AI's car leads, %.0f m ahead: %s" % [gap, m.get("ghost_text")])
+	await shot("economy_race")
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+	fast(false)
+	stop_autopilot()
+	await frames(40)
+	var race: RaceState = m.get("race")
+	var fs: Dictionary = m.get("finish_state")
+	var p: Dictionary = fs.get("payout", {})
+	var want := ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro", "ai-expert", "ai-elite"]
+	var w := _sum("rookie-oval", want)
+	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
+	check(race.finished and Medals.medal_for(Medals.medal_times(track, "racer"), race.finish_time) == "gold" and p.get("won") == true and ids == want and
+		int(p.money) == w.x and int(p.points) == w.y and UiData.money() == money0 + w.x and app.ui.hud.panel_open,
+		"%s (gold) beats the Elite AI: paid three medals and all five AI levels, %s and %d pts" % [RaceState.format_time(race.finish_time), UiFormat.money(w.x), w.y])
+	check(str(fs.get("lines", [""])[0]).begins_with("Elite AI") and str(fs.get("lines", [""])[0]).contains("you win"), "the finish panel: %s" % fs.get("lines", [""])[0])
+	await shot("economy_finish")
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(app.mode == app.menu_mode and money_l.text == UiFormat.money(UiData.money()) and str(menu.get("_ai_status_text")).contains("Beaten: paid"),
+		"back on the menu: %s, %s; the Elite AI is paid" % [money_l.text, points_l.text])
+
+	# the Expert AI on Seaside Stunts (the author run): more money on a later track
+	await pick("seaside-stunts", "racer")
+	await click(btns["expert"])
+	var money1 := UiData.money()
+	await click(menu.get("_ghost_btn"))
+	m = app.mode
+	if not check(m != app.menu_mode and m.get("level") == "expert", "Race the Expert AI on Seaside Stunts"):
+		return
+	run = Medals.medal_times(m.get("track"), "racer").run
+	autopilot(float(run.aLat), float(run.lookK))
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+	fast(false)
+	stop_autopilot()
+	await frames(10)
+	p = (m.get("finish_state") as Dictionary).get("payout", {})
+	want = ["bronze", "silver", "gold", "author", "ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
+	w = _sum("seaside-stunts", want)
+	ids = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
+	check(ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x, "the author time beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [UiFormat.money(w.x), w.y])
+	await key(KEY_ESCAPE)
+	await frames(30)
+	check(money_l.text == UiFormat.money(UiData.money()) and points_l.text == "%s pts" % UiFormat.points(UiData.points()), "the menu: %s, %s" % [money_l.text, points_l.text])
+	await shot("economy_menu")
+
+	# the shop: the Vortex is short of money, the Kestrel is bought
+	while UiData.picked_car() != "vortex":
+		await key(KEY_C)
+	check(drive_btn.text == "LOCKED", "the Vortex picked: LOCKED (it costs %s)" % UiFormat.money(UiData.car_price("vortex")))
+	await key(KEY_ENTER)
+	var msg: Label = app.message.get("_text")
+	check(app.mode == app.menu_mode and app.message.visible and not app.message.asking and msg.text.contains("more to go"), "Enter: %s" % msg.text)
+	await key(KEY_ESCAPE)
+	check(not app.message.visible, "Esc closes it")
+	while UiData.picked_car() != "kestrel":
+		await key(KEY_C)
+	await frames(10)
+	var money2 := UiData.money()
+	check(drive_btn.text == "BUY $10,000" and not SaveData.owns_car("kestrel"), "the Kestrel picked: BUY $10,000")
+	await shot("economy_shop")
+	await key(KEY_ENTER)
+	await frames(10)
+	check(app.message.asking and msg.text.contains("costs $10,000"), "Enter (BUY) asks first: %s" % msg.text)
+	await shot("economy_buy")
+	await key(KEY_ENTER)
+	await frames(4)
+	check(SaveData.owns_car("kestrel") and UiData.money() == money2 - 10000 and drive_btn.text == "DRIVE" and money_l.text == UiFormat.money(money2 - 10000) and
+		app.mode == app.menu_mode, "Enter (yes): the Kestrel is yours, %s left" % UiFormat.money(UiData.money()))
+	await key(KEY_ENTER)
+	check(app.mode != app.menu_mode and str((app.mode.get("car_def") as Dictionary).id) == "kestrel", "Enter drives the Kestrel")
+	await key(KEY_ESCAPE)
+	await frames(4)
+	check(app.mode == app.menu_mode, "back on the menu")
+
+
+## The money (x) and points (y) of rewards `ids` on track `tid`.
+func _sum(tid: String, ids: Array) -> Vector2i:
+	var v := Vector2i.ZERO
+	for id: String in ids:
+		var r := Economy.reward(tid, id)
+		v += Vector2i(int(r.money), int(r.points))
+	return v

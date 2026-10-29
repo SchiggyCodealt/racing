@@ -4,12 +4,13 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-29 (v6.4.0: feature 4 of 9, three new tracks on three new themes; v6.3.0: feature 3, road
+_Last updated: 2026-10-29 (v6.5.0: feature 5 of 9, money and career points from medals and AI opponents, a car
+shop; v6.4.0: feature 4, three new tracks on three new themes; v6.3.0: feature 3, road
 surfaces: dirt and packed snow; v6.2.0: feature 2, AI
 training with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was
 the port from the browser to the Godot 4.7 engine)._
 
-## Status: v6.4.0, features 1-4 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks)
+## Status: v6.5.0, features 1-5 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -33,8 +34,18 @@ circuit, 79 % packed snow in banked bowls, an arctic night with the northern lig
 4.38 km sprint on asphalt, dirt and snow up to 18 m, highland). Medal times for all six cars; the first 12 tracks,
 their signatures and medal times are bit for bit those of v6.3 (tests). The menu lays 15 tiles out as three rows of
 five, which fit 1280 x 720 without scrolling. The snow spray is blue-grey now, so it shows on the white road.
-Features 5-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
-list and surfaces are data).
+v6.5.0 adds feature 5: a career. Medals (bronze to author) and wins against five AI opponents (Rookie, Amateur, Pro,
+Expert, Elite) pay money and career points from one data table (`sim/economy.gd` `REWARDS`), once per track, car and
+medal or AI level, more on later tracks (× 1 + 0.1 × the track's index). Money buys cars: a new player owns the Racer,
+the other five cost $10,000-30,000 on the car picker (locked cards show a padlock and the price; Drive becomes BUY,
+which asks first). The AI opponents are 90 shipped networks (`data/opponents/<car>.json`, one per track and car,
+trained with FleetSim on that track with that car); a level is that network with a speed cap calibrated so its race
+takes 1.6 / 1.4 / 1.25 / 1.13 / 1.0 × the author time, and its race time is stored. The menu's AI block picks the
+opponent (or My AI, the player's own network as before); Race the AI is the old Race the AI ghost path; the finish
+panel shows the payout. The save file is `VERSION` 4 (a `career` section); older saves are paid once for the medals
+they hold, own only the Racer, and get a one-time message.
+Features 6-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
+list, surfaces, rewards and AI levels are data).
 
 | Area | State | Where |
 | --- | --- | --- |
@@ -49,7 +60,9 @@ list and surfaces are data).
 | FleetSim: the C++ GDExtension that steps the whole population (sensors, network, physics, rules) on several threads | done, bit-identical to the GDScript simulation for all six cars; Linux and Windows libraries built | `native/`, `bin/`, `trackrush.gdextension` |
 | Game shell: modes (menu, Drive, Race the AI ghost, Watch the AI, training), keyboard and gamepad, threaded track loading, quality governor, fullscreen / vsync, network files, messages | done | `main.tscn`, `game/`, `modes/` |
 | New in the Godot version: Settings screen (quality, fullscreen, vsync, interface size, ghost), native file dialogs for networks, the save file instead of browser storage | done | `ui/settings_screen.gd`, `game/app.gd`, `sim/save.gd` |
-| Tests: headless suite (587 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Career (v6.5.0): money and points (the reward table, paid once), the car shop, the save file's `career` (VERSION 4, migration pays held medals once), the menu's wallet and locked cards, the finish panel's payout | done; reward table, paid-once rule, shop, migrations (v1-v3) and junk are tests; prices checked against a simulated career | `sim/economy.gd`, `sim/save.gd`, `sim/cars.gd` (`price`), `ui/main_menu.gd`, `ui/car_card.gd`, `ui/finish_panel.gd`, `game/app.gd`, `game/message_screen.gd` |
+| AI opponents (v6.5.0): 90 shipped networks with five levels each (a speed cap and the race's time), the menu's opponent chips, Race / Watch the AI against a level | done; every level of every track and car finishes and is slower than the one above (tests); stored races re-run to the millisecond | `data/opponents/`, `sim/opponents.gd`, `ai/opponent_race.gd`, `ai/sensors.gd` (`AIDriver.speed_cap`), `tools/opponents.gd`, `modes/play_mode.gd`, `game/ai_link.gd` |
+| Tests: headless suite (640 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -112,6 +125,61 @@ surfaces 13 with `gfx=high`, modes 29, perf 1: 1.60 ms of script time a race fra
 `gfx=high` on the three new tracks); the FleetSim libraries were not touched; the Windows release export was made
 from a fresh import (no errors or warnings) and zipped as `build/TrackRush-6.4.0-windows.zip` (not started: no
 Windows here).
+
+v6.5.0 (2026-10-29): the headless suite passes (640 checks: sim 84, ui 155, world 160, game 93, ai 148; 5 min 56 s
+after a fresh import); `tools/opponents.gd --check` reproduces all 450 stored opponent races; the end-to-end
+scenarios pass at 1280 x 720 (economy 19 with `gfx=high`; races 216: every car on Rookie Oval and Summit Rush on the
+author times; modes 29, menu 28, cars 16, settings 5 + 6, shots 2 with `gfx=high`, perf 1: 1.44 ms of script time a
+race frame on Night Highway); the FleetSim libraries were not touched (the speed cap is only in the GDScript driver,
+which the opponents use in the game); the Windows release export was made from a fresh import (no errors or
+warnings; the opponents' data and scripts are in the pack) and zipped as `build/TrackRush-6.5.0-windows.zip` (not
+started: no Windows here).
+
+## How v6.5.0 (money, points and AI opponents) was verified
+
+- **Reward table and rules** (`tests/test_sim.gd` "money and points"): nine rewards, each harder medal or AI level
+  pays more money and points, every track pays more than the one before (gold: $800 / 40 pts on Rookie Oval, $1,920 /
+  96 on Summit Rush); a gold plus a Pro win on track 1 pays bronze, silver, gold, Rookie, Amateur and Pro ($2,900,
+  105 pts); paid once per track, car and reward (the same run again pays $0 and lists what was paid before; another
+  car or track pays on its own; read back from the file); the shop ($9,000 can't buy the $10,000 Kestrel and takes
+  nothing; $10,000 can; owned and unknown cars refused; `give_car`; money and points never below 0).
+- **Save migration**: a version 3 file with a Racer gold and a Kestrel bronze on Rookie Oval (plus records that must
+  not pay: no medal, an older track version, other physics, an unknown car or track) gets $1,900 and 80 pts once,
+  owns only the Racer (its picked Vortex stays picked, locked), a one-time welcome note, and is version 4 on disk; a
+  second load pays nothing; version 2 and version 1 files the same way (a v6.2 Ramp Rally record is archived, so not
+  paid); four kinds of junk in the career section read as a new career, a hand-edited one is cleaned.
+- **Prices** (`Economy.career()`, a test): a player who wins gold and beats the Expert everywhere with the Racer
+  has $4,000 / $8,400 / $13,200 after one / two / three tracks (the $10,000 Kestrel after three), $92,400 after 14 and
+  $102,000 after 15, against $94,000 for all five cars; silver and the Pro everywhere buy the Kestrel after five
+  tracks ($12,600) and make $53,550 in all; author and the Elite everywhere make $173,400; bronze and the Rookie
+  everywhere $12,750 (one car).
+- **The opponents' networks** (`tools/opponents.gd --train`, FleetSim, 3 threads, 4,119 s for the 90): every one beat
+  the gold medal at its first check (generation 80, 25-87 s each); flat out their races take 0.83 (Vortex, Hairpin
+  Valley: it rides the walls on the snow) to 1.04 (Drifter, Night Highway) × the author time.
+- **The levels** (`tools/opponents.gd`, 848 s on 3 threads): each level's race against the author time, over the 90
+  tracks and cars: Rookie 1.581-1.618, Amateur 1.384-1.416, Pro 1.235-1.265, Expert 1.121-1.143, Elite 0.988-1.037
+  (the network flat out on 39, capped on 51). Each level is at least 1.082 × the next one's time; every Elite is at
+  most 0.974 × the gold time; every Rookie at least 1.050 × the bronze time. `tools/opponents.gd --check` re-ran all
+  450 stored races (491 s) and every time reproduced to the millisecond. `tests/test_ai.gd` checks the ordering and
+  bounds on all 90 and re-runs 11 races (all five Racer levels on Rookie Oval and one level of every car elsewhere).
+  The first calibration stored caps made by `snappedf`, which do not survive the JSON file (25.900000000000002 reads
+  back as 25.9) and changed one of the 11 re-run races by 0.55 s: caps are k / 100.0 now and everything was
+  recalibrated.
+- **A beginner can beat the Rookie**: the medal autopilot cornering at 10 m/s² (about 1 g; the medal sweep uses
+  14-40) without nitro beats the Rookie on all 90 tracks and cars (its median race is 1.17 × the
+  author time; the closest is the Vortex on Banked Speedway, 0.981 × the Rookie's time). No human was measured.
+- **In the game** (`tests/test_game.gd` "the app: money, points ..."): a new save: $0, Racer only; a locked car's
+  Drive with $0 says how much is missing; with $12,500 BUY asks, Cancel buys nothing, yes buys it ($2,500 left) and
+  Drive then drives it; Race the Rookie AI on Seaside Stunts with the author run pays bronze to author and the Rookie
+  ($6,300, 326 pts), and the Rookie's car, raced on by the play mode after the finish, ends on its stored time
+  1:50.200 to the millisecond; a slower run loses to the Elite (its stored 1:08.100) and is paid nothing new; a
+  version 3 save is paid with a message, once. `tests/test_ui.gd`: the header, locked cards and prices, BUY / LOCKED,
+  the opponent chips and their status line, the payout block (and "nothing new" / "no medal and no win") at 1280 x 720
+  and 800 x 600.
+- **End to end** (`economy` scenario, `gfx=high`): from a new career, click the Elite chip, Race the Elite AI on
+  Rookie Oval (the author autopilot starting a second late: the AI's car leads, then loses; 2:03.067, gold) and the
+  Expert on Seaside Stunts (author time): $16,520 and 698 pts on the menu; the Vortex says $13,480 is missing; the
+  Kestrel is bought with Enter, Enter and driven. The other scenarios start by owning every car and picking My AI.
 
 ## How v6.4.0 (three new tracks) was verified
 
@@ -328,7 +396,9 @@ Windows here).
   `ROWS`, with an `action` row type for a terminal), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
   the road surfaces (`sim/surfaces.gd` `DEFS`: physics and look columns; FleetSim gets the physics columns from
   `Trainer.track_data`, the road shader has colour slots for table entries 1 and 2; v6.4.0 added the optional look
-  column `spray`, the colour of what the tyres throw up).
+  column `spray`, the colour of what the tyres throw up), the rewards (`sim/economy.gd` `REWARDS`, `TRACK_STEP`), the
+  car prices (`price` in `sim/cars.gd`; 0 = owned from the start) and the AI levels (`sim/opponents.gd` `LEVELS`:
+  id, name, pace, blurb; a new level also needs an `ai-<id>` reward and a `tools/opponents.gd` run).
 - **Road surfaces** are marked in the track designs (`tools/gen_tracks.gd`, turtle `.surface("dirt")` ...
   `.surface("asphalt")`; the design rules want stretches of 60 m or more and the start grid on asphalt). A track
   without them has no `"surfaces"` key and an empty `BuiltTrack.surf_w`, and every surface branch in `sim/car.gd`,
@@ -363,7 +433,8 @@ Windows here).
 - **Version tags** decide what old saved data still counts: `Car.PHYSICS_VERSION` (3: best times, ghosts, medals;
   unchanged by the surfaces, which only change tracks that have them), `ScoreState.SCORE_RULES` (1: best scores,
   medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION` (3: track signatures on records and
-  scores, the archive; `_migrate` upgrades versions 1 and 2), ghost format 3, the track signatures above, FleetSim's
+  scores, the archive; `_migrate` upgrades versions 1 and 2; 4 (v6.5.0): the `career` section, started once from the
+  medals held when it is missing), ghost format 3, the track signatures above, FleetSim's
   `version()` ("trackrush-native 3": road surfaces; 2 scaled the sensors by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
   change to the physics, a car, the points, a track or its laps, and `tools/car_stats.gd` after changing a car.
 - **AI networks belong to a car.** `SaveData.load_network(car, slot)` / `save_network(data, car, slot)` keep one
@@ -373,6 +444,18 @@ Windows here).
   networks). They differ only after loading another car's file, which the game allows with a note. A network seeded
   from another car's starts a new history (generation 0, no fitness carried). A training session (`TrainMode.session`)
   has one car; another car is a new session.
+- **The career goes through `SaveData`** (v6.5.0): `get_money` / `get_points`, `add_money(n)` / `add_points(n)`
+  (never below 0), `owned_cars` / `owns_car` / `give_car(id)` / `purchase_car(id, price)`, `paid_rewards(track, car)`
+  / `pay_rewards(...)`; `Economy` builds the payouts, the prices and `buy()` on top. Item 7's terminal should call
+  `add_money`, `add_points` and `give_car` (they write the file) and refresh the menu. The paid list is per track id
+  and car, not per track signature (see Known limitations).
+- **AI opponents are data made by a tool**: `data/opponents/<car>.json` holds, per track, the network (the web
+  game's file format), the track signature it was trained on, and each level's `{cap, time}` (cap in m/s, null =
+  none). `Opponents.entry()` refuses an entry whose `physics` or `sig` no longer match, so a changed track or physics
+  shows "No ... AI here" until `tools/opponents.gd --train --retrain --tracks=<id>` and a levels run. The race an
+  opponent drives (`ai/opponent_race.gd`) is the play mode's AI ghost loop step for step (drive, step, race update,
+  stuck after 3 s: respawn standing); change one, change both, and `tools/opponents.gd --check` must say every stored
+  time is reproduced. Caps are stored as k / 100.0 so they read back as the same double (`snappedf` does not).
 - **The interface is built in code** from the tokens in `ui/ui_style.gd` (colours, four text sizes, 4 px spacing
   grid, one slant); red / green only for losses / gains, the yellow accent for the one thing that matters.
 - **Godot files in git**: commit the `.uid` files next to scripts and shaders and the `.import` files of assets
@@ -397,6 +480,21 @@ Windows here).
   deterministic on one machine, but long free runs with wall contact diverge after tens of seconds between
   browser and Godot, and could differ by milliseconds between Windows and Linux. Ghosts store positions, so they
   are unaffected; medal times were computed on Linux.
+- **The AI opponents' times were measured on Linux.** An opponent's race is deterministic on one machine and the
+  win is judged against the race it actually drives, so it is fair everywhere; but on Windows (another maths library)
+  a capped network can drive a slightly different line, and its finish can differ from the time the menu shows by a
+  few milliseconds or, after a wall contact, more.
+- **Rewards are paid per track id, not per track version**: when item 6 reworks a track, its records move to the
+  archive (signature) but its paid medals stay paid, so beating the new medal times pays nothing for medals already
+  paid. Decide with the owner whether a reworked track pays again (then key `paid` by signature in `SaveData`).
+- **The AI opponents are a single network per track and car held to a lower top speed**, not different drivers: the
+  slow levels take every corner at the same capped speed (the Rookie is very steady), they never use nitro, and with
+  walls ride they lean on walls in tight corners like the trained networks do. Elite is the network flat out where
+  that is about the author time, else capped to it (on about half the track-and-car pairs; the networks are up to
+  17 % faster than the author time on Hairpin Valley, where they ride the walls). The opponents' cars don't collide
+  with yours and don't react to it.
+- **The Rookie may still be hard for a brand-new player on long tracks**: it takes 1.6 × the author time, slower
+  than bronze (1.5 ×, 1.3 × after item 9), but it doesn't crash or make mistakes.
 - **Technical Trial, Racer**: the medal autopilot's best run grinds a wall for 281 steps, and a last-bit difference
   turns into a different finish: 3:45.083 here against 3:44.033 in the browser, so gold / silver / bronze are 3:59 /
   4:31 / 5:38 (browser 3:58 / 4:29 / 5:37). Lockstep from the JS states reproduces every step, so it is not a port
@@ -512,15 +610,19 @@ re-run the medal times.
    maps a little when three rows meet a short window, so 1280 x 720 shows everything without scrolling; keys 1-9,
    0, -, = still reach the first 12, the rest by arrows, mouse or pad (the tile's tooltip names the key when it has
    one). The snow spray is blue-grey (`spray` in `sim/surfaces.gd`) and bigger, so it shows on the white road.
-5. **Money and points from beating medal times and AIs (more for more skilled AIs).** Defaults: **money buys cars
-   (start with the Racer); points are a career total** (separate from the per-run style score); **AI opponents from
-   Rookie to Elite, harder ones paying more**. Needs: new save fields (money, career points, owned cars, rewards
-   already paid per track / car / medal so they are paid once) in `sim/save.gd` with `VERSION` 4 and a migration
-   (`SaveData._migrate`), a data-driven reward table, AI opponents as shipped networks of rising skill (train them
-   with `tools/headless_train.gd --car`, put them in `data/`; the per-car network slots of `SaveData` are ready for
-   more than the player's "best"), racing them through the existing Race the AI ghost path
-   (`modes/play_mode.gd`), the payout on the finish panel, money and points on the menu, and a car shop on the car
-   picker.
+5. **Money and points from beating medal times and AIs (more for more skilled AIs).** **Done in v6.5.0.** Money
+   buys cars (a new player owns the Racer; Kestrel $10,000, Drifter $14,000, Dune $18,000, Thunder $22,000, Vortex
+   $30,000, bought on the car picker: locked cards show a padlock and the price, Drive becomes BUY and asks first);
+   career points are a total separate from the style score. Rewards (`sim/economy.gd` `REWARDS`): medals $300 / $500 /
+   $800 / $1,200 and 10 / 20 / 40 / 80 points, beating the Rookie / Amateur / Pro / Expert / Elite AI $200 / $400 /
+   $700 / $1,100 / $1,600 and 5 / 10 / 20 / 40 / 80 points, × (1 + 0.1 × track index); each paid once per track, car
+   and medal or AI level, a medal paying the medals below it and a win the levels below it. AI opponents: one network
+   per track and car (90, trained with FleetSim, `tools/opponents.gd --train`, in `data/opponents/`), five levels by
+   speed cap (1.6 / 1.4 / 1.25 / 1.13 / 1.0 × the author time); the menu's AI block picks the opponent (or My AI);
+   Race the AI is the AI ghost path; the finish panel lists the payout; the menu's header shows the money and points.
+   `SaveData.VERSION` 4 with a `career` section; older saves are paid once for their medals (a message says how
+   much) and own only the Racer. Not done (not asked): selling cars, prices per track, an AI that reacts to the
+   player.
 6. **Rework the tight corners on the old maps** (make them more forgiving). The hairpins have a 13-19 m radius
    (Canyon Run 13 m, Technical Trial 15 m, Grand Marathon 16 m, Hairpin Valley 17 m, Mountain Pass 18-19 m) and are
    taken at about 55-65 km/h: widen the radius or the road there in `tools/gen_tracks.gd`. Changed tracks need new
@@ -531,7 +633,8 @@ re-run the medal times.
    commands like `money 5000`, `points 200`, `unlock all`**. The Settings screen already has an `action` row type
    (`ui/settings_screen.gd`, emits `action(key)`); the menu input names keys like the browser (`ui/menu_input.gd`
    `key_code`), so add `KEY_QUOTELEFT` as "Backquote" there. Commands should go through the same save functions as
-   the game (item 5) and print what they did.
+   the game (item 5: `SaveData.add_money(n)`, `add_points(n)`, `give_car(id)`, each returning the new value or
+   whether it changed; then `app.ui.menu.refresh()`) and print what they did.
 8. **Unlock the next map after bronze.** Default: **the next track unlocks after a bronze (or better) on the previous
    one, with any car**. Track 1 is always open; "previous" is the menu order (`data/tracks.json`). It can be derived
    from the saved best times (`Medals.medal_for` per car), so nothing new needs saving except the terminal's

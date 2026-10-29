@@ -4,7 +4,9 @@ extends Control
 ## One car of the menu's car picker (style.css .car-card): the side view, the name, top speed
 ## and mass, and five stat bars (speed, acceleration, grip, drift, nitro). The picked car's
 ## card is lighter, underlined with the accent and its bars are in the accent. Drawn by hand.
-## Click picks the car, a double click drives.
+## Click picks the car, a double click drives. A car you don't own (v6.5.0: set_lock) shows a
+## padlock and its price where the top speed was (in the accent when you can afford it), its
+## side view dimmed; its stats stay readable.
 
 signal picked
 signal activated
@@ -34,6 +36,10 @@ var short_spec := false:
 			short_spec = v
 			queue_redraw()
 var _hover := false
+## Not owned (v6.5.0): the price shows instead of the top speed.
+var locked := false
+var price := 0
+var affordable := false
 
 
 func _init() -> void:
@@ -49,6 +55,19 @@ func setup(id: String, car: Dictionary, side_view: Dictionary) -> void:
 	info = car
 	profile = side_view
 	tooltip_text = "%s (%d km/h, %.2f t): %s (C changes the car)" % [car.name, roundi(car.top), car.mass / 1000.0, car.description]
+	queue_redraw()
+
+
+## Show the car as not owned (`on`), costing `p`; `can`: the money is there to buy it.
+func set_lock(on: bool, p: int, can: bool) -> void:
+	if on == locked and p == price and can == affordable:
+		return
+	locked = on
+	price = p
+	affordable = can
+	if not info.is_empty():
+		tooltip_text = "%s (%d km/h, %.2f t): %s%s (C changes the car)" % [info.name, roundi(info.top), info.mass / 1000.0, info.description,
+			(" Locked: it costs %s." % UiFormat.money(p)) if on else ""]
 	queue_redraw()
 
 
@@ -89,24 +108,34 @@ func _draw() -> void:
 	var bars_top := py + head_h + UiStyle.S2
 	var bars_x := right_x
 	var bars_w := content_w
+	var sil_rect := Rect2(px, (size.y - sh) * 0.5, sw, sh)
 	if stacked:
 		head_top = py + maxf(0.0, (sh - head_h) * 0.5)
 		bars_top = py + maxf(head_h, sh) + UiStyle.S2
 		bars_x = px
 		bars_w = size.x - 2 * px
-		W.silhouette(self, Rect2(px, py, sw, sh), profile, info.color, info.accent)
+		sil_rect = Rect2(px, py, sw, sh)
+	if locked:
+		W.silhouette(self, sil_rect, profile, (info.color as Color).darkened(0.45), (info.accent as Color).darkened(0.45))
 	else:
-		W.silhouette(self, Rect2(px, (size.y - sh) * 0.5, sw, sh), profile, info.color, info.accent)
+		W.silhouette(self, sil_rect, profile, info.color, info.accent)
 	# head: name, then top speed and mass on the same baseline
 	var name_font := UiStyle.face("display")
 	var base := W.baseline(name_font, UiStyle.FS_L, head_top, UiStyle.FS_L)
-	draw_string(name_font, Vector2(right_x, base), info.name, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_L, UiStyle.TEXT)
+	draw_string(name_font, Vector2(right_x, base), info.name, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_L, UiStyle.TEXT_2 if locked else UiStyle.TEXT)
 	var name_w := name_font.get_string_size(info.name, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_L).x
-	# top speed and mass; in narrow cards the top speed alone (the mass is in the tooltip)
-	var spec := ("%d km/h" % roundi(info.top)) if short_spec else ("%d km/h · %.2f t" % [roundi(info.top), info.mass / 1000.0])
 	var spec_x := right_x + name_w + UiStyle.S3
-	W.ellipsis(self, UiStyle.font("text", UiStyle.FS_S, 0, true), UiStyle.FS_S, Vector2(spec_x, base), spec,
-		size.x - px - spec_x, UiStyle.TEXT_3)
+	if locked:
+		# a padlock and the price (in the accent when you can buy it)
+		var col := UiStyle.ACCENT if affordable else UiStyle.TEXT_2
+		_padlock(Vector2(spec_x, base - 10.0), col)
+		var pf := UiStyle.font("text_semi", UiStyle.FS_S, 0, true)
+		W.ellipsis(self, pf, UiStyle.FS_S, Vector2(spec_x + 13.0, base), UiFormat.money(price), size.x - px - spec_x - 13.0, col)
+	else:
+		# top speed and mass; in narrow cards the top speed alone (the mass is in the tooltip)
+		var spec := ("%d km/h" % roundi(info.top)) if short_spec else ("%d km/h · %.2f t" % [roundi(info.top), info.mass / 1000.0])
+		W.ellipsis(self, UiStyle.font("text", UiStyle.FS_S, 0, true), UiStyle.FS_S, Vector2(spec_x, base), spec,
+			size.x - px - spec_x, UiStyle.TEXT_3)
 	# five stat bars
 	var g := float(UiStyle.S2)
 	var cw := (bars_w - 4 * g) / 5.0
@@ -119,3 +148,11 @@ func _draw() -> void:
 		draw_rect(bar, UiStyle.BG_4)
 		var f := clampf(float(info.bars.get(STATS[k][0], 0.0)), 0.0, 1.0)
 		draw_rect(Rect2(bar.position, Vector2(roundf(cw * f), 4)), UiStyle.ACCENT if selected else UiStyle.TEXT_2)
+
+
+## A small padlock, 9 x 11 px, its top left at `at`.
+func _padlock(at: Vector2, col: Color) -> void:
+	draw_arc(at + Vector2(4.5, 4.0), 3.0, PI, TAU, 8, col, 1.5, true)
+	draw_line(at + Vector2(1.5, 4.0), at + Vector2(1.5, 5.5), col, 1.5)
+	draw_line(at + Vector2(7.5, 4.0), at + Vector2(7.5, 5.5), col, 1.5)
+	draw_rect(Rect2(at + Vector2(0, 5.0), Vector2(9, 6.5)), col)

@@ -16,7 +16,7 @@ extends RefCounted
 ##
 ## Use:
 ##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex"] (picker order)
-##   Cars.get_car(id)      -> {id, name, description, look {color, accent, shape},
+##   Cars.get_car(id)      -> {id, name, price, description, look {color, accent, shape},
 ##                             spec: CarSpec, stats {...}, bars {...}}; unknown ids give the racer
 ##   Cars.spec(id)         -> CarSpec (Car.new(track, idx, Cars.spec(id)))
 ##   Cars.stat_bars(stats, spec) -> {speed, acceleration, grip, drift, nitro} (0..1)
@@ -27,6 +27,8 @@ extends RefCounted
 ##   (0-200 with nitro from a full tank); topNitro km/h; tankTime s; tankDist m;
 ##   brake100 m (100-0 km/h); grip / gripFast g (30 m / 120 m skidpad); drift s
 ##   (how long a keyboard driver holds a handbrake-started drift; median of 192 tries).
+## price (v6.5.0): what the car costs in the car picker's shop (sim/economy.gd); 0 = owned from
+## the start (the Racer). A new player owns only the Racer.
 ## Specs are read-only once a car uses them; every car shares the racer's collision
 ## capsule and wall constants. The AI trains with any car (its sensors scale speed by the
 ## car's max_speed, so changing a car's max_speed changes what its AI networks see) and never
@@ -38,6 +40,7 @@ const DEFAULT_CAR: String = "racer"
 const DEFS: Array[Dictionary] = [
 	{
 		id = "racer", name = "Racer",
+		price = 0,
 		description = "The all-rounder: quick, grippy and stable, never far off the pace anywhere.",
 		look = {color = "#d7263d", accent = "#1b1b1e", shape = "the v3 sports car as it is (low wedge, rear wing)"},
 		changes = {},
@@ -45,6 +48,7 @@ const DEFS: Array[Dictionary] = [
 	},
 	{
 		id = "kestrel", name = "Kestrel",
+		price = 10000,
 		description = "Light and nimble: the most grip in slow corners, the shortest braking and the quickest launch, but a low top speed.",
 		look = {color = "#f2c14e", accent = "#2b2d42", shape = "small, short, low roadster or hot hatch; narrow track look, small lip spoiler, no big wing"},
 		changes = {
@@ -65,6 +69,7 @@ const DEFS: Array[Dictionary] = [
 	},
 	{
 		id = "thunder", name = "Thunder",
+		price = 22000,
 		description = "Heavy and brutal: huge power, a high top speed and the biggest nitro tank. Grips more the faster it goes; slow in tight turns.",
 		look = {color = "#3a86ff", accent = "#0b0c10", shape = "long, wide grand tourer: long bonnet, fat rear tyres, big rear wing and splitter"},
 		changes = {
@@ -86,6 +91,7 @@ const DEFS: Array[Dictionary] = [
 	},
 	{
 		id = "drifter", name = "Drifter",
+		price = 14000,
 		description = "Loose rally car: slides on demand, holds long drifts and lands jumps without losing speed.",
 		look = {color = "#2ec4b6", accent = "#ff9f1c", shape = "tall rally hatchback: roof scoop, mud flaps, light pod on the bonnet, raised ride height"},
 		changes = {
@@ -109,6 +115,7 @@ const DEFS: Array[Dictionary] = [
 	},
 	{
 		id = "dune", name = "Dune",
+		price = 18000,
 		description = "Soft, forgiving buggy: big tyres, all-wheel traction and gentle slides, but the lowest top speed. Made for loose ground.",
 		look = {color = "#8cc63f", accent = "#2b2e33", shape = "open dune buggy: tube roll cage, short nose, high ride on big tyres, exposed suspension, engine at the back"},
 		changes = {
@@ -132,6 +139,7 @@ const DEFS: Array[Dictionary] = [
 	},
 	{
 		id = "vortex", name = "Vortex",
+		price = 30000,
 		description = "Hypercar: the most power and the highest top speed, light and twitchy, with the smallest nitro tank. Grips hard once it is fast.",
 		look = {color = "#ff6b1a", accent = "#111216", shape = "very low, wide mid-engine hypercar: cab-forward bubble, roof scoop, long tail, big diffuser and an active rear wing"},
 		changes = {

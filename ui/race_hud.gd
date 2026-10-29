@@ -615,6 +615,9 @@ func _apply_panel_visibility() -> void:
 		_live_line.visible = not narrow_hide
 	for c in [_mode, _time_plate, _left]:
 		c.visible = not (panel_open and _tiny)
+	# the race time too, under a panel tall enough to reach it (v6.5.0: the payout): the panel shows the time
+	if panel_open and Rect2(_time_plate.position, _time_plate.size).grow(UiStyle.S1).intersects(fr):
+		_time_plate.visible = false
 	# the lap plate too, when the (full-width) panel reaches up to it
 	var race_r := Rect2(_left.position, _race_plate.get_combined_minimum_size())
 	_race_plate.visible = not (panel_open and race_r.grow(UiStyle.S1).intersects(fr))
