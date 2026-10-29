@@ -6,7 +6,7 @@ extends SceneTree
 ##
 ## Options (key=value, all optional):
 ##   track     track id (Tracks.ids()), default rookie-oval
-##   theme     override the track's theme (meadow desert alpine canyon dusk night seaside)
+##   theme     override the track's theme (meadow desert alpine canyon dusk night seaside autumn arctic highland)
 ##   quality   high | medium | low
 ##   cam       chase (behind the car) | overview (training) | orbit (menu) | side (low, beside the car)
 ##             | free (pos=x,y,z look=x,y,z)

@@ -29,7 +29,11 @@ const WHITE := Color(1, 1, 1)
 const NO_TINT := Color(1, 1, 1, 0)
 
 ## Scenery species: scale range, min flatness of the ground, random tilt, sink into the
-## ground (x scale), hue and brightness spread, weight (default 1), max height, receive.
+## ground (x scale), hue and brightness spread, weight (default 1), max height, receive;
+## v6.4: build + leaf (another species' shape in another colour), onSnow (true: only on the
+## land a theme's roadSnow whitens, false: only off it). How many grow where is the theme's
+## (woods: count × 2600 at most, near: the distance over which they thin out away from the
+## road, open: the share left in the clearings; also spacing and peak, see add_scenery).
 const SPECIES := {
 	"broadleaf": {"scale": [0.8, 1.35], "minFlat": 0.82, "tilt": 0.06, "sink": 0.2, "hue": 0.06, "light": 0.18},
 	"pine": {"scale": [0.75, 1.4], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.04, "light": 0.16},
@@ -45,6 +49,15 @@ const SPECIES := {
 	"juniper": {"weight": 1.3, "scale": [0.8, 1.5], "minFlat": 0.75, "tilt": 0.08, "sink": 0.15, "hue": 0.04, "light": 0.12},
 	"palm": {"weight": 1.6, "scale": [0.8, 1.3], "minFlat": 0.8, "tilt": 0.04, "sink": 0.15, "hue": 0.05, "light": 0.14},
 	"bushCoast": {"scale": [0.6, 1.4], "minFlat": 0.7, "tilt": 0.12, "sink": 0.2, "hue": 0.06, "light": 0.16},
+	# v6.4: autumn colours and snow (a "build" names the shape of another species, "leaf" its colour)
+	"oakAutumn": {"build": "broadleaf", "leaf": 0xd0782a, "scale": [0.8, 1.35], "minFlat": 0.82, "tilt": 0.06, "sink": 0.2, "hue": 0.05, "light": 0.18},
+	"mapleRed": {"build": "broadleaf", "leaf": 0xb4402c, "weight": 0.8, "scale": [0.75, 1.25], "minFlat": 0.82, "tilt": 0.06, "sink": 0.2, "hue": 0.04, "light": 0.16},
+	"birch": {"scale": [0.8, 1.3], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.04, "light": 0.14},
+	"bushAutumn": {"build": "bush", "leaf": 0x9a5a2a, "scale": [0.7, 1.5], "minFlat": 0.75, "tilt": 0.1, "sink": 0.25, "hue": 0.05, "light": 0.16},
+	"larch": {"build": "pine", "leaf": 0xc4952f, "weight": 1.3, "scale": [0.8, 1.45], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.03, "light": 0.14, "onSnow": false},
+	"pineLow": {"build": "pine", "scale": [0.75, 1.4], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.04, "light": 0.16, "onSnow": false},
+	"pineHigh": {"build": "pineSnow", "weight": 1.6, "scale": [0.75, 1.45], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.02, "light": 0.1, "onSnow": true},
+	"rockSnow": {"build": "rockSnow", "scale": [0.7, 3.0], "minFlat": 0.45, "tilt": 0.4, "sink": 0.35, "hue": 0.02, "light": 0.12, "receive": true},
 }
 
 
@@ -345,8 +358,15 @@ static func add_scenery(node: Node3D, c: TrackCtx) -> void:
 	var max_z: float = terrain.max_z
 	var reach := 650.0
 	var area := (max_x - min_x + 2.0 * reach) * (max_z - min_z + 2.0 * reach)
-	var spacing := maxf(11.0, sqrt(area / 60000.0))
-	var max_total := 2600
+	# (v6.4) theme "woods": more trees (count), closer together (spacing, m) and closer to the road
+	# (peak: the chance of a tree next to it, near: the distance over which they thin out), fewer
+	# clearings (open): a forest
+	var woods: Dictionary = theme.get("woods", {})
+	var spacing := maxf(float(woods.get("spacing", 11.0)), sqrt(area / 60000.0))
+	var max_total := roundi(2600 * float(woods.get("count", 1.0)))
+	var near := float(woods.get("near", 260.0))
+	var peak := float(woods.get("peak", 0.5))
+	var clearing := float(woods.get("open", 0.18))
 	var lists: Array[Array] = []
 	for sp in species:
 		lists.append([])
@@ -368,8 +388,8 @@ static func add_scenery(node: Node3D, c: TrackCtx) -> void:
 			if e < 16.0 or e > reach:
 				continue
 			var forest := 0.5 + 0.5 * forest_n.get_noise_2d(jx * 0.004, jz * 0.004)
-			var mask := 1.0 if forest > 0.5 else 0.18
-			var p := 0.5 * exp(-(e - 16.0) / 260.0) * mask + 0.03
+			var mask := 1.0 if forest > 0.5 else clearing
+			var p := peak * exp(-(e - 16.0) / near) * mask + 0.03
 			cand.append_array([jx, jz, p])
 			sum_p += p
 		z += spacing
@@ -396,6 +416,8 @@ static func add_scenery(node: Node3D, c: TrackCtx) -> void:
 		var y: float = terrain.height_at(jx, jz)
 		if sp.has("maxHeight") and y - base > float(sp["maxHeight"]):
 			continue
+		if sp.has("onSnow") and (terrain.snow_at(jx, jz) > 0.5) != bool(sp["onSnow"]):
+			continue  # (v6.4) only on the snowy land beside snowy road, or only away from it
 		if has_water and (y < water_y + 0.8 or terrain.sea_at(jx, jz) > 0.12):
 			continue  # not in the sea or on the wet sand
 		var sc: Array = sp["scale"]
@@ -714,17 +736,24 @@ static func _boat_geometry() -> Geo:
 # Species geometry
 # =============================================================================
 
-## The low-poly mesh of a scenery species (seeded as the JS SPECIES[name].build(seed)).
+## The low-poly mesh of a scenery species (seeded as the JS SPECIES[name].build(seed)). A species
+## with a "build" uses that shape, coloured with its "leaf" (v6.4).
 static func species_geometry(sp_name: String, seed: int) -> Geo:
-	match sp_name:
+	var sp: Dictionary = SPECIES.get(sp_name, {})
+	var leaf := int(sp.get("leaf", -1))
+	match String(sp.get("build", sp_name)):
 		"broadleaf":
-			return _broadleaf(seed)
+			return _broadleaf(seed, leaf if leaf >= 0 else 0x4f8a3a)
 		"pine":
-			return _pine(seed, false)
+			return _pine(seed, false, leaf if leaf >= 0 else 0x2d5e34)
 		"pineSnow":
 			return _pine(seed, true)
 		"bush":
-			return _bush(seed, 0x4d8a36)
+			return _bush(seed, leaf if leaf >= 0 else 0x4d8a36)
+		"birch":
+			return _birch(seed)
+		"rockSnow":
+			return _rock(seed, 0x7f838b, true)
 		"rock":
 			return _rock(seed, 0x8a877f)
 		"rockGrey":
@@ -748,7 +777,7 @@ static func species_geometry(sp_name: String, seed: int) -> Geo:
 	return _bush(seed, 0x4d8a36)
 
 
-static func _broadleaf(seed: int) -> Geo:
+static func _broadleaf(seed: int, leaf := 0x4f8a3a) -> Geo:
 	var b := Geo.new()
 	b.add_geometry(paint(Geo.cylinder(0.2, 0.34, 4.4, 6).translate(0, 2.2, 0), 0x6b4a32, 0.7))
 	var rnd := VNoise.Rng.new(seed)
@@ -756,11 +785,11 @@ static func _broadleaf(seed: int) -> Geo:
 		var g := Geo.icosahedron(bl.w, 1 if bl.w > 2.0 else 0)
 		displace(g, 0.28 * bl.w, seed + int(floorf(rnd.next() * 100.0)))
 		g.translate(bl.x, bl.y, bl.z)
-		b.add_geometry(paint(g, 0x4f8a3a, 0.55, 3.6, 8.5))
+		b.add_geometry(paint(g, leaf, 0.55, 3.6, 8.5))
 	return b
 
 
-static func _pine(seed: int, snow: bool) -> Geo:
+static func _pine(seed: int, snow: bool, needles := 0x2d5e34) -> Geo:
 	var b := Geo.new()
 	b.add_geometry(paint(Geo.cylinder(0.14, 0.26, 3.2, 5).translate(0, 1.6, 0), 0x5e4330, 0.7))
 	var layers := [Vector3(2.7, 4.2, 3.9), Vector3(2.1, 3.6, 6.1), Vector3(1.4, 3.0, 8.2), Vector3(0.8, 2.2, 9.9)]
@@ -770,7 +799,7 @@ static func _pine(seed: int, snow: bool) -> Geo:
 		var y: float = layers[k].z
 		var g := Geo.cone(r, h, 8, 1, true).translate(0, y, 0)
 		displace(g, 0.18, seed + k * 7)
-		paint(g, 0x2d5e34, 0.5, y - h / 2.0, y + h / 2.0)
+		paint(g, needles, 0.5, y - h / 2.0, y + h / 2.0)
 		if snow:
 			var white := Themes.lin(0xf2f6fa)
 			for v in g.pos.size():
@@ -789,12 +818,36 @@ static func _bush(seed: int, color: int, dry := false) -> Geo:
 	return b
 
 
-static func _rock(seed: int, color: int) -> Geo:
+static func _rock(seed: int, color: int, snow := false) -> Geo:
 	var g := Geo.dodecahedron(1.2, 0)
 	displace(g, 0.42, seed)
 	g.scale(1.25, 0.75, 1.0).translate(0, 0.45, 0)
 	var b := Geo.new()
 	b.add_geometry(paint(g, color, 0.75, -0.4, 1.4))
+	if snow:
+		# (v6.4) a cap of snow on the faces that look up
+		var white := Themes.lin(0xf2f6fa)
+		for v in b.pos.size():
+			b.col[v] = b.col[v].lerp(white, smoothstep(0.35, 0.75, b.nor[v].y) * 0.9)
+	return b
+
+
+## (v6.4) A birch: a slim white trunk with dark marks and a light crown of yellow leaves.
+static func _birch(seed: int) -> Geo:
+	var b := Geo.new()
+	var rnd := VNoise.Rng.new(seed)
+	var trunk := Geo.cylinder(0.12, 0.2, 6.2, 6, 4).translate(0, 3.1, 0)
+	paint(trunk, 0xe6e2d8, 0.8)
+	for v in trunk.pos.size():
+		var band := sin(trunk.pos[v].y * 5.3 + float(seed % 7)) * cos(atan2(trunk.pos[v].z, trunk.pos[v].x) * 2.0)
+		if band > 0.55:
+			trunk.col[v] = trunk.col[v].lerp(Themes.lin(0x2c2a28), 0.75)
+	b.add_geometry(trunk)
+	for bl: Vector4 in [Vector4(0, 6.2, 0, 1.5), Vector4(0.7, 5.2, 0.3, 1.1), Vector4(-0.6, 5.5, -0.4, 1.15), Vector4(0.1, 7.1, 0.1, 1.0)]:
+		var g := Geo.icosahedron(bl.w, 1 if bl.w > 1.2 else 0) # (only the big top blob subdivided: a light tree)
+		displace(g, 0.3 * bl.w, seed + int(floorf(rnd.next() * 100.0)))
+		g.scale(1, 1.25, 1).translate(bl.x, bl.y, bl.z)
+		b.add_geometry(paint(g, 0xe0b23c, 0.6, 4.0, 8.0))
 	return b
 
 

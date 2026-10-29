@@ -11,7 +11,8 @@ extends SceneTree
 ## recorder and save code. save=<file> keeps the player's real save file out of it.
 ##
 ## Scenarios (scenario=...):
-##   races     tracks=a,b,.. cars=a,b,.. (default every car): pick the track and car with the menu
+##   races     tracks=a,b,.. (default rookie-oval, seaside-stunts, mountain-pass and v6.4's
+##             summit-rush) cars=a,b,.. (default every car): pick the track and car with the menu
 ##             keys, Drive (Enter), drive the medal autopilot of the author time to the finish;
 ##             checks the finish panel (time = the author time, author medal), the saved record,
 ##             score and ghost, then R: the new ghost replays the run (within 3 cm of the car),
@@ -28,7 +29,9 @@ extends SceneTree
 ##             network for the car (Load network's code path) before watching it (screenshots
 ##             of a trained AI). Shots: cars_menu_none, cars_train_form, cars_train, cars_train_cars
 ##             (the run view scrolled to its Car tiles), cars_menu_ready, cars_watch.
-##   menu      keyboard and gamepad navigation of the menu, Controls and Settings screens.
+##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15 by the arrows and
+##             the pad's three rows of tiles; the menu fits 1280 x 720 without scrolling), Controls
+##             and Settings screens.
 ##   settings1 / settings2   change settings with the keyboard on the Settings screen; the second
 ##             run (a new process on the same save file) checks they persisted and were applied.
 ##   shots     out=<dir>: menu, driving with nitro, finish panel, the menu after it and (train=0
@@ -201,17 +204,20 @@ func shot(name: String) -> void:
 	print("shot ", path, " ", img.get_size())
 
 
-## The key that picks track `i` on the menu (1-9, 0, -, =).
+## The key that picks track `i` on the menu (1-9, 0, -, =: the first 12 tracks).
 static func track_key(i: int) -> Key:
 	if i < 9:
 		return (KEY_1 + i) as Key
-	return [KEY_0, KEY_MINUS, KEY_EQUAL][i - 9]
+	return [KEY_0, KEY_MINUS, KEY_EQUAL][mini(i, 11) - 9]
 
 
-## Pick track `id` and car `car` on the menu with the keyboard.
+## Pick track `id` and car `car` on the menu with the keyboard (tracks past the 12th: = picks
+## the 12th, then → moves on to it).
 func pick(track_id: String, car: String) -> void:
 	var i := Tracks.ids().find(track_id)
 	await key(track_key(i))
+	for k in maxi(0, i - 11):
+		await key(KEY_RIGHT)
 	var tries := 0
 	while UiData.picked_car() != car and tries < 8:
 		await key(KEY_C)
@@ -256,7 +262,7 @@ func fast(on: bool) -> void:
 # ---------------------------------------------------------------- races
 
 func races() -> void:
-	var tracks: PackedStringArray = str(opts.get("tracks", "rookie-oval,seaside-stunts,mountain-pass")).split(",")
+	var tracks: PackedStringArray = str(opts.get("tracks", "rookie-oval,seaside-stunts,mountain-pass,summit-rush")).split(",")
 	var cars: PackedStringArray = str(opts.get("cars", ",".join(Cars.ids()))).split(",")
 	for tid in tracks:
 		for cid in cars:
@@ -588,8 +594,23 @@ func menu_nav() -> void:
 	check(menu.selected_track == 1, "↑ previous track")
 	await key(KEY_EQUAL)
 	check(menu.selected_track == 11, "= picks track 12")
+	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen
+	for want in [12, 13, 14]:
+		await key(KEY_RIGHT)
+		check(menu.selected_track == want, "→ track %d (%s)" % [want + 1, Tracks.build(Tracks.ids()[want]).name])
 	await key(KEY_RIGHT)
 	check(menu.selected_track == 0, "→ wraps to track 1")
+	# the whole menu fits a 1280 x 720 window: no scrolling, every tile and car card inside it
+	var win := Vector2(root.size)
+	var sc: ScrollContainer = menu.get("_scroll")
+	var bar := sc.get_v_scroll_bar()
+	var inside := true
+	for c: Control in (menu.get("_tiles") as Array) + (menu.get("_cards") as Array):
+		var r := c.get_global_rect()
+		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
+	var main: Control = menu.get("_main")
+	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5 and main.get_global_rect().end.y <= win.y + 0.5,
+		"the menu with %d tracks fits %dx%d: no scrolling (content %.0f px, page %.0f), every tile and car card on screen" % [n, win.x, win.y, bar.max_value, bar.page])
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
 	check(app.world.track == app.tracks[0], "the 3D track follows the selection (built on a thread)")
 	var car0 := UiData.picked_car()
@@ -632,13 +653,19 @@ func menu_nav() -> void:
 	inp.press("PadB")
 	await frames(2)
 	check(not menu.controls.visible, "pad B closes Controls")
-	# down from the bottom row to the cars, then to Drive, A drives
-	for i in 3:
+	# down the three rows of tiles to the cars, then A drives
+	var rows_seen := {menu.selected_track / maxi(1, menu.columns): true}
+	for i in 5:
 		inp.pad_active = true
 		inp.press("NavDown")
 		await frames(2)
+		var on: Control = menu.pad_target()
+		if on != null and on.get("car_id") != null:
+			break
+		rows_seen[menu.selected_track / maxi(1, menu.columns)] = true
 	var at: Control = menu.pad_target()
-	check(at != null and at.get("car_id") != null, "pad: down from the tiles reaches the car cards (%s)" % (at.name if at else "none"))
+	check(at != null and at.get("car_id") != null and rows_seen.size() == 3,
+		"pad: down through the %d rows of tiles reaches the car cards (%s)" % [rows_seen.size(), at.name if at else "none"])
 	inp.pad_active = true
 	inp.press("PadB")
 	await frames(2)
@@ -649,7 +676,7 @@ func menu_nav() -> void:
 	check(app.mode != app.menu_mode and app.mode.get("driver") == "human", "pad A on a tile drives")
 	await pad_button(JOY_BUTTON_START)
 	check(app.mode == app.menu_mode, "pad Menu: back to the menu")
-	check(n == 12, "12 tracks")
+	check(n == 15, "15 tracks")
 
 
 # ---------------------------------------------------------------- settings

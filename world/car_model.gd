@@ -741,8 +741,10 @@ func _spray_emit(w: float, rate: float, acc: float, kind: String, car: CarEffect
 	if pool == null:
 		var col := Color(0.62, 0.5, 0.37) if kind == "dust" else Color(0.95, 0.97, 1.0)
 		for s in Surfaces.count():
-			if Surfaces.def(s).dust == kind:
-				col = Color.html(Surfaces.def(s).road).lightened(0.38 if kind == "dust" else 0.45)
+			var sd: Dictionary = Surfaces.def(s)
+			if sd.dust == kind:
+				# (v6.4: a surface's own spray colour, e.g. shaded snow that shows on a white road)
+				col = Color.html(sd.spray) if sd.has("spray") else Color.html(sd.road).lightened(0.38 if kind == "dust" else 0.45)
 				break
 		pool = CarEffects.Spray.new(kind, col, 128 if kind == "dust" else 96)
 		add_child(pool.node)

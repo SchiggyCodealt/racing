@@ -20,7 +20,9 @@ extends RefCounted
 ##   and bumps (the road's roughness and the strength of its relief), dust (what the tyres
 ##   throw up: "" nothing, "dust", "snow"; also how the barriers look along it: dusty feet or
 ##   snow on top), marks (tyre mark colour), rumble (camera rumble at speed, 0..1), lines
-##   (whether painted lines and kerbs are drawn on it). The road shader has slots for table
+##   (whether painted lines and kerbs are drawn on it), spray (v6.4, optional: the colour of
+##   what the tyres throw up; without it the road's colour, lightened; snow's is a shaded
+##   blue-grey so it shows against the white road). The road shader has slots for table
 ##   entries 1 and 2 (world/shaders/road_surface.gdshader): a fourth surface needs a third.
 ##
 ## Track data: a definition's "surfaces" is a list of [surface id, from, to] ranges, where
@@ -53,6 +55,7 @@ const DEFS: Array[Dictionary] = [
 		id = "snow", name = "Packed snow",
 		grip = 0.5, car_grip = "snow_grip", roll = 2.2, stiffness = 0.8, esc = 0.6,
 		road = "#ccd6e1", rough = 0.6, bumps = 0.25, dust = "snow", marks = "#8d9cae", rumble = 0.15, lines = false,
+		spray = "#7d95b6",
 	},
 ]
 

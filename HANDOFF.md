@@ -4,11 +4,12 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-29 (v6.3.0: feature 3 of 9, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI
+_Last updated: 2026-10-29 (v6.4.0: feature 4 of 9, three new tracks on three new themes; v6.3.0: feature 3, road
+surfaces: dirt and packed snow; v6.2.0: feature 2, AI
 training with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was
 the port from the browser to the Godot 4.7 engine)._
 
-## Status: v6.3.0, features 1-3 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow)
+## Status: v6.4.0, features 1-4 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -26,22 +27,29 @@ dirt on Ramp Rally, Canyon Run and Mountain Pass, packed snow on Hairpin Valley 
 snow roads, dust, snow spray, coloured tyre marks and a camera rumble; the menu names a track's surfaces. Those four
 tracks are new versions: records, scores and ghosts now carry the track's signature, and old ones move to an
 archive in the save file. The eight all-asphalt tracks and every car on them run the v6.2 physics bit for bit.
-Features 4-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
+v6.4.0 adds feature 4: tracks 13-15 after Seaside Stunts, harder from one to the next, each on a new data-driven
+theme: **Forest Rally** (difficulty 3, a 3-lap circuit, 88 % dirt, autumn woods), **Northern Lights** (4, a 3-lap
+circuit, 79 % packed snow in banked bowls, an arctic night with the northern lights) and **Summit Rush** (5, a
+4.38 km sprint on asphalt, dirt and snow up to 18 m, highland). Medal times for all six cars; the first 12 tracks,
+their signatures and medal times are bit for bit those of v6.3 (tests). The menu lays 15 tiles out as three rows of
+five, which fit 1280 x 720 without scrolling. The snow spray is blue-grey now, so it shows on the white road.
+Features 5-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
 list and surfaces are data).
 
 | Area | State | Where |
 | --- | --- | --- |
 | Game logic without graphics: tracks (builder, collision), car physics and nitro, the six cars, race timing, points, ghosts, medals, save file, autopilot | done; the four browser cars checked number for number against the browser version, the Dune and Vortex (v6.1.0) by tests and the medal sweep | `sim/`, `data/tracks.json`, `data/medals.json` |
-| 3D world: track mesh, terrain and scenery for 7 themes, sky, lighting, glow, car models, smoke, skid marks, sparks, nitro flames, chase camera, AI fleet, sensor rays, quality levels (high / medium / low) | done, compared with v5 screenshots at 14 moments | `world/` |
+| 3D world: track mesh, terrain and scenery for 10 themes (3 new in v6.4.0), sky (v6.4.0: northern lights), lighting, glow, car models, smoke, skid marks, sparks, nitro flames, chase camera, AI fleet, sensor rays, quality levels (high / medium / low) | done, compared with v5 screenshots at 14 moments | `world/` |
 | Car models (v6.1.0): one skinned mesh per car (17 bones) with spinning / steering wheels, suspension, head and brake lights, panel lines, a driver who moves; headlights at night and dusk; a cheaper level of detail on low and for the AI fleet | done, checked by tests and screenshots (software rendering only) | `world/car_shapes.gd`, `world/car_build.gd`, `world/car_kit.gd`, `world/car_model.gd`, `world/shaders/car*.gdshader` |
-| Interface: menu (1 Track / 2 Car / 3 Drive; six car cards, three a row from a 780 px wide picker), Controls and Settings screens, HUD, finish panel, pad navigation, Barlow fonts | done, layout checked at 6 window sizes | `ui/`, `assets/fonts/` |
+| Interface: menu (1 Track / 2 Car / 3 Drive; track tiles in full rows of up to six, 15 tracks as three rows of five; six car cards, three a row from a 780 px wide picker), Controls and Settings screens, HUD, finish panel, pad navigation, Barlow fonts | done, layout checked at 6 window sizes | `ui/`, `assets/fonts/` |
 | AI: network, evolution, sensors and driver, trainer (walls ride / crash, multi-track), training screen with 1× / Fast ×6 / Max on a background thread | done, lockstep-identical to the browser version (the Racer) | `ai/`, `modes/train_mode.gd`, `ui/train_*.gd` |
 | Road surfaces (v6.3.0): the surface table, per-sample surfaces and blend weights on `BuiltTrack`, per-axle physics (GDScript and FleetSim), track signatures on records / scores / ghosts with an archive, dirt and snow road shader, dust and snow spray, tinted tyre marks, camera rumble, the menu's surface line | done, FleetSim bit-identical on the surface tracks for all six cars, asphalt tracks bit-identical to v6.2; new medal times for the four changed tracks | `sim/surfaces.gd`, `sim/car.gd`, `sim/track_builder.gd`, `sim/save.gd`, `sim/tracks.gd`, `native/src/`, `world/track_mesh.gd`, `world/shaders/road_surface.gdshader`, `world/car_effects.gd` |
+| Tracks 13-15 (v6.4.0): Forest Rally, Northern Lights, Summit Rush in `tools/gen_tracks.gd`; themes autumn, arctic, highland (`woods`, `sky.aurora`, `ground.roadSnow`, scenery species `build` / `leaf` / `onSnow`); medal times; the menu's grid as full rows | done; design rules, signatures, medal entries, menu fit and the AI's first finish are tests; the 12 old tracks bit-identical | `tools/gen_tracks.gd`, `data/tracks.json`, `data/medals.json`, `world/themes.gd`, `world/track_scenery.gd`, `world/track_terrain.gd`, `world/shaders/sky.gdshader`, `ui/main_menu.gd` |
 | AI with every car (v6.2.0): the training screen's car tiles, a session per car, one network per car in the save file, network files that name their car, Watch / Race the AI with the picked car's network | done, every car checked in lockstep (FleetSim against GDScript) and by a short training run | `ui/car_chip.gd`, `modes/train_mode.gd`, `sim/save.gd`, `game/app.gd` |
 | FleetSim: the C++ GDExtension that steps the whole population (sensors, network, physics, rules) on several threads | done, bit-identical to the GDScript simulation for all six cars; Linux and Windows libraries built | `native/`, `bin/`, `trackrush.gdextension` |
 | Game shell: modes (menu, Drive, Race the AI ghost, Watch the AI, training), keyboard and gamepad, threaded track loading, quality governor, fullscreen / vsync, network files, messages | done | `main.tscn`, `game/`, `modes/` |
 | New in the Godot version: Settings screen (quality, fullscreen, vsync, interface size, ghost), native file dialogs for networks, the save file instead of browser storage | done | `ui/settings_screen.gd`, `game/app.gd`, `sim/save.gd` |
-| Tests: headless suite (534 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (587 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -96,6 +104,68 @@ Mountain Pass, which now has dirt and snow, finishing exactly on the new author 
 perf 1: 1.65 ms of script time a race frame on Ramp Rally with the dust, 1.36 ms on Night Highway); the four FleetSim
 libraries were rebuilt; the Windows release export was made from a fresh import (no errors or warnings) and zipped
 as `build/TrackRush-6.3.0-windows.zip` (not started: no Windows here).
+
+v6.4.0 (2026-10-29): the headless suite passes (587 checks: sim 75, ui 137, world 160, game 76, ai 139); the
+end-to-end scenarios pass (races 432: every car on Rookie Oval, Seaside Stunts, Mountain Pass and Summit Rush,
+finishing exactly on the author times; menu 28 with the 15-track fit check, cars 16 with the Dune on Forest Rally,
+surfaces 13 with `gfx=high`, modes 29, perf 1: 1.60 ms of script time a race frame on Forest Rally, shots with
+`gfx=high` on the three new tracks); the FleetSim libraries were not touched; the Windows release export was made
+from a fresh import (no errors or warnings) and zipped as `build/TrackRush-6.4.0-windows.zip` (not started: no
+Windows here).
+
+## How v6.4.0 (three new tracks) was verified
+
+- **Design** (`tools/gen_tracks.gd`, turtle programs after Seaside Stunts; the design-rule report):
+
+  | Track | Type | Length | Min. radius | Heights | Jumps | Banking | Checkpoints | Surfaces |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | 13 Forest Rally (★★★, autumn) | 3 laps | 2.54 km a lap | 43.4 m | 2.0-7.9 m | 2 (3.9, 5.5 m) | ≤ 12° | 5 (gaps 422-428 m) | dirt 88 % |
+  | 14 Northern Lights (★★★★, arctic) | 3 laps | 2.83 km a lap | 57.7 m | 4.0-10.0 m | 1 (4.8 m) | ≤ 24° | 6 (394-414 m) | snow 79 % |
+  | 15 Summit Rush (★★★★★, highland) | sprint | 4.38 km | 39.2 m | 1.5-18.0 m | 2 (4.4, 5.0 m) | ≤ 16° | 10 (356-440 m) | dirt 30 %, snow 21 % |
+
+  The old tracks' tightest corners are 13-19 m; Summit Rush's two "hairpins" (the report's word for 150° turns) are
+  40 m switchbacks. `tests/test_sim.gd` "the tracks of v6.4" runs the design rules on all 15 designs (and that
+  `data/tracks.json` is what they make), checks the menu order, difficulty, surfaces, race type and own themes.
+- **The 12 old tracks are untouched**: their `tracks.json` text hashes to v6.3's whole file, their signatures are
+  pinned (`SIGS`), their 72 medal entries hash as before (`V63_MEDALS_SHA`), the web game's test-autopilot times
+  still match to the millisecond on all 12, and the medal sweep (`--update --tracks=forest-rally,northern-lights,
+  summit-rush --jobs=3`, 588 s) only added entries.
+- **Medal times** (author; gold / silver / bronze = 1.06 / 1.2 / 1.5 × as everywhere):
+
+  | Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | Forest Rally | 3:23.333 | 3:18.617 | 3:38.783 | 3:15.850 | 3:03.350 | 3:34.967 |
+  | Northern Lights | 3:08.283 | 3:06.617 | 3:21.617 | 3:01.700 | 3:02.750 | 3:25.667 |
+  | Summit Rush | 1:47.417 | 1:46.933 | 1:53.850 | 1:47.550 | 1:42.067 | 1:49.950 |
+
+  The Dune is quickest on Forest Rally and Summit Rush (it keeps the most grip on dirt and snow) and the Drifter on
+  Northern Lights (1.05 s ahead of the Dune: it holds the long slides); the Thunder and Vortex are the slowest on all
+  three. The
+  author runs' wall steps: Forest Rally 0-764 (Thunder 685, Vortex 764), Northern Lights 76-1,801 (see Known
+  limitations), Summit Rush 54-484. Every car finishes all three with the test autopilot (the existing test, now on
+  15 tracks); the e2e `races` scenario drives Summit Rush with all six cars through the menu and finishes on the
+  author time.
+- **Walls still cost time** (test): one Racer lap, medal autopilot against never braking: Forest Rally 1:11.567
+  against 1:12.867, Northern Lights 1:09.250 against 1:09.683, Summit Rush 1:50.967 against 1:56.283 (the best of
+  the sweep's 18-40 m/s² settings for these three).
+- **AI** (`tools/headless_train.gd`, FleetSim, 80 Racer networks, seed 1, 3 threads): on each new track alone the
+  first finish comes in generation 0 with walls ride and with walls crash (crash, by generation 4: Forest Rally
+  1:39.950 a lap, Northern Lights 1:37.867, Summit Rush 2:38.100; Mountain Pass for comparison: first finish in
+  generation 5). All three together, walls ride, 60 generations (118 s): 1:07.150 / 1:03.733 a lap and 1:45.750.
+  `tests/test_ai.gd` checks the crash run's first finish (generation 0 on each, 10 at most).
+- **Menu**: `ui/main_menu.gd` makes rows as full as it can (at most six a row from 1200 px, four from 760, three
+  below; 15 tiles: three rows of five), with 40 px maps and tighter tiles when three rows meet a short window
+  (≤ 800 px) 1200 px or wider. `tests/test_ui.gd` "menu track grid" lays it out at 8 window sizes (1920x1080 to
+  640x720): 15 tiles inside the window and apart, every tile and car card on screen from 1280 x 720 up; the menu
+  keys and pad tests now cover tracks 13-15 (= then →; down through three rows). The e2e `menu` scenario checks
+  with real frames that 1280 x 720 does not scroll. Below about 480 px wide the menu's content is wider than the
+  window, as it was with 12 tracks.
+- **Looks** (screenshots through software rendering; `tests/test_world.gd`): the arctic sky's northern lights (only
+  that theme has them), Forest Rally's woods (737 trees and rocks within 50 m of the road against Rookie Oval's 278),
+  Summit Rush's snowy land beside the snowy road (none beside the asphalt start) with the snowy pines only there.
+  Frame cost at high (chase camera): Forest Rally 1.57 M primitives and 153 draw calls, against Lighthouse Bay 1.41 M
+  / 96 and Canyon Run 1.12 M / 135. The snow spray got its own blue-grey colour and bigger puffs: seen on Summit
+  Rush's snow behind a sliding Dune, where before it was invisible.
 
 ## How v6.3.0 (road surfaces) was verified
 
@@ -257,7 +327,8 @@ as `build/TrackRush-6.3.0-windows.zip` (not started: no Windows here).
   `ORDER` / `FACTORS`, stored with the times in `data/medals.json`), the settings rows (`ui/settings_screen.gd`
   `ROWS`, with an `action` row type for a terminal), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
   the road surfaces (`sim/surfaces.gd` `DEFS`: physics and look columns; FleetSim gets the physics columns from
-  `Trainer.track_data`, the road shader has colour slots for table entries 1 and 2).
+  `Trainer.track_data`, the road shader has colour slots for table entries 1 and 2; v6.4.0 added the optional look
+  column `spray`, the colour of what the tyres throw up).
 - **Road surfaces** are marked in the track designs (`tools/gen_tracks.gd`, turtle `.surface("dirt")` ...
   `.surface("asphalt")`; the design rules want stretches of 60 m or more and the start grid on asphalt). A track
   without them has no `"surfaces"` key and an empty `BuiltTrack.surf_w`, and every surface branch in `sim/car.gd`,
@@ -269,6 +340,18 @@ as `build/TrackRush-6.3.0-windows.zip` (not started: no Windows here).
   `sig` is not the track's current one is archived when the save is loaded (`SaveData._archive_stale`).
   `Tracks.LEGACY_SIGS` holds the v6.2 signatures for untagged (version 2) entries: never change it. Changing a track
   (layout or surfaces) therefore retires its old records by itself; re-run `tools/medals.gd --update --tracks=<id>`.
+- **Tracks are appended, never edited in passing** (v6.4.0): menu order is `data/tracks.json` order, the first 12
+  are the browser's, and `tests/test_sim.gd` pins every track's signature (`SIGS`), the text of the first 12 entries
+  (a SHA-256 of `tools/gen_tracks.gd`'s output for them) and their medal entries (`V63_MEDALS_SHA`), and runs the
+  design rules on all of them. A new track: its turtle program after the last one in `tools/gen_tracks.gd`, its
+  theme's name in `THEMES` there, `tools/medals.gd --update --tracks=<id> --jobs=3`, then add its signature to `SIGS`.
+- **Themes are data** (`world/themes.gd`; a theme lists every field, see its header). v6.4.0 added optional keys:
+  `woods` ({count, spacing, peak, near, open}: a forest close to the road; without it the scenery is placed exactly
+  as before), `sky.aurora` (+ `auroraColor`, `auroraEdge`: the northern lights, `world/shaders/sky.gdshader`) and
+  `ground.roadSnow` ([full, gone] m: white land beside snowy road, `world/track_terrain.gd` `snow_at()`). Scenery
+  species (`world/track_scenery.gd` `SPECIES`) can reuse another's shape in another colour (`build`, `leaf`) and grow
+  only on or only off that snowy land (`onSnow`); new shapes: `birch`, `rockSnow`. A theme without the new keys
+  draws as before.
 - **Car models are made in code and are only looks**: nothing in `sim/` reads them. `world/car_shapes.gd` holds each
   car's shape as data (body sections, wheel places, wing, cockpit, suit and glove colours; the paint comes from
   `look` in `sim/cars.gd`), `world/car_build.gd` turns a shape into one skinned mesh per car and detail level
@@ -340,10 +423,23 @@ as `build/TrackRush-6.3.0-windows.zip` (not started: no Windows here).
 - **The AI does not see the surface**: its 18 inputs are unchanged (`SENSOR_VERSION` 2); a network learns where the
   dirt is on the tracks it trains on. A Racer network trained on an all-asphalt track brakes too late on snow.
 - **Surfaces were only seen through software rendering** (llvmpipe): the dirt and snow colours, the border noise,
-  the dust and spray density were tuned on its screenshots. The snow spray is hard to see against the white road.
+  the dust and spray density were tuned on its screenshots. The snow spray (v6.4.0: blue-grey `spray` colour in the
+  surface table, bigger and denser puffs) shows on the white road there; on a real screen it may need another look.
 - Archived records, scores and ghosts (save file `"archive"`) are kept but nothing in the game shows them yet
   (`SaveData.get_archived` reads them).
-- `web/docs/tracks-overview.svg` shows the layouts only, not the surfaces.
+- `web/docs/tracks-overview.svg` shows the layouts only, not the surfaces, and only the first 12 tracks.
+- **Northern Lights (v6.4.0) can be driven flat out**: its banked snow bowls let a never-braking Racer lap in
+  1:09.683, only 0.43 s slower than the best medal-autopilot lap (1:09.250 at 40 m/s² of planned grip; 1:13.483 at
+  the usual 18-22, which the bowls' banking beats). Sliding scrubs about as much speed as braking would; the walls are
+  touched (133 steps) but cost little. The heavy cars' medal runs there touch a wall in about 15 % of their steps
+  (Thunder 1,801 of 12,097, Vortex 1,786 of 12,340; aLat 40), against at most 409 on the older tracks; at 20 m/s²
+  the Thunder touches 183 steps and is 23 s slower. A test keeps "walls cost time" true with the best of the sweep's
+  settings for the v6.4 tracks. Tighter, less banked bowls (tried: banks 12-14°) did not change it much.
+- **The new tracks are easy for the AI to learn**: 80 random Racer networks (FleetSim, seed 1) finish each of them in
+  generation 0, even with walls crash (Mountain Pass: generation 5), because the roads are 14-16 m wide with no
+  corner under a 39 m radius.
+- The northern lights are only in the visible sky, not in the sky's radiance cubemap (it would rebake every frame
+  as they drift), so they don't light the snow.
 - A ghost car on High and Medium now costs about 16,500 triangles (was about 10,600) because it is the full model
   in the ghost material (on Low about 6,700); it is 2 draw calls instead of 38.
 - **The Linux training library needs glibc 2.38** (Ubuntu 24.04 or newer); on older Linux the game falls back to
@@ -406,10 +502,16 @@ re-run the medal times.
    grip on dirt and 72 % on snow and is the quickest car on Ramp Rally and Hairpin Valley; the Vortex keeps 55 % /
    42 %. New medal times for the four tracks; records, scores and ghosts are tagged with the track's signature and
    old ones archived (`SaveData.VERSION` 3). Drifts on dirt score as usual.
-4. **Three new maps.** Design them with the turtle in `tools/gen_tracks.gd` (the design rules check them), maybe on a
-   new theme in `world/themes.gd`, then `tools/medals.gd`. The menu grid is 6 columns, so 15 tracks make a third row:
-   check the menu still fits at 1280x720 without scrolling (`ui/main_menu.gd`, `tests/visual/ui_preview.gd`); keys
-   1-9, 0, -, = reach 12 tracks, the rest by mouse, arrows or pad.
+4. **Three new maps.** **Done in v6.4.0.** Tracks 13-15 after Seaside Stunts in `tools/gen_tracks.gd`, harder from
+   one to the next: Forest Rally (★★★, 2.54 km circuit, 88 % dirt, two jumps, theme autumn), Northern Lights (★★★★,
+   2.83 km circuit, 79 % packed snow in bowls banked 20-24°, a jump, theme arctic with the northern lights) and Summit
+   Rush (★★★★★, 4.38 km sprint: asphalt, a dirt forest climb with two wide switchbacks, snow on the 18 m summit, a
+   jump, dirt on the way down; theme highland, snow on the land beside the snowy road). No corner under a 39 m radius
+   (the old hairpins are 13-19 m). Medal times for all six cars (`tools/medals.gd --update --tracks=...`, 588 s); the
+   other 72 entries untouched. The menu's grid makes full rows (three rows of five at 15 tracks) and shortens the
+   maps a little when three rows meet a short window, so 1280 x 720 shows everything without scrolling; keys 1-9,
+   0, -, = still reach the first 12, the rest by arrows, mouse or pad (the tile's tooltip names the key when it has
+   one). The snow spray is blue-grey (`spray` in `sim/surfaces.gd`) and bigger, so it shows on the white road.
 5. **Money and points from beating medal times and AIs (more for more skilled AIs).** Defaults: **money buys cars
    (start with the Racer); points are a career total** (separate from the per-run style score); **AI opponents from
    Rookie to Elite, harder ones paying more**. Needs: new save fields (money, career points, owned cars, rewards

@@ -21,6 +21,7 @@ func run(t) -> bool:
 	_menu_keys(t)
 	_menu_pad(t)
 	_menu_cars(t)
+	_menu_tracks(t)
 	_settings(t)
 	_hud(t)
 	_finish(t)
@@ -72,7 +73,7 @@ func _formats(t) -> void:
 func _data(t) -> void:
 	t.section("data adapter and medals (medals.js medalFor / nextMedal)")
 	Fx.save_data_v5()
-	t.check(UiData.track_count() == 12, "12 tracks (%d)" % UiData.track_count())
+	t.check(UiData.track_count() == 15, "15 tracks (%d)" % UiData.track_count())
 	t.check(UiData.track_id(9) == "night-highway" and UiData.track_info(9).name == "Night Highway", "track 10 is Night Highway")
 	var real: bool = not UiData._tracks.is_empty()
 	t.check(real, "tracks come from sim/ (Tracks.build), not the fixture")
@@ -80,7 +81,8 @@ func _data(t) -> void:
 	for i in UiData.track_count():
 		surf.append(UiData.track_info(i).surfaces)
 	t.check(surf[0] == "Asphalt" and surf[1] == "Asphalt + packed snow" and surf[2] == "Asphalt + dirt" and surf[7] == "Asphalt + dirt + packed snow" and \
-		surf[8] == "Asphalt + dirt" and surf.count("Asphalt") == 8, "the road surfaces of every track (v6.3): %s" % ", ".join(surf))
+		surf[8] == "Asphalt + dirt" and surf[12] == "Asphalt + dirt" and surf[13] == "Asphalt + packed snow" and surf[14] == "Asphalt + dirt + packed snow" and \
+		surf.count("Asphalt") == 8, "the road surfaces of every track (v6.3, v6.4): %s" % ", ".join(surf))
 	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])
@@ -208,29 +210,71 @@ func _menu_cars(t) -> void:
 		h.free()
 
 
+func _menu_tracks(t) -> void:
+	t.section("menu track grid: 15 tracks at every window size (v6.4)")
+	Fx.save_data_v5()
+	# [window, tiles a row]: three rows of five from 1200 px wide, rows of four from 760, three below
+	for case: Array in [[Vector2(1280, 720), 5], [Vector2(1920, 1080), 5], [Vector2(1366, 768), 5], [Vector2(1200, 700), 5],
+			[Vector2(1024, 600), 4], [Vector2(900, 700), 4], [Vector2(700, 900), 3], [Vector2(640, 720), 3]]:
+		var sz: Vector2 = case[0]
+		var h := _holder(t, sz)
+		var menu := MainMenu.new()
+		h.add_child(menu)
+		menu.show_menu(true)
+		_settle(h)
+		var tiles: Array = menu.get("_tiles")
+		var rects: Array[Rect2] = []
+		var inside := true
+		var overlap := false
+		var bottom := 0.0
+		for c: Control in tiles:
+			var r := c.get_global_rect()
+			inside = inside and r.position.x >= -0.5 and r.end.x <= sz.x + 0.5 and r.size.x > 100.0 and r.size.y > 60.0
+			for o in rects:
+				overlap = overlap or o.grow(-0.5).intersects(r)
+			rects.append(r)
+			bottom = maxf(bottom, r.end.y)
+		for c: Control in menu.get("_cards"):
+			bottom = maxf(bottom, c.get_global_rect().end.y)
+		# from 1280 x 720 up every tile and car card is on screen without scrolling (the e2e menu
+		# scenario checks the whole menu with real frames)
+		var on_screen := bottom <= sz.y + 0.5 if sz.x >= 1280 else true
+		t.check(tiles.size() == 15 and menu.columns == int(case[1]) and inside and not overlap and on_screen,
+			"%dx%d: %d tiles, %d a row, inside the window and apart%s" % [sz.x, sz.y, tiles.size(), menu.columns,
+				", every tile and car card on screen (lowest ends at %d px)" % roundi(bottom) if sz.x >= 1280 else ""])
+		h.free()
+
+
 func _menu_keys(t) -> void:
 	t.section("menu keys (menu.js handleKeys)")
 	Fx.save_data_v5()
 	var hm := _menu(t)
 	var menu: MainMenu = hm[1]
 	var inp := Fx.FakeInput.new()
-	t.check(menu.selected_track == 9 and menu.columns == 6, "Night Highway selected, six tiles a row at 1280 x 720")
+	t.check(menu.selected_track == 9 and menu.columns == 5, "Night Highway selected, five tiles a row at 1280 x 720 (15 tracks: three rows)")
 	var picked := []
 	menu.track_selected.connect(func(i: int) -> void: picked.append(i))
 	for pair in [["Digit1", 0], ["Digit0", 9], ["Minus", 10], ["Equal", 11], ["Numpad5", 4]]:
 		menu.handle_keys(_press(inp, [pair[0]]))
 		t.check(menu.selected_track == pair[1], "%s picks track %d" % [pair[0], pair[1] + 1])
 	t.check(picked.has(10), "track_selected emitted")
+	# tracks 13-15 have no key: the arrows reach them (on from track 12, = picks it)
+	menu.handle_keys(_press(inp, ["Equal"]))
+	for want: int in [12, 13, 14]:
+		menu.handle_keys(_press(inp, ["ArrowRight"]))
+		t.check(menu.selected_track == want, "= then ArrowRight: track %d, %s" % [want + 1, UiData.track_info(want).name])
+	menu.handle_keys(_press(inp, ["ArrowUp"]))
+	t.check(menu.selected_track == 13, "ArrowUp: back to track 14")
 	menu.select(2)
 	var meta: Label = menu.get("_td_meta")
 	t.check(meta.text == "Circuit · 3 laps · 2.37 km a lap · Asphalt + dirt", "the track panel names the road surfaces: \"%s\"" % meta.text)
 	menu.select(7)
 	t.check(meta.text.ends_with("km · Asphalt + dirt + packed snow"), "... and a sprint's: \"%s\"" % meta.text)
-	menu.select(11)
+	menu.select(14)
 	menu.handle_keys(_press(inp, ["ArrowRight"]))
-	t.check(menu.selected_track == 0, "ArrowRight from the last track wraps to the first")
+	t.check(menu.selected_track == 0, "ArrowRight from the last track (15) wraps to the first")
 	menu.handle_keys(_press(inp, ["ArrowUp"]))
-	t.check(menu.selected_track == 11, "ArrowUp from the first wraps to the last")
+	t.check(menu.selected_track == 14, "ArrowUp from the first wraps to the last")
 	menu.handle_keys(_press(inp, ["KeyS"]))
 	t.check(menu.selected_track == 0, "S moves on like ArrowDown")
 	UiData.set_setting("car", "racer")
@@ -278,17 +322,21 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_tiles")[9] and menu.selected_track == 9, "the first press only shows the highlight (on the track)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
+	t.check(menu.pad_target() == menu.get("_tiles")[14] and menu.selected_track == 14, "down a row: track 15 (Summit Rush, the third row of five)")
+	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.car_card(), "down from the bottom row: the picked car")
 	menu.handle_keys(_press(inp, ["NavRight"], true))
 	t.check(UiData.picked_car() == "kestrel" and menu.pad_target() == menu.car_card(), "right on the cars picks the Kestrel")
 	menu.handle_keys(_press(inp, ["PadRB"], true))
 	t.check(UiData.picked_car() == "thunder" and menu.pad_target() == menu.car_card(), "RB picks the next car, the highlight follows")
 	menu.handle_keys(_press(inp, ["PadA"], true))
-	t.check(menu.pad_target() == menu.get("_tiles")[9], "A on a car goes back to the tracks")
+	t.check(menu.pad_target() == menu.get("_tiles")[14], "A on a car goes back to the tracks")
 	menu.handle_keys(_press(inp, ["NavLeft"], true))
-	t.check(menu.selected_track == 8, "left on the tracks moves to the previous track")
+	t.check(menu.selected_track == 13, "left on the tracks moves to the previous track")
 	menu.handle_keys(_press(inp, ["NavUp"], true))
-	t.check(menu.selected_track == 2, "up a row")
+	t.check(menu.selected_track == 8, "up a row")
+	menu.handle_keys(_press(inp, ["NavUp"], true))
+	t.check(menu.selected_track == 3, "up a row again: the top row")
 	menu.handle_keys(_press(inp, ["NavUp"], true))
 	t.check(menu.pad_target() == menu.get("_controls_btn"), "up from the top row: the Controls button")
 	menu.handle_keys(_press(inp, ["NavLeft"], true))
@@ -300,7 +348,7 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_settings_btn"), "after a screen closes, the first press shows the highlight where it was")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	t.check(menu.pad_target() == menu.get("_tiles")[2], "down from the header: back to the tracks")
+	t.check(menu.pad_target() == menu.get("_tiles")[3], "down from the header: back to the tracks (the tile under the Settings button)")
 	menu.handle_keys(_press(inp, ["PadLB"], true))
 	t.check(UiData.picked_car() == "kestrel", "LB picks the previous car from anywhere")
 	var drives := [0]

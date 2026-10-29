@@ -57,7 +57,7 @@ const RULES: Dictionary = {
 }
 const RUN_IN: float = 36.0
 const RUN_OFF: float = 250.0
-const THEMES: Array[String] = ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside"]
+const THEMES: Array[String] = ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland"]
 const DEGR: float = PI / 180.0
 
 ## The designs, in menu order: {kind, meta, make (Callable), close (closeLoop options), req}
@@ -454,6 +454,108 @@ func _define() -> void:
 			.S(60, {y = 1}).cp().S(300)
 			.S(RUN_OFF, {y = 1})),
 		{minLength = 3000, kickers = 6})
+
+	# 13 - Forest Rally (v6.4): a rally stage through an autumn forest, nearly all dirt; asphalt only
+	# round the start and finish. Fast, flowing bends to slide through, crests and one jump.
+	_circuit({id = "forest-rally", name = "Forest Rally", difficulty = 3, width = 14, theme = "autumn",
+		description = "A dirt rally stage through the autumn woods: flowing bends to slide through, crests and a jump."},
+		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 14, y = 2})
+			.S(a, {y = 2})
+			.surface("dirt")
+			.R(90, 50, {bank = 8})
+			.climb(60, 4).hill(240, 3)
+			.SL(35, 55, {bank = 6}, 10)
+			.R(60, 60, {bank = 8})
+			.S(30).kicker({h = 4, drop = 2})
+			.L(30, 90, {bank = 4})
+			.R(120, 45, {bank = 12})
+			.S(20).kicker({h = 5.5})
+			.L(50, 70, {bank = 6})
+			.R(80, 50, {bank = 10})
+			.S(b).hill(160, 2.5)
+			.R(60, 70, {bank = 8})
+			.L(30, 100, {bank = 4})
+			.R(60, 60, {bank = 8})
+			.S(60, {y = 2})
+			.surface("asphalt")
+			.S(60, {y = 2})),
+		{a0 = 200, b0 = 60, minA = 120, minB = 20},
+		{minLength = 2200, kickers = 2})
+
+	# 14 - Northern Lights (v6.4): a night circuit on packed snow under the aurora. Steep banked
+	# snow bowls carry the speed, the flat corners need patience; only the start straight and a
+	# short cleared stretch are asphalt.
+	_circuit({id = "northern-lights", name = "Northern Lights", difficulty = 4, width = 16, theme = "arctic",
+		description = "Packed snow under the aurora: banked snow bowls, a jump and long slides. Smooth hands win here."},
+		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 16, y = 4, yaw = PI / 2})
+			.S(a, {y = 4})
+			.surface("snow")
+			.R(20, 140, {bank = 4}).L(20, 140, {bank = 4})
+			.S(60)
+			.L(120, 70, {bank = 22})
+			.S(30).kicker({h = 5})
+			.SR(30, 100, {bank = 8}, 20)
+			.S(20).climb(220, 10).S(40)
+			.L(120, 60, {bank = 24})
+			.S(80)
+			.surface("asphalt")
+			.R(40, 55, {bank = 5}).L(40, 55, {bank = 5})
+			.S(40)
+			.surface("snow")
+			.S(b)
+			.L(20, 160, {bank = 6, y = 8}).R(40, 160, {bank = 6, y = 6}).L(20, 160, {bank = 6, y = 4})
+			.S(40)
+			.L(120, 80, {bank = 20})
+			.S(60, {y = 4})
+			.surface("asphalt")
+			.S(60, {y = 4})),
+		{a0 = 200, b0 = 100, minA = 120, minB = 20},
+		{minLength = 2400, kickers = 1})
+
+	# 15 - Summit Rush (v6.4): the finale, a sprint over the mountain on every surface: fast asphalt
+	# in the valley, a dirt forest road climbing through wide banked turns, packed snow over the
+	# summit, an asphalt descent with a big jump and a gravel run home.
+	_sprint({id = "summit-rush", name = "Summit Rush", difficulty = 5, width = 14, theme = "highland",
+		description = "The finale over the mountain: asphalt, a dirt forest climb, snow on the summit and a flying descent."},
+		func() -> Turtle: return (Turtle.new({width = 15, y = 1.5})
+			.S(RUN_IN, {y = 1.5})
+			# the valley: fast asphalt and a first jump
+			.S(220, {y = 1.5})
+			.L(30, 200, {bank = 4}).R(30, 200, {bank = 4})
+			.S(40).kicker({h = 4.5})
+			.R(70, 80, {bank = 10}).width(14, 60)
+			# the forest climb: a dirt road through wide banked turns
+			.surface("dirt")
+			.S(40).climb(150, 5)
+			.L(150, 40, {bank = 12})
+			.climb(160, 9)
+			.R(150, 40, {bank = 12})
+			.climb(160, 13)
+			.L(90, 50, {bank = 10})
+			# the summit: packed snow
+			.surface("snow")
+			.climb(160, 17)
+			.R(60, 70, {bank = 14})
+			.S(60).L(30, 110, {bank = 8}).R(30, 110, {bank = 8})
+			.S(40).hill(200, 0.8)
+			.R(120, 45, {bank = 16})
+			.S(60)
+			# the descent: asphalt, fast sweepers and a big step-down jump
+			.surface("asphalt")
+			.climb(160, 13)
+			.L(60, 90, {bank = 10})
+			.S(30).kicker({h = 5, drop = 4})
+			.R(80, 60, {bank = 10})
+			.climb(160, 5)
+			# the valley again: a gravel run
+			.surface("dirt")
+			.L(50, 70, {bank = 8}).R(50, 70, {bank = 8})
+			.S(80, {y = 3}).L(70, 60, {bank = 8})
+			.S(60, {y = 2})
+			.surface("asphalt")
+			.S(200, {y = 2})
+			.S(RUN_OFF, {y = 2})), # run-off after the finish line
+		{minLength = 4500, minClimb = 14, kickers = 2})
 
 
 ## A design turned into its track definition: {def, f (finish() result), turtle, req}, or {} on an error.

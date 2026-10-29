@@ -4,7 +4,7 @@ extends Control
 ## One track tile of the menu's grid (style.css .track-card): the number top left, the
 ## medal your best time with the picked car has earned top right, the minimap, the name,
 ## the difficulty bars and your best time. The selected tile is lighter, underlined with
-## the accent, its map and number in the accent. Drawn by hand (no child nodes), so 12 of
+## the accent, its map and number in the accent. Drawn by hand (no child nodes), so 15 of
 ## them cost next to nothing. Click picks the track, a double click drives.
 
 signal picked
@@ -44,7 +44,8 @@ func setup(i: int, info: Dictionary, track_map: Dictionary) -> void:
 	title = info.name
 	difficulty = info.difficulty
 	map = track_map
-	tooltip_text = "%s (key %s)" % [title, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="][i] if i < 12 else str(i + 1)]
+	# (the number keys reach the first 12 tracks; further ones are picked with the arrows, mouse or pad)
+	tooltip_text = "%s (key %s)" % [title, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="][i]] if i < 12 else title
 	queue_redraw()
 
 

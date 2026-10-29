@@ -542,8 +542,8 @@ class Spray:
 			life[k] = 0.45 + randf() * 0.45
 			p[k] = Vector3(x + (randf() - 0.5) * 0.4, y + 0.15, z + (randf() - 0.5) * 0.4)
 			v[k] = Vector3(vx * 0.55 + (randf() - 0.5) * 3.0, 1.2 + randf() * 2.6 * (0.5 + strength), vz * 0.55 + (randf() - 0.5) * 3.0)
-			s0[k] = 0.3 + randf() * 0.3
-			al[k] = 0.35 + 0.45 * strength
+			s0[k] = 0.55 + randf() * 0.45 # (v6.4: bigger and denser clumps, to show on a snow road)
+			al[k] = 0.6 + 0.35 * strength
 		else:
 			life[k] = 1.4 + randf() * 1.3
 			p[k] = Vector3(x + (randf() - 0.5) * 0.6, y + 0.35, z + (randf() - 0.5) * 0.6)
@@ -560,7 +560,7 @@ class Spray:
 		var drag := exp(-dt * (1.2 if snow else 1.8))
 		var dragy := exp(-dt * (0.3 if snow else 1.0))
 		var grav := (9.0 if snow else 0.0) * dt
-		var grow := 1.1 if snow else 4.5
+		var grow := 2.0 if snow else 4.5
 		for k in max:
 			if life[k] > 0.0:
 				life[k] -= dt

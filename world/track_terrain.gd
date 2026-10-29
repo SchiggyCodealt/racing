@@ -35,6 +35,11 @@ var NZ := 0
 var hgt := PackedFloat32Array()
 var E := PackedFloat32Array()
 var SEA := PackedFloat32Array()
+## (v6.4) per vertex: the share of the nearby road that is snow (0..1), and how white the ground
+## is drawn from it (0..1: fades out with the distance from the road, off on steep slopes); both
+## empty unless the theme puts snow beside snowy road (ground.roadSnow) and the track has some
+var SNOWY := PackedFloat32Array()
+var SNOW_COVER := PackedFloat32Array()
 var up := PackedFloat32Array()  # y of the vertex normals (flatness)
 var base := 0.0
 var plane_y := 0.0
@@ -86,11 +91,22 @@ func build(ctx: TrackCtx) -> void:
 	# stamps: every sample caps the terrain under the road; every third (and the pads) also
 	# blends the land towards the road-side level G
 	var stamps: Array[PackedFloat32Array] = []
+	# (v6.4) how much of each sample's road is snow, when the theme snows the land beside it
+	var snow_w := PackedFloat32Array()
+	if (theme["ground"] as Dictionary).has("roadSnow") and t.has_surfaces():
+		snow_w.resize(n_s)
+		for i in n_s:
+			for sf in t.surf_n:
+				if Surfaces.def(sf).dust == "snow":
+					snow_w[i] += t.surf_w[i * t.surf_n + sf]
+	var WSN := PackedFloat32Array()
+	if not snow_w.is_empty():
+		WSN.resize(NV)
 	for i in n_s:
-		stamps.append(PackedFloat32Array([t.px[i], t.pz[i], t.hw[i], ctx.G[i], 1.0 if i % 3 != 0 else 0.0]))
+		stamps.append(PackedFloat32Array([t.px[i], t.pz[i], t.hw[i], ctx.G[i], 1.0 if i % 3 != 0 else 0.0, snow_w[i] if not snow_w.is_empty() else 0.0]))
 	for pad in ctx.pads:
 		for p: Vector2 in pad["pts"]:
-			stamps.append(PackedFloat32Array([p.x, p.y, pad["r"], pad["y"], 0.0]))
+			stamps.append(PackedFloat32Array([p.x, p.y, pad["r"], pad["y"], 0.0, 0.0]))
 	for st in stamps:
 		var x := st[0]
 		var z := st[1]
@@ -128,6 +144,14 @@ func build(ctx: TrackCtx) -> void:
 					var w := 1.0 / (1.0 + q2 * q2)
 					WS[v] += w
 					WG[v] += w * g
+					if not WSN.is_empty():
+						WSN[v] += w * st[5]
+
+	SNOWY = PackedFloat32Array()
+	if not WSN.is_empty():
+		SNOWY.resize(NV)
+		for v in NV:
+			SNOWY[v] = WSN[v] / WS[v] if WS[v] > 1e-4 else 0.0
 
 	# Chamfer distance transform: approximate distance far from the track.
 	var dS := cell
@@ -311,6 +335,12 @@ func _build_geometry(ctx: TrackCtx) -> void:
 	var cRock := Themes.lin(gc["rock"])
 	var has_snow: bool = int(gc["snow"]) >= 0
 	var cSnow := Themes.lin(gc["snow"]) if has_snow else Color.WHITE
+	# (v6.4) snow on the land beside snowy stretches of road (theme ground.roadSnow)
+	var road_snow: Array = gc.get("roadSnow", [])
+	var on_snow := has_snow and not SNOWY.is_empty() and road_snow.size() == 2
+	SNOW_COVER = PackedFloat32Array()
+	if on_snow:
+		SNOW_COVER.resize(NV)
 	var cStrata: Array[Color] = [cRock, cDry, cDirt, cB]
 	var cSand := Color.WHITE
 	var cShallow := Color.WHITE
@@ -346,6 +376,10 @@ func _build_geometry(ctx: TrackCtx) -> void:
 			if has_snow:
 				var line := 70.0 + n * 50.0
 				c = c.lerp(cSnow, _ss(line, line + 30.0, h) * (1.0 - _ss(0.38, 0.6, slope)))
+			if on_snow and SNOWY[v] > 0.0:
+				var reach := 1.0 - _ss(float(road_snow[0]), float(road_snow[1]), E[v] + (n - 0.5) * 60.0)
+				SNOW_COVER[v] = _ss(0.2, 0.8, SNOWY[v]) * reach * (1.0 - _ss(0.45, 0.7, slope))
+				c = c.lerp(cSnow, SNOW_COVER[v])
 			if has_water and SEA[v] > 0.001:
 				# a sandy beach down to the water line, then the sea bed darkening with depth
 				# (seen through the water, which is slightly see-through)
@@ -463,6 +497,16 @@ func flatness(x: float, z: float) -> float:
 	var i := clampi(roundi((x - x0) / cell), 0, NX - 1)
 	var k := clampi(roundi((z - z0) / cell), 0, NZ - 1)
 	return up[k * NX + i]
+
+
+## (v6.4) How white the ground beside snowy road is drawn at (x, z), 0..1 (the nearest vertex; 0
+## everywhere unless the theme snows the land beside snowy road, ground.roadSnow).
+func snow_at(x: float, z: float) -> float:
+	if SNOW_COVER.is_empty():
+		return 0.0
+	var i := clampi(roundi((x - x0) / cell), 0, NX - 1)
+	var k := clampi(roundi((z - z0) / cell), 0, NZ - 1)
+	return SNOW_COVER[k * NX + i]
 
 
 ## Share of open water at (x, z): 0 on land (and off the terrain), 1 out at sea (bilinear).

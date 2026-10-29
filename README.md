@@ -2,7 +2,7 @@
 
 A Trackmania-style racer, plus a neural-network AI driver that you train yourself with
 neuroevolution and can watch learn in real time. Pick one of 6 cars, chase the medal times on
-12 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
+15 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
 and play with a keyboard or a gamepad.
 
 Version 6.0.0 is the game rebuilt in the [Godot](https://godotengine.org) game engine (version
@@ -16,8 +16,11 @@ Version 6.2.0 lets you train the AI with any of the six cars: every car keeps it
 Watch the AI and Race the AI ghost use when that car is picked (see [Training the AI](#training-the-ai)).
 Version 6.3.0 adds road surfaces: stretches of dirt and packed snow on four tracks, with less grip, longer
 slides, dust and snow thrown up by the tyres, and a car that suits them, the Dune (see [Road surfaces](#road-surfaces)).
+Version 6.4.0 adds three tracks at the end of the list, each in a scenery of its own: **Forest Rally**, a dirt rally
+stage through autumn woods; **Northern Lights**, banked bowls of packed snow under the aurora; and **Summit Rush**, a
+sprint over a mountain on asphalt, dirt and snow (see [Tracks](#tracks)).
 
-![The menu: track tiles with minimaps, the selected track's panel with records and medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
+![The menu: 15 track tiles with minimaps in three rows, the selected track's panel with a record, its medal and the medal times, the car picker, Drive and the AI driver block](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
@@ -29,7 +32,7 @@ slides, dust and snow thrown up by the tyres, and a car that suits them, the Dun
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.2.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.4.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -84,7 +87,7 @@ On the menu:
 
 | Key | Gamepad | Action |
 | --- | --- | --- |
-| Arrows or W A S D, 1-9, 0, -, = | d-pad / left stick | Pick a track (0, - and = are tracks 10-12) |
+| Arrows or W A S D, 1-9, 0, -, = | d-pad / left stick | Pick a track (0, - and = are tracks 10-12; tracks 13-15 with the arrows, the mouse or the pad) |
 | C / Shift+C | RB / LB | Next / previous car |
 | Enter or Space | A | Drive |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
@@ -237,6 +240,9 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 3:03). Autho
 | Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 |
 | Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 |
 | Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 |
+| Forest Rally | 3:23.333 | 3:18.617 | 3:38.783 | 3:15.850 | 3:03.350 | 3:34.967 |
+| Northern Lights | 3:08.283 | 3:06.617 | 3:21.617 | 3:01.700 | 3:02.750 | 3:25.667 |
+| Summit Rush | 1:47.417 | 1:46.933 | 1:53.850 | 1:47.550 | 1:42.067 | 1:49.950 |
 
 The times are for the full race you drive (3 laps, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
@@ -247,7 +253,7 @@ even the author time. A medal counts to the millisecond the HUD shows. (On the e
 four cars' times are the browser version's except the Racer on Technical Trial, 1.05 s slower here: see
 [HANDOFF.md](HANDOFF.md). Hairpin Valley, Ramp Rally, Mountain Pass and Canyon Run got dirt or snow in version 6.3.0
 and new times, 0.8-37 s slower than before depending on the car: see [Road surfaces](#road-surfaces). The Dune and the
-Vortex exist only in this version.)
+Vortex, and the three tracks of version 6.4.0, exist only in this version.)
 
 ### Your ghost
 
@@ -298,7 +304,8 @@ it doesn't depend on the frame rate, and an AI trained at Max speed drives exact
 
 ### Road surfaces
 
-Most of the road is asphalt. Since version 6.3.0 four tracks also have stretches of **dirt** and **packed snow**.
+Most of the road is asphalt. Since version 6.3.0 four tracks also have stretches of **dirt** and **packed snow**, and
+the three tracks of version 6.4.0 are mostly dirt or snow.
 You see them coming: a brown gravel road or a white one of packed snow, with a ragged edge where it meets the asphalt,
 no painted lines or kerbs, and dusty or snow-capped barriers alongside. You also feel them:
 
@@ -309,8 +316,8 @@ no painted lines or kerbs, and dusty or snow-capped barriers alongside. You also
 | Surface | Grip | Rolling resistance | Slides | Where |
 | --- | --- | --- | --- | --- |
 | Asphalt | all of it | normal | as before | every track |
-| Dirt | 55-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Ramp Rally (47 % of a lap), Canyon Run (14 %), Mountain Pass (11 %) |
-| Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Hairpin Valley (28 %), Mountain Pass (19 %) |
+| Dirt | 55-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Forest Rally (88 % of a lap), Ramp Rally (47 %), Summit Rush (30 %), Canyon Run (14 %), Mountain Pass (11 %) |
+| Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Northern Lights (79 %), Hairpin Valley (28 %), Summit Rush (21 %), Mountain Pass (19 %) |
 
 How the physics handles it (`sim/surfaces.gd` holds the table, `sim/car.gd` uses it):
 
@@ -343,8 +350,9 @@ Why these tracks:
   snow; the asphalt comes back 60 m before the first hairpin down, so you brake for it on tarmac.
 - **Hairpin Valley** (alpine): packed snow from the third switchback up and over the ridge, the highest and coldest part.
 
-The other eight tracks are all asphalt and unchanged. On loose ground the tyres throw up **dust** on dirt and **snow
-spray** on snow (more when you slide; fewer particles at Medium and Low graphics), leave **tyre tracks in the colour of
+The three tracks of version 6.4.0 were made for the surfaces: see [Tracks](#tracks). The other eight tracks are all
+asphalt and unchanged. On loose ground the tyres throw up **dust** on dirt and **snow spray** (blue-grey, so it shows
+on the white road) on snow (more when you slide; fewer particles at Medium and Low graphics), leave **tyre tracks in the colour of
 the surface** (faint ones even without sliding), and the camera **rumbles** a little on dirt (less on snow). The
 menu's track panel names a track's surfaces ("Circuit · 3 laps · 2.37 km a lap · Asphalt + dirt").
 
@@ -376,10 +384,23 @@ old all-asphalt ones:
 | 10 | Night Highway | 3 laps | 3.12 km/lap | night | asphalt | ★★ | Kilometre-long straights and slow corners under the lights: brake hard, then fire the nitro |
 | 11 | Lighthouse Bay | 3 laps | 2.35 km/lap | seaside | asphalt | ★★★ | Long sweeping bends round a bay, past a lighthouse: hold the drift |
 | 12 | Seaside Stunts | Sprint | 3.02 km | seaside | asphalt | ★★★★ | Six kickers down the coast road, with step-downs and a 7.5 m launch |
+| 13 | Forest Rally | 3 laps | 2.54 km/lap | autumn | dirt, but for the start and finish straight | ★★★ | A rally stage through autumn woods: flowing bends to slide through, crests and two jumps |
+| 14 | Northern Lights | 3 laps | 2.83 km/lap | arctic | packed snow, two asphalt stretches | ★★★★ | Banked snow bowls (20-24°), a jump and long slides at night under the aurora: smooth hands win |
+| 15 | Summit Rush | Sprint | 4.38 km | highland | asphalt, a dirt forest climb, packed snow on the summit, dirt again on the way down | ★★★★★ | The finale: two jumps, sweeping switchbacks up to 18 m, the snow, and a flying descent |
 
-Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map of every track is in
-[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (the layouts are the same in both versions; the browser
-version has no dirt or snow).
+Tracks 13-15 (version 6.4.0) come after the twelve of the browser version, harder from one to the next, and each
+has a scenery of its own: **autumn** (a golden afternoon in mixed woods that grow close to the road: orange oaks, red
+maples, birches and pines), **arctic** (a polar night with the northern lights rippling over the sky, snowy pines,
+moonlight, lit barriers and headlights) and **highland** (bright and cold: larch and pine forest below, and above it
+snow on the ground beside the snowy road, where the trees carry snow too).
+
+| Forest Rally | Northern Lights | Summit Rush |
+| --- | --- | --- |
+| ![The Racer with nitro on Forest Rally's dirt road, dust behind it, autumn oaks, maples, birches and pines beside the road](docs/screenshots/forest-rally.png) | ![The Racer sliding through a snowy bend of Northern Lights at night, blue-grey snow spray behind it, green northern lights in the sky](docs/screenshots/northern-lights.png) | ![The Racer throwing up dust in a dirt switchback of Summit Rush's forest climb, golden larches beside it and the snowy summit road ahead](docs/screenshots/summit-rush.png) |
+
+Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map of the first twelve tracks is in
+[web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (their layouts are the same in both versions; the browser
+version has no dirt or snow, and not tracks 13-15).
 
 ## Training the AI
 
@@ -565,7 +586,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.3.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.4.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -617,7 +638,12 @@ grades, short landing zones, sprints without a run-off, dirt or snow patches und
 gets the table as data), a grip-share field in `CarSpec` if each car should differ on it, and a third slot in the road
 shader (`world/shaders/road_surface.gdshader`, which has two: dirt and snow). The menu, minimaps, scenery and
 AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked with
-the mouse, arrows or gamepad.
+the mouse, arrows or gamepad, and its grid makes rows as full as it can (15 tracks: three rows of five, which fit a
+1280 x 720 window without scrolling). A track's scenery is a theme in `world/themes.gd` (sky, light, fog, ground
+colours, mountains and scenery species, all data; since 6.4.0 also `woods` for a forest close to the road,
+`sky.aurora` for the northern lights and `ground.roadSnow` for snowy land beside snowy road); add its name to
+`THEMES` in `tools/gen_tracks.gd`. The tests in `tests/test_sim.gd` check every track against the design rules and
+that the first twelve tracks, their signatures and their medal times stay exactly as they are.
 
 ## Project layout
 

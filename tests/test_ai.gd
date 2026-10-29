@@ -496,6 +496,24 @@ func _training() -> void:
 		var parsed := Trainer.parse_network_file(JSON.stringify(tr.export_best()))
 		t.check(not parsed.has("error") and absf(float(parsed.meta.fitness) - tr.best_fitness) < 1e-6 and int(parsed.meta.generation) == 12,
 			"the exported best network loads back with its fitness and generation")
+	# v6.4: the AI learns the new tracks too (dirt, snow, all three): a short FleetSim session on
+	# each (walls: crash) finishes it within a few generations
+	if Trainer.native_available():
+		var firsts: PackedStringArray = []
+		var all_done := true
+		for tid: String in ["forest-rally", "northern-lights", "summit-rush"]:
+			NeuralNetwork.rng.seed = 1
+			var tr := Trainer.new({tracks = [Tracks.build(tid)], population_size = 80, walls = "crash", native = true, threads = 0})
+			var first := -1
+			while tr.generation < 10 and first < 0:
+				var g := tr.generation
+				tr.step_many(600)
+				if tr.generation > g and tr.best_times.get(tid, {}).get("finish") != null:
+					first = g
+			var fin: Variant = tr.best_times.get(tid, {}).get("finish")
+			all_done = all_done and first >= 0
+			firsts.append("%s in generation %d (%s)" % [Tracks.build(tid).name, first, UiFormat.time(fin)])
+		t.check(all_done, "FleetSim: 80 random drivers (walls: crash) finish the tracks of v6.4: %s" % ", ".join(firsts))
 	NeuralNetwork.rng.seed = 6
 	var gd := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 10, walls = "crash", native = false})
 	var t1 := Time.get_ticks_msec()

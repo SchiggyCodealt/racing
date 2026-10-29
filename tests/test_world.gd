@@ -2,7 +2,9 @@ extends RefCounted
 ## test_world.gd: headless checks of the 3D world (world/): noise and random ports,
 ## themes and quality levels, car models, chase camera, track meshes, fleet; the road
 ## surfaces (v6.3): dirt and snow roads, no paint on them, dusty / snowy barriers, dust and
-## snow spray (pooled, scaled by quality), surface-coloured tyre marks, the camera's rumble.
+## snow spray (pooled, scaled by quality), surface-coloured tyre marks, the camera's rumble;
+## the themes of v6.4: the arctic sky's northern lights, the autumn woods, the highland's snow
+## beside snowy road (and the trees that know it).
 ## The pictures themselves are checked by eye with tests/visual/world_*.gd.
 
 const VNoise = preload("res://world/noise.gd")
@@ -11,6 +13,7 @@ const TrackMesh = preload("res://world/track_mesh.gd")
 const TrackCtx = preload("res://world/track_ctx.gd")
 const Shapes = preload("res://world/car_shapes.gd")
 const Kit = preload("res://world/car_kit.gd")
+const TrackScenery = preload("res://world/track_scenery.gd")
 
 
 func run(t) -> bool:
@@ -71,9 +74,14 @@ func _themes(t) -> void:
 	var low: Dictionary = Themes.QUALITY["low"]
 	t.check(not low["bloom"] and not low["ssao"] and not low["tufts"] and float(low["scenery"]) < 0.5 and int(low["msaa"]) == 0, "low stays light")
 	var w := World.new()
+	var auroras := []
 	for nm: String in Themes.NAMES:
 		w.set_theme(nm)
 		t.check(w.theme_name == nm and _near(w.env.fog_depth_end, float(Themes.THEMES[nm]["fog"]["far"]), 1e-3), "World.set_theme(%s)" % nm)
+		if float(w.sky_mat.get_shader_parameter("aurora")) > 0.0:
+			auroras.append(nm)
+	# v6.4: the arctic night has the northern lights in its sky, no other theme does
+	t.check(auroras == ["arctic"], "northern lights in the sky of %s only" % [auroras])
 	w.set_quality("low")
 	t.check(w.quality == "low" and w.sun.directional_shadow_mode == DirectionalLight3D.SHADOW_ORTHOGONAL and not w.env.glow_enabled, "World.set_quality(low)")
 	w.free()
@@ -280,7 +288,8 @@ func _camera(t) -> void:
 
 func _tracks(t) -> void:
 	t.section("track meshes")
-	for id: String in ["rookie-oval", "night-highway", "lighthouse-bay", "seaside-stunts"]:
+	var near_road := {}
+	for id: String in ["rookie-oval", "night-highway", "lighthouse-bay", "seaside-stunts", "forest-rally", "northern-lights", "summit-rush"]:
 		var tr := Tracks.build(id)
 		var t0 := Time.get_ticks_msec()
 		var node := TrackMesh.build(tr)
@@ -314,8 +323,12 @@ func _tracks(t) -> void:
 				var o := Vector3(buf[k * 16 + 3], buf[k * 16 + 7], buf[k * 16 + 11])
 				if terrain.edge_dist(o.x, o.z) < 12.0 or (terrain.has_water and terrain.sea_at(o.x, o.z) > 0.2):
 					bad += 1
+				if terrain.edge_dist(o.x, o.z) < 50.0:
+					near_road[id] = int(near_road.get(id, 0)) + 1
 			full += mmi.multimesh.instance_count
 		t.check(full > 500 and bad == 0, "%s: %d scenery instances, none on the road or in the sea" % [id, full])
+		if id == "summit-rush":
+			_road_snow(t, tr, node)
 		node.apply_quality(Themes.QUALITY["low"])
 		var shown := 0
 		var tufts_hidden := true
@@ -332,6 +345,41 @@ func _tracks(t) -> void:
 		if id == "lighthouse-bay":
 			t.check(node.find_child("lighthouse", false, false) != null and node.find_child("sea", false, false) != null, "seaside: sea and lighthouse")
 		node.free()
+	# v6.4: the autumn theme's woods (theme "woods") grow close to Forest Rally's road
+	t.check(int(near_road.get("forest-rally", 0)) > 2 * int(near_road.get("rookie-oval", 0)),
+		"autumn woods: %d trees and rocks within 50 m of Forest Rally's road (the meadow of Rookie Oval: %d)" % [near_road.get("forest-rally", 0), near_road.get("rookie-oval", 0)])
+
+
+## v6.4, theme ground.roadSnow (Summit Rush's highland): the land beside the snowy road is white,
+## the land beside its asphalt start is not, and the trees know it (species onSnow: snowy pines
+## only on the snow, larches and green pines only off it).
+func _road_snow(t, tr: BuiltTrack, node: Node3D) -> void:
+	var terrain = node.terrain
+	var snow := Surfaces.index_of("snow")
+	var i_snow := -1
+	for k in range(30, tr.count - 30):
+		if tr.surface[k - 30] == snow and tr.surface[k] == snow and tr.surface[k + 30] == snow:
+			i_snow = k
+			break
+	var side := func(i: int, off: float) -> float:
+		return terrain.snow_at(tr.px[i] + tr.nx[i] * (tr.hw[i] + off), tr.pz[i] + tr.nz[i] * (tr.hw[i] + off))
+	var on_snow := minf(side.call(i_snow, 20.0), side.call(i_snow, -20.0))
+	var at_start := maxf(side.call(tr.start_idx, 20.0), side.call(tr.start_idx, -20.0))
+	var wrong := 0
+	var counted := {}
+	for d: Dictionary in node.detail_nodes:
+		var mmi: MultiMeshInstance3D = d["node"]
+		var sp := String(mmi.name).get_slice("-", 0)
+		if d["kind"] != "scenery" or not d.has("buffer") or not TrackScenery.SPECIES.get(sp, {}).has("onSnow"):
+			continue
+		var want: bool = TrackScenery.SPECIES[sp]["onSnow"]
+		var buf: PackedFloat32Array = d["buffer"]
+		for k in mmi.multimesh.instance_count:
+			if (terrain.snow_at(buf[k * 16 + 3], buf[k * 16 + 11]) > 0.5) != want:
+				wrong += 1
+			counted[sp] = int(counted.get(sp, 0)) + 1
+	t.check(i_snow >= 0 and on_snow > 0.9 and at_start == 0.0 and wrong == 0 and counted.size() == 3,
+		"Summit Rush: snow on the land beside its snowy road (%.2f), none beside the asphalt start; %s, none on the wrong ground" % [on_snow, counted])
 
 
 func _surfaces(t) -> void:

@@ -251,7 +251,7 @@ func _app(t) -> void:
 	var app: GameApp = (load("res://main.tscn") as PackedScene).instantiate()
 	t.tree.root.add_child(app)
 	t.check(app.mode == app.menu_mode and app.ui.menu.visible and not app.ui.hud.visible, "starts on the menu")
-	t.check(app.tracks.size() == 12 and app.world.track == app.tracks[0], "12 tracks, the first one shown")
+	t.check(app.tracks.size() == 15 and app.world.track == app.tracks[0], "15 tracks, the first one shown")
 	t.check(app.ui.input == app.input and app.ui.menu.input == app.input, "the interface reads the game's input")
 	t.check(app.ui.menu.get("_ghost_btn").disabled and app.network.is_empty(), "no AI network yet: Race the AI ghost is off")
 	app.play("ai", false)

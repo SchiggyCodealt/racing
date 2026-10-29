@@ -13,7 +13,13 @@
 ## accent (barrier panel colours), lamps (lit lamps and gates), scenery
 ## (species names), tuft (grass colours or null); extras: glow (night
 ## barrier stripes), skyline (night city), sea (seaside coast), headlights (0..1: how
-## much the cars' headlights light the road, world/car_model.gd; none when missing).
+## much the cars' headlights light the road, world/car_model.gd; none when missing);
+## v6.4 extras: woods (a forest: {count, spacing, peak, near, open}, more trees close to the road, see
+## world/track_scenery.gd; none = as before),
+## sky.aurora (0..1: the northern lights, with auroraColor and auroraEdge for the
+## curtains' fringe; world/shaders/sky.gdshader) and ground.roadSnow ([full, gone] m:
+## the land beside snowy road is white up to `full` m from it, fading out by `gone` m;
+## world/track_terrain.gd; scenery species with "onSnow" grow only there or only off it).
 ## Light intensities are the Three.js values; World converts them.
 extends RefCounted
 
@@ -118,9 +124,58 @@ const THEMES := {
 		"scenery": ["palm", "bushCoast", "rock"],
 		"tuft": {"color": 0x8aa456, "tip": 0xd2c98a},
 	},
+	# v6.4 (tracks 13-15)
+	"autumn": {
+		# a golden autumn afternoon in a mixed forest: low warm sun, hazy air, the first snow on the peaks
+		"sky": {"zenith": 0x2f63b6, "horizon": 0xdcd2bc, "below": 0x6f5a3a, "clouds": 0.3, "cloudLit": 0xfff1de, "cloudShade": 0xa6968e, "haze": 0.8},
+		"sun": {"color": 0xffd49a, "intensity": 3.2, "elevation": 26.0, "azimuth": 235.0},
+		"hemi": {"sky": 0xeadcc4, "ground": 0x6a4f2c, "intensity": 0.32},
+		"env": 1.0,
+		"fog": {"color": 0xd2c6ae, "near": 220.0, "far": 2600.0},
+		"exposure": 0.98,
+		"bloom": {"strength": 0.24, "radius": 0.45, "threshold": 1.2},
+		"ground": {"a": 0x5a7630, "b": 0x80703a, "dry": 0x9a8442, "dirt": 0x6b4f33, "rock": 0x7b766c, "snow": 0xf1f3f5, "far": 0x5e6a30},
+		"hills": 10.0, "mountains": 170.0, "mountainStyle": "peaks",
+		"accent": [0xe0641c, 0xf5efe4], "lamps": false, "woods": {"count": 1.25, "spacing": 9.0, "peak": 0.85, "near": 90.0, "open": 0.3},
+		"scenery": ["oakAutumn", "mapleRed", "birch", "pine", "bushAutumn", "rock"],
+		"tuft": {"color": 0x8d7f40, "tip": 0xcfae5c},
+	},
+	"arctic": {
+		# polar night: moonlight on the snow, stars and the northern lights; lamps, glowing stripes and headlights
+		"sky": {"zenith": 0x020817, "horizon": 0x133652, "below": 0x0b1626, "clouds": 0.1, "cloudLit": 0x3a4f6e, "cloudShade": 0x0a111f, "haze": 0.5, "stars": 1.0,
+			"aurora": 1.0, "auroraColor": 0x33ff9a, "auroraEdge": 0x8a4dff},
+		"sun": {"color": 0xb4c8ff, "intensity": 1.05, "elevation": 32.0, "azimuth": 160.0},
+		"hemi": {"sky": 0x4a6c9c, "ground": 0x50607a, "intensity": 1.1},
+		"env": 2.2,
+		"fog": {"color": 0x0d1b2d, "near": 240.0, "far": 2600.0},
+		"exposure": 1.25,
+		"bloom": {"strength": 0.5, "radius": 0.5, "threshold": 0.8},
+		"ground": {"a": 0xdde6f0, "b": 0xd0dbe7, "dry": 0xa7b4c4, "dirt": 0x7c8492, "rock": 0x5b6270, "snow": 0xeef3f8, "far": 0x9fb0c6},
+		"hills": 8.0, "mountains": 230.0, "mountainStyle": "peaks",
+		"accent": [0x22c8f0, 0xeef4fa], "lamps": true, "glow": true, "headlights": 1.0,
+		"scenery": ["pineSnow", "rockSnow", "pineSnow", "rockGrey"],
+		"tuft": null,
+	},
+	"highland": {
+		# cold, clear late autumn in the mountains: golden larches and moor grass, snow on the peaks and on
+		# the land beside the snowy stretch of road (ground.roadSnow), where the pines are white too
+		"sky": {"zenith": 0x2a62bb, "horizon": 0xd6e3ee, "below": 0x8a9a88, "clouds": 0.46, "cloudLit": 0xffffff, "cloudShade": 0x97a5b7, "haze": 0.5},
+		"sun": {"color": 0xfff0da, "intensity": 3.2, "elevation": 38.0, "azimuth": 140.0},
+		"hemi": {"sky": 0xd8e6f6, "ground": 0x6c6a4a, "intensity": 0.3},
+		"env": 1.0,
+		"fog": {"color": 0xcddae6, "near": 320.0, "far": 3100.0},
+		"exposure": 0.94,
+		"bloom": {"strength": 0.2, "radius": 0.45, "threshold": 1.4},
+		"ground": {"a": 0x6c7638, "b": 0x8c7c3e, "dry": 0x9c8a58, "dirt": 0x6a5a44, "rock": 0x7a7a78, "snow": 0xf2f5f8, "far": 0x75804a,
+			"roadSnow": [70.0, 190.0]},
+		"hills": 8.0, "mountains": 300.0, "mountainStyle": "peaks",
+		"accent": [0xd89a1c, 0xf3f2ee], "lamps": false,
+		"scenery": ["larch", "pineLow", "pineHigh", "rockSnow", "bushAutumn"],
+		"tuft": {"color": 0x7d7e3e, "tip": 0xc8b062},
+	},
 }
 
-const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside"]
+const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland"]
 
 ## Quality levels (scene.js QUALITY, plus what Godot does with them): render scale
 ## (the web's pixel-ratio cap at 1x DPI), bloom (glow), sun shadow map size and

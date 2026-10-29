@@ -16,7 +16,8 @@ extends Control
 ##   the Controls screen and the Settings screen.
 ## Every bit of game data comes through UiData; the buttons only emit signals.
 ##
-## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12), C / Shift+C (next / previous car),
+## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
+## C / Shift+C (next / previous car),
 ## Enter or Space drives, H or ? opens Controls, O opens Settings.
 ## Gamepad: a highlight moved with the d-pad / stick over the track tiles (moving onto one
 ## selects it), the car cards under them (moving onto one picks it) and the buttons; A drives
@@ -874,9 +875,11 @@ func pad_target() -> Control:
 
 ## Apply the window-size rules of style.css (in interface pixels: UiRoot lays the interface
 ## out at the window's size divided by the interface scale, like CSS pixels):
-##   six tiles a row from 1200 px wide, four below; map 56 px in short windows (≤ 800 px),
-##   64 px, 80 px from 860 px tall, 104 px from 1600 x 940 (with roomier tiles); the side
-##   column 30 % of the width (360-440 px); denser spacing when the window is short.
+##   up to six tiles a row from 1200 px wide, four below (three under 760), as many a row as
+##   keeps the rows full (v6.4: 15 tracks make three rows of five); map 56 px in short windows
+##   (≤ 800 px; 40 px with three rows of tiles from 1200 px wide), 64 px, 80 px from 860 px tall,
+##   104 px from 1600 x 940 (with roomier tiles); the side column 30 % of the width
+##   (360-440 px); denser spacing when the window is short.
 func _layout() -> void:
 	var w := size.x
 	var h := size.y
@@ -885,7 +888,14 @@ func _layout() -> void:
 	compact = h <= 800
 	var big := w >= 1600 and h >= 940
 	var one_col := w < 1000
-	columns = 6 if w >= 1200 else (4 if w >= 760 else 3)
+	# at most six tiles a row (four, three in narrow windows), spread so the rows are as full as they
+	# can be: 12 tracks make two rows of six, 15 three rows of five
+	var max_cols := 6 if w >= 1200 else (4 if w >= 760 else 3)
+	var rows := ceili(float(_tiles.size()) / max_cols)
+	columns = ceili(float(_tiles.size()) / maxi(1, rows))
+	# three rows of tiles in a short window: shorter maps and tighter tiles, so 1280 x 720 still
+	# shows the whole menu without scrolling
+	var dense := rows >= 3 and compact and w >= 1200
 	map_h = 64.0
 	if w >= 1200 and h >= 860:
 		map_h = 80.0
@@ -895,14 +905,17 @@ func _layout() -> void:
 		map_h = 56.0
 	if w < 1200 and w >= 1000 and compact:
 		map_h = 44.0
+	if dense:
+		map_h = 40.0
 	_grid.columns = columns
 	var tile_px := float(UiStyle.S3)
 	if big:
 		tile_px = UiStyle.S4
 	elif w < 1280 and w >= 1200:
 		tile_px = UiStyle.S2
+	var tile_py := float(UiStyle.S4 if big else (UiStyle.S2 if dense else UiStyle.S3))
 	for t in _tiles:
-		t.set_metrics(map_h, tile_px, UiStyle.S4 if big else UiStyle.S3, UiStyle.FS_L if big else UiStyle.FS_M)
+		t.set_metrics(map_h, tile_px, tile_py, UiStyle.FS_L if big else UiStyle.FS_M)
 	var side_w := clampf(0.3 * w, 360.0, 440.0) if w >= 1200 else 340.0
 	_main.vertical = one_col
 	_side.custom_minimum_size.x = 0.0 if one_col else side_w
