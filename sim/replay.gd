@@ -23,7 +23,10 @@ extends RefCounted
 ##   var rec := Replay.GhostRecorder.new()
 ##   rec.add(step, car)                  after every physics step (step 1, 2, ... since GO)
 ##   rec.before_jump(step, car); car.place(...); rec.after_jump(step, car)   on a respawn
-##   var saved := Replay.pack_ghost(rec, {track = track, laps = 3, time = race.finish_time, car = "racer"})
+##   var saved := Replay.pack_ghost(rec, {track = track, laps = 3, time = race.finish_time, car = "racer"[, up = levels]})
+##       (v6.11: `up`, the car's upgrade levels, is kept with the ghost when not stock; unpack_ghost
+##       gives it back as `up`, [0, 0, 0, 0] for older ghosts. Ghosts are poses, so an upgraded run
+##       replays exactly as it was driven whatever the car has now.)
 ##   var ghost := Replay.unpack_ghost(saved, track, laps[, car_id])   # {} when it doesn't fit / decode
 ##   var player := Replay.GhostPlayer.new(ghost); player.pose(step_f)  # moves player.car (a Car used as a pose)
 ##   Replay.ghost_fits(saved, track, laps[, car_id]), Replay.ghost_car_of(saved), Replay.track_signature(track)
@@ -290,6 +293,11 @@ static func pack_ghost(rec: GhostRecorder, info: Dictionary) -> Dictionary:
 	}
 	if rec.boost_steps.size():
 		out.boost = Marshalls.raw_to_base64(encode_boost(rec))
+	# (v6.11) the car's upgrade levels, when it had any (sim/upgrades.gd; none: the stock car). Poses
+	# replay the same whatever the car was, so this only says what drove the run.
+	var up: PackedInt32Array = Upgrades.clean(info.get("up"))
+	if not Upgrades.is_stock(up):
+		out.up = Array(up)
 	return out
 
 
@@ -359,7 +367,8 @@ static func unpack_ghost(saved: Variant, track: BuiltTrack, laps: int, car_id: S
 		boost = decode_boost(bytes, end) if bytes.size() else {} # (saved only when there are changes)
 		if boost.is_empty():
 			return {}
-	return {time = float(s.time), date = str(s.get("date", "")), steps = steps, ch = d.ch, end = end, car = ghost_car_of(s), boost = boost}
+	return {time = float(s.time), date = str(s.get("date", "")), steps = steps, ch = d.ch, end = end, car = ghost_car_of(s), boost = boost,
+		up = Upgrades.clean(s.get("up"))}
 
 
 ## Plays an unpacked ghost: pose(step) for any (fractional) step since GO.

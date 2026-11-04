@@ -115,6 +115,9 @@ var nitro_force: float = 4500.0   # N, largest extra push (at low speed) ...
 var nitro_power: float = 130000.0 # W, ... and at speed: push = min(nitro_force, nitro_power / speed)
 var nitro_top: float = 82.3       # m/s, the push fades out over the last ...
 var nitro_fade: float = 3.0       # m/s ... below this speed (top speed with nitro ≈ 292 km/h)
+## (v6.11) share of a tank the style score's points refill, × this (sim/score.gd; 1 for every stock
+## car: the nitro upgrade raises it, sim/upgrades.gd). FleetSim has no style score: not sent to it.
+var nitro_refill: float = 1.0
 # --- simulation ---------------------------------------------------------------------------
 var substeps: int = 2
 var max_speed: float = 77.0       # m/s: top speed on the flat (≈277 km/h); also normalises the AI speed input
@@ -144,7 +147,7 @@ const KEYS: PackedStringArray = [
 	"radius", "halfLength", "wallRestitution", "maxRebound", "wallFriction", "wallCrush", "wallSlide", "wallRub",
 	"wallRubBuild", "wallAlign", "wallAlignGain", "wallAlignAccel", "wallYawStop", "wallLatch", "wallLatchSteps", "wallHeight",
 	"gravity", "liftSeparation", "minFlight", "hardLanding", "landingLoss", "airSteer", "airSteerTau", "airYawDamp",
-	"nitroTime", "nitroForce", "nitroPower", "nitroTop", "nitroFade",
+	"nitroTime", "nitroForce", "nitroPower", "nitroTop", "nitroFade", "nitroRefill",
 	"substeps", "maxSpeed",
 ]
 

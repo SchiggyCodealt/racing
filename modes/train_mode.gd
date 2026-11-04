@@ -31,6 +31,9 @@ extends Node
 ## better network than the one saved (a failed autosave, or on a one-track run a car already
 ## beating the best so far), it asks first: save it, switch without saving, or keep training.
 ##
+## Upgrades (v6.11.0): the population drives the car with the upgrades the player bought for it
+## (sim/upgrades.gd; the note line names them), fixed for the session.
+##
 ## The training session (its Trainer, the chart, the speed and camera, the form) survives
 ## Watch best / Race best / the menu and back: it lives in the static `session`, so a new
 ## TrainMode resumes it. It waits (no steps) while another screen is shown, like the web game.
@@ -457,6 +460,10 @@ func start(seed_override: Dictionary = {}) -> void:
 	cfg.seed_meta = seed_meta
 	cfg.threads = 0
 	cfg.car_id = car
+	# (v6.11) the AI learns the car as the player has it: with the upgrades bought for it (kept for
+	# the whole session; a new session takes upgrades bought since)
+	var levels := SaveData.get_upgrades(car)
+	cfg.spec = Upgrades.spec(car, levels)
 	var tr := Trainer.new(cfg)
 	s.trainer = tr
 	s.history = []
@@ -475,6 +482,8 @@ func start(seed_override: Dictionary = {}) -> void:
 	var note := ("Continuing from a saved network (%s) with the %s.%s%s" % [_sizes_text(seed.sizes), cname, _car_change(seed_meta, car),
 		_rule_change(seed_meta)]) if seed != null \
 		else "New population of %d random drivers in the %s." % [tr.population.size(), cname]
+	if not Upgrades.is_stock(levels):
+		note += " The %s has your upgrades (%s)." % [cname, Upgrades.text(levels)]
 	if tr.native_note != "":
 		note += " " + tr.native_note
 	_note(note)

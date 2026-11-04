@@ -23,6 +23,12 @@ extends Control
 ##   block picks the opponent of Race / Watch the AI: an AI level (Rookie to Elite, its finish
 ##   time on this track with this car and what beating it pays now) or My AI (the picked car's
 ##   own trained network, as before).
+## - v6.11.0, car upgrades (sim/upgrades.gd): under the cards, the picked car's four parts (engine,
+##   tyres, nitro, loose grip) as chips with their levels and the next level's price; a chip buys
+##   that level (the game asks first: `upgrade`). A car you don't own shows them greyed out. The car
+##   cards' bars show the upgrades in green on top of the stock car. In a window under 760 px tall
+##   the parts take the place of the car's description line (a locked car shows the description
+##   and its price there instead); taller windows show both.
 ## - v6.8.0, locked tracks: the tracks open one at a time (bronze or better on a track opens the
 ##   next, sim/unlocks.gd). A locked tile is darker, with a padlock and what opens it ("Bronze on
 ##   02"); it can still be picked (keys, pad, mouse), and its panel says what opens it and that
@@ -49,10 +55,16 @@ signal save_network
 signal track_selected(index: int)
 signal car_selected(id: String)
 signal opponent_selected(id: String)
+## (v6.11) buy the next level of part `part` of the picked car (the game asks first)
+signal upgrade(part: String)
 
 const W := preload("res://ui/widgets.gd")
 const TrackTile := preload("res://ui/track_tile.gd")
 const CarCard := preload("res://ui/car_card.gd")
+const PartChip := preload("res://ui/part_chip.gd")
+## The parts row and the car's description line both show from this window height (px); below it
+## the parts take the description's place (an owned car; a locked one keeps its description).
+const BOTH_LINES_H := 760.0
 ## The car picker shows three cards a row from this width (px), else two.
 const CARS_3COL := 780.0
 const TrackMapView := preload("res://ui/track_map_view.gd")
@@ -104,6 +116,11 @@ var _cars_grid: GridContainer
 var _cards: Array = []
 var _car_desc_name: Label
 var _car_desc: Label
+var _car_desc_row: HBoxContainer
+var _parts_row: HBoxContainer       # (v6.11) the picked car's upgrades
+var _parts_cap: Label
+var _part_chips: Array = []
+var _both_lines := false
 var _detail: PanelContainer
 var _detail_box: VBoxContainer
 var _td_num: Label
@@ -333,7 +350,29 @@ func _build_cars() -> void:
 		card.activated.connect(func() -> void: drive.emit())
 		_cars_grid.add_child(card)
 		_cards.append(card)
+	var lines := UiStyle.vbox(UiStyle.S2)
+	# (v6.11) the picked car's upgrades: a caption and a chip per part
+	_parts_row = UiStyle.hbox(UiStyle.S1)
+	_parts_row.custom_minimum_size.y = 26
+	_parts_cap = UiStyle.label("Upgrades", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	_parts_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_parts_cap.mouse_filter = Control.MOUSE_FILTER_PASS
+	_parts_cap.tooltip_text = "Upgrade the picked car: engine (power), tyres (grip on asphalt), nitro (a bigger tank that refills faster) and loose grip (grip on dirt and snow), three levels each, bought in order with your money. Medal times and the AI opponents stay as they are (stock cars), so upgrades make medals and wins easier."
+	var cm := UiStyle.margin([0, 0, UiStyle.S2, 0])
+	cm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	cm.mouse_filter = Control.MOUSE_FILTER_PASS
+	cm.add_child(_parts_cap)
+	_parts_row.add_child(cm)
+	for p: Dictionary in UiData.upgrade_parts():
+		var chip: Button = PartChip.new()
+		chip.part_id = String(p.id)
+		chip.part_name = String(p.name)
+		chip.pressed.connect(func() -> void: upgrade.emit(String(p.id)))
+		_parts_row.add_child(chip)
+		_part_chips.append(chip)
+	lines.add_child(_parts_row)
 	var desc := UiStyle.hbox(UiStyle.S1)
+	_car_desc_row = desc
 	_car_lock = UiStyle.label("", "text_semi", UiStyle.FS_S, UiStyle.ACCENT, 0.0, false, false, false, 18)
 	_car_lock.visible = false
 	desc.add_child(_car_lock)
@@ -345,8 +384,11 @@ func _build_cars() -> void:
 	_car_desc.mouse_filter = Control.MOUSE_FILTER_PASS
 	desc.add_child(_car_desc_name)
 	desc.add_child(_car_desc)
+	for l: Label in [_car_lock, _car_desc_name, _car_desc]:
+		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lines.add_child(desc)
 	var m := UiStyle.margin([0, UiStyle.S3, 0, 0])
-	m.add_child(desc)
+	m.add_child(lines)
 	_left.add_child(m)
 
 
@@ -742,6 +784,9 @@ func _render_cars() -> void:
 		c.selected = c.car_id == car
 		var price := UiData.car_price(c.car_id)
 		c.set_lock(not UiData.owns_car(c.car_id), price, have >= price)
+	for c in _cards:
+		c.set_upgrades(UiData.car_bars(c.car_id), float(UiData.car_stats(c.car_id).top), UiData.upgrade_levels(c.car_id))
+	_render_parts(car, have)
 	var info := UiData.car_info(car)
 	_car_desc_name.text = info.name
 	_car_desc.text = info.description
@@ -764,6 +809,38 @@ func _render_cars() -> void:
 		_drive_btn.theme_type_variation = ""
 		_drive_btn.tooltip_text = "The %s costs %s: %s more to go. Medals and wins against the AI opponents pay money." % [
 			info.name, UiFormat.money(price), UiFormat.money(price - have)]
+
+
+## The picked car's upgrades (v6.11): each part's chip (levels, the next price), the rows shown.
+func _render_parts(car: String, have: int) -> void:
+	var owned := UiData.owns_car(car)
+	var cname: String = UiData.car_info(car).name
+	var lv := UiData.upgrade_levels(car)
+	var parts := UiData.upgrade_parts()
+	for k in _part_chips.size():
+		var chip: Button = _part_chips[k]
+		var p: Dictionary = parts[k]
+		var level: int = lv[k]
+		var nxt := UiData.upgrade_cost(car, String(p.id), level + 1)
+		chip.show_part(String(p.id), String(p.name), level, int(p.max), nxt, have >= nxt, not owned)
+		var now := "level %d of %d (%s)" % [level, int(p.max), Upgrades.effect(String(p.id), level)] if level > 0 else "stock (level 0 of %d)" % int(p.max)
+		if not owned:
+			chip.tooltip_text = "%s: %s. Buy the %s first to upgrade it." % [p.name, p.what, cname]
+		elif level >= int(p.max):
+			chip.tooltip_text = "%s: %s. Every level bought (%s)." % [p.name, p.what, Upgrades.effect(String(p.id), level)]
+		else:
+			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s Medal times and the AI opponents stay stock." % [
+				p.name, cname, p.what, now, level + 1, Upgrades.effect(String(p.id), level + 1), UiFormat.money(nxt), UiFormat.money(have),
+				"" if have >= nxt else " %s more to go." % UiFormat.money(nxt - have)]
+	# one line under the cards in a short window: an owned car's parts, a locked car's description
+	_parts_row.visible = _both_lines or owned
+	_car_desc_row.visible = _both_lines or not owned
+	_car_desc_row.custom_minimum_size.y = 0.0 if _both_lines else 26.0
+
+
+## The part chips the pad highlight can go to (shown and enabled).
+func _pad_parts() -> Array:
+	return _part_chips.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
 
 
 ## The panel of the selected track, with your records and its medal times with the picked car.
@@ -995,6 +1072,7 @@ func _pad_controls() -> Array:
 	var out: Array = []
 	var list: Array = [_controls_btn, _settings_btn, _drive_btn, _ghost_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]
 	list.append_array(_opp_btns.values())
+	list.append_array(_part_chips)
 	for c in list:
 		if c.is_visible_in_tree() and not (c is BaseButton and c.disabled):
 			out.append(c)
@@ -1041,10 +1119,16 @@ func handle_pad(inp: Object) -> void:
 				at = next
 			elif dir == "up":
 				at = null
+			elif dir == "down" and not _pad_parts().is_empty():
+				at = PadNav.nearest_control(at, "down", _pad_parts()) # (v6.11: the picked car's parts)
+				if at == null:
+					at = _pad_parts()[0]
 			elif dir == "right" or dir == "down":
 				at = drive_btn if drive_btn != null else at
 		elif (at == _controls_btn or at == _settings_btn) and dir == "down":
 			at = null # under the header buttons: the track tiles
+		elif _part_chips.has(at) and dir == "up":
+			at = car_card() # (v6.11) above the parts: the picked car
 		elif at != null:
 			var next := PadNav.nearest_control(at, dir, ctrls)
 			if next != null and (dir == "up" or dir == "down" or PadNav.same_row(at.get_global_rect(), next.get_global_rect())):
@@ -1165,6 +1249,11 @@ func _layout() -> void:
 	_detail.add_theme_stylebox_override("panel", UiStyle.box(UiStyle.PANEL, false,
 		[UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5, UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5]))
 	_td_desc.custom_minimum_size.y = 0.0 if compact else ceilf(UiStyle.FS_M * 1.45 * 3)
+	# (v6.11) the parts row and the description line both, or one in its place
+	var both := h >= BOTH_LINES_H or one_col
+	if both != _both_lines:
+		_both_lines = both
+		_render_parts(UiData.picked_car(), UiData.money())
 	_drive_btn.custom_minimum_size.y = 46.0 if compact else 52.0
 	# the car picker: three cards a row when it is at least CARS_3COL px wide (six cars in two rows),
 	# else two; the cards stack (bars under the side view and name) three a row, or two a row in a

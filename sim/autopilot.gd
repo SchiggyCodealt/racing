@@ -143,11 +143,12 @@ const STUCK_STEPS: int = 180 # 3 s without gaining 3 samples (~6 m): stuck, the 
 
 ## One Drive race with the medal autopilot (web/tools/medals.mjs driveRace): car `car_id`
 ## from a standing start at GO with a full tank, burning nitro on the straights with the
-## style score's refills (nitro false: no nitro, no score). Returns {finished, time, steps,
+## style score's refills (nitro false: no nitro, no score); `spec` (v6.11): another spec of that
+## car instead of the stock one (an upgraded car, tools/upgrades.gd). Returns {finished, time, steps,
 ## wall (steps touching a wall), laps, score (points), burned, refilled (nitro, in tanks)}.
-static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = Cars.DEFAULT_CAR, nitro: bool = true) -> Dictionary:
+static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = Cars.DEFAULT_CAR, nitro: bool = true, spec: CarSpec = null) -> Dictionary:
 	var dt: float = 1.0 / 60.0
-	var car := Car.new(t, -1, Cars.spec(car_id))
+	var car := Car.new(t, -1, spec if spec != null else Cars.spec(car_id))
 	var race := RaceState.new(t)
 	var pilot := Autopilot.medal(t, a_lat, k, nitro, DECEL, car.spec)
 	var score: ScoreState = ScoreState.new(t, true) if nitro else null

@@ -76,6 +76,15 @@ extends SceneTree
 ##             opens it from the Terminal row (A) and closes it (B); exit + Enter closes it without
 ##             driving; in a race (Drive with the Dune) ` does nothing. Shots: terminal_menu,
 ##             terminal_settings, terminal_over_settings.
+##   upgrades  car upgrades (v6.11.0) from a new career: the Racer's four part chips on the car
+##             picker (level 0, the next price, greyed while the money is short, a locked car's off);
+##             the stock Racer drives Rookie Oval with the medal autopilot of the author run (the
+##             author time); then money (the terminal's money) buys every level of every part by
+##             clicking the chips (each asks first: Buy for $...), the bars show what they add in
+##             green; Drive again with the same autopilot (the author run's settings): faster than
+##             the author time (the medal times stay stock), the record and ghost keep the levels, R: the ghost replays the
+##             upgraded run within 3 cm; the menu fits 1280 x 720. Shots: upgrades_menu,
+##             upgrades_ask, upgrades_max, upgrades_race, upgrades_finish.
 ##   Every other scenario starts by owning every car, every track open (the terminal's unlock
 ##   tracks) and picking My AI as the opponent (they were written before the career: they drive
 ##   every car on every track and race the car's own network).
@@ -112,7 +121,7 @@ func _main() -> void:
 	await frames(3)
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
 	var t0 := Time.get_ticks_msec()
-	if not (scenario in ["economy", "terminal", "unlock"]):
+	if not (scenario in ["economy", "terminal", "unlock", "upgrades"]):
 		for c: String in Cars.ids():
 			SaveData.give_car(c)
 		SaveData.unlock_tracks(true)
@@ -142,6 +151,8 @@ func _main() -> void:
 			await terminal()
 		"unlock":
 			await unlock()
+		"upgrades":
+			await upgrades()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -275,7 +286,9 @@ func pick(track_id: String, car: String) -> void:
 func autopilot(a_lat: float, look_k: float, nitro: bool = true) -> void:
 	var m: Node = app.mode
 	var cid: String = str((m.get("car_def") as Dictionary).get("id", Cars.DEFAULT_CAR)) if m.get("car_def") is Dictionary else Cars.DEFAULT_CAR
-	drive_with(Autopilot.medal(m.get("track"), a_lat, look_k, nitro, Autopilot.DECEL, Cars.spec(cid)))
+	# (v6.11: the car with its upgrades; the stock spec itself when it has none)
+	var spec: CarSpec = m.get("car_spec") if m.get("car_spec") is CarSpec else Cars.spec(cid)
+	drive_with(Autopilot.medal(m.get("track"), a_lat, look_k, nitro, Autopilot.DECEL, spec))
 
 
 ## Drive the race in progress with autopilot `p`, feeding the input layer.
@@ -1446,3 +1459,142 @@ func unlock() -> void:
 	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.path))
 	check(disk is Dictionary and JsMath.same(disk.get("version"), 4) and (disk.career as Dictionary).get("tracks_open") == ["hairpin-valley"],
 		"the save file: career.tracks_open = [\"hairpin-valley\"] (still version 4)")
+
+
+# ---------------------------------------------------------------- upgrades (v6.11.0)
+
+func upgrades() -> void:
+	var menu: MainMenu = app.ui.menu
+	var chips: Array = menu.get("_part_chips")
+	var money_l: Label = menu.get("_money_l")
+	var msg: Label = app.message.get("_text")
+	var tid := "rookie-oval"
+	check(UiData.money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and Upgrades.is_stock(SaveData.get_upgrades("racer")),
+		"a new career: $0, the Racer, stock")
+	await pick(tid, "racer")
+	await frames(4)
+	var shown := chips.size() == 4
+	for c: Button in chips:
+		shown = shown and c.is_visible_in_tree() and not c.disabled and int(c.get("level")) == 0 and not bool(c.get("affordable"))
+	check(shown, "the Racer's four part chips on the car picker: level 0, the next level's price (grey: $0)")
+	# the Kestrel (not yours): its chips are off and its description shows
+	while UiData.picked_car() != "kestrel":
+		await key(KEY_C)
+	await frames(4)
+	check((chips[0] as Button).disabled and not (menu.get("_parts_row") as Control).is_visible_in_tree() and (menu.get("_car_desc_row") as Control).is_visible_in_tree(),
+		"the Kestrel (not yours): its parts are off, its description shows instead")
+	while UiData.picked_car() != "racer":
+		await key(KEY_C)
+	await frames(4)
+	# the stock Racer: the author run
+	var track: BuiltTrack = app.tracks[0]
+	var medals := Medals.medal_times(track, "racer")
+	var run: Dictionary = medals.run
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Cars.spec("racer"), "Enter drives the stock Racer"):
+		return
+	autopilot(float(run.aLat), float(run.lookK))
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+	fast(false)
+	stop_autopilot()
+	var t0: float = (m.get("race") as RaceState).finish_time
+	var w0: int = int((m.get("score") as ScoreState).counts.wall_hits)
+	check(absf(t0 - float(medals.author)) < 0.0005, "the stock Racer's author run: %s (the author time %s)" % [RaceState.format_time(t0), RaceState.format_time(float(medals.author))])
+	await key(KEY_ESCAPE)
+	await frames(10)
+	# money (the terminal), then the chips buy every level of every part
+	await key(KEY_QUOTELEFT)
+	var need := Upgrades.car_total("racer")
+	await type_text("money %d" % (need + 5000 - UiData.money()))
+	await key(KEY_QUOTELEFT)
+	await frames(6)
+	check(UiData.money() == need + 5000 and bool(chips[0].get("affordable")), "the terminal's money: %s; the chips' prices in the accent" % money_l.text)
+	# the menu still fits 1280 x 720 with the parts row
+	var win := Vector2(root.size)
+	var bar := (menu.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	var inside := true
+	for c: Control in chips + [menu.get("_drive_btn"), menu.car_card()]:
+		var r := c.get_global_rect()
+		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
+	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5, "1280 x 720: the part chips, the cars and Drive on screen, no scrolling")
+	await shot("upgrades_menu")
+	var money0 := UiData.money()
+	await click(chips[0])
+	await frames(6)
+	check(app.message.asking and msg.text.contains("Level 1 of 3") and msg.text.contains("Medal times and the AI opponents stay"), "the Engine chip (clicked) asks first: %s" % msg.text.left(90))
+	await shot("upgrades_ask")
+	await click(app.message.get("_yes"))
+	await frames(4)
+	check(SaveData.get_upgrades("racer")[0] == 1 and UiData.money() == money0 - Upgrades.price("racer", "engine", 1) and money_l.text == UiFormat.money(UiData.money()) and
+		not app.message.visible, "Buy (clicked): the engine at level 1, %s left" % money_l.text)
+	var asked := 1
+	for k in 4:
+		while int(chips[k].get("level")) < 3 and asked < 20:
+			await click(chips[k])
+			await frames(3)
+			asked += 1
+			if app.message.asking:
+				await click(app.message.get("_yes"))
+				await frames(3)
+	await frames(6)
+	var maxed := true
+	for c: Button in chips:
+		maxed = maxed and c.disabled and c.call("price_text") == "MAX"
+	check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 3, 3, 3]) and maxed and UiData.money() == 5000 and asked == 12,
+		"12 clicks (each asked and bought): every part at level 3, the chips read MAX, %s spent, $5,000 left" % UiFormat.money(need))
+	var card: Control = menu.car_card()
+	var b0: Dictionary = UiData.car_info("racer").bars
+	var bu: Dictionary = card.get("bars_up")
+	check(float(bu.speed) > float(b0.speed) and float(bu.grip) > float(b0.grip) and float(bu.acceleration) > float(b0.acceleration) and float(bu.nitro) > float(b0.nitro),
+		"the Racer's card: speed %.2f -> %.2f, acceleration %.2f -> %.2f, grip %.2f -> %.2f, nitro %.2f -> %.2f (green on top of the stock bars)" % [
+		float(b0.speed), float(bu.speed), float(b0.acceleration), float(bu.acceleration), float(b0.grip), float(bu.grip), float(b0.nitro), float(bu.nitro)])
+	await shot("upgrades_max")
+	# the upgraded Racer, the same autopilot: faster than the author time
+	await key(KEY_ENTER)
+	m = app.mode
+	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([3, 3, 3, 3])), "Enter drives the upgraded Racer"):
+		return
+	autopilot(float(run.aLat), float(run.lookK))
+	fast(true)
+	await wait_until(func() -> bool: return (m.get("race") as RaceState).time >= 20.0, 120.0)
+	fast(false)
+	await frames(20)
+	await shot("upgrades_race")
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+	fast(false)
+	stop_autopilot()
+	await frames(30)
+	var t3: float = (m.get("race") as RaceState).finish_time
+	var fs: Dictionary = m.get("finish_state")
+	var rec := SaveData.get_record(tid, "racer")
+	# (the autopilot keeps the stock car's author settings: its corner speeds don't use the extra grip, and the
+	# quicker car arrives at the corners faster, so it gains less than a sweep tuned for it would)
+	var w3: int = int((m.get("score") as ScoreState).counts.wall_hits)
+	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([3, 3, 3, 3]),
+		"the upgraded Racer, the same autopilot (the author run's settings): %s against %s stock (%.1f %% quicker; the author time stays %s); the record keeps the levels; wall contacts %d (stock %d)" % [
+		RaceState.format_time(t3), RaceState.format_time(t0), (1.0 - t3 / t0) * 100.0, RaceState.format_time(float(medals.author)), w3, w0])
+	await shot("upgrades_finish")
+	# R: the upgraded run's ghost replays it
+	await key(KEY_R)
+	autopilot(float(run.aLat), float(run.lookK))
+	fast(true)
+	var worst := [0.0]
+	var seen := [0]
+	var probe := func() -> bool:
+		var pb: Replay.GhostPlayer = m.get("pb")
+		var c: Car = m.get("car")
+		var s: int = m.get("race_step")
+		if s > 0 and pb != null and pb.pose(float(s)):
+			worst[0] = maxf(worst[0], Vector3(pb.car.x - c.x, pb.car.y - c.y, pb.car.z - c.z).length())
+			seen[0] += 1
+		return s > 60 * 25 or m.get("phase") == "finished"
+	await wait_until(probe, 300.0)
+	fast(false)
+	stop_autopilot()
+	check(seen[0] > 20 and worst[0] < 0.03, "R: the upgraded run's ghost replays it: %d frames, at most %.3f m from the car" % [seen[0], worst[0]])
+	await key(KEY_ESCAPE)
+	await frames(6)
+	check(app.mode == app.menu_mode, "back on the menu")

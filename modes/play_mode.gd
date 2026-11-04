@@ -30,6 +30,12 @@ extends Node
 ## the score, the combo, what is building up and a popup per event; the finish panel the
 ## breakdown and the best score for this track and car (saved when beaten).
 ##
+## Car upgrades (v6.11.0, sim/upgrades.gd): the player's car is the picked car with the levels bought
+## for it (SaveData.get_upgrades), and so is a car driven by the player's own network (Watch / Race
+## my AI, the training screen's Watch best / Race best). An AI opponent level always drives the
+## stock car, and the medal times are the stock car's. A new best time and its ghost keep the levels
+## of the run (`up`). `levels` / `ai_levels` are the levels of the player's car and of the AI's.
+##
 ## Money and points (v6.5.0, sim/economy.gd): at the finish the player's run is paid the medal
 ## it won (and the medals below it) and, racing an AI opponent level, that level and the levels
 ## below it when you finish ahead of it (or it has not finished); each reward once per track and
@@ -73,6 +79,12 @@ var with_ghost := false
 var level := ""
 var cap := INF
 var car_def: Dictionary = {}
+## (v6.11) the upgrade levels and spec of the main car (the player's, or the watched AI's) and of
+## the AI ghost: the player's levels for the player's car and own network, stock for an AI opponent
+var levels: PackedInt32Array = Upgrades.stock()
+var car_spec: CarSpec = null
+var ai_levels: PackedInt32Array = Upgrades.stock()
+var ai_spec: CarSpec = null
 var rec: Replay.GhostRecorder = null
 var pb_shown := true
 var medals: Dictionary = {}
@@ -141,7 +153,13 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	return_to = opts.get("return_to", Callable()) if opts.get("return_to") is Callable else Callable()
 	if not return_to.is_valid():
 		return_to = app.show_menu
-	var sp: CarSpec = car_def.spec
+	# the AI ghost / the watched AI: an opponent level drives the stock car, the player's own network
+	# the player's car (its upgrades)
+	ai_levels = SaveData.get_upgrades(String(ai_def.id)) if level == "" else Upgrades.stock()
+	ai_spec = Upgrades.spec(String(ai_def.id), ai_levels)
+	levels = SaveData.get_upgrades(String(car_def.id)) if driver == "human" else ai_levels
+	car_spec = Upgrades.spec(String(car_def.id), levels)
+	var sp: CarSpec = car_spec
 	_rev_spec = {"idle_rpm": sp.idle_rpm, "redline": sp.redline, "upshift_rpm": sp.upshift_rpm}
 
 
@@ -149,7 +167,7 @@ func enter() -> void:
 	app.show_track(track)
 	var world := app.world
 	# the player's car (or the watched AI's) in its own colours; the AI ghost is its car in purple
-	model = CarModel.new(car_def.id)
+	model = CarModel.new(car_def.id, {"levels": levels}) # (v6.11: its upgrades show on the model)
 	world.add_child(model)
 	if with_ghost:
 		ghost_model = CarModel.new(ai_def.id, {"ghost": true, "color": AI_GHOST_COLOR, "dust": true})
@@ -217,7 +235,7 @@ func _exit_view() -> void:
 
 
 func restart() -> void:
-	car = Car.new(track, track.start_idx, car_def.spec) # a full nitro tank
+	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
 	race = RaceState.new(track)
 	record = SaveData.get_record(track.id, car_def.id) # your best with this car
 	medal_target = _aim_for() # fixed for the run: the HUD ticks it at the finish if won
@@ -235,7 +253,7 @@ func restart() -> void:
 	best_score = SaveData.get_best_score(track.id, car_def.id) if score != null else {}
 	note = {}
 	if with_ghost:
-		ghost = {"car": Car.new(track, track.start_idx, ai_def.spec), "race": RaceState.new(track), "ai": AiLink.driver(net, cap)}
+		ghost = {"car": Car.new(track, track.start_idx, ai_spec), "race": RaceState.new(track), "ai": AiLink.driver(net, cap)}
 		ghost.watch = _new_watch(ghost.car, 0.0)
 	watch = _new_watch(car, 0.0)
 	ai_note = 0.0
@@ -390,7 +408,7 @@ func _on_finish() -> void:
 	var t: float = race.finish_time
 	var s := {"title": "AI finished" if driver == "ai" else "Finish", "time": t, "ai": driver == "ai"}
 	if driver == "human":
-		var is_record := SaveData.submit_record(track.id, car_def.id, t, race.splits)
+		var is_record := SaveData.submit_record(track.id, car_def.id, t, race.splits, levels)
 		var prev: Variant = record.get("time")
 		s.medal = _medal_line(t, prev)
 		if is_record:
@@ -514,7 +532,7 @@ func _save_run(time: float) -> String:
 	var cid: String = car_def.id
 	if rec == null or rec.full:
 		return "Run too long to keep as a ghost"
-	var data := Replay.pack_ghost(rec, {"track": track, "laps": race.laps, "time": time, "car": cid})
+	var data := Replay.pack_ghost(rec, {"track": track, "laps": race.laps, "time": time, "car": cid, "up": levels})
 	if not SaveData.save_ghost(track.id, cid, data):
 		return "Ghost not saved: the save file can't be written"
 	var g := Replay.unpack_ghost(data, track, race.laps, cid)

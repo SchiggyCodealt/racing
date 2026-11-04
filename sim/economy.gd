@@ -22,6 +22,9 @@ extends RefCounted
 ##   Economy.money() / Economy.points() (the save file's career, SaveData.get_money ...)
 ##   Economy.career(scenario) -> the money a player who always earns `scenario` makes, track by
 ##       track (the price check in tests/test_sim.gd and the README)
+##   Economy.upgrade_price(car_id, part) -> the price of the part's next level (0: at the top level)
+##   Economy.buy_upgrade(car_id, part) -> {ok, error ("" | "locked" | "max" | "money" | "unknown"),
+##       price, level (the part's level now), short (money missing)}  (v6.11.0, sim/upgrades.gd)
 ## Reward ids: the medal ids (Medals.ORDER: "bronze" ... "author") and "ai-" + an AI level id
 ## ("ai-rookie" ... "ai-elite").
 
@@ -139,6 +142,31 @@ static func buy(car_id: String) -> Dictionary:
 	var p: int = price(car_id)
 	var err: String = SaveData.purchase_car(car_id, p)
 	return {ok = err == "", error = err, price = p, short = maxi(0, p - SaveData.get_money()) if err == "money" else 0}
+
+
+# ---------------------------------------------------------------- car upgrades (v6.11.0)
+
+## The price of the next level of part `part` on car `car_id` with the levels bought (0 when the
+## part is at its top level or the car or part is unknown).
+static func upgrade_price(car_id: String, part: String) -> int:
+	var i: int = Upgrades.index_of(part)
+	if i < 0 or not Cars.has_car(car_id):
+		return 0
+	return Upgrades.price(car_id, part, SaveData.get_upgrades(car_id)[i] + 1)
+
+
+## Buy the next level of part `part` for car `car_id` (only an owned car, one level at a time, in
+## order): {ok, error: "" | "locked" (buy the car first) | "max" (every level bought) | "money" (not
+## enough: `short`) | "unknown", price, level (the part's level after it)}.
+static func buy_upgrade(car_id: String, part: String) -> Dictionary:
+	var i: int = Upgrades.index_of(part)
+	if i < 0 or not Cars.has_car(car_id):
+		return {ok = false, error = "unknown", price = 0, level = 0, short = 0}
+	var now: int = SaveData.get_upgrades(car_id)[i]
+	var p: int = Upgrades.price(car_id, part, now + 1)
+	var err: String = SaveData.purchase_upgrade(car_id, part, now + 1, p)
+	return {ok = err == "", error = err, price = p if err != "max" else 0, level = SaveData.get_upgrades(car_id)[i],
+		short = maxi(0, p - SaveData.get_money()) if err == "money" else 0}
 
 
 # ---------------------------------------------------------------- balance

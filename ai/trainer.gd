@@ -53,6 +53,9 @@ extends RefCounted
 ## spec every car drives, on both simulation paths (FleetSim gets the spec as data). The
 ## sensors scale the speed by that car's top speed (ai/sensors.gd). Network files record the
 ## car they were trained with ("car"; a file without one is a Racer network: network_car()).
+## v6.11: opts.spec, that car with the player's upgrades (Upgrades.player_spec; the training
+## screen passes it): the population drives the upgraded car on both paths; the sensors' speed
+## scale is still the stock max_speed (upgrades never change it).
 
 const STEP: float = 1.0 / 60.0
 
@@ -161,7 +164,8 @@ var _mirrored := PackedFloat32Array()
 ## population (a Population to train as it is, instead of a new one),
 ## native (true = use FleetSim when it is available (default), false = GDScript),
 ## threads (FleetSim threads, default 1; 0 = one per core, at most 8),
-## native_class (tests: the class to use instead of "FleetSim"; a missing one = the fallback).
+## native_class (tests: the class to use instead of "FleetSim"; a missing one = the fallback),
+## spec (v6.11: the CarSpec to drive, car_id's with upgrades, Upgrades.spec(); default the stock car).
 func _init(opts: Dictionary) -> void:
 	for k: String in DEFAULT_TRAINING:
 		cfg[k] = opts.get(k, DEFAULT_TRAINING[k])
@@ -176,7 +180,8 @@ func _init(opts: Dictionary) -> void:
 		cfg.car_id = Cars.DEFAULT_CAR
 	for t: Variant in opts.tracks:
 		tracks.append(t as BuiltTrack)
-	spec = Cars.spec(cfg.car_id)
+	# (v6.11: opts.spec, the car with the player's upgrades, sim/upgrades.gd; else the stock car)
+	spec = opts.spec if opts.get("spec") is CarSpec and (opts.spec as CarSpec).id == cfg.car_id else Cars.spec(cfg.car_id)
 	_mirrored.resize(Sensors.INPUT_COUNT)
 	var seed: NeuralNetwork = opts.get("seed")
 	var meta: Variant = opts.get("seed_meta")
@@ -288,6 +293,7 @@ static func spec_data(s: CarSpec) -> Dictionary:
 	var d: Dictionary = s.to_dict()
 	d.erase("torque")
 	d.erase("id")
+	d.erase("nitroRefill") # (v6.11: the style score's refills; FleetSim scores nothing and the AI never uses nitro)
 	d.gears = PackedFloat64Array(s.gears)
 	d.wheelbase = s.wheelbase
 	d.core = s.core

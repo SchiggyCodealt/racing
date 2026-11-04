@@ -7,6 +7,8 @@ extends Control
 ## Click picks the car, a double click drives. A car you don't own (v6.5.0: set_lock) shows a
 ## padlock and its price where the top speed was (in the accent when you can afford it), its
 ## side view dimmed; its stats stay readable.
+## v6.11.0, upgrades (set_upgrades): each bar shows the stock car, and in green on top of it what
+## the upgrades bought for the car add; the top speed is the upgraded car's (green when higher).
 
 signal picked
 signal activated
@@ -40,6 +42,10 @@ var _hover := false
 var locked := false
 var price := 0
 var affordable := false
+## (v6.11) the bars and the top speed with the upgrades bought ({} / 0: the stock car's), and the levels
+var bars_up: Dictionary = {}
+var top_up := 0.0
+var levels := PackedInt32Array()
 
 
 func _init() -> void:
@@ -54,8 +60,45 @@ func setup(id: String, car: Dictionary, side_view: Dictionary) -> void:
 	car_id = id
 	info = car
 	profile = side_view
-	tooltip_text = "%s (%d km/h, %.2f t): %s (C changes the car)" % [car.name, roundi(car.top), car.mass / 1000.0, car.description]
+	_tooltip()
 	queue_redraw()
+
+
+## The upgrades bought for this car (v6.11): `bars` with them, the top speed `top` (km/h) and the
+## levels [engine, tyres, nitro, loose].
+func set_upgrades(bars: Dictionary, top: float, lv: PackedInt32Array) -> void:
+	if bars == bars_up and is_equal_approx(top, top_up) and lv == levels:
+		return
+	bars_up = bars
+	top_up = top
+	levels = lv
+	_tooltip()
+	queue_redraw()
+
+
+func _upgraded() -> bool:
+	for l in levels:
+		if l > 0:
+			return true
+	return false
+
+
+func _top() -> float:
+	return top_up if _upgraded() and top_up > 0.0 else float(info.top)
+
+
+func _tooltip() -> void:
+	if info.is_empty():
+		return
+	var up := ""
+	if _upgraded():
+		var names := ["engine", "tyres", "nitro", "loose grip"]
+		var parts: PackedStringArray = []
+		for i in mini(levels.size(), names.size()):
+			parts.append("%s %d" % [names[i], levels[i]])
+		up = " Upgrades: %s (green: what they add)." % ", ".join(parts)
+	tooltip_text = "%s (%d km/h, %.2f t): %s%s%s (C changes the car)" % [info.name, roundi(_top()), info.mass / 1000.0, info.description,
+		(" Locked: it costs %s." % UiFormat.money(price)) if locked else "", up]
 
 
 ## Show the car as not owned (`on`), costing `p`; `can`: the money is there to buy it.
@@ -65,9 +108,7 @@ func set_lock(on: bool, p: int, can: bool) -> void:
 	locked = on
 	price = p
 	affordable = can
-	if not info.is_empty():
-		tooltip_text = "%s (%d km/h, %.2f t): %s%s (C changes the car)" % [info.name, roundi(info.top), info.mass / 1000.0, info.description,
-			(" Locked: it costs %s." % UiFormat.money(p)) if on else ""]
+	_tooltip()
 	queue_redraw()
 
 
@@ -133,9 +174,11 @@ func _draw() -> void:
 		W.ellipsis(self, pf, UiStyle.FS_S, Vector2(spec_x + 13.0, base), UiFormat.money(price), size.x - px - spec_x - 13.0, col)
 	else:
 		# top speed and mass; in narrow cards the top speed alone (the mass is in the tooltip)
-		var spec := ("%d km/h" % roundi(info.top)) if short_spec else ("%d km/h · %.2f t" % [roundi(info.top), info.mass / 1000.0])
+		var top := _top()
+		var faster := roundi(top) > roundi(float(info.top))
+		var spec := ("%d km/h" % roundi(top)) if short_spec else ("%d km/h · %.2f t" % [roundi(top), info.mass / 1000.0])
 		W.ellipsis(self, UiStyle.font("text", UiStyle.FS_S, 0, true), UiStyle.FS_S, Vector2(spec_x, base), spec,
-			size.x - px - spec_x, UiStyle.TEXT_3)
+			size.x - px - spec_x, UiStyle.GOOD if faster else UiStyle.TEXT_3)
 	# five stat bars
 	var g := float(UiStyle.S2)
 	var cw := (bars_w - 4 * g) / 5.0
@@ -147,4 +190,10 @@ func _draw() -> void:
 		var bar := Rect2(x, bars_top + UiStyle.FS_S + 6, cw, 4)
 		draw_rect(bar, UiStyle.BG_4)
 		var f := clampf(float(info.bars.get(STATS[k][0], 0.0)), 0.0, 1.0)
-		draw_rect(Rect2(bar.position, Vector2(roundf(cw * f), 4)), UiStyle.ACCENT if selected else UiStyle.TEXT_2)
+		var stock_w := roundf(cw * f)
+		draw_rect(Rect2(bar.position, Vector2(stock_w, 4)), UiStyle.ACCENT if selected else UiStyle.TEXT_2)
+		# (v6.11) what the upgrades add, in green on top of the stock bar
+		if _upgraded() and bars_up.has(STATS[k][0]):
+			var up_w := roundf(cw * clampf(float(bars_up[STATS[k][0]]), 0.0, 1.0))
+			if up_w > stock_w:
+				draw_rect(Rect2(bar.position + Vector2(stock_w, 0), Vector2(up_w - stock_w, 4)), UiStyle.GOOD)

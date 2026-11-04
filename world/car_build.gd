@@ -17,6 +17,7 @@
 ##   var car := CarBuild.build("vortex", 1)  # {opaque: CarKit, glass: CarKit, rig: {...}} (cached)
 ##   CarBuild.profile("dune")                 # side view for the car picker
 ##   CarBuild.fleet_geometry("racer")         # {paint: Geo, dark: Geo} for the AI fleet's MultiMeshes
+##   CarBuild.upgrades("racer", [3, 1, 2, 0], 1)  # v6.11: the parts the upgrades show (CarKit, cached)
 ##
 ## Car frame: x = left, y = up, z = forward, the origin on the road between the axles.
 extends RefCounted
@@ -61,6 +62,62 @@ static func build(id: String, detail := 1) -> Dictionary:
 	var out := {"opaque": opaque, "glass": glass, "rig": rig}
 	_cache[key] = out
 	return out
+
+
+## v6.11.0: what the car's upgrades (sim/upgrades.gd: engine, tyres, nitro, loose grip levels
+## 0..3) look like, as one more skinned kit drawn with the car's material (an empty kit when all
+## are 0; cached per car, levels and detail):
+##   - engine: bigger polished exhaust tips, a size up and a little further out each level
+##   - tyres: a yellow ring on every tyre's sidewall, wider each level
+##   - nitro: blue anodised bands round the tail pipes, one per level
+##   - loose grip: mud flaps behind the rear wheels with an accent strip (cars with wheel arches
+##     and without their own: not the Drifter, which has them, nor the open-wheeled Dune)
+static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
+	var key := "up:%s:%s:%d" % [id, ",".join(Array(levels).map(func(x: int) -> String: return str(x))), detail]
+	if _cache.has(key):
+		return _cache[key]
+	var kit := Kit.new()
+	var s := Shapes.shape_of(id)
+	var rg := rig(id)
+	var e: int = levels[0] if levels.size() > 0 else 0
+	var t: int = levels[1] if levels.size() > 1 else 0
+	var n: int = levels[2] if levels.size() > 2 else 0
+	var l: int = levels[3] if levels.size() > 3 else 0
+	var seg := 14 if detail else 8
+	var B := Kit.BODY
+	for nz: Array in Shapes.nozzles(s):
+		var ep: Vector3 = nz[0]
+		var r: float = nz[1]
+		var tip_r := r * (1.12 + 0.1 * e) if e > 0 else r
+		var back := 0.03 * e # (the tip sticks out further back)
+		if e > 0:
+			kit.add(Geo.cylinder(tip_r, tip_r * 1.04, 0.16, seg, 1, true).rotate_x(PI / 2.0).translate(ep.x, ep.y, ep.z + 0.08 - back), Kit.METAL, B, lin(0xd9dde4))
+			kit.add(Geo.cylinder(tip_r * 0.8, tip_r * 0.8, 0.15, seg, 1, false).rotate_x(PI / 2.0).translate(ep.x, ep.y, ep.z + 0.085 - back), Kit.CARBON, B, lin(0x050506))
+			kit.add(Geo.ring(tip_r * 0.8, tip_r, seg).rotate_y(PI).translate(ep.x, ep.y, ep.z - back), Kit.METAL, B, lin(0xeef1f5))
+		for k in n:
+			kit.add(Geo.torus(tip_r + 0.006, 0.009, 6 if detail else 4, seg).translate(ep.x, ep.y, ep.z - back + 0.025 + 0.035 * k), Kit.GLOSS, B, lin(0x2f8cff))
+	if t > 0:
+		for i in rg["wheels"].size():
+			var wd: Dictionary = rg["wheels"][i]
+			var c: Vector3 = wd["c"]
+			var R: float = wd["r"]
+			var W: float = wd["w"]
+			var xf := Transform3D(Basis(Vector3.UP, 0.0 if c.x > 0.0 else PI), c)
+			var r0 := R * 0.745
+			kit.add(Geo.ring(r0, r0 + 0.012 + 0.008 * t, 28 if detail else 16).rotate_y(PI / 2.0).translate(W / 2.0 + 0.004, 0, 0).xform(xf), Kit.GLOSS, Kit.SPIN0 + i, lin(0xffc83d))
+	if l > 0 and s["fenders"] and not s["mudflaps"]:
+		for wd: Dictionary in rg["wheels"]:
+			if wd["front"]:
+				continue
+			var c: Vector3 = wd["c"]
+			var R: float = wd["r"]
+			var W: float = wd["w"]
+			var h := R * 0.8
+			var z := c.z - R - 0.07
+			kit.add(Geo.box(W * 0.92, h, 0.02).translate(c.x, 0.07 + h / 2.0, z), Kit.MATTE, B, lin(0x17181b))
+			kit.add(Geo.box(W * 0.92, 0.045, 0.024).translate(c.x, 0.07 + 0.03, z), Kit.ACCENT, B)
+	_cache[key] = kit
+	return kit
 
 
 ## Where the driver, the wheels and the moving parts of car `id` are (no geometry).

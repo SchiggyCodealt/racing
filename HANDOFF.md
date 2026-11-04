@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-04 (v6.10.0: round 2, item 1 of 3: dirt and snow polish: mud and snow on the screen instead of
+_Last updated: 2026-11-04 (v6.11.0: round 2, item 2 of 3: car upgrades: engine, tyres, nitro and loose grip, three
+levels each, bought on the car picker, shown on the stat bars and the model; medal times and AI opponents stay stock;
+v6.10.0: round 2, item 1 of 3: dirt and snow polish: mud and snow on the screen instead of
 the camera rumble, richer dirt and snow textures, ragged surface changes, dirty and slidier barriers, better brakes on
 loose ground; v6.9.0: feature 9 of 9, the last of the first round: a faster bronze medal, 1.3 × the author time instead of
 1.5 ×; v6.8.0: feature 8, the tracks open one at a time: a bronze or better on a track opens the next; v6.7.0: feature 7, a terminal in Settings and on the `` ` `` key for money, points, cars
@@ -13,10 +15,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.10.0, round 2 item 1 of 3 done (dirt and snow polish); before it all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.11.0, round 2 items 1 and 2 of 3 done (dirt and snow polish, car upgrades); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 2 (asked on 2026-11-04, built one at a time in this order): 1. **dirt and snow polish (v6.10.0, done)**,
-2. car upgrades (v6.11.0, next), 3. sound and music (v6.12.0). See [Round 2](#round-2-the-owners-three-new-items).
+2. **car upgrades (v6.11.0, done)**, 3. sound and music (v6.12.0, next). See [Round 2](#round-2-the-owners-three-new-items).
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -155,6 +157,63 @@ and snow make the dirty as well. Improve the brake handling a little as well on 
   the Drifter's Forest Rally network retrained (its Elite had fallen to 1.066 × the author time, slower than gold);
   `--check` reproduces every stored race.
 
+v6.11.0 is round 2's item 2, car upgrades. The owner: "Car upgrades: engine, tyres, nitro tank and dirt/snow grip,
+three levels each, so money is still useful once all six cars are bought." What it does:
+- **The parts are data** (`sim/upgrades.gd`, `class_name Upgrades`): `PARTS` (id, name, short letter, `step` per level,
+  `cost` weight, aliases for the terminal, the texts), `MAX_LEVEL` 3, `LEVEL_SHARE` [0.1, 0.2, 0.35] (a level's price
+  as a share of the car's price), `FREE_CAR_BASE` 12000 (what the free Racer counts as). A car's levels are 4 ints
+  [engine, tyres, nitro, loose]. `Upgrades.spec(car, levels)` is `CarSpec.make(changes, Cars.spec(car))`, built once
+  per car and levels (cached under a mutex, so training threads can share it); level 0 everywhere returns the stock
+  spec object itself, so stock runs are bit for bit as before.
+  - **Engine**: the torque curve × (1 + 0.05 × level). **Tyres**: `mu` × (1 + 0.04 × level), with the dirt and snow
+    shares divided by the same factor, so the grip on loose ground is the loose grip part's alone. **Nitro**:
+    `nitro_time` and the new `CarSpec.nitro_refill` (1.0 stock; `sim/score.gd` multiplies the tanks a banked point
+    buys by it) × (1 + 0.1 × level). **Loose grip**: `dirt_grip` and `snow_grip` × (1 + 0.05 × level), never above 1 (the
+    asphalt grip). `max_speed` (the AI's speed input scale), the mass, brakes and steering never change.
+  - Measured (`tools/upgrades.gd`, new: `tools/car_stats.gd`'s measurements of the upgraded specs; the engine and
+    tyre levels are stored in `Upgrades.MEASURED` for the picker's bars and checked by a test): each engine level is
+    4-8 % quicker to 200 km/h and 1-2 % faster at the top, each tyre level about 3-5 % more grip on the skidpads, loose
+    grip about +15 % at level 3 on dirt and snow (the Dune +2 % on dirt, capped by its asphalt grip), nitro level 3 a
+    30 % longer tank. The nitro steps are 10 %, not 3-5 %: at 5 % a level the part did next to nothing on a lap (see
+    the verification).
+- **Prices** scale with the car's price and rise per level: base × `LEVEL_SHARE`[level-1] × the part's `cost`
+  (engine 1.25, tyres 1.0, nitro 0.6, loose 0.75), rounded to $50. Racer $1,500 / $3,000 / $5,250 for the engine;
+  every part of a car $23,450 (Kestrel) to $70,250 (Vortex), all six $248,200 against $94,000 for the cars (3.4 gold +
+  Expert careers' money with one car, 2.0 author + Elite ones, cars included).
+- **The save file is `VERSION` 5**: `career.upgrades {car: [e, t, n, l]}`, only owned cars, stock entries dropped,
+  cleaned on load (`_repair_career`); older files start with `upgrades = {}` (every car stock). `SaveData.get_upgrades`,
+  `purchase_upgrade(car, part, level, price)` ("" or unknown / locked / max / order / money, one write) and
+  `set_upgrades` (the terminal). `reset_career` makes every car stock. Records and ghosts carry `up` (the run's levels,
+  only when not stock) for information: ghosts store poses, so they replay exactly whatever the car has now.
+  `Economy.upgrade_price` / `buy_upgrade`; `UiData` has the same for the menu (and an in-memory version for the tests).
+- **Where they apply**: `modes/play_mode.gd` builds the player's car with its upgrades (`levels`, `car_spec`), and the
+  player's own network's car too (My AI: Watch the AI, Race my AI, the training screen's Watch / Race best); an AI
+  opponent (`level` set) always drives the stock car, so its stored race is the one `tools/opponents.gd` measured.
+  `modes/train_mode.gd` gives the trainer `opts.spec` (the upgraded car; `Trainer` takes it only for its own car id), so
+  FleetSim gets the upgraded spec as data (`Trainer.spec_data` leaves out `nitroRefill`: the AI never uses nitro). No
+  native change. Medal times (`tools/medals.gd`) and opponents (`ai/opponent_race.gd`) use `Cars.spec`: stock.
+- **The car picker** (`ui/main_menu.gd`, `ui/part_chip.gd`, `ui/car_card.gd`): a row under the cards with an
+  "Upgrades" caption and four chips (name, three level pips, the next price in the accent / grey, MAX), which emit
+  `upgrade(part)`; `GameApp.offer_upgrade` asks first (or says the car is locked, at the top, or how much is missing)
+  and `buy_upgrade` buys. A locked car's chips are off. Under 760 px of window height (1280 x 720) the row replaces the
+  description line for an owned car (a locked car shows its description); from 760 px both show. The pad goes down
+  from the picked car to the chips and up again; A buys. The card's bars draw the stock value and, in `UiStyle.GOOD`
+  green, what the upgrades add (`Upgrades.bars`: `Cars.stat_bars` of the measured stats with the levels); the top
+  speed is the upgraded one, green when higher; the tooltip lists the levels.
+- **On the model** (`CarBuild.upgrades(id, levels, detail)`, `CarModel` opts `levels`, one more skinned mesh "Upgrades"
+  with the car's material; not on ghosts): bigger polished exhaust tips per engine level, a yellow sidewall ring on
+  every tyre (wider per tyre level, on the spinning bones), a blue band round each tail pipe per nitro level, mud
+  flaps with an accent strip behind the rear wheels for loose grip on cars with arches and no flaps of their own
+  (shape key `mudflaps`: the Drifter has them; the open-wheeled Dune gets none). 840-2,736 triangles more with everything
+  at level 3 (the Thunder has four tail pipes).
+- **The terminal**: `upgrade` (every car's levels), `upgrade <car>` (its levels and next prices), `upgrade <car>
+  <part> <0-3>`, `upgrade <car> max | stock`, `upgrade all max | stock` (owned cars, free), `buy <car> <part>` (with
+  money), and an Upgrades row in `status` (each upgraded car's code, "Racer E3 T3 N3 L3", and what its parts cost).
+- **A v6.10.0 layout slip fixed on the way** (`ui/settings_screen.gd`): since v6.10.0's Screen dirt and snow row the
+  Settings screen was 20 px too tall for 1280 x 720 (740 px of content, the e2e `terminal` scenario's fit check, which
+  v6.10.0 did not run); short windows (760 px and less) now pad a row 4 px above and below (was 6; 1024 x 600 already
+  had 4), so every setting fits again.
+
 | Area | State | Where |
 | --- | --- | --- |
 | Game logic without graphics: tracks (builder, collision), car physics and nitro, the six cars, race timing, points, ghosts, medals, save file, autopilot | done; the four browser cars checked number for number against the browser version, the Dune and Vortex (v6.1.0) by tests and the medal sweep | `sim/`, `data/tracks.json`, `data/medals.json` |
@@ -175,7 +234,8 @@ and snow make the dirty as well. Improve the brake handling a little as well on 
 | Unlocking tracks (v6.8.0): the rule and the claim at the finish, the save file's `career.tracks_open` (with the one-time upgrade from best times), the menu's locked and NEW tiles and lock note, the refusals in the app and on the training screen, the finish panel's line, the terminal's `status` row | done; the rule, stickiness across a medal-time change and a changed track, the upgrade (current and archived times, unknown cars, junk), the flag and the reset, the refusals, Watch / Train on a locked track, the menu and the finish panel are tests; e2e `unlock` | `sim/unlocks.gd`, `sim/save.gd`, `ui/ui_data.gd`, `ui/track_tile.gd`, `ui/main_menu.gd`, `ui/finish_panel.gd`, `ui/widgets.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `game/app.gd`, `game/terminal.gd` |
 | Terminal (v6.7.0): the console screen (log, input, history, Tab), the commands table, the Settings row, the `` ` `` key on the menu and Settings, the save file's tracks flag and career reset | done; every command with good and bad input, Tab, the save effects, the keys that open and close it, `` ` `` in a race are tests; e2e `terminal` | `game/terminal.gd`, `ui/terminal_screen.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/menu_input.gd`, `sim/save.gd` |
 | Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
-| Tests: headless suite (784 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Car upgrades (v6.11.0): the parts table, upgraded specs, prices, the save file's `career.upgrades` (VERSION 5), the picker's part chips and green bars, the app's ask-first purchase, play and train modes driving the upgraded car (opponents stock), records and ghosts tagged with the levels, the parts on the model, the terminal's `upgrade` / `buy <car> <part>` / `status` row, `tools/upgrades.gd` | done; specs per part / level / car, measured effects, laps, stability (jumps, lane keeping, curve braking on three surfaces), prices and buying, migration and junk, an upgraded ghost replaying exactly, FleetSim parity with upgraded specs, the app, the terminal, the picker and the model are tests; e2e `upgrades` | `sim/upgrades.gd`, `sim/car_spec.gd`, `sim/score.gd`, `sim/save.gd`, `sim/economy.gd`, `sim/replay.gd`, `sim/autopilot.gd`, `ai/trainer.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `ui/part_chip.gd`, `ui/main_menu.gd`, `ui/car_card.gd`, `ui/ui_data.gd`, `game/app.gd`, `game/terminal.gd`, `world/car_build.gd`, `world/car_model.gd`, `world/car_shapes.gd`, `tools/upgrades.gd` |
+| Tests: headless suite (845 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -280,6 +340,76 @@ the surface tracks; the medal times of the seven dirt and snow tracks and their 
 reproduces every stored time); the Windows release export was made from a fresh import (no errors or warnings; the
 new shaders and `world/screen_grime.gd` are in the pack) and zipped as `build/TrackRush-6.10.0-windows.zip` (not
 started: no Windows here).
+
+v6.11.0 (2026-11-04): the headless suite passes (845 checks: sim 110, ui 209, world 170, game 194, ai 162; 410 s);
+the end-to-end scenarios pass at 1280 x 720 with `gfx=low` (upgrades 15, menu 28, economy 21, terminal 34, settings1 6
++ settings2 7; `upgrades` also ran with `gfx=high` for its screenshots: 14 of 15, the one failure the first draft's 2 %
+line, see below); the FleetSim libraries were not touched (an upgrade only changes spec numbers FleetSim already
+takes); the Windows release export was made from a fresh import (no errors or warnings; `sim/upgrades.gd` and
+`ui/part_chip.gd` are in the pack) and zipped as `build/TrackRush-6.11.0-windows.zip` (not started: no Windows here).
+
+## How v6.11.0 (car upgrades) was verified
+
+- **What a level does** (`tools/upgrades.gd`, new, 447 s on 3 threads: `tools/car_stats.gd`'s measurements of every
+  car stock, engine 1-3, tyres 1-3, nitro 3 and everything at 3; the engine and tyre rows are `Upgrades.MEASURED`,
+  `--check` compares): to 200 km/h, engine 3 against stock, Racer 9.78 → 8.33 s, Kestrel 11.28 → 9.30, Thunder 8.20 →
+  7.18, Drifter 9.23 → 7.98, Dune 12.68 → 10.28, Vortex 6.22 → 5.40 (each level 4-8 % on the one before); top speed
+  277.7 → 289.5, 230.2 → 237.7, 312.7 → 327.9, 264.3 → 275.7, 222.4 → 231.6, 321.4 → 342.0 km/h; tyres 3, the 30 m / 120 m
+  skidpads, Racer 1.68 / 1.58 → 1.89 / 1.73 g, Kestrel 1.78 / 1.59 → 2.00 / 1.71, Thunder 1.47 / 1.56 → 1.69 / 1.74,
+  Drifter 1.59 / 1.52 → 1.82 / 1.67, Dune 1.71 / 1.43 → 1.92 / 1.58, Vortex 1.68 / 1.75 → 1.90 / 1.98 (2.6-5.0 % a
+  level); nitro 3: every tank 30 % longer (Racer 5.0 → 6.5 s, 145 → 223 m on one tank). Loose grip 3 on dirt (30 m
+  skidpad / 100-0 km/h): Racer 1.15 → 1.32 g / 29.8 → 27.2 m, Kestrel 1.26 → 1.45, Thunder 0.90 → 1.04, Drifter 1.15
+  → 1.32, Dune 1.63 → 1.67 (capped at its asphalt grip), Vortex 0.89 → 1.03; on snow +14-16 % for every car (the Dune
+  1.21 → 1.40). Tyres 3 change nothing on dirt and snow (within 0.7 %), as meant. Drift held changes little (Racer
+  0.83 → 0.73 s with everything at 3; the Vortex's engine 3 alone 1.22 → 1.55 s: more power holds a slide longer).
+- **Laps** (`tests/test_sim.gd`, the medal autopilot at 20 m/s² and lookK 0.75 with nitro, everything at 3 against
+  stock): Rookie Oval Racer 2:11.417 → 2:06.283, Thunder 2:09.717 → 2:04.950, Dune 2:19.683 → 2:12.433; Ramp Rally
+  Racer 3:10.833 → 2:56.717, Thunder 3:17.417 → 3:05.733, Dune 3:03.383 → 2:55.117. `tools/upgrades.gd --laps --quick` (the medal autopilot's best race of 10 settings with nitro, 4 tracks × 6 cars,
+  863 s on 3 threads): everything at 3 is 4.0-8.1 % quicker for every car on every track (Rookie Oval 5.3-7.1 %,
+  Technical Trial 4.8-6.9 %, Ramp Rally 4.1-8.1 %, Hairpin Valley 5.6-7.0 %; the Racer on Rookie Oval 2:11.417 →
+  2:03.138, on Ramp Rally 3:09.200 → 2:53.932); one part at level 3: tyres 3.4-5.4 % on the two asphalt tracks
+  (0.5-3.7 % on the dirt and snow ones), engine 0.6-2.2 %, loose grip 1.2-4.1 % on Ramp Rally and Hairpin Valley (the
+  Dune 0.25 % on Ramp Rally; nothing on asphalt, as meant), nitro 0-0.8 % (the Vortex 0.18 % slower on Technical
+  Trial: noise of the setting search). The steps against a wall and the largest sideslip of the fastest run go both
+  ways (the Racer on Ramp Rally 279 → 0 wall steps, the Thunder on Technical Trial 138 → 47; the Drifter on Rookie
+  Oval 39 → 103, its slip on Hairpin Valley 25° → 38°): the autopilot's settings were tuned on stock cars and the
+  tool keeps the fastest run, not the cleanest (see Known limitations).
+- **Stability** (`tests/test_sim.gd`, every car with everything at 3): 240 jumps, no bounce, no spin, at most 29.5° of
+  turn with a steer key held (limit 35°); braking hard in a 120 m curve from 0.45 g no car spins (sideslip at most
+  1.2° on asphalt, 1.5° on dirt, 1.9° on snow); keyboard lane keeping: no slide, and no car weaves more than 0.5°
+  beyond its stock self (the Racer with tyres 3 weaves 5.05° against 4.89° at 120 km/h with a 20 m look-ahead,
+  sliding 2°: the old fishtail test's 5° line counted it as one, see Known limitations).
+- **Specs** (`tests/test_sim.gd`): every part, level and car changes only its own keys by the exact formula; max_speed,
+  mass and brakes never; tyres + loose grip on dirt = loose grip alone; level 0 is the stock spec object; on all-asphalt
+  Rookie Oval loose grip 3 gives the Dune's race bit for bit; nitro 3 refills 1.30 × the tank for the same points.
+- **FleetSim** (`tests/test_ai.gd` "FleetSim with upgraded cars"): every car at 4 upgrade sets reaches FleetSim with
+  every number the same; lockstep training of an upgraded Racer on Ramp Rally and an upgraded Thunder on Hairpin
+  Valley: states, sensor inputs, fitness, reasons and history the same; every car with everything at 3 over Ramp
+  Rally's dirt, sliding (12 drives of 600 steps, 4038 with an axle on dirt): the same at every step. No native change.
+- **Prices and buying** (`tests/test_sim.gd`): rising, multiples of $50, the Racer's base $12,000, the Vortex's engine 3 ×
+  3 the Kestrel's; $248,200 for everything against $94,000 for the cars, 3.4 gold + Expert careers (2.0 author +
+  Elite) with the cars; buying: not without the money (says how much), in order, not past 3, not for a car not owned,
+  read back from the file; the save migration from versions 4 and 3 and 5 kinds of junk; reset makes every car stock.
+- **Ghosts**: an upgraded Racer's run on Ramp Rally (2:56.717 against 3:10.833 stock) is saved with `up` [3, 3, 3, 3]
+  on the record and the ghost; after the car went back to stock the ghost replays it within 2.3 cm at every step.
+- **The app and the terminal** (`tests/test_game.gd`): the chips through the app (locked, short of money, asks first,
+  Cancel, yes, MAX), Drive / Race the Rookie AI (its car stock) / Watch the AI and Race my AI with the upgraded car;
+  every `upgrade` form, 11 bad lines, `buy <car> <part>`, the `status` row, Tab, reset.
+- **The picker** (`tests/test_ui.gd`): four chips at level 0 with prices in place of the description at 1280 x 720,
+  tooltips, the store's buying, grey prices when short, MAX, the card's green bars and upgraded top speed, a locked
+  car's chips off and its description shown, the pad down to the chips and up again, both rows at 1366 x 768.
+- **The model** (`tests/test_world.gd`): no parts on a stock car or a ghost; with everything at 3, 840-2,736 more
+  triangles in one more skinned mesh with the car's material; mud flaps on four cars; fewer on low detail.
+  `tests/visual/car_studio.gd up=3,3,3,3` was looked at from the side and behind.
+- **End to end** (`tests/e2e/game_e2e.gd` `upgrades`, 205 s with `gfx=low`): a new career at $0 shows the Racer's four
+  chips greyed and the Kestrel's off; the medal autopilot drives the stock Racer's author run on Rookie Oval (2:01.867,
+  the author time, clean); with the money it earned and more from the terminal ($33,050) the chips fit 1280 x 720,
+  each of the 12 clicks asks first and buys ($28,050), the chips read MAX and the card's bars grow (speed 0.60 →
+  0.69, acceleration 0.51 → 0.81, grip 0.55 → 0.85, nitro 0.74 → 0.97); the same autopilot settings in the upgraded
+  car: 2:00.250, 1.3 % quicker (the check asks for 0.5 %: this run touched the walls 9 times, the stock one never;
+  the first draft's 2 % line failed once with `gfx=high`), an author medal, the record's `up` [3, 3, 3, 3]; R races
+  its ghost, at most 0.006 m from the car. Screenshots: `docs/screenshots/upgrades.png` (every part at MAX) and the
+  ask, race and finish screens, all looked at.
 
 ## How v6.10.0 (dirt and snow polish) was verified
 
@@ -824,8 +954,9 @@ started: no Windows here).
   column `spray`, the colour of what the tyres throw up; v6.10.0 the physics columns `brake`, `abs` and `wall`, which
   `Trainer.track_data` passes to FleetSim as `surf_brake` / `surf_abs` / `surf_wall`, and the look column `grime` in
   place of `rumble`), the rewards (`sim/economy.gd` `REWARDS`, `TRACK_STEP`), the
-  car prices (`price` in `sim/cars.gd`; 0 = owned from the start) and the AI levels (`sim/opponents.gd` `LEVELS`:
-  id, name, pace, blurb; a new level also needs an `ai-<id>` reward and a `tools/opponents.gd` run).
+  car prices (`price` in `sim/cars.gd`; 0 = owned from the start), the AI levels (`sim/opponents.gd` `LEVELS`:
+  id, name, pace, blurb; a new level also needs an `ai-<id>` reward and a `tools/opponents.gd` run) and the car
+  upgrades (`sim/upgrades.gd` `PARTS`, `LEVEL_SHARE`, `FREE_CAR_BASE`; `MEASURED` is pasted from `tools/upgrades.gd`).
 - **Road surfaces** are marked in the track designs (`tools/gen_tracks.gd`, turtle `.surface("dirt")` ...
   `.surface("asphalt")`; the design rules want stretches of 60 m or more and the start grid on asphalt). A track
   without them has no `"surfaces"` key and an empty `BuiltTrack.surf_w`, and every surface branch in `sim/car.gd`,
@@ -869,7 +1000,7 @@ started: no Windows here).
   unchanged by the surfaces, which only change tracks that have them), `ScoreState.SCORE_RULES` (1: best scores,
   medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION` (3: track signatures on records and
   scores, the archive; `_migrate` upgrades versions 1 and 2; 4 (v6.5.0): the `career` section, started once from the
-  medals held when it is missing), ghost format 3, the track signatures above, FleetSim's
+  medals held when it is missing; 5 (v6.11.0): `career.upgrades`, empty for older files), ghost format 3, the track signatures above, FleetSim's
   `version()` ("trackrush-native 4": v6.10.0's brakes, anti-lock limit and wall friction on loose ground; 3: road
   surfaces; 2 scaled the sensors by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
   change to the physics, a car, the points, a track or its laps, and `tools/car_stats.gd` after changing a car.
@@ -888,6 +1019,15 @@ started: no Windows here).
   `reset_career()` ($0, 0 points, the starting cars, nothing paid, the flag off; records, ghosts, scores, networks and
   settings stay); each writes the file, and the screen's `changed` signal redraws the menu. The paid list is per
   track id and car, not per track signature, on purpose (see Known limitations).
+- **Upgrades change a spec, never the physics** (v6.11.0): an upgrade is a set of `CarSpec` changes made by
+  `Upgrades.changes(car, levels)`; `Upgrades.spec(car, levels)` is the only way to get an upgraded car (cached; the stock
+  spec object itself at level 0). Anything that should drive the player's car takes the spec from there
+  (`Upgrades.player_spec(car)` reads the save file); anything that must stay comparable (medal times, the AI opponents,
+  their stored races, the medal sweep, `tools/car_stats.gd`) keeps `Cars.spec`. A new part is a `PARTS` entry and a
+  branch in `changes()`; if it touches a key FleetSim reads, nothing else is needed (the spec goes over as data); if it
+  needs a new `CarSpec` field, add it to `KEYS` and either to FleetSim or to `Trainer.spec_data`'s erase list (as
+  `nitroRefill`: the AI never uses nitro). Run `tools/upgrades.gd` and paste its `MEASURED` lines after changing a car
+  or a step.
 - **The terminal** (v6.7.0): `ui/terminal_screen.gd` is only the console (it takes any object with `run(line)` and
   `complete(line)`; the app gives it `game/terminal.gd`), so ui/ doesn't depend on game/. A command method gets the
   arguments (lower case) and an `Out` (`add(kind, text)`, `row(label, value)`, `confirm(what)`, `changed`, `close`,
@@ -928,6 +1068,31 @@ started: no Windows here).
 
 ## Known limitations
 
+- **Car upgrades (v6.11.0)**:
+  - **Medals and AI wins get easier with upgrades, on purpose** (the owner's default): a fully upgraded car beats the
+    stock author time with the same driving (the medal autopilot's runs: 4-8 % faster on four tracks), and the
+    best-time lists mix stock and upgraded runs (a record keeps its levels as `up`, but nothing shows them yet: the
+    menu's record line, the finish panel and the HUD don't say a run was upgraded).
+  - **The tyre level makes a keyboard driver weave a little more**: the Racer with tyres 3, holding a lane at 120 km/h
+    by tapping the keys with a 20 m look-ahead, yaws 5.05° (stock 4.89°; v6.10's fishtail test calls 5° a fishtail)
+    while sliding only 2°. The upgraded check compares with the stock car (no slide; at most 0.5° more slip or weave);
+    every other car, and every car on jumps and braking in a curve, is unchanged or calmer.
+  - **The grip bar jumps further than the others**: it maps 1.3-1.9 g onto the bar, so tyres 3 (+12 % grip) move the
+    Racer's from 0.55 to 0.86, while engine 3 (+14 % to 200 km/h) moves acceleration less. The bars use the fixed
+    scales of v6.1 on purpose (the same bar means the same grip on every car).
+  - **No loose grip mark on two models**: the Drifter has its own mud flaps and the Dune has open wheels, so neither
+    shows loose grip on the model (the chips and bars do).
+  - **The AI opponents' networks were trained on stock cars**; the player's own network is trained on the upgraded
+    car if the car was upgraded when training started (a session keeps the spec it started with; upgrading during a
+    session takes effect in the next one).
+  - The nitro part is 10 % a level (the brief said about 3-5 %): at that size it is worth 0-0.8 % of a race at level
+    3, the least of the four (the medal autopilot burns it at full throttle whenever the wheel is near straight; a
+    player who saves it for the long straights may get a little more).
+  - **The medal autopilot is tuned on stock cars**: in `tools/upgrades.gd --laps` its fastest upgraded run is sometimes
+    messier than the stock one (the Drifter on Rookie Oval 103 steps against a wall against 39, its largest sideslip
+    on Hairpin Valley 38° against 25°; the e2e author run with the Racer 9 wall contacts against none) and sometimes
+    cleaner (the Racer on Ramp Rally 0 against 279). The stability tests (jumps, curve braking, lane keeping) drive
+    fixed inputs and pass; a human driver was not tried.
 - **Dirt and snow polish (v6.10.0)**:
   - **Northern Lights still rewards riding the walls with some cars.** With the Racer the medal autopilot's lap beats
     never braking by only 0.13 s there (v6.9.0: 0.43 s; the other six surface tracks 1.9-9.4 s). With the Vortex and
@@ -1100,10 +1265,17 @@ trains, calibrates and `--check`s them), everything runs locally.
    loose ground is 12-15 % shorter; walls along dirt and snow keep 55 % and 45 % of their friction.
    **Open**: the Known limitations above (Northern Lights and wall riding with the Vortex and Thunder, dirt braking
    close to asphalt, never seen on a real graphics card).
-2. **Car upgrades (v6.11.0)**: next. Nothing in v6.10.0 is in its way: the brake gain and the anti-lock share are per
-   surface, not per car, so a brake upgrade can scale the car's `brake` force as before; the surface table's physics
-   columns are read through `Surfaces.column()` and FleetSim's track data.
-3. **Sound and music (v6.12.0)**: after that. v6.10.0 has hooks for it: `ScreenGrime.level` (mud, snow) and the
+2. **Car upgrades.** **Done in v6.11.0** (see the status above and
+   [How v6.11.0 was verified](#how-v6110-car-upgrades-was-verified)). The owner's pick: "Car upgrades: engine, tyres,
+   nitro tank and dirt/snow grip, three levels each, so money is still useful once all six cars are bought." Choices
+   made where the owner gave none: parts bought one level at a time and in order, on the car picker (asking first);
+   engine +5 % torque, tyres +4 % asphalt grip, loose grip +5 % dirt and snow share a level, nitro +10 % tank and
+   refill a level (more than the others: smaller did next to nothing); prices from the car's price ($12,000 for the
+   Racer) × 10 / 20 / 35 % × the part's weight; medal times and AI opponents stay stock; the player's own AI drives and
+   trains the upgraded car; the career reset makes every car stock; a cheap mark per part on the model.
+   **Open**: the Known limitations above (records don't show their levels, the keyboard weave with tyres 3, no
+   loose grip mark on the Drifter and Dune).
+3. **Sound and music (v6.12.0)**: next. v6.10.0 has hooks for it: `ScreenGrime.level` (mud, snow) and the
    surfaces' `grime` say how hard the ground is being thrown up (gravel and snow noise), and the wall scrape still
    drives `ChaseCamera.rumble`.
 

@@ -19,6 +19,7 @@ extends SceneTree
 ##   ghost      1: draw them as ghosts
 ##   frames     frames of motion before the shot (default 40)
 ##   noglass    1: hide the glass (to see the driver)
+##   up         upgrade levels engine,tyres,nitro,loose (v6.11, e.g. 3,3,3,3): the parts they show
 
 func _initialize() -> void:
 	var o := {}
@@ -41,7 +42,8 @@ func _initialize() -> void:
 	world.add_child(pad)
 	var cars: Array[CarModel] = []
 	for id in ids:
-		var car := CarModel.new(id, {"ghost": o.get("ghost", "0") == "1"})
+		var lv: Array = Array(String(o.get("up", "")).split(",", false)).map(func(x: String) -> int: return int(x))
+		var car := CarModel.new(id, {"ghost": o.get("ghost", "0") == "1", "levels": lv})
 		world.add_child(car)
 		if o.get("noglass", "0") == "1" and car.glass_mesh != null:
 			car.glass_mesh.visible = false

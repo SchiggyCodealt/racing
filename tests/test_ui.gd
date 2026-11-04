@@ -29,6 +29,7 @@ func run(t) -> bool:
 	_hud(t)
 	_finish(t)
 	_career(t)
+	_upgrades(t)
 	_unlocks(t)
 	_scale(t)
 	UiData.reset()
@@ -754,6 +755,103 @@ func _career(t) -> void:
 	f.update(Fx.panel_payout())
 	_settle(h)
 	t.check(f.get_global_rect().end.y <= 600.5, "800 x 600: the payout panel still fits (%d px high)" % roundi(f.size.y))
+	h.free()
+	UiData.reset()
+
+
+## v6.11.0: the picked car's upgrades on the car picker (the in-memory store: career.upgrades):
+## a chip per part (levels, the next price, MAX), a locked car's chips off, the bars with what the
+## upgrades add, the parts row or the description in a short window (both in a taller one), the
+## pad highlight to the chips and back, the store's buy_upgrade.
+func _upgrades(t) -> void:
+	t.section("car upgrades on the car picker (v6.11.0)")
+	Fx.save_data_v5()
+	UiData.store.career.money = 20000
+	UiData.set_setting("car", "racer")
+	var hm := _menu(t)
+	var menu: MainMenu = hm[1]
+	var chips: Array = menu.get("_part_chips")
+	var parts_row: Control = menu.get("_parts_row")
+	var desc_row: Control = menu.get("_car_desc_row")
+	var names: Array = chips.map(func(c: Control) -> String: return str(c.get("part_name")))
+	var prices_ok := true
+	for k in chips.size():
+		var pid: String = UiData.upgrade_parts()[k].id
+		prices_ok = prices_ok and int(chips[k].get("price")) == Upgrades.price("racer", pid, 1) and int(chips[k].get("level")) == 0 and \
+			bool(chips[k].get("affordable")) and not (chips[k] as Button).disabled
+	t.check(chips.size() == 4 and names == ["Engine", "Tyres", "Nitro", "Loose grip"] and prices_ok and parts_row.is_visible_in_tree() and not desc_row.is_visible_in_tree(),
+		"the Racer (yours) at 1280 x 720: four part chips (Engine, Tyres, Nitro, Loose grip) at level 0 with the next level's price, in place of the description line")
+	var tip: String = (chips[0] as Control).tooltip_text
+	t.check(tip.contains("Level 1 (+5 %% power) costs %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and tip.contains("Medal times and the AI opponents stay stock") and
+		str((menu.get("_parts_cap") as Control).tooltip_text).contains("Medal times and the AI opponents stay"),
+		"the chip's tooltip: what the next level does and costs; medal times and the AI opponents stay stock (the caption says so too)")
+	# buy in the store: in order, not past the top, not for a locked car, not without the money
+	var r1 := UiData.buy_upgrade("racer", "engine")
+	var r2 := UiData.buy_upgrade("vortex", "engine")
+	var r3 := UiData.buy_upgrade("racer", "turbo")
+	menu.refresh()
+	t.check(r1.ok and int(r1.level) == 1 and UiData.money() == 20000 - Upgrades.price("racer", "engine", 1) and r2.error == "locked" and r3.error == "unknown" and
+		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
+		"buying the Racer's engine: level 1, the chip shows the next price; a locked car or an unknown part: nothing")
+	UiData.store.career.money = 10
+	menu.refresh()
+	var r4 := UiData.buy_upgrade("racer", "tyres")
+	t.check(not r4.ok and r4.error == "money" and int(r4.short) == Upgrades.price("racer", "tyres", 1) - 10 and not bool(chips[1].get("affordable")) and
+		(chips[1] as Control).tooltip_text.contains("more to go"), "$10: the chips' prices are grey, the store says how much is missing")
+	# everything at level 3: MAX, off; the card's bars and top speed with the upgrades
+	UiData.store.career.upgrades = {"racer": [3, 3, 3, 3]}
+	UiData.store.career.money = 100000
+	menu.refresh()
+	var maxed := true
+	for c: Button in chips:
+		maxed = maxed and c.disabled and c.call("price_text") == "MAX"
+	var r5 := UiData.buy_upgrade("racer", "nitro")
+	var card: Control = menu.car_card()
+	var b0: Dictionary = UiData.car_info("racer").bars
+	var bu: Dictionary = card.get("bars_up")
+	t.check(maxed and r5.error == "max" and float(bu.speed) > float(b0.speed) and float(bu.acceleration) > float(b0.acceleration) and float(bu.grip) > float(b0.grip) and
+		float(bu.nitro) > float(b0.nitro) and float(card.get("top_up")) > float(UiData.car_info("racer").top) and card.tooltip_text.contains("Upgrades: engine 3, tyres 3, nitro 3, loose grip 3"),
+		"every level bought: the chips read MAX (off); the Racer's card shows the bars with the upgrades (speed %.2f -> %.2f, grip %.2f -> %.2f) and %d km/h" % [
+		float(b0.speed), float(bu.speed), float(b0.grip), float(bu.grip), roundi(float(card.get("top_up")))])
+	# a locked car: its description in a short window, its chips off
+	UiData.set_setting("car", "vortex")
+	menu.refresh()
+	var off := true
+	for c: Button in chips:
+		off = off and c.disabled and bool(c.get("locked"))
+	t.check(off and not parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree() and (chips[0] as Control).tooltip_text.contains("Buy the Vortex first"),
+		"the Vortex (not yours): its description shows, its parts are off (buy the car first)")
+	# the pad: down from the picked car (bottom row) to its parts, up back to the car
+	UiData.set_setting("car", "drifter")
+	UiData.store.career.cars = ["racer", "drifter"]
+	menu.refresh()
+	_settle(hm[0])
+	var inp := Fx.FakeInput.new()
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	var on_car: bool = menu.pad_target() == menu.car_card()
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	var on_chip: bool = chips.has(menu.pad_target())
+	menu.handle_keys(_press(inp, ["NavRight"], true))
+	var right_chip: bool = chips.has(menu.pad_target())
+	var asked := []
+	menu.upgrade.connect(func(part: String) -> void: asked.append(part))
+	menu.handle_keys(_press(inp, ["PadA"], true))
+	menu.handle_keys(_press(inp, ["NavUp"], true))
+	t.check(on_car and on_chip and right_chip and asked.size() == 1 and asked[0] != "" and menu.pad_target() == menu.car_card() and UiData.picked_car() == "drifter",
+		"the pad: down from the Drifter to its part chips, right along them, A asks to buy one (%s), up back to the car" % [asked])
+	hm[0].free()
+	# a taller window (1366 x 768): the parts and the description both
+	var h := _holder(t, Vector2(1366, 768))
+	var m2 := MainMenu.new()
+	h.add_child(m2)
+	m2.show_menu(true)
+	_settle(h)
+	m2.call("_layout")
+	m2.refresh()
+	t.check((m2.get("_parts_row") as Control).is_visible_in_tree() and (m2.get("_car_desc_row") as Control).is_visible_in_tree(),
+		"1366 x 768: the parts and the description line both")
 	h.free()
 	UiData.reset()
 

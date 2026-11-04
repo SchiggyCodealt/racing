@@ -26,6 +26,9 @@ extends Node
 ## AI use the menu's opponent: an AI level (the shipped network of the track and car with the
 ## level's speed cap, sim/opponents.gd) or "My AI" (the picked car's own network, as before). A
 ## save file upgraded to version 4 gets a one-time message about the money its medals paid.
+## v6.11.0: car upgrades (sim/upgrades.gd): the car picker's part chips buy the next level of a
+## part of the picked car (asking first, or saying how much money is missing); the races, Watch the
+## AI with the player's own network and the training screen drive the car with its upgrades.
 ## v6.7.0: the terminal (ui/terminal_screen.gd, opened from Settings or with ` on the menu) runs
 ## game/terminal.gd's commands (money, points, cars, unlock all ...) on the save file; the menu
 ## redraws after one changed the career.
@@ -135,6 +138,7 @@ func _ready() -> void:
 	ui.menu.watch_ai.connect(func() -> void: play("ai", false))
 	ui.menu.train_ai.connect(train)
 	ui.menu.load_network.connect(load_network_dialog)
+	ui.menu.upgrade.connect(func(part: String) -> void: offer_upgrade(UiData.picked_car(), part))
 	ui.menu.save_network.connect(save_network_dialog)
 	ui.menu.track_selected.connect(func(i: int) -> void:
 		selected_track = i
@@ -298,6 +302,44 @@ func buy_car(car_id: String) -> Dictionary:
 	var r := UiData.buy_car(car_id)
 	if not r.ok and r.error == "money":
 		show_message("Not enough money", "The %s costs %s: %s more to go." % [Cars.get_car(car_id).name, UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
+	ui.menu.refresh()
+	return r
+
+
+## The car picker's part chip: buy the next level of part `part` for car `car_id`, asking first
+## (what it does, what it costs, what is left), or say why it can't be bought (the car isn't
+## yours, every level is bought, the money is short).
+func offer_upgrade(car_id: String, part: String) -> void:
+	var p := Upgrades.part(part)
+	if p.is_empty():
+		return
+	var cname: String = Cars.get_car(car_id).name
+	if not UiData.owns_car(car_id):
+		show_message("The %s is locked" % cname, "Buy the %s first: then its engine, tyres, nitro and loose grip can be upgraded." % cname)
+		return
+	var lv: int = UiData.upgrade_levels(car_id)[Upgrades.index_of(part)]
+	if lv >= Upgrades.MAX_LEVEL:
+		show_message("%s: every level" % p.name, "The %s's %s is at level %d of %d already (%s)." % [cname, String(p.name).to_lower(), lv, Upgrades.MAX_LEVEL,
+			Upgrades.effect(part, lv)])
+		return
+	var price := UiData.upgrade_price(car_id, part)
+	var have := UiData.money()
+	if have < price:
+		show_message("Not enough money", "%s level %d for the %s costs %s and you have %s: %s more to go. Medals and wins against the AI opponents pay money." % [
+			p.name, lv + 1, cname, UiFormat.money(price), UiFormat.money(have), UiFormat.money(price - have)])
+		return
+	ui.menu.input = null
+	message.ask("Upgrade the %s's %s?" % [cname, String(p.name).to_lower()],
+		"Level %d of %d: %s over the stock car (%s). It costs %s; you have %s, so %s is left. It counts in every race you drive with the %s and when your own AI drives or trains it. Medal times and the AI opponents stay as they are." % [
+			lv + 1, Upgrades.MAX_LEVEL, Upgrades.effect(part, lv + 1), p.what, UiFormat.money(price), UiFormat.money(have), UiFormat.money(have - price), cname],
+		"Buy for %s" % UiFormat.money(price), buy_upgrade.bind(car_id, part))
+
+
+## Buy the next level of part `part` for car `car_id` now: {ok, error, price, level, short}.
+func buy_upgrade(car_id: String, part: String) -> Dictionary:
+	var r := UiData.buy_upgrade(car_id, part)
+	if not r.ok and r.error == "money":
+		show_message("Not enough money", "That costs %s: %s more to go." % [UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
 	ui.menu.refresh()
 	return r
 

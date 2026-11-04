@@ -29,7 +29,8 @@ extends RefCounted
 ##    (no more than replayGap m behind the furthest point reached).
 ##  - Clean lap: cleanLap; clean run: cleanRun at the finish. Penalties never take
 ##    the score below zero.
-## Nitro: every point banked refills 1 / pointsPerTank of a tank (car.add_nitro);
+## Nitro: every point banked refills 1 / pointsPerTank of a tank (car.add_nitro; × the car's
+## CarSpec.nitro_refill, v6.11's nitro upgrade: 1 for a stock car);
 ## respawns and the points banked at the finish refill nothing.
 ## SCORE_RULES tags stored best scores: bump it when the rules or numbers change.
 ##
@@ -365,7 +366,11 @@ func _bank(cat: String, pts: float, ev: Dictionary) -> void:
 	total += pts
 	points[cat] += pts
 	if not finished:
+		# (v6.11: the nitro upgrade refills more of the tank per point: × the spec's nitro_refill,
+		# 1 for a stock car, which leaves the number exactly as it was)
 		var tanks: float = pts / SCORE.pointsPerTank
+		if _car != null:
+			tanks *= _car.spec.nitro_refill
 		nitro_earned += tanks
 		if refill and _car != null:
 			var before: float = _car.nitro

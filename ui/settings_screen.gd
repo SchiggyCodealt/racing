@@ -206,12 +206,12 @@ func handle_keys(inp: Object) -> void:
 		step_row(selected_row, 1)
 
 
-## Short windows (1280x720 and less since v6.7.0's Terminal row; 1024x600 tighter still): rows and
-## sections closer together, so every setting fits.
+## Short windows (1280x720 and less since v6.7.0's Terminal row): rows and sections closer
+## together, so every setting fits (v6.11.0: 4 px a row, as 1024x600 had, since v6.10.0's Screen
+## dirt and snow row made 1280x720 scroll by 20 px).
 func _on_layout(_w: float) -> void:
 	var short := size.y <= 760
-	var tiny := size.y <= 640
-	_row_pad = UiStyle.S1 if tiny else UiStyle.S1 + 2 if short else UiStyle.S2 + 2
+	_row_pad = UiStyle.S1 if short else UiStyle.S2 + 2
 	for g in _section_gaps:
 		g.custom_minimum_size.y = UiStyle.S2 if short else UiStyle.S4
 	_render()

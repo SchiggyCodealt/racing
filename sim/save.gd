@@ -12,9 +12,10 @@ extends RefCounted
 ## was saved is still kept for this session. Browser (localStorage) saves cannot
 ## be carried over.
 ##
-##   SaveData.get_record(track_id, car_id)            -> {time, splits, date} or {}
-##   SaveData.submit_record(track_id, car_id, time, splits) -> true when it is a new best (unknown car: false;
-##                                                    splits: Array or race.splits)
+##   SaveData.get_record(track_id, car_id)            -> {time, splits, date, up} or {} (up, v6.11: the
+##                                                    car's upgrade levels on that run, [0, 0, 0, 0] stock)
+##   SaveData.submit_record(track_id, car_id, time, splits[, up]) -> true when it is a new best (unknown car:
+##                                                    false; splits: Array or race.splits; up: the levels)
 ##   SaveData.load_ghost(track_id, car_id)            -> the saved ghost (Replay.pack_ghost) or null, unchecked
 ##   SaveData.save_ghost(track_id, car_id, ghost)     -> false when the file can't be written
 ##   SaveData.get_best_score(track_id, car_id)        -> {score, date} or {}
@@ -36,6 +37,13 @@ extends RefCounted
 ##   SaveData.pay_rewards(track_id, car_id, ids, money, points)  mark them paid and add the money and points
 ##   SaveData.take_welcome()                          -> {money, points, medals} paid by the upgrade to
 ##                                                    version 4 for the medals already held, once ({} after)
+## Car upgrades (v6.11.0; sim/upgrades.gd has the parts and prices, sim/economy.gd buy_upgrade):
+##   SaveData.get_upgrades(car_id) -> PackedInt32Array [engine, tyres, nitro, loose], each 0..3
+##                                                    (all 0 for a car not owned, or never upgraded)
+##   SaveData.purchase_upgrade(car_id, part, level, price) -> "" (bought), "locked" (car not owned),
+##                                                    "order" (not the next level), "max", "money", "unknown"
+##   SaveData.set_upgrades(car_id, levels)            set the levels without paying (the terminal); false
+##                                                    for a car not owned
 ## The terminal (v6.7.0, game/terminal.gd) also uses:
 ##   SaveData.tracks_unlocked() -> bool                every track open whatever the medals (the terminal's
 ##                                                    `unlock all` / `unlock tracks`)
@@ -53,7 +61,7 @@ extends RefCounted
 ## settings: {...}, networks: {car: {slot: network file}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
-## tracks_open}}.
+## tracks_open, upgrades: {car: [engine, tyres, nitro, loose]}}}.
 ## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
 ## stays: older games keep the key as it is. tracks_open, v6.8.0: the tracks medals opened, for good;
 ## version 4 stays too: a career without it (a save from v6.7.0 or older, when every track was
@@ -77,10 +85,15 @@ extends RefCounted
 ## Racer) and pays, once, every medal the best times already hold (those that still count:
 ## current physics and track versions), as if each had just been won (_start_career; the sum
 ## is kept as career.welcome for the menu's message). Points and money start at 0 otherwise.
+## 4 (v6.5-6.10) had no upgrades: version 5 (v6.11.0) adds career.upgrades, {} for an older file
+## (every part of every car at level 0, the stock cars). Records may carry `up` (the levels of the
+## run; absent: stock) and ghosts too (sim/replay.gd); older ones are stock runs. Levels are kept
+## only for owned cars (a hand-edited file's others are dropped) and clamped to 0..3. An older
+## game that rewrites a version 5 file keeps the career as it is (it reads what it knows).
 ## Times are written with 17 significant digits; Godot's JSON reader may return a
 ## stored time one unit in the last place (~1e-14 s) off, which no screen shows.
 
-const VERSION: int = 4
+const VERSION: int = 5
 ## The sections whose entries belong to one version of a track (moved to "archive" when it changes).
 const TRACK_SECTIONS: PackedStringArray = ["records", "scores", "ghosts"]
 ## The network slot the player's training fills (see the header).
@@ -143,6 +156,10 @@ static func _all() -> Dictionary:
 static func _migrate(d: Dictionary) -> void:
 	# version 2 and older: records and scores were made on the tracks of v6.2
 	var v: Variant = d.get("version")
+	# version 4 and older (v6.10.0 and before): no upgrades, every car stock (a version 3 file gets
+	# its career, and with it the empty list, from _start_career)
+	if (not _is_num(v) or float(v) < 5.0) and d.get("career") is Dictionary and not (d.career.get("upgrades") is Dictionary):
+		d.career.upgrades = {}
 	if not _is_num(v) or float(v) < 3.0:
 		for section: String in ["records", "scores"]:
 			var sec: Dictionary = d[section]
@@ -196,7 +213,7 @@ static func _archive_stale(d: Dictionary) -> void:
 ## tracks and cars the game knows), as Economy.payout would pay them; the sum is remembered as
 ## career.welcome for the menu's one-time message ({money, points, medals}; nothing when 0).
 static func _start_career(d: Dictionary) -> void:
-	var c: Dictionary = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}}
+	var c: Dictionary = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}, upgrades = {}}
 	d.career = c
 	var medals: int = 0
 	var recs: Dictionary = d.records
@@ -276,6 +293,14 @@ static func _repair_career(d: Dictionary) -> void:
 		c.tracks_open = open
 	elif c.has("tracks_open"):
 		c.erase("tracks_open") # (not a list: worked out again from the best times, see _all)
+	# (v6.11) upgrades: owned cars only, four levels 0..3 each, all-stock entries dropped
+	var up: Dictionary = {}
+	if c.get("upgrades") is Dictionary:
+		for car: Variant in c.upgrades:
+			var lv: PackedInt32Array = Upgrades.clean(c.upgrades[car])
+			if cars.has(str(car)) and not Upgrades.is_stock(lv):
+				up[str(car)] = Array(lv)
+	c.upgrades = up
 
 
 ## Entries kept from older versions of a track: {signature: entry} (section: "records",
@@ -366,21 +391,26 @@ static func get_record(track_id: String, car_id: String = Cars.DEFAULT_CAR) -> D
 		if r.get("splits") is Array:
 			for s: Variant in r.splits:
 				splits.append(float(s) if _is_num(s) else null)
-		out = {time = float(r.time), splits = splits, date = str(r.get("date", ""))}
+		out = {time = float(r.time), splits = splits, date = str(r.get("date", "")), up = Upgrades.clean(r.get("up"))}
 	_mutex.unlock()
 	return out
 
 
 ## Save a time on a track with a car if it beats the best. Returns true when it is a new record.
-static func submit_record(track_id: String, car_id: String, time: float, splits: Variant = []) -> bool:
+## `up` (v6.11): the car's upgrade levels on that run (kept when not stock).
+static func submit_record(track_id: String, car_id: String, time: float, splits: Variant = [], up: Variant = null) -> bool:
 	if not Cars.has_car(car_id) or not (time > 0.0) or not is_finite(time):
 		return false
 	var prev: Dictionary = get_record(track_id, car_id)
 	if not prev.is_empty() and prev.time <= time:
 		return false
+	var e: Dictionary = {time = time, splits = _json_safe(splits) if splits is Array or splits is PackedFloat64Array else [],
+		physics = Car.PHYSICS_VERSION, sig = Tracks.signature(track_id), date = _now()}
+	var lv: PackedInt32Array = Upgrades.clean(up)
+	if not Upgrades.is_stock(lv):
+		e.up = Array(lv)
 	_mutex.lock()
-	_set_entry("records", track_id, car_id, {time = time, splits = _json_safe(splits) if splits is Array or splits is PackedFloat64Array else [],
-		physics = Car.PHYSICS_VERSION, sig = Tracks.signature(track_id), date = _now()})
+	_set_entry("records", track_id, car_id, e)
 	_mutex.unlock()
 	return true
 
@@ -673,6 +703,67 @@ static func open_track(id: String) -> bool:
 static func reset_career() -> void:
 	_mutex.lock()
 	var open: Array = (_career().tracks_open as Array).duplicate()
-	_all().career = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}, tracks_open = open}
+	_all().career = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}, tracks_open = open, upgrades = {}}
 	_write()
 	_mutex.unlock()
+
+
+# ---- car upgrades (v6.11.0; sim/upgrades.gd, sim/economy.gd buy_upgrade) -----------------
+
+## The upgrade levels of car `car_id`: [engine, tyres, nitro, loose], each 0..Upgrades.MAX_LEVEL
+## (all 0 for a car not owned or never upgraded).
+static func get_upgrades(car_id: String) -> PackedInt32Array:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var out: PackedInt32Array = Upgrades.stock()
+	if (c.cars as Array).has(car_id):
+		out = Upgrades.clean((c.upgrades as Dictionary).get(car_id))
+	_mutex.unlock()
+	return out
+
+
+## Buy level `level` of part `part` for car `car_id` at `price`: "" (bought: the money taken and
+## the level kept, in one write), "unknown" (car or part), "locked" (the car isn't owned), "max"
+## (the part is at the top level), "order" (`level` isn't the next one), "money" (not enough).
+static func purchase_upgrade(car_id: String, part: String, level: int, price: int) -> String:
+	var i: int = Upgrades.index_of(part)
+	if not Cars.has_car(car_id) or i < 0:
+		return "unknown"
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var err: String = ""
+	var lv: PackedInt32Array = Upgrades.clean((c.upgrades as Dictionary).get(car_id))
+	if not (c.cars as Array).has(car_id):
+		err = "locked"
+	elif lv[i] >= Upgrades.MAX_LEVEL:
+		err = "max"
+	elif level != lv[i] + 1:
+		err = "order"
+	elif int(c.money) < price:
+		err = "money"
+	else:
+		c.money = int(c.money) - maxi(0, price)
+		lv[i] = level
+		c.upgrades[car_id] = Array(lv)
+		_write()
+	_mutex.unlock()
+	return err
+
+
+## Set car `car_id`'s levels without paying (the terminal's `upgrade`; tests). False for a car
+## not owned or unknown; levels are clamped to 0..MAX_LEVEL.
+static func set_upgrades(car_id: String, levels: PackedInt32Array) -> bool:
+	if not Cars.has_car(car_id):
+		return false
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var ok: bool = (c.cars as Array).has(car_id)
+	if ok:
+		var lv: PackedInt32Array = Upgrades.clean(levels)
+		if Upgrades.is_stock(lv):
+			(c.upgrades as Dictionary).erase(car_id)
+		else:
+			c.upgrades[car_id] = Array(lv)
+		_write()
+	_mutex.unlock()
+	return ok

@@ -39,6 +39,12 @@ extends RefCounted
 ##   opponents       opponent() (the picked opponent: an AI level id or "mine", the player's own
 ##                   network), opponent_levels(t, c) [{id, name, blurb, time (s or -1), pays {money,
 ##                   points} (what beating it would pay now; 0 when paid), paid (bool)}]
+##   car upgrades (v6.11.0) upgrade_parts() [{id, name, what}], upgrade_levels(car) [4 ints 0..3],
+##                   upgrade_price(car, part) (the next level's, 0 at the top), upgrade_cost(car, part,
+##                   level), buy_upgrade(car, part) -> {ok, error, price, level, short}, car_bars(car)
+##                   (the stat bars with the levels bought), car_stats(car) ({top, ...} with them);
+##                   sim/ Upgrades + SaveData in the game, the store's career.upgrades {car: levels}
+##                   in tests
 ##   locked tracks (v6.8.0) track_open(i) (bool), track_lock(i) {medal, index, name} (what opens track i:
 ##                   that medal on track `index`, called `name`; {} when open), open_track_count();
 ##                   sim/ Unlocks in the game, the store's career.tracks_open in tests (null: all open).
@@ -383,7 +389,7 @@ static func network_labels() -> Dictionary:
 
 ## (tracks_open: null = every track open, else the ids opened besides the first: Unlocks' rule)
 static func _new_career() -> Dictionary:
-	return {"money": 0, "points": 0, "cars": ["racer"], "paid": {}, "prices": {}, "tracks_open": null}
+	return {"money": 0, "points": 0, "cars": ["racer"], "paid": {}, "prices": {}, "tracks_open": null, "upgrades": {}}
 
 
 ## The career's money (the save file's in the game).
@@ -422,6 +428,74 @@ static func buy_car(id: String) -> Dictionary:
 	c.money = int(c.money) - p
 	(c.cars as Array).append(id)
 	return {"ok": true, "error": "", "price": p, "short": 0}
+
+
+# ---------------------------------------------------------------- car upgrades (v6.11.0)
+
+## The parts, in the picker's order: [{id, name, what, max}].
+static func upgrade_parts() -> Array:
+	var out: Array = []
+	for p: Dictionary in Upgrades.PARTS:
+		out.append({"id": p.id, "name": p.name, "what": p.what, "max": Upgrades.MAX_LEVEL})
+	return out
+
+
+## Car `id`'s upgrade levels [engine, tyres, nitro, loose] (all 0 for a car not owned).
+static func upgrade_levels(id: String) -> PackedInt32Array:
+	if _save:
+		return SaveData.get_upgrades(id)
+	if not owns_car(id):
+		return Upgrades.stock()
+	return Upgrades.clean((store.career.get("upgrades", {}) as Dictionary).get(id))
+
+
+## The price of level `level` of part `part` on car `id`.
+static func upgrade_cost(id: String, part: String, level: int) -> int:
+	return Upgrades.price(id, part, level)
+
+
+## The price of the next level of part `part` on car `id` (0 when every level is bought).
+static func upgrade_price(id: String, part: String) -> int:
+	var i := Upgrades.index_of(part)
+	return Upgrades.price(id, part, upgrade_levels(id)[i] + 1) if i >= 0 else 0
+
+
+## Buy the next level of part `part` for car `id` (Economy.buy_upgrade in the game):
+## {ok, error ("" | "locked" | "max" | "money" | "unknown"), price, level, short}.
+static func buy_upgrade(id: String, part: String) -> Dictionary:
+	if _save:
+		return Economy.buy_upgrade(id, part)
+	var i := Upgrades.index_of(part)
+	if i < 0 or not car_ids().has(id):
+		return {"ok": false, "error": "unknown", "price": 0, "level": 0, "short": 0}
+	var lv := upgrade_levels(id)
+	var p := Upgrades.price(id, part, lv[i] + 1)
+	var c: Dictionary = store.career
+	var err := ""
+	if not owns_car(id):
+		err = "locked"
+	elif lv[i] >= Upgrades.MAX_LEVEL:
+		err = "max"
+	elif int(c.money) < p:
+		err = "money"
+	else:
+		c.money = int(c.money) - p
+		lv[i] += 1
+		if not (c.get("upgrades") is Dictionary):
+			c.upgrades = {}
+		c.upgrades[id] = Array(lv)
+	return {"ok": err == "", "error": err, "price": p if err != "max" else 0, "level": upgrade_levels(id)[i],
+		"short": p - int(c.money) if err == "money" else 0}
+
+
+## Car `id`'s stat bars with the upgrades bought (car_info(id).bars are the stock car's).
+static func car_bars(id: String) -> Dictionary:
+	return Upgrades.bars(id, upgrade_levels(id))
+
+
+## Car `id`'s measured stats with the upgrades bought ({top, accel100, ..., grip, ...}).
+static func car_stats(id: String) -> Dictionary:
+	return Upgrades.stats(id, upgrade_levels(id))
 
 
 ## The picked opponent of Race the AI / Watch the AI: an AI level id (sim/opponents.gd) or MY_AI.

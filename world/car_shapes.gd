@@ -26,6 +26,7 @@
 ##             sym: mirrored to -x as well; flat: left out of the side view (profile);
 ##             bone: "flap" for an active wing (car_build.gd moves it)
 ##   fenders, pods  false: no wheel arches / side pods (the buggy's open wheels); floorW: floor half width
+##   mudflaps  true: the car has its own mud flaps (v6.11: the loose grip upgrade adds none)
 ##   open      an open cockpit (no canopy over the driver)
 ##   number    the race number on the doors; decal [z, y, radius] of its roundel (racer frame)
 ##   lights    "round" | "strip" (LED strips) | "buggy" (small lamps and a light bar)
@@ -69,7 +70,7 @@ const DEFAULTS := {
 	"rim": 0xc3c7cf, "spokes": 6, "caliper": 0xd8322b,
 	"suit": 0x202226, "helmet": 0xf2f2f2, "helmet_stripe": 0xd7263d, "visor": 0x10161f, "gloves": 0x1b1c20,
 	"tray": [], "seats": [], "seams": [], "vents": [], "tubes": [], "decal": [-0.05, 0.45, 0.15],
-	"cage": 0x3a3d42,
+	"cage": 0x3a3d42, "mudflaps": false,
 }
 
 
@@ -179,6 +180,7 @@ static func shapes() -> Dictionary:
 				{"mat": "accent", "box": [0.3, 0.26, 0.025], "at": [0.85, 0.2, 0.92], "sym": true},  # mud flaps
 				{"mat": "accent", "box": [0.3, 0.26, 0.025], "at": [0.85, 0.2, -1.95], "sym": true},
 			],
+			"mudflaps": true, # (its own: the loose grip upgrade adds none)
 			"number": "5", "hip": [0.3, -0.3, 0.36], "lean": 0.24, "wheel": [0.16, 0.9, 0.55],
 			"tray": [-1.9, 0.75, 0.55], "seats": [[0.3, -0.62], [-0.3, -0.62]],
 			"suit": 0x1f6f69, "gloves": 0xff9f1c, "helmet": 0xff9f1c, "helmet_stripe": 0xf4f4f2,

@@ -5,7 +5,10 @@ extends RefCounted
 ## helpers (respawn, roll-out, the stuck watchdog, a short race through the play mode), and
 ## (v6.5.0) the career in the app: the car shop, races against the AI opponents and their payout;
 ## (v6.7.0) the terminal's commands (game/terminal.gd: every command, bad input, Tab, the save file)
-## and the terminal in the app (opened from the menu and Settings, the menu redrawn, ` in a race).
+## and the terminal in the app (opened from the menu and Settings, the menu redrawn, ` in a race);
+## (v6.11.0) car upgrades: the car picker's part chips in the app (asking first, money short, a
+## locked car, the top level), the races driving the upgraded car (the AI opponents stock), and the
+## terminal's upgrade and buy <car> <part>.
 ## The real game under a display is checked by tests/e2e/game_e2e.gd.
 
 const AiLink := preload("res://game/ai_link.gd")
@@ -20,6 +23,7 @@ func run(t) -> bool:
 	_helpers(t)
 	_app(t)
 	_terminal(t)
+	_terminal_upgrades(t)
 	UiData.reset()
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	if FileAccess.file_exists(SAVE):
@@ -346,6 +350,9 @@ func _app(t) -> void:
 	if app.mode != app.menu_mode:
 		app.show_menu()
 	_app_terminal(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
+	_app_upgrades(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
 	_app_unlock(t, app)
@@ -683,6 +690,84 @@ func _app_career(t, app: GameApp) -> void:
 	menu.refresh()
 
 
+## v6.11.0: the car picker's part chips in the app: a locked car's part says so, money short says
+## how much, the chip asks first and buys the next level; the races drive the upgraded car, the AI
+## opponents and their stored times stay stock; Watch the AI with the player's own network too.
+func _app_upgrades(t, app: GameApp) -> void:
+	t.section("the app: car upgrades (v6.11.0)")
+	var path := "user://test_game_upgrades.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var menu: MainMenu = app.ui.menu
+	var msg: Label = app.message.get("_text")
+	var money_l: Label = menu.get("_money_l")
+	var chips: Array = menu.get("_part_chips")
+	menu.select_car("kestrel")
+	menu.refresh()
+	t.check(chips.size() == 4 and (chips[0] as Button).disabled and bool(chips[0].get("locked")), "the Kestrel not yours: its four part chips are off")
+	app.offer_upgrade("kestrel", "engine")
+	t.check(app.message.visible and not app.message.asking and msg.text.contains("Buy the Kestrel first"), "a locked car's part: a message says buy the car first")
+	app.message.close()
+	menu.select_car("racer")
+	menu.refresh()
+	var e1 := Upgrades.price("racer", "engine", 1)
+	t.check(not (chips[0] as Button).disabled and int(chips[0].get("price")) == e1 and not bool(chips[0].get("affordable")) and int(chips[0].get("level")) == 0,
+		"the Racer (yours) with $0: its engine chip shows level 0 and the next level's %s, not affordable" % UiFormat.money(e1))
+	(chips[0] as Button).pressed.emit()
+	t.check(app.message.visible and not app.message.asking and msg.text.contains("%s more to go" % UiFormat.money(e1)) and SaveData.get_upgrades("racer")[0] == 0,
+		"pressing it with $0: a message says %s more to go; nothing bought" % UiFormat.money(e1))
+	app.message.close()
+	SaveData.add_money(e1 + 1000)
+	menu.refresh()
+	(chips[0] as Button).pressed.emit()
+	t.check(app.message.asking and msg.text.contains("Level 1 of 3") and msg.text.contains("+5 % power") and msg.text.contains("Medal times and the AI opponents stay") and
+		msg.text.contains("$1,000 is left"), "with the money: it asks first (level 1 of 3, +5 % power, what is left, medals and AI opponents stock)")
+	app.message.close()
+	t.check(SaveData.get_upgrades("racer")[0] == 0 and UiData.money() == e1 + 1000, "Cancel: nothing bought")
+	(chips[0] as Button).pressed.emit()
+	app.message.confirm()
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([1, 0, 0, 0]) and UiData.money() == 1000 and money_l.text == "$1,000" and int(chips[0].get("level")) == 1 and
+		int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2) and not app.message.visible,
+		"yes: the Racer's engine is at level 1, $1,000 left; the chip shows level 1 and the next price")
+	SaveData.set_upgrades("racer", PackedInt32Array([3, 3, 3, 3]))
+	menu.refresh()
+	app.offer_upgrade("racer", "tyres")
+	t.check((chips[1] as Button).disabled and chips[1].call("price_text") == "MAX" and app.message.visible and not app.message.asking and msg.text.contains("level 3 of 3 already"),
+		"every level bought: the chip reads MAX and is off; the app says so")
+	app.message.close()
+	# Drive: the upgraded car; Race the Rookie AI: the AI's car stock, its time the stored one
+	app.selected_track = 0
+	menu.select(0)
+	var m: Node = app.start_play({"track": app.tracks[0], "driver": "human"})
+	var up_spec := Upgrades.spec("racer", PackedInt32Array([3, 3, 3, 3]))
+	t.check((m.get("car") as Car).spec == up_spec and m.get("levels") == PackedInt32Array([3, 3, 3, 3]), "Drive: the Racer with everything at level 3")
+	app.show_menu()
+	var fixture := "res://tests/fixtures/game_net.json"
+	if AiLink.ready() and FileAccess.file_exists(fixture):
+		var parsed: Dictionary = AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(fixture)))
+		# an AI opponent: its car stock (its stored times are the stock car's)
+		m = app.start_play({"track": app.tracks[0], "driver": "human", "ghost": true, "net": parsed.net, "level": "rookie", "ai_car": "racer"})
+		t.check((m.get("car") as Car).spec == up_spec and m.get("with_ghost") == true and (m.get("ghost").car as Car).spec == Cars.spec("racer"),
+			"Race the Rookie AI: you drive the upgraded Racer, the AI opponent a stock one")
+		app.show_menu()
+		# the player's own network: the upgraded car (Watch the AI and Race my AI)
+		m = app.start_play({"track": app.tracks[0], "driver": "ai", "net": parsed.net, "ai_car": "racer"})
+		var watched: CarSpec = (m.get("car") as Car).spec
+		app.show_menu()
+		m = app.start_play({"track": app.tracks[0], "driver": "human", "ghost": true, "net": parsed.net, "ai_car": "racer"})
+		t.check(watched == up_spec and (m.get("ghost").car as Car).spec == up_spec, "your own network (Watch the AI, Race my AI) drives the upgraded Racer")
+		app.show_menu()
+	SaveData.set_upgrades("racer", Upgrades.stock())
+	m = app.start_play({"track": app.tracks[0], "driver": "human"})
+	t.check((m.get("car") as Car).spec == Cars.spec("racer"), "back to stock: Drive drives the stock Racer (the same spec object)")
+	app.show_menu()
+	SaveData.use_file(SAVE)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	menu.refresh()
+
+
 ## v6.7.0: the terminal in the app: ` opens it on the menu and on Settings (and Settings' Terminal
 ## row), its commands change the save file and the menu at once, the keys typed into it never
 ## reach the menu, and ` in a race does nothing.
@@ -787,7 +872,7 @@ func _terminal(t) -> void:
 	for c: Dictionary in Terminal.COMMANDS:
 		if str(c.get("help", "")) == "" or not term.has_method(str(c.run)) or not c.has("args"):
 			bad.append(c.name)
-	t.check(bad.is_empty() and term.names() == PackedStringArray(["help", "money", "points", "car", "buy", "unlock", "status", "reset", "clear", "exit"]),
+	t.check(bad.is_empty() and term.names() == PackedStringArray(["help", "money", "points", "car", "buy", "upgrade", "unlock", "status", "reset", "clear", "exit"]),
 		"one table: %d commands, each with its help, usage and method %s" % [Terminal.COMMANDS.size(), bad])
 	var r: Dictionary = term.run("")
 	t.check((r.lines as Array).is_empty() and not r.changed and (term.run("   \t ").lines as Array).is_empty(), "an empty line does nothing")
@@ -878,8 +963,8 @@ func _terminal(t) -> void:
 	fresh.call()
 	r = term.run("unlock all")
 	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
-	t.check(SaveData.owned_cars().size() == 6 and SaveData.tracks_unlocked() and r.changed and disk is Dictionary and JsMath.same(disk.version, 4) and
-		disk.career.tracks_unlocked == true and (disk.career.cars as Array).size() == 6, "unlock all: every car and the tracks flag, in the save file (still version 4)")
+	t.check(SaveData.owned_cars().size() == 6 and SaveData.tracks_unlocked() and r.changed and disk is Dictionary and JsMath.same(disk.version, SaveData.VERSION) and
+		disk.career.tracks_unlocked == true and (disk.career.cars as Array).size() == 6, "unlock all: every car and the tracks flag, in the save file (the current version)")
 	r = term.run("unlock all")
 	t.check(not r.changed and text_of.call(r).contains("already"), "unlock all again: nothing new")
 
@@ -919,7 +1004,7 @@ func _terminal(t) -> void:
 
 	# Tab
 	var tab_ok := true
-	var cases := [["", "", 10], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 2], ["car v", "car vortex ", 1], ["car ", "car ", 7], ["car D", "car D", 2],
+	var cases := [["", "", 11], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 2], ["car v", "car vortex ", 1], ["car ", "car ", 7], ["car D", "car D", 2],
 		["help m", "help money ", 1], ["unlock a", "unlock all ", 1], ["reset c", "reset career ", 1], ["zz", "zz", 0], ["money s", "money set ", 1],
 		["car all x", "car all x", 0], ["status x", "status x", 0], ["p", "points ", 1]]
 	var tab_bad := []
@@ -944,3 +1029,87 @@ func _terminal(t) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
+
+## v6.11.0: the terminal's upgrade command and buy <car> <part>; status shows the upgrades.
+func _terminal_upgrades(t) -> void:
+	t.section("the terminal: upgrades (v6.11.0)")
+	var path := "user://test_terminal_up.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var term: Object = Terminal.new()
+	var text_of := func(r: Dictionary) -> String:
+		var out := PackedStringArray()
+		for l: Array in r.lines:
+			out.append(" | ".join(PackedStringArray(l.slice(1).map(func(x: Variant) -> String: return str(x)))))
+		return "\n".join(out)
+	var kind_of := func(r: Dictionary) -> String: return str(r.lines[0][0]) if not (r.lines as Array).is_empty() else ""
+	var stock := Upgrades.stock()
+	var r: Dictionary = term.run("upgrade")
+	var rows := (r.lines as Array).filter(func(l: Array) -> bool: return l[0] == "row")
+	t.check(rows.size() == 6 and text_of.call(r).contains("Racer | engine 0, tyres 0, nitro 0, loose 0") and text_of.call(r).contains("Vortex | not yours") and not r.changed,
+		"upgrade alone: every car's levels (cars not yours say so)")
+	r = term.run("upgrade racer")
+	t.check(text_of.call(r).contains("Engine | level 0 of 3, next %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and
+		text_of.call(r).contains("Loose grip | level 0 of 3") and not r.changed, "upgrade racer: its four parts, levels and next prices")
+	r = term.run("upgrade racer engine 3")
+	t.check(kind_of.call(r) == "gain" and r.changed and SaveData.get_upgrades("racer") == PackedInt32Array([3, 0, 0, 0]) and SaveData.get_money() == 0 and
+		text_of.call(r).contains("engine level 3 (+15 % power)"), "upgrade racer engine 3: free, at once (%s)" % text_of.call(r))
+	r = term.run("upgrade Racer TIRES 2")
+	var r2: Dictionary = term.run("upgrade racer tyres 2")
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 2, 0, 0]) and r.changed and kind_of.call(r2) == "info" and not r2.changed,
+		"upgrade Racer TIRES 2: any case, the part's other names; again: already")
+	r = term.run("upgrade racer max")
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 3, 3, 3]) and r.changed and text_of.call(r).contains("every part at level 3"), "upgrade racer max: every part at 3")
+	r = term.run("upgrade racer stock")
+	t.check(SaveData.get_upgrades("racer") == stock and r.changed, "upgrade racer stock: back to 0")
+	r = term.run("upgrade vortex max")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("you don't own the Vortex") and not r.changed and SaveData.get_upgrades("vortex") == stock,
+		"upgrade vortex max without the Vortex: an error (car vortex first)")
+	term.run("car dune")
+	r = term.run("upgrade all max")
+	t.check(r.changed and SaveData.get_upgrades("racer") == PackedInt32Array([3, 3, 3, 3]) and SaveData.get_upgrades("dune") == PackedInt32Array([3, 3, 3, 3]) and
+		SaveData.get_upgrades("vortex") == stock and text_of.call(r).contains("Every car you own (2)"), "upgrade all max: every car you own (the Racer and the Dune)")
+	var st: String = text_of.call(term.run("status"))
+	var spent := Upgrades.car_total("racer") + Upgrades.car_total("dune")
+	t.check(st.contains("Upgrades | Racer E3 T3 N3 L3, Dune E3 T3 N3 L3 (%s of the %s" % [UiFormat.money(spent), UiFormat.money(Upgrades.total_all())]),
+		"status: the upgraded cars and what their parts cost (%s)" % st.get_slice("Upgrades | ", 1).get_slice("\n", 0))
+	r = term.run("upgrade all stock")
+	st = text_of.call(term.run("status"))
+	t.check(SaveData.get_upgrades("dune") == stock and st.contains("Upgrades | none: every car stock"), "upgrade all stock: every car stock; status says none")
+	var errs := 0
+	for l: String in ["upgrade bus max", "upgrade racer turbo 2", "upgrade racer engine 4", "upgrade racer engine -1", "upgrade racer engine x", "upgrade racer engine",
+			"upgrade racer engine 1.5", "upgrade all", "upgrade all engine 3", "upgrade racer max now", "upgrade racer engine +2"]:
+		r = term.run(l)
+		if kind_of.call(r) == "error" and not r.changed:
+			errs += 1
+	t.check(errs == 11 and SaveData.get_upgrades("racer") == stock, "11 bad upgrade lines (unknown car or part, level 4, -1, letters, missing, decimals, all with one part ...): an error each, nothing changes")
+	# buy <car> <part>: the car picker's chip, with money
+	var e1 := Upgrades.price("racer", "engine", 1)
+	r = term.run("buy racer engine")
+	t.check(kind_of.call(r) == "error" and text_of.call(r).contains("%s short" % UiFormat.money(e1)) and text_of.call(r).contains("Try: money %d" % e1) and SaveData.get_upgrades("racer") == stock,
+		"buy racer engine with $0: %s short" % UiFormat.money(e1))
+	term.run("money %d" % (e1 + 100))
+	r = term.run("buy Racer Engine")
+	t.check(kind_of.call(r) == "loss" and r.changed and SaveData.get_upgrades("racer")[0] == 1 and SaveData.get_money() == 100 and text_of.call(r).contains("level 1 (+5 % power)") and
+		text_of.call(r).contains("$100 left"), "with the money: buy Racer Engine buys level 1, $100 left")
+	term.run("upgrade racer engine 3")
+	r = term.run("buy racer engine")
+	var r3: Dictionary = term.run("buy vortex tyres")
+	var r4: Dictionary = term.run("buy racer turbo")
+	var r5: Dictionary = term.run("buy racer engine now")
+	t.check(kind_of.call(r) == "info" and text_of.call(r).contains("level 3 already") and kind_of.call(r3) == "error" and text_of.call(r3).contains("don't own the Vortex") and
+		kind_of.call(r4) == "error" and text_of.call(r4).contains("no part called") and kind_of.call(r5) == "error" and SaveData.get_money() == 100,
+		"buy at the top level: already; a car not yours, an unknown part, too many words: errors")
+	# Tab: the command, then the car
+	var tab_bad := []
+	for c: Array in [["up", "upgrade ", 1], ["u", "u", 2], ["upgrade v", "upgrade vortex ", 1], ["upgrade a", "upgrade all ", 1], ["upgrade d", "upgrade d", 2]]:
+		var res: Dictionary = term.complete(c[0])
+		if res.line != c[1] or (res.options as PackedStringArray).size() != int(c[2]):
+			tab_bad.append([c[0], res.line, res.options])
+	t.check(tab_bad.is_empty(), "Tab: up -> upgrade, then the car or all %s" % [tab_bad])
+	term.run("reset career confirm")
+	t.check(SaveData.get_upgrades("racer") == stock and SaveData.get_upgrades("dune") == stock, "reset career confirm: every car stock again")
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

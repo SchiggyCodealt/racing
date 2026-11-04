@@ -46,6 +46,9 @@ extends Node3D
 ## between the axles. A ghost makes no smoke, skid marks or sparks and has no
 ## lights or glass; it shows the nitro jets (and with opts.dust, v6.10, dust and snow spray). The car's meshes are on visual
 ## layer CAR_LAYER (the contact shadow and the headlights skip them).
+## v6.11.0: opts.levels, the car's upgrade levels [engine, tyres, nitro, loose grip]: what they
+## add is drawn as one more skinned mesh with the car's material (CarBuild.upgrades: bigger
+## exhaust tips, yellow tyre rings, blue nitro bands, mud flaps); not on a ghost.
 
 const Shapes = preload("res://world/car_shapes.gd")
 const CarBuild = preload("res://world/car_build.gd")
@@ -75,6 +78,9 @@ var detail := 1
 var skeleton: Skeleton3D
 var opaque_mesh: MeshInstance3D
 var glass_mesh: MeshInstance3D = null
+## (v6.11) the upgrades' parts (null: a stock car or a ghost) and the levels they show
+var upgrade_mesh: MeshInstance3D = null
+var levels := PackedInt32Array()
 ## The car's opaque material (a ShaderMaterial; a StandardMaterial3D for a ghost) and the glass's.
 var materials: Array[Material] = []
 var rig: Dictionary
@@ -222,6 +228,14 @@ func _init(p_car_id := "racer", opts := {}) -> void:
 		glass_mesh.material_override = gmat
 		glass_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		skeleton.add_child(glass_mesh)
+		levels = Upgrades.clean(opts.get("levels"))
+		if not Upgrades.is_stock(levels):
+			upgrade_mesh = MeshInstance3D.new()
+			upgrade_mesh.name = "Upgrades"
+			_setup_mesh(upgrade_mesh)
+			upgrade_mesh.material_override = _mat
+			upgrade_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			skeleton.add_child(upgrade_mesh)
 	_apply_detail()
 
 	if not ghost:
@@ -290,13 +304,27 @@ func _apply_detail() -> void:
 		glass_mesh.mesh = m["glass"]
 		glass_mesh.custom_aabb = m["aabb"]
 		glass_mesh.visible = (m["glass"] as ArrayMesh).get_surface_count() > 0
+	if upgrade_mesh != null:
+		upgrade_mesh.mesh = upgrade_meshes(car_id, levels, detail)["mesh"]
+		upgrade_mesh.custom_aabb = m["aabb"]
 	if _mat != null:
 		_mat.set_shader_parameter("seam_strength", 1.0 if detail > 0 else 0.0)
 
 
-## Triangles drawn per pass (opaque + glass).
+## Triangles drawn per pass (opaque + glass, and the upgrades' parts).
 func triangles() -> int:
-	return int(meshes(car_id, detail)["triangles"])
+	return int(meshes(car_id, detail)["triangles"]) + (int(upgrade_meshes(car_id, levels, detail)["triangles"]) if upgrade_mesh != null else 0)
+
+
+## (v6.11) The mesh of the upgrades' parts of car `id` at `levels` and `d`: {mesh, triangles}, built once.
+static func upgrade_meshes(id: String, lv: PackedInt32Array, d: int) -> Dictionary:
+	var key := "up:%s:%s:%d" % [id, Upgrades.code(lv), d]
+	if _mesh_cache.has(key):
+		return _mesh_cache[key]
+	var kit: Kit = CarBuild.upgrades(id, lv, d)
+	var out := {"mesh": kit.to_mesh(true), "triangles": kit.triangles()}
+	_mesh_cache[key] = out
+	return out
 
 
 static var _blob_tex: ImageTexture = null

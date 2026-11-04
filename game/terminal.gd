@@ -15,7 +15,7 @@ extends RefCounted
 ## command is one entry here and one method.
 ## Everything that changes the career goes through the save file's own functions, which write the
 ## file at once: SaveData.add_money / add_points (never below 0), give_car, unlock_tracks,
-## reset_career, and Economy.buy (the car picker's shop). `changed` then tells the screen to
+## reset_career, set_upgrades (v6.11.0), and Economy.buy / buy_upgrade (the car picker's shop). `changed` then tells the screen to
 ## redraw the menu. Nothing a command is given can raise a script error: a bad command or
 ## argument prints a short message saying what to type instead.
 ##
@@ -45,16 +45,23 @@ const COMMANDS: Array[Dictionary] = [
 	{name = "car", args = "<car> | all", help = "own a car without paying for it (or every car)", run = "_car",
 		more = ["car vortex gives you the Vortex for free; car all gives you every car. Names in any case.",
 			"car on its own lists the cars and what they cost in the shop. buy <car> pays for one instead."], complete = ["all", "@cars"]},
-	{name = "buy", args = "<car>", help = "buy a car with your money, as the car picker's BUY does", run = "_buy",
-		more = ["buy kestrel pays the Kestrel's price from your money, like BUY on the car picker."], complete = ["@cars"]},
+	{name = "buy", args = "<car> [part]", help = "buy a car, or a part's next level, with your money", run = "_buy",
+		more = ["buy kestrel pays the Kestrel's price from your money, like BUY on the car picker.",
+			"buy kestrel engine pays for the Kestrel's next engine level, like its chip on the car picker",
+			"(parts: engine, tyres, nitro, loose)."], complete = ["@cars"]},
+	{name = "upgrade", args = "<car> <part> <level> | <car> max | all max", help = "set a car's upgrades without paying", run = "_upgrade",
+		more = ["upgrade dune engine 3 sets the Dune's engine to level 3 (0 to 3, free; parts: engine, tyres, nitro, loose).",
+			"upgrade dune max: every part of the Dune at level 3; upgrade dune stock: every part back to 0.",
+			"upgrade all max / upgrade all stock: every car you own. upgrade dune shows its levels; upgrade alone, every car's.",
+			"Only cars you own (car <name> gives you one). buy <car> <part> pays for a level instead."], complete = ["all", "@cars"]},
 	{name = "unlock", args = "all | cars | tracks", help = "own every car and open every track", run = "_unlock",
 		more = ["unlock all: every car is yours and every track is open, for good (the save file keeps it).",
 			"unlock cars: only the cars; unlock tracks: only the tracks (without it, bronze on a track opens the next)."],
 		complete = ["all", "cars", "tracks"]},
-	{name = "status", args = "", help = "your money, points, cars, medals and open tracks", run = "_status",
-		more = ["status shows your money, career points, the cars you own, the medals you hold and the tracks open."]},
+	{name = "status", args = "", help = "your money, points, cars, upgrades, medals and open tracks", run = "_status",
+		more = ["status shows your money, career points, the cars you own and their upgrades, the medals you hold and the tracks open."]},
 	{name = "reset", args = "career", help = "start the career over (asks first)", run = "_reset", wipes = true,
-		more = ["reset career sets money and points to 0, keeps only the Racer and makes every medal and AI win pay again.",
+		more = ["reset career sets money and points to 0, keeps only the Racer (stock) and makes every medal and AI win pay again.",
 			"Tracks opened by medals stay open (those only unlock tracks opened lock again). Best times, ghosts, AI networks",
 			"and settings stay. It asks first: type reset career confirm to do it."], complete = ["career"]},
 	{name = "clear", args = "", help = "clear the terminal", run = "_clear", more = ["clear empties the terminal (Ctrl+L too)."]},
@@ -332,12 +339,15 @@ func _car(args: PackedStringArray, out: Out) -> void:
 
 
 func _buy(args: PackedStringArray, out: Out) -> void:
-	if args.size() != 1:
-		out.add("error", "buy: which car? Try: buy kestrel. The cars: %s." % _car_list())
+	if args.size() < 1 or args.size() > 2:
+		out.add("error", "buy: which car? Try: buy kestrel (or buy kestrel engine for its next engine level). The cars: %s." % _car_list())
 		return
 	var id := car_id(args[0])
 	if id == "":
 		out.add("error", "buy: there is no car called %s. The cars: %s." % [_q(args[0]), _car_list()])
+		return
+	if args.size() == 2:
+		_buy_part(id, args[1], out)
 		return
 	var r := Economy.buy(id)
 	match String(r.error):
@@ -351,6 +361,128 @@ func _buy(args: PackedStringArray, out: Out) -> void:
 				UiFormat.money(SaveData.get_money()), UiFormat.money(int(r.short)), int(r.short)])
 		_:
 			out.add("error", "buy: the %s can't be bought." % _car_name(id))
+
+
+## buy <car> <part>: the part's next level with the career's money (Economy.buy_upgrade).
+func _buy_part(id: String, word: String, out: Out) -> void:
+	var part := Upgrades.part_id(word)
+	if part == "":
+		out.add("error", "buy: there is no part called %s. The parts: %s." % [_q(word), _part_list()])
+		return
+	var pname := String(Upgrades.part(part).name).to_lower()
+	var r := Economy.buy_upgrade(id, part)
+	match String(r.error):
+		"":
+			out.add("loss", "Bought the %s's %s level %d (%s) for %s: %s left." % [_car_name(id), pname, int(r.level), Upgrades.effect(part, int(r.level)),
+				UiFormat.money(int(r.price)), UiFormat.money(SaveData.get_money())])
+			out.changed = true
+		"locked":
+			out.add("error", "buy: you don't own the %s. Try: buy %s (or car %s), then its parts." % [_car_name(id), id, id])
+		"max":
+			out.add("info", "The %s's %s is at level %d already, the top." % [_car_name(id), pname, Upgrades.MAX_LEVEL])
+		"money":
+			out.add("error", "buy: the %s's %s level %d costs %s and you have %s: %s short. Try: money %d" % [_car_name(id), pname,
+				SaveData.get_upgrades(id)[Upgrades.index_of(part)] + 1, UiFormat.money(int(r.price)), UiFormat.money(SaveData.get_money()),
+				UiFormat.money(int(r.short)), int(r.short)])
+		_:
+			out.add("error", "buy: that can't be bought.")
+
+
+static func _part_list() -> String:
+	return ", ".join(Upgrades.ids())
+
+
+## A car's levels for the terminal: "engine 2, tyres 0, nitro 1, loose 3" (with the short part ids).
+static func _levels_text(levels: PackedInt32Array) -> String:
+	var parts: PackedStringArray = []
+	var ids := Upgrades.ids()
+	for i in ids.size():
+		parts.append("%s %d" % [ids[i], levels[i]])
+	return ", ".join(parts)
+
+
+## What the upgrades bought for car `id` cost at the shop's prices.
+static func upgrades_value(id: String) -> int:
+	var lv := SaveData.get_upgrades(id)
+	var out := 0
+	var ids := Upgrades.ids()
+	for i in ids.size():
+		for k in range(1, lv[i] + 1):
+			out += Upgrades.price(id, ids[i], k)
+	return out
+
+
+func _upgrade(args: PackedStringArray, out: Out) -> void:
+	if args.is_empty():
+		for id: String in Cars.ids():
+			out.row(_car_name(id), _levels_text(SaveData.get_upgrades(id)) if SaveData.owns_car(id) else "not yours")
+		out.add("info", "upgrade <car> <part> <level> sets one (0 to 3), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays.")
+		return
+	var all := args[0] == "all"
+	var id := "" if all else car_id(args[0])
+	if not all and id == "":
+		out.add("error", "upgrade: there is no car called %s. The cars: %s (or all)." % [_q(args[0]), _car_list()])
+		return
+	var ids: PackedStringArray = []
+	if all:
+		for c: String in SaveData.owned_cars():
+			ids.append(c)
+	else:
+		ids.append(id)
+	if args.size() == 1:
+		if all:
+			out.add("error", "upgrade: try upgrade all max or upgrade all stock.")
+			return
+		var lv := SaveData.get_upgrades(id)
+		var pids := Upgrades.ids()
+		for i in pids.size():
+			var nxt := Upgrades.price(id, pids[i], lv[i] + 1)
+			out.row(String(Upgrades.PARTS[i].name), "level %d of %d%s" % [lv[i], Upgrades.MAX_LEVEL,
+				", next %s" % UiFormat.money(nxt) if nxt > 0 else " (the top)"])
+		if not SaveData.owns_car(id):
+			out.add("info", "You don't own the %s: buy %s (or car %s) first." % [_car_name(id), id, id])
+		return
+	var levels := PackedInt32Array()
+	var what := ""
+	if args.size() == 2 and (args[1] == "max" or args[1] == "stock"):
+		levels = Upgrades.stock()
+		if args[1] == "max":
+			levels.fill(Upgrades.MAX_LEVEL)
+		what = "every part at level %d" % levels[0]
+	elif args.size() == 3 and not all:
+		var part := Upgrades.part_id(args[1])
+		if part == "":
+			out.add("error", "upgrade: there is no part called %s. The parts: %s." % [_q(args[1]), _part_list()])
+			return
+		var n: Variant = parse_amount(args[2])
+		if n == null or args[2].begins_with("+") or args[2].begins_with("-") or int(n) < 0 or int(n) > Upgrades.MAX_LEVEL:
+			out.add("error", "upgrade: the level is 0 to %d. Try: upgrade %s %s %d" % [Upgrades.MAX_LEVEL, id, part, Upgrades.MAX_LEVEL])
+			return
+		levels = SaveData.get_upgrades(id)
+		levels[Upgrades.index_of(part)] = int(n)
+		what = "%s level %d (%s)" % [String(Upgrades.part(part).name).to_lower(), int(n), Upgrades.effect(part, int(n))]
+	else:
+		out.add("error", "upgrade: try upgrade %s engine 3, upgrade %s max or upgrade all max (parts: %s)." % [
+			"dune" if all else id, "dune" if all else id, _part_list()])
+		return
+	if ids.is_empty():
+		out.add("info", "You own no cars to upgrade.")
+		return
+	for c: String in ids:
+		if not SaveData.owns_car(c):
+			out.add("error", "upgrade: you don't own the %s. Try: car %s (free) or buy %s, then upgrade it." % [_car_name(c), c, c])
+			return
+	var changed := false
+	for c: String in ids:
+		var before := SaveData.get_upgrades(c)
+		var now := levels.duplicate()
+		SaveData.set_upgrades(c, now)
+		changed = changed or before != SaveData.get_upgrades(c)
+	if all:
+		out.add("gain" if changed else "info", "Every car you own (%d): %s%s." % [ids.size(), what, "" if changed else " already"])
+	else:
+		out.add("gain" if changed else "info", "The %s: %s%s. Now %s." % [_car_name(id), what, "" if changed else " already", _levels_text(SaveData.get_upgrades(id))])
+	out.changed = out.changed or changed
 
 
 func _unlock(args: PackedStringArray, out: Out) -> void:
@@ -383,12 +515,28 @@ func _status(_args: PackedStringArray, out: Out) -> void:
 	for id: String in SaveData.owned_cars():
 		own.append(_car_name(id))
 	out.row("Cars", "%s (%d of %d)" % [", ".join(own), own.size(), Cars.ids().size()])
+	out.row("Upgrades", upgrades_row())
 	var m := medal_counts()
 	var parts: PackedStringArray = []
 	for k: String in Medals.ORDER:
 		parts.append("%d %s" % [int(m[k]), k])
 	out.row("Medals", "%s (the best of each track and car; %d of %d tracks have one)" % [", ".join(parts), int(m.tracks), Tracks.ids().size()])
 	out.row("Tracks", tracks_row())
+
+
+## The status row of the upgrades: each upgraded car's levels ("Racer E3 T1 N0 L0") and what
+## they cost against every part of every car.
+static func upgrades_row() -> String:
+	var cars: PackedStringArray = []
+	var spent := 0
+	for id: String in SaveData.owned_cars():
+		var lv := SaveData.get_upgrades(id)
+		if not Upgrades.is_stock(lv):
+			cars.append("%s %s" % [_car_name(id), Upgrades.code(lv)])
+			spent += upgrades_value(id)
+	if cars.is_empty():
+		return "none: every car stock (%s buys every part of every car)" % UiFormat.money(Upgrades.total_all())
+	return "%s (%s of the %s every part of every car costs)" % [", ".join(cars), UiFormat.money(spent), UiFormat.money(Upgrades.total_all())]
 
 
 ## The status row of the tracks: how many are open, and what opens the next locked one.

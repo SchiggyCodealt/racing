@@ -58,6 +58,7 @@ func run(checker: Variant) -> bool:
 	_fleet_parity()
 	_fleet_cars()
 	_fleet_surfaces()
+	_fleet_upgrades()
 	_training()
 	_training_cars()
 	_train_screen()
@@ -415,15 +416,17 @@ func _fleet_parity() -> void:
 
 ## Both simulations side by side, step by step: every car's state and inputs compared every
 ## 15 steps, then each car's fitness and reason, the generation and the best times.
-func _lockstep(tid: String, walls: String, n: int, seed: int, car: String = "racer") -> void:
+func _lockstep(tid: String, walls: String, n: int, seed: int, car: String = "racer", spec: CarSpec = null) -> void:
 	var nets := mutated_fixture(n, seed)
-	var gd := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets), walls = walls, native = false, car_id = car})
+	var gd := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets), walls = walls, native = false, car_id = car, spec = spec})
 	var nets2: Array = []
 	for x: NeuralNetwork in nets:
 		nets2.append(x.clone())
 	var nat := Trainer.new({tracks = [Tracks.build(tid)], population = population_of(nets2), walls = walls, native = true, threads = 1,
-		car_id = car})
-	tid = "%s, %s" % [tid, Cars.get_car(car).name] if car != "racer" else tid
+		car_id = car, spec = spec})
+	tid = "%s, %s" % [tid, Cars.get_car(car).name] if car != "racer" or spec != null else tid
+	if spec != null:
+		tid += " (upgraded)"
 	var runs: Array = [[], []]
 	gd.on_run_end = func(_t: BuiltTrack, d: Dictionary) -> void:
 		runs[0].append(_run_record(gd, d))
@@ -854,6 +857,102 @@ func _fleet_surfaces() -> void:
 		t.check(all_same and drives >= 12 and loose_steps > drives * 200 and loose_brake > 0 and loose_wall > 0,
 			"%s (%s): every car over the entries and exits of its loose stretches, %d drives of %d steps (%d steps with an axle on loose ground, %d of them braking, %d touching a wall): FleetSim's car the same as GDScript's at every step%s" % [
 				tid, Surfaces.summary(track), drives, STEPS, loose_steps, loose_brake, loose_wall, "" if first == "" else "; first difference " + first])
+
+
+## v6.11 upgrades: an upgraded car reaches FleetSim as data like a stock one (the trainer's
+## opts.spec; no native change): every number the same, the same race as GDScript's, bit for bit,
+## in lockstep training and over dirt and snow with sliding controls.
+func _fleet_upgrades() -> void:
+	t.section("FleetSim with upgraded cars (v6.11.0)")
+	var all3 := PackedInt32Array([3, 3, 3, 3])
+	# the trainer drives the spec it's given (only for its own car), stock otherwise
+	var tr_up := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, walls = "crash", native = false, car_id = "dune",
+		spec = Upgrades.spec("dune", all3)})
+	var tr_wrong := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, walls = "crash", native = false, car_id = "dune",
+		spec = Upgrades.spec("racer", all3)})
+	var tr_none := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, walls = "crash", native = false, car_id = "dune"})
+	t.check(tr_up.spec == Upgrades.spec("dune", all3) and tr_wrong.spec == Cars.spec("dune") and tr_none.spec == Cars.spec("dune") and \
+		(tr_up.agents[0] as Trainer.Agent).car.spec == tr_up.spec and not Trainer.spec_data(tr_up.spec).has("nitroRefill"),
+		"the trainer drives the upgraded spec it's given (the Dune, everything at level 3), not another car's; stock without one; the nitro refill stays out of FleetSim's data (the AI never uses nitro)")
+	if not Trainer.native_available():
+		t.check(true, "FleetSim not loaded: only the GDScript simulation is checked")
+		return
+	const NOT_READ := ["dirtGrip", "snowGrip"]
+	var all_same := true
+	var differ: PackedStringArray = []
+	var levels_tried := 0
+	for id in Cars.ids():
+		for lv: PackedInt32Array in [all3, PackedInt32Array([3, 0, 0, 0]), PackedInt32Array([0, 2, 0, 3]), PackedInt32Array([1, 3, 2, 1])]:
+			levels_tried += 1
+			var fs: Object = ClassDB.instantiate("FleetSim")
+			var sd := Trainer.spec_data(Upgrades.spec(id, lv))
+			fs.call("set_spec", sd)
+			var got: Dictionary = fs.call("get_spec")
+			for k: String in sd:
+				if NOT_READ.has(k):
+					continue
+				var a: Variant = sd[k]
+				var b: Variant = got.get(k)
+				var eq: bool = b != null
+				if eq and (a is PackedFloat64Array or a is Array):
+					eq = PackedFloat64Array(a) == PackedFloat64Array(b)
+				elif eq:
+					eq = float(a) == float(b)
+				if not eq:
+					differ.append("%s %s.%s" % [id, Upgrades.code(lv), k])
+					all_same = false
+	t.check(all_same, "every car at %d upgrade sets reaches FleetSim with every number the same (the torque curve, the grip, the shares on dirt and snow, the tank)%s" % [
+		levels_tried, "" if differ.is_empty() else "; differ: " + ", ".join(differ)])
+	# lockstep training: an upgraded Racer on Ramp Rally (dirt), an upgraded Thunder on Hairpin Valley
+	_lockstep("ramp-rally", "crash", 6, 61, "racer", Upgrades.spec("racer", all3))
+	_lockstep("hairpin-valley", "crash", 6, 62, "thunder", Upgrades.spec("thunder", PackedInt32Array([3, 2, 0, 3])))
+	# every car with everything at level 3 over Ramp Rally's loose stretches, sliding: the same at every step
+	const STEPS := 600
+	var track := Tracks.build("ramp-rally")
+	var td := Trainer.track_data(track, 1)
+	var drives := 0
+	var loose_steps := 0
+	var first := ""
+	all_same = true
+	for id in Cars.ids():
+		var spec := Upgrades.spec(id, all3)
+		var fs: Object = ClassDB.instantiate("FleetSim")
+		fs.call("set_spec", Trainer.spec_data(spec))
+		fs.call("set_track", td)
+		var starts: Array = []
+		for i in track.count:
+			var prev: int = track.surface[track.wrap(i - 1)] if track.closed or i > 0 else Surfaces.ASPHALT
+			if track.surface[i] != prev:
+				starts.append([track.wrap(i - 20), track.surface[i] == Surfaces.ASPHALT])
+		for st: Array in starts:
+			var car := Car.new(track, st[0], spec)
+			var ap := Autopilot.medal(track, 20.0, 0.75, true, Autopilot.DECEL, spec)
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 70 + drives
+			var tape := PackedFloat64Array()
+			var want := PackedFloat64Array()
+			for s in STEPS:
+				var c := ap.drive(car)
+				if st[1]:
+					c.steer = clampf(c.steer + rng.randf_range(-0.6, 0.6), -1.0, 1.0)
+					c.handbrake = (s / 30) % 4 == 1
+				tape.append_array([c.steer, c.throttle, 1.0 if c.handbrake else 0.0, c.nitro])
+				car.step(track, c, Trainer.STEP)
+				want.append_array([car.x, car.y, car.z, car.yaw, car.vx, car.vz, car.speed, car.yaw_rate, car.prog, car.slip])
+				loose_steps += 1 if car._env_loose else 0
+			var got: PackedFloat64Array = fs.call("debug_drive", st[0], tape, Trainer.STEP)
+			drives += 1
+			if got != want and first == "":
+				all_same = false
+				var k := 0
+				while k < mini(got.size(), want.size()) and got[k] == want[k]:
+					k += 1
+				first = "%s from sample %d: step %d field %d" % [id, st[0], k / 10, k % 10]
+			elif got != want:
+				all_same = false
+	t.check(all_same and drives >= 6 and loose_steps > drives * 100,
+		"Ramp Rally, every car with everything at level 3 over the entries and exits of its dirt (%d drives of %d steps, %d with an axle on dirt): FleetSim's car the same as GDScript's at every step%s" % [
+			drives, STEPS, loose_steps, "" if first == "" else "; first difference " + first])
 
 
 ## Training improves with every car (FleetSim; the GDScript path is the same simulation).

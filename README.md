@@ -43,6 +43,11 @@ glints); the **change from asphalt to dirt or snow is ragged and spread out** in
 work better on loose ground** (10-15 % shorter stops, no more spins when braking in a curve). The medal times and AI
 opponents of the seven dirt and snow tracks are new; the other eight tracks are unchanged (see
 [Road surfaces](#road-surfaces)).
+Version 6.11.0 adds **car upgrades**, so money stays useful once all six cars are bought: every car has four parts,
+the **engine** (power), the **tyres** (grip on asphalt), the **nitro** tank (bigger, refills faster) and **loose grip**
+(grip on dirt and snow), three levels each, bought on the car picker. The stat bars show what they add, the car shows
+them too (bigger exhausts, yellow tyre rings, blue nitro bands, mud flaps), and the medal times and AI opponents stay
+as they are, so upgrades make medals and wins easier (see [Upgrades](#upgrades)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -189,7 +194,8 @@ brakes and accelerates less (see [Road surfaces](#road-surfaces)).
 
 **Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
 **Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The cards sit three to a row (two in a narrow
-window); the line under them describes the picked car. The choice is remembered, and Drive and Race the AI use it.
+window); the line under them describes the picked car (in a window under 760 px high, such as 1280 x 720, a car you
+own shows its upgrades there instead, see [Upgrades](#upgrades); the description is in the card's tooltip). The choice is remembered, and Drive and Race the AI use it.
 A new player owns only the Racer: the other cards show a padlock and the car's price, and their stats stay
 readable. With a locked car picked, Drive reads **BUY $10,000** (or **LOCKED** when your money is short) and buys it
 after asking (see [Money, points and cars](#money-points-and-cars)). The track tiles, the records and the medal times follow the picked car, and so does the AI driver block:
@@ -219,6 +225,7 @@ when it is low and reads EMPTY when it is empty. Every run starts with a full ta
 is left. The tank is **refilled by points** (see below): every 16,000 points you bank put one full tank back, so
 a clean lap refills about half a tank to a full one, depending on the track, and drifts and jumps fill it faster.
 Penalties take nothing out of the tank, and points banked at the finish refill nothing (the race is over).
+The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#upgrades)).
 
 ### Points for clean driving
 
@@ -360,6 +367,61 @@ still pay). Watch the AI shows any opponent drive.
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
 $13,200 after three (a second car), and $102,000 after all 15, enough for all five cars ($94,000). Silver and the Pro
 everywhere buy the Kestrel after five tracks.
+
+### Upgrades
+
+Money also buys **upgrades** for the cars you own: four parts per car, three levels each, bought one level at a time
+and in order. They are on the car picker: the picked car shows a row of four chips under the cards, each with the
+part's name, a pip per level (green: bought) and the next level's price (yellow when you can afford it, grey when not,
+MAX when all three are bought). Click a chip (or highlight it with the gamepad: down from the car, then A) to buy the
+next level: it asks first and says what the level does and what is left. A car you don't own shows its parts greyed
+out: buy the car first. The car's stat bars then show the stock car in white (yellow when picked) and what the
+upgrades add in green; its top speed turns green when it is higher. The `upgrade` and `buy <car> <part>` commands of
+[the terminal](#the-terminal) do the same.
+
+| Part | What a level does | Everything at level 3, the Racer (stock → upgraded) |
+| --- | --- | --- |
+| **Engine** | +5 % power: about 4-8 % quicker to 200 km/h and 1-2 % more top speed per level | 0-200 km/h 9.78 → 8.33 s, top speed 277.7 → 289.5 km/h |
+| **Tyres** | +4 % grip on asphalt: about 3-5 % more cornering grip per level, slightly shorter stops (the grip on dirt and snow is the loose grip part's) | 1.68 / 1.58 g → 1.89 / 1.73 g on the 30 m / 120 m circles, 100-0 km/h 30.7 → 30.3 m |
+| **Nitro** | +10 % on the tank's length and +10 % refill from points per level | 5.0 → 6.5 s of nitro, 145 → 223 m covered on one tank |
+| **Loose grip** | +5 % grip on dirt and snow per level, never above the car's grip on asphalt | about +15 % on dirt and snow (1.15 → 1.32 g on dirt); the Dune, which already keeps 97 % of its grip on dirt, gains 2 % there and 15 % on snow |
+
+The numbers are measured with the game's own physics (`tools/upgrades.gd`, see [Tests and tools](#tests-and-tools)).
+Everything at level 3 takes 4-8 % off a race for every car on Rookie Oval, Technical Trial, Ramp Rally and Hairpin
+Valley (the medal autopilot's best of 10 settings; the Racer on Rookie Oval 2:11.4 → 2:03.1, on Ramp Rally 3:09.2 →
+2:53.9). One part at level 3: the tyres 3-5 % on asphalt tracks, the engine 1-2 %, loose grip 1-4 % on dirt and
+snow tracks, the nitro under 1 %. Each car keeps its character: no car spins or bounces
+more when fully upgraded (tested on jumps, braking in a curve on asphalt, dirt and snow, and holding a lane with the
+keyboard). Every part works on every car by the same share, so with the same upgrades the Kestrel is still
+the nimble one, the Thunder the brute and the Dune the dirt specialist.
+
+| Car | Engine (levels 1 / 2 / 3) | Tyres | Nitro | Loose grip | Every level |
+| --- | --- | --- | --- | --- | --- |
+| Racer | $1,500 / $3,000 / $5,250 | $1,200 / $2,400 / $4,200 | $700 / $1,450 / $2,500 | $900 / $1,800 / $3,150 | $28,050 |
+| Kestrel | $1,250 / $2,500 / $4,400 | $1,000 / $2,000 / $3,500 | $600 / $1,200 / $2,100 | $750 / $1,500 / $2,650 | $23,450 |
+| Thunder | $2,750 / $5,500 / $9,600 | $2,200 / $4,400 / $7,700 | $1,300 / $2,650 / $4,600 | $1,650 / $3,300 / $5,750 | $51,400 |
+| Drifter | $1,750 / $3,500 / $6,150 | $1,400 / $2,800 / $4,900 | $850 / $1,700 / $2,950 | $1,050 / $2,100 / $3,700 | $32,850 |
+| Dune | $2,250 / $4,500 / $7,900 | $1,800 / $3,600 / $6,300 | $1,100 / $2,150 / $3,800 | $1,350 / $2,700 / $4,750 | $42,200 |
+| Vortex | $3,750 / $7,500 / $13,150 | $3,000 / $6,000 / $10,500 | $1,800 / $3,600 / $6,300 | $2,250 / $4,500 / $7,900 | $70,250 |
+
+Prices follow the car's price (the Racer counts as a $12,000 car) and rise with every level. Every part of every car
+costs $248,200 in all, against $94,000 for the five cars: a player who wins gold and beats the Expert on every track
+earns $102,000 per car driven, so the cars and all their upgrades take about three and a half such careers.
+
+- **Medal times and AI opponents stay stock.** The medal times were set by the stock cars and the AI opponents always
+  drive stock cars, so an upgraded car makes medals and wins easier. Each reward is still paid only once.
+- **Where they count:** Drive, Race the AI and, with your own network (My AI), Watch the AI, Race my AI and the
+  training screen all use the car with its upgrades. The AI opponents never do.
+- **Records and ghosts** remember the levels of the run (they are kept in the save file with it); a ghost replays the
+  run exactly whatever the car has now, since it stores where the car was. Older records and ghosts count as stock.
+- **reset career** (in the terminal) makes every car stock again.
+- **On the car:** a bigger, polished exhaust tip per engine level, a yellow ring on every tyre that widens with the tyre
+  level, a blue band round the tail pipes per nitro level and mud flaps behind the rear wheels with loose grip (not on
+  the Drifter, which has its own, nor on the open-wheeled Dune).
+
+| The car picker, every part of the Racer bought | On the car |
+| --- | --- |
+| ![The menu with the Racer fully upgraded: its card's stat bars with green on top of the stock values, 290 km/h in green, and the Upgrades row under the cards with Engine, Tyres, Nitro and Loose grip all at MAX](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 
@@ -765,9 +827,11 @@ behind it shows the new money, points and cars straight away.
 | `points <n>` / `points set <n>` | The same for career points (`points 200`, `points set 1000`) |
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
 | `buy <name>` | Buys a car with your money, as BUY on the car picker does (`buy kestrel`) |
+| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car picker does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`) |
+| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 3, without paying (`upgrade dune tyres 3`); `upgrade dune max` puts every part at 3, `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
-| `status` | Your money, points, the cars you own, how many medals you hold and how many tracks are open (and what opens the next one) |
-| `reset career` | Starts the career over: $0, 0 points, only the Racer, and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first: type `reset career confirm` to do it |
+| `status` | Your money, points, the cars you own and their upgrades, how many medals you hold and how many tracks are open (and what opens the next one) |
+| `reset career` | Starts the career over: $0, 0 points, only the Racer (stock), and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first: type `reset career confirm` to do it |
 | `clear` | Clears the terminal (Ctrl+L too) |
 | `exit` | Closes the terminal (Esc or `` ` `` too) |
 
@@ -789,8 +853,8 @@ Everything is kept in one file, `trackrush_save.json`:
 The same folder is used whether you run the exported game or the project from the Godot editor. It holds your
 best time and splits, the ghost of that run and your best score for every track and car, the settings, the
 trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's),
-and the career: money, points, the cars you own, the rewards already paid, the tracks medals have opened and whether
-the terminal's `unlock all` opened every track. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+and the career: money, points, the cars you own and their upgrades, the rewards already paid, the tracks medals have
+opened and whether the terminal's `unlock all` opened every track. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -804,7 +868,8 @@ upgraded when it is loaded. A save from before 6.5.0 is paid once for the medals
 how much); it owns only the Racer, like a new player. Rewards already paid stay paid when a track changes: a
 track pays each medal and AI level once per car, whatever its version. A save from before 6.8.0 opens the tracks
 its best times earn (see [Unlocking tracks](#unlocking-tracks)); opened tracks stay open when a track or a medal
-time changes.
+time changes. A save from before 6.11.0 starts with every car stock (no upgrades); its records and ghosts count as
+stock runs.
 
 Saves from the browser version (kept in the browser's storage) can't be carried over; AI networks can (save the
 network in the browser, then use **Load network…** here).
@@ -851,23 +916,26 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
 | `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
 | `godot --headless --path . --script res://tools/corners.gd` | Lists the tight corners of every track (radius, road width, banking) and how the medal autopilot takes them with each car: its lowest speed and its wall contacts per lap there, from the author runs in `data/medals.json` (`-- --tracks=a,b`, `--max-r=40` for corners tighter than 40 m, `--sweep` for the wall contacts over all 50 settings of the medal sweep, as long as the medal sweep: about 16 minutes for five tracks on 3 threads; `--tracks-json=` and `--medals=` read older files, `--json=` writes the numbers). Made for version 6.6.0's corner rework |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
+| `godot --headless --path . --script res://tools/upgrades.gd` | Measures what the upgrades do with the real physics: every car stock and with each part's levels (`tools/car_stats.gd`'s numbers), the grip on dirt and snow with loose grip, and prints the `MEASURED` lines for `sim/upgrades.gd` (about 8 minutes on 3 threads; `-- --check` only compares; `-- --laps` the medal autopilot's best lap times on four tracks stock and upgraded, `--quick` on 10 settings instead of 50, `--tracks=a,b --cars=a,b`) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
 | `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
 
 Run `tools/medals.gd` after changing the physics, a car, the scoring rules, a track or its laps, then
 `tools/opponents.gd` (the opponents' levels follow the author times; after a change to the physics, a car, the
 sensors or a track's layout, `--train --retrain` the affected networks first), and `tools/car_stats.gd` (then paste
-its lines into `sim/cars.gd`) after changing a car. Screenshot and preview scripts
+its lines into `sim/cars.gd`) and `tools/upgrades.gd` (its `MEASURED` lines into `sim/upgrades.gd`) after changing a
+car or an upgrade. Screenshot and preview scripts
 for the 3D world and the interface are in `tests/visual/`; for the car models: `car_studio.gd` (any car from any
-side, steering, cornering, braking, in the air or celebrating, `noglass=1` to see the driver), `car_corner.gd` (a
+side, steering, cornering, braking, in the air or celebrating, `noglass=1` to see the driver, `up=3,3,3,3` with its
+upgrades), `car_corner.gd` (a
 car driven by the autopilot on a real track, stopped mid-corner, close up or from the chase camera), `world_cars.gd`
 (all six on a start grid) and `car_cost.gd` (each car's draw calls and triangles at each quality level, and the AI
 fleet's). Each file says how to run it. The native training library is built as described in
@@ -908,7 +976,8 @@ game/                   the game shell: modes, threaded track loading, quality, 
 modes/                  menu, play (Drive, Race the AI), watch (Watch the AI) and train (the training screen)
 sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the six cars,
                         collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
-                        points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd)
+                        points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd),
+                        car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs)
 ai/                     the AI: network, evolution, sensors and driver, trainer, an opponent's race (opponent_race.gd)
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
@@ -917,12 +986,13 @@ world/                  3D: track mesh, terrain and scenery, sky and themes, car
                         the skeleton's animation and lights), effects (smoke, dust, snow spray, skids, sparks, nitro),
                         chase camera, the AI fleet and sensor rays; shaders/ (road_surface: dirt and snow roads)
 ui/                     the interface, built in code: style, menu, Controls, Settings and terminal screens, HUD, finish panel,
-                        training dashboard (car_chip.gd: its car tiles), network view, fitness chart
+                        training dashboard (car_chip.gd: its car tiles), network view, fitness chart, the car
+                        picker's part chips (part_chip.gd)
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)
 data/                   tracks.json, medals.json and opponents/ (an AI opponent network per track and car, with its
                         levels; made by tools/)
-tools/                  track generator, turtle, medal times, AI opponents, car stats, headless trainer, benchmark,
-                        parity checks
+tools/                  track generator, turtle, medal times, AI opponents, car stats, upgrades' effects, headless
+                        trainer, benchmark, parity checks
 tests/                  run_tests.gd and test_*.gd (headless), e2e/ (the real game), visual/ (screenshots), fixtures/
 docs/screenshots/       the pictures in this file (Godot ignores docs/: it holds a .gdignore file)
 web/                    the browser version 5.0.0 (ignored by Godot)

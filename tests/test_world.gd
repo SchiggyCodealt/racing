@@ -15,6 +15,7 @@ const TrackMesh = preload("res://world/track_mesh.gd")
 const TrackCtx = preload("res://world/track_ctx.gd")
 const Shapes = preload("res://world/car_shapes.gd")
 const Kit = preload("res://world/car_kit.gd")
+const CarBuild = preload("res://world/car_build.gd")
 const TrackScenery = preload("res://world/track_scenery.gd")
 
 
@@ -144,6 +145,43 @@ func _cars(t) -> void:
 	t.check(light.triangles() < full.triangles() * 0.6, "low detail: %d triangles against %d" % [light.triangles(), full.triangles()])
 	light.free()
 	full.free()
+	_car_upgrades(t)
+
+
+## v6.11.0: the upgrades' parts on the model (CarBuild.upgrades): one more skinned mesh with the car's
+## material, more of it at higher levels, none on a stock car or a ghost; the mud flaps only on cars
+## with wheel arches and without their own; the tyre rings spin with the wheels.
+func _car_upgrades(t) -> void:
+	var stock := CarModel.new("racer", {"levels": [0, 0, 0, 0]})
+	var none := CarModel.new("racer")
+	var ghost := CarModel.new("racer", {"ghost": true, "levels": [3, 3, 3, 3]})
+	t.check(stock.upgrade_mesh == null and none.upgrade_mesh == null and ghost.upgrade_mesh == null and stock.triangles() == none.triangles(),
+		"a stock car and a ghost draw no upgrade parts")
+	stock.free()
+	ghost.free()
+	var lines: PackedStringArray = []
+	var ok := true
+	for id: String in Cars.ids():
+		var tri := {}
+		for lv: Array in [[1, 0, 0, 0], [3, 0, 0, 0], [0, 1, 0, 0], [0, 3, 0, 0], [0, 0, 1, 0], [0, 0, 3, 0], [0, 0, 0, 3], [3, 3, 3, 3]]:
+			var kit = CarBuild.upgrades(id, PackedInt32Array(lv), 1)
+			tri[",".join(lv.map(func(x: int) -> String: return str(x)))] = kit.triangles()
+		var flaps: bool = tri["0,0,0,3"] > 0
+		var want_flaps: bool = not (id in ["drifter", "dune"])
+		# (each part adds its own pieces: everything at 3 is the sum of the parts at 3)
+		ok = ok and tri["1,0,0,0"] > 0 and tri["3,0,0,0"] >= tri["1,0,0,0"] and tri["0,1,0,0"] > 0 and tri["0,0,3,0"] > tri["0,0,1,0"] and flaps == want_flaps and \
+			tri["3,3,3,3"] == tri["3,0,0,0"] + tri["0,3,0,0"] + tri["0,0,3,0"] + tri["0,0,0,3"]
+		var car := CarModel.new(id, {"levels": [3, 3, 3, 3]})
+		t.tree.root.add_child(car)
+		ok = ok and car.upgrade_mesh != null and car.upgrade_mesh.material_override == car.materials[0] and car.upgrade_mesh.skin == car.opaque_mesh.skin and \
+			car.triangles() == int(CarModel.meshes(id, 1)["triangles"]) + tri["3,3,3,3"] and tri["3,3,3,3"] < 6000
+		lines.append("%s %d%s" % [id, tri["3,3,3,3"], "" if flaps else " (no flaps)"])
+		car.free()
+	var low := CarModel.new("thunder", {"levels": [3, 3, 3, 3], "detail": 0})
+	ok = ok and low.upgrade_mesh != null and CarBuild.upgrades("thunder", PackedInt32Array([3, 3, 3, 3]), 0).triangles() < CarBuild.upgrades("thunder", PackedInt32Array([3, 3, 3, 3]), 1).triangles()
+	low.free()
+	none.free()
+	t.check(ok, "the upgrades on the model (one skinned mesh with the car's material, triangles with everything at 3: %s): bigger exhaust tips, tyre rings, nitro bands (more at each level), mud flaps where the car has none and has wheel arches; fewer on low detail" % ", ".join(lines))
 
 
 ## Drives a car through `frames` frames of a motion (`f` changes the state each frame); returns the last state.
