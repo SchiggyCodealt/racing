@@ -135,6 +135,13 @@ static func panel_payout() -> Dictionary:
 	return p
 
 
+## v6.8.0: the payout run, which also opened the next track (the tallest finish panel).
+static func panel_unlock() -> Dictionary:
+	var p := panel_payout()
+	p.unlocked = {"id": "lighthouse-bay", "name": "Lighthouse Bay", "number": "11", "medal": "bronze", "from": "Night Highway"}
+	return p
+
+
 ## The AI's finish (Watch the AI).
 static func panel_ai() -> Dictionary:
 	return {"title": "AI finished", "time": 219.4, "ai": true, "medal": {"got": "silver", "new": false},

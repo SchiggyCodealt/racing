@@ -29,12 +29,15 @@ and their road 2-3 m wider; they are still hairpins, and the tracks keep their s
 Version 6.7.0 adds a terminal: in Settings (or with the `` ` `` key on the menu) you type commands such as `money 5000`,
 `points 200`, `car vortex` or `unlock all` to add money and points, get cars and open everything (see
 [The terminal](#the-terminal)).
+Version 6.8.0 makes the game more linear: the tracks open one at a time. You start with Rookie Oval; a bronze medal
+(or better) on a track, with any car, opens the next one, for good. Watch the AI and Train the AI still work on every
+track (see [Unlocking tracks](#unlocking-tracks)).
 
-![The menu: money and career points in the header, 15 track tiles with minimaps in three rows, the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
-| ![Driving on Night Highway with the headlights on and the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel after beating the Elite AI: time, gold medal, what the run earned (three medals and five AI wins, $5,600 and 225 points), the score breakdown](docs/screenshots/finish.png) |
+| ![Driving on Night Highway with the headlights on and the nitro burning, the score and combo on the left](docs/screenshots/driving.png) | ![The finish panel after beating the Elite AI: time, gold medal, "Hairpin Valley unlocked", what the run earned (three medals and five AI wins, $5,600 and 225 points), the score breakdown](docs/screenshots/finish.png) |
 
 ![Training the AI with the Vortex: the population on Lighthouse Bay with the leader's sensor rays, its live network and the stats](docs/screenshots/training.png)
 
@@ -42,7 +45,7 @@ Version 6.7.0 adds a terminal: in Settings (or with the `` ` `` key on the menu)
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.7.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.8.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -97,7 +100,7 @@ On the menu:
 
 | Key | Gamepad | Action |
 | --- | --- | --- |
-| Arrows or W A S D, 1-9, 0, -, = | d-pad / left stick | Pick a track (0, - and = are tracks 10-12; tracks 13-15 with the arrows, the mouse or the pad) |
+| Arrows or W A S D, 1-9, 0, -, = | d-pad / left stick | Pick a track (0, - and = are tracks 10-12; tracks 13-15 with the arrows, the mouse or the pad). A locked track can be picked too: its panel says what opens it |
 | C / Shift+C | RB / LB | Next / previous car |
 | Enter or Space | A | Drive |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
@@ -114,10 +117,12 @@ from the next medal, your points with their breakdown, and the lap times; **R** 
 
 **The menu** is three steps: **1 Track**, **2 Car**, **3 Drive**. Each track tile shows the track's
 outline (the dot is the start; sprints have a second dot at the finish), its number, how hard it is
-(1-5 bars), and the medal and best time you have with the picked car. The panel on the right is the
+(1-5 bars), and the medal and best time you have with the picked car; a locked track's tile is darker, with a
+padlock and what opens it ("Bronze on 02": a bronze on track 02), and a track that has just opened says **NEW**
+(see [Unlocking tracks](#unlocking-tracks)). The panel on the right is the
 selected track: its description, length and laps, then with the picked car your best time, best
 score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive** (**BUY** or
-**LOCKED** when the picked car is not yours yet), the **Race my best-run ghost** option and the **AI driver** block:
+**LOCKED** when the picked car is not yours yet, **LOCKED** on a locked track), the **Race my best-run ghost** option and the **AI driver** block:
 the opponent (**Rookie** to **Elite**, or **My AI**, the picked car's own network), what it does on this track and
 what beating it pays, Race the AI, Watch the AI, Train the AI and Load / Save network. The header shows your money
 and career points and a few key hints; the **Controls** button lists the rest, and the **Settings** button opens the
@@ -270,6 +275,28 @@ Mountain Pass and Canyon Run got dirt or snow in version 6.3.0 and new times, 0.
 the car: see [Road surfaces](#road-surfaces). Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon
 Run got rounder, wider hairpins in version 6.6.0 and new times again: see [Tracks](#tracks). The Dune and the Vortex,
 and the three tracks of version 6.4.0, exist only in this version.)
+
+### Unlocking tracks
+
+The tracks open one at a time, in the menu's order. A new career starts with **Rookie Oval**; a **bronze medal or
+better** on a track opens the next one. Any car counts (a bronze with the Kestrel opens the next track for every car),
+and so does a bronze won while racing an AI opponent. The finish panel says so ("Hairpin Valley unlocked"), and the
+new track's tile says **NEW** until you pick it or leave the menu.
+
+- **An opened track stays open for good**, even when a later version makes a medal faster or changes the track (the
+  save file keeps the list of opened tracks).
+- A **locked track** can still be picked with the keys, the pad or the mouse. Its tile shows a padlock and what opens
+  it ("Bronze on 02"), its panel says it in full, and Drive reads **LOCKED**. **Drive** and **Race the AI** are
+  refused there with a message saying what opens it.
+- **Watch the AI** and **Train the AI** work on every track, locked or not (the AI lab pays nothing). Race best on
+  the training screen needs an open track, Watch best works anywhere.
+- The terminal's `unlock tracks` (or `unlock all`) opens every track at once (see [The terminal](#the-terminal)).
+
+![Hairpin Valley picked in a new career: its tile and the thirteen after it locked (padlock, "Bronze on 01" to "Bronze on 14"), the panel saying a bronze on Rookie Oval opens it and that Watch the AI and Train the AI work there anyway, Drive reading LOCKED](docs/screenshots/locked.png)
+
+A save from an earlier version (when every track was open) keeps every track you have a best time on, with any car
+(including best times kept from an older version of a track), and opens the track after every one where a best time
+is bronze or better against today's bronze time.
 
 ### Money, points and cars
 
@@ -592,7 +619,8 @@ The menu's AI driver block races either an **AI opponent** (Rookie to Elite, shi
   sensor rays shown live. If it gets stuck for 3 s it is put back at its last checkpoint.
 - **Race the AI** (menu: "Race the Pro AI", "Race my AI") or **Race best (ghost)** (training screen): you race the
   AI with the car you picked; the AI is a see-through copy of its car you can drive through. The HUD shows how far
-  ahead or behind you are at each checkpoint, and the finish panel who won and by how much.
+  ahead or behind you are at each checkpoint, and the finish panel who won and by how much. You race only on an
+  open track ([Unlocking tracks](#unlocking-tracks)); watching works on every track.
 - With **My AI** picked and no network for that car yet, the AI driver block says so, and Watch and Race stay
   off until you train one (**Train the AI** starts with that car) or load a network file.
 
@@ -648,16 +676,15 @@ behind it shows the new money, points and cars straight away.
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
 | `buy <name>` | Buys a car with your money, as BUY on the car picker does (`buy kestrel`) |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
-| `status` | Your money, points, the cars you own and how many medals you hold |
-| `reset career` | Starts the career over: $0, 0 points, only the Racer, and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). It asks first: type `reset career confirm` to do it |
+| `status` | Your money, points, the cars you own, how many medals you hold and how many tracks are open (and what opens the next one) |
+| `reset career` | Starts the career over: $0, 0 points, only the Racer, and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first: type `reset career confirm` to do it |
 | `clear` | Clears the terminal (Ctrl+L too) |
 | `exit` | Closes the terminal (Esc or `` ` `` too) |
 
 **Tab** completes a command's name and its first word (`unl` Tab gives `unlock `, `car v` Tab gives `car vortex `;
 with several matches it lists them), **Up** / **Down** bring back the lines you typed before, and a typing mistake
 gets a short message saying what to type instead (`mony 5000`: "Did you mean money?"). Typing needs a keyboard; a
-gamepad can open the terminal from Settings (highlight Terminal, A) and close it (B). Every track is open in this
-version anyway; `unlock all` is remembered for when tracks unlock one by one.
+gamepad can open the terminal from Settings (highlight Terminal, A) and close it (B).
 
 ## Saved data
 
@@ -672,8 +699,8 @@ Everything is kept in one file, `trackrush_save.json`:
 The same folder is used whether you run the exported game or the project from the Godot editor. It holds your
 best time and splits, the ghost of that run and your best score for every track and car, the settings, the
 trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's),
-and the career: money, points, the cars you own, the rewards already paid and whether the terminal's `unlock all`
-opened every track. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+and the career: money, points, the cars you own, the rewards already paid, the tracks medals have opened and whether
+the terminal's `unlock all` opened every track. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -685,7 +712,9 @@ counting and are moved to an `"archive"` section of the file (the next time the 
 kept but not shown. A save file from an older version is
 upgraded when it is loaded. A save from before 6.5.0 is paid once for the medals its best times hold (a message says
 how much); it owns only the Racer, like a new player. Rewards already paid stay paid when a track changes: a
-track pays each medal and AI level once per car, whatever its version.
+track pays each medal and AI level once per car, whatever its version. A save from before 6.8.0 opens the tracks
+its best times earn (see [Unlocking tracks](#unlocking-tracks)); opened tracks stay open when a track or a medal
+time changes.
 
 Saves from the browser version (kept in the browser's storage) can't be carried over; AI networks can (save the
 network in the browser, then use **Load network…** here).
@@ -710,7 +739,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.7.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.8.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -732,8 +761,8 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high` for its screenshots), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks) |

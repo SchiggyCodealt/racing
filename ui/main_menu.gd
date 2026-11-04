@@ -23,6 +23,12 @@ extends Control
 ##   block picks the opponent of Race / Watch the AI: an AI level (Rookie to Elite, its finish
 ##   time on this track with this car and what beating it pays now) or My AI (the picked car's
 ##   own trained network, as before).
+## - v6.8.0, locked tracks: the tracks open one at a time (bronze or better on a track opens the
+##   next, sim/unlocks.gd). A locked tile is darker, with a padlock and what opens it ("Bronze on
+##   02"); it can still be picked (keys, pad, mouse), and its panel says what opens it and that
+##   Watch the AI and Train the AI work there anyway. Drive reads LOCKED (the game refuses Drive
+##   and Race the AI there with a message). A track a finish just opened is marked NEW until it is
+##   picked or the menu is left.
 ## Every bit of game data comes through UiData; the buttons only emit signals.
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
@@ -105,6 +111,8 @@ var _td_name: Label
 var _td_diff: Control
 var _td_meta: Label
 var _td_desc: Label
+var _td_lock: Control          # a locked track's note (v6.8.0)
+var _td_lock_text: RichTextLabel
 var _td_map: Control
 var _td_car_name: Label
 var _td_car_gap: Control
@@ -376,6 +384,33 @@ func _build_detail() -> void:
 	_td_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_td_desc.custom_minimum_size.x = 1
 	_detail_box.add_child(_td_desc)
+	# a locked track: what opens it, and that the AI lab works anyway
+	_td_lock = UiStyle.margin([0, UiStyle.S3, 0, 0])
+	var lock_row := UiStyle.hbox(UiStyle.S2)
+	_td_lock.add_child(lock_row)
+	var icon := Control.new()
+	icon.custom_minimum_size = Vector2(9, 18)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.draw.connect(func() -> void: W.padlock(icon, Vector2(0, 3), UiStyle.ACCENT))
+	lock_row.add_child(icon)
+	_td_lock_text = RichTextLabel.new()
+	_td_lock_text.bbcode_enabled = true
+	_td_lock_text.fit_content = true
+	_td_lock_text.scroll_active = false
+	_td_lock_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_td_lock_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_td_lock_text.custom_minimum_size.x = 1
+	_td_lock_text.add_theme_font_override("normal_font", UiStyle.font("text", UiStyle.FS_S, 0, false, 18))
+	_td_lock_text.add_theme_font_override("bold_font", UiStyle.font("text_semi", UiStyle.FS_S, 0, false, 18))
+	_td_lock_text.add_theme_font_size_override("normal_font_size", UiStyle.FS_S)
+	_td_lock_text.add_theme_font_size_override("bold_font_size", UiStyle.FS_S)
+	_td_lock_text.add_theme_color_override("default_color", UiStyle.TEXT_2)
+	_td_lock_text.add_theme_constant_override("line_separation", 0)
+	_td_lock_text.mouse_filter = Control.MOUSE_FILTER_PASS
+	lock_row.add_child(_td_lock_text)
+	_td_lock.visible = false
+	_detail_box.add_child(_td_lock)
 	# the bigger map: the panel's spare height (hidden while that is 64 px or less)
 	_td_map = TrackMapView.new()
 	_td_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -541,6 +576,12 @@ func refresh() -> void:
 		var t: Variant = rec.time if rec != null else null
 		_tiles[i].selected = i == selected_track
 		_tiles[i].set_record(UiFormat.time(t) if t != null else "", UiData.medal_for(UiData.medal_times(id, car), t))
+		var lock := UiData.track_lock(i)
+		if lock.is_empty():
+			_tiles[i].set_lock(false, "", "", UiData.is_new_track(id))
+		else:
+			_tiles[i].set_lock(true, "%s on %s" % [UiStyle.MEDAL_NAMES[lock.medal], UiFormat.track_number(int(lock.index))],
+				"%s on %s opens it" % [str(UiStyle.MEDAL_NAMES[lock.medal]).to_lower(), lock.name])
 	_render_detail()
 	_render_cars()
 	_render_wallet()
@@ -558,6 +599,7 @@ func refresh() -> void:
 		_ghost_check.checked = bool(UiData.get_setting("ghost"))
 		_save_btn.disabled = not st.ready
 		_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
+		_render_track_lock()
 		return
 	_ghost_btn.text = "Race my AI"
 	_watch_btn.text = "Watch my AI"
@@ -588,6 +630,23 @@ func refresh() -> void:
 	_watch_btn.tooltip_text = "Watch the %s AI drive this track, with its sensors and network" % cname if st.ready \
 		else "The %s has no AI network yet: train one first" % cname
 	_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
+	_render_track_lock()
+
+
+## A locked track (v6.8.0): Drive reads LOCKED (unless the picked car is for sale: BUY first) and
+## Race the AI's tooltip says why it won't start; the game refuses both with a message.
+func _render_track_lock() -> void:
+	var lock := UiData.track_lock(selected_track)
+	if lock.is_empty():
+		return
+	var why := "%s is locked: win %s or better on %s (any car) to open it" % [UiData.track_info(selected_track).name,
+		str(UiStyle.MEDAL_NAMES[lock.medal]).to_lower(), lock.name]
+	if UiData.owns_car(UiData.picked_car()):
+		_drive_btn.text = "LOCKED"
+		_drive_btn.theme_type_variation = ""
+		_drive_btn.tooltip_text = why + ". Watch the AI and Train the AI work here anyway."
+	if not _ghost_btn.disabled:
+		_ghost_btn.tooltip_text = why + ". Watch the AI works here."
 
 
 ## The AI block with AI level `opp` picked: its finish time here with the picked car and what
@@ -725,6 +784,11 @@ func _render_detail() -> void:
 	_td_meta.text = (("Circuit · %d laps · %s km a lap" % [t.laps, UiFormat.km(t.length)]) if t.closed \
 		else ("Sprint · %s km" % UiFormat.km(t.sprint_length))) + " · " + str(t.get("surfaces", "Asphalt"))
 	_td_desc.text = t.description
+	var lock := UiData.track_lock(i)
+	_td_lock.visible = not lock.is_empty()
+	if not lock.is_empty():
+		_td_lock_text.text = "[color=#%s][b]Locked[/b][/color]: win %s or better on [b]%s[/b] (%s, any car) to open it. Watch the AI and Train the AI work here anyway; they pay nothing." % [
+			UiStyle.ACCENT.to_html(false), str(UiStyle.MEDAL_NAMES[lock.medal]).to_lower(), lock.name, UiFormat.track_number(int(lock.index))]
 	_td_map.map = _maps[i]
 	_td_car_name.text = cinfo.name
 	var cells := [
@@ -765,6 +829,7 @@ func _render_detail() -> void:
 ## Select track `i` (the host swaps the 3D track on track_selected).
 func select(i: int) -> void:
 	selected_track = i
+	UiData.clear_new_tracks(UiData.track_id(i)) # (seen)
 	track_selected.emit(i)
 	refresh()
 	_scroll.ensure_control_visible(_tiles[i])
@@ -792,6 +857,8 @@ func car_card() -> Control:
 
 
 func show_menu(on: bool) -> void:
+	if not on and visible:
+		UiData.clear_new_tracks() # (the NEW marks were seen)
 	visible = on
 	if on:
 		refresh()

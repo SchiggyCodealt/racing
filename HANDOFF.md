@@ -4,13 +4,14 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-10-29 (v6.7.0: feature 7 of 9, a terminal in Settings and on the `` ` `` key for money, points, cars
+_Last updated: 2026-11-04 (v6.8.0: feature 8 of 9, the tracks open one at a time: a bronze or better on a track opens
+the next; v6.7.0: feature 7, a terminal in Settings and on the `` ` `` key for money, points, cars
 and unlocks; v6.6.0: feature 6, the tightest corners of five old tracks made more forgiving; v6.5.0: feature 5, money and career points from medals and AI opponents, a car shop; v6.4.0: feature 4, three new
 tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI training
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.7.0, features 1-7 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal)
+## Status: v6.8.0, features 1-8 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -67,8 +68,20 @@ tracks`, `status`, `reset career` (asks: `reset career confirm`), `clear`, `exit
 value and goes through the save file's own functions (`SaveData.add_money`, `add_points`, `give_car`, the new
 `unlock_tracks` and `reset_career`, `Economy.buy`); the menu redraws at once. `unlock all` also sets a new
 `career.tracks_unlocked` flag in the save file (version 4 kept: absent = off) for item 8 to read.
-Features 8-9 are not built yet; nothing was designed out of them (the car list, medal ratios, settings rows, track
-list, surfaces, rewards, AI levels and terminal commands are data).
+v6.8.0 adds feature 8: the tracks open one at a time, in menu order (`sim/unlocks.gd`). A new career has Rookie Oval;
+a bronze or better (`Unlocks.MEDAL`) on a track, with any car, opens the next one for good: the finish claims it
+(`Unlocks.claim`, from the medal the payout used) and the save file keeps the opened tracks in `career.tracks_open`
+(version 4 kept), so a later version that makes bronze faster (item 9) or changes a track never locks one again.
+A save from v6.7.0 or older (every track was open) gets the list once from its best times: every track it has a best
+time on (current or archived, any car) and the track after every bronze or better (archived times against today's
+bronze). The terminal's `unlock tracks` flag opens everything; `reset career` turns it off but keeps the tracks medals
+opened. Locked tiles are darker with a padlock and "Bronze on 02"; a locked track can still be picked (keys, pad,
+mouse), its panel says what opens it, and Drive reads LOCKED; Drive and Race the AI there are refused with a message
+(`GameApp.play`), as is Race best on the training screen; Watch the AI and Train the AI work on every track. The
+finish panel says "Ramp Rally unlocked" and the new tile is NEW until it is picked or the menu is left. The terminal's
+`status` counts the open tracks and names what opens the next one.
+Feature 9 is not built yet; nothing was designed out of it (the car list, medal ratios, settings rows, track list,
+surfaces, rewards, AI levels, terminal commands and the unlock medal are data).
 
 | Area | State | Where |
 | --- | --- | --- |
@@ -86,8 +99,9 @@ list, surfaces, rewards, AI levels and terminal commands are data).
 | Career (v6.5.0): money and points (the reward table, paid once), the car shop, the save file's `career` (VERSION 4, migration pays held medals once), the menu's wallet and locked cards, the finish panel's payout | done; reward table, paid-once rule, shop, migrations (v1-v3) and junk are tests; prices checked against a simulated career | `sim/economy.gd`, `sim/save.gd`, `sim/cars.gd` (`price`), `ui/main_menu.gd`, `ui/car_card.gd`, `ui/finish_panel.gd`, `game/app.gd`, `game/message_screen.gd` |
 | AI opponents (v6.5.0): 90 shipped networks with five levels each (a speed cap and the race's time), the menu's opponent chips, Race / Watch the AI against a level | done; every level of every track and car finishes and is slower than the one above (tests); stored races re-run to the millisecond | `data/opponents/`, `sim/opponents.gd`, `ai/opponent_race.gd`, `ai/sensors.gd` (`AIDriver.speed_cap`), `tools/opponents.gd`, `modes/play_mode.gd`, `game/ai_link.gd` |
 | Reworked corners (v6.6.0): five old tracks with rounder, wider hairpins in `tools/gen_tracks.gd`; their medal times and AI opponents; `tools/corners.gd` (each corner's radius, width and how the medal autopilot takes it); `Tracks.build_web` (the browser's layouts for the parity checks) | done; the new minimum radius and width, the unchanged hairpin count and surfaces, the ten untouched tracks and their medal entries, and a v6.5 save's archive and paid rewards are tests | `tools/gen_tracks.gd`, `data/tracks.json`, `data/medals.json`, `data/opponents/`, `tools/corners.gd`, `sim/tracks.gd` |
+| Unlocking tracks (v6.8.0): the rule and the claim at the finish, the save file's `career.tracks_open` (with the one-time upgrade from best times), the menu's locked and NEW tiles and lock note, the refusals in the app and on the training screen, the finish panel's line, the terminal's `status` row | done; the rule, stickiness across a medal-time change and a changed track, the upgrade (current and archived times, unknown cars, junk), the flag and the reset, the refusals, Watch / Train on a locked track, the menu and the finish panel are tests; e2e `unlock` | `sim/unlocks.gd`, `sim/save.gd`, `ui/ui_data.gd`, `ui/track_tile.gd`, `ui/main_menu.gd`, `ui/finish_panel.gd`, `ui/widgets.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `game/app.gd`, `game/terminal.gd` |
 | Terminal (v6.7.0): the console screen (log, input, history, Tab), the commands table, the Settings row, the `` ` `` key on the menu and Settings, the save file's tracks flag and career reset | done; every command with good and bad input, Tab, the save effects, the keys that open and close it, `` ` `` in a race are tests; e2e `terminal` | `game/terminal.gd`, `ui/terminal_screen.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/menu_input.gd`, `sim/save.gd` |
-| Tests: headless suite (733 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (766 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -165,6 +179,63 @@ end-to-end scenarios pass at 1280 x 720 (terminal 34 with `gfx=high`, menu 28, s
 modes 29); the FleetSim libraries were not touched (nothing in the simulation changed); the Windows release export
 was made from a fresh import (no errors or warnings) and zipped as `build/TrackRush-6.7.0-windows.zip` (not
 started: no Windows here).
+
+v6.8.0 (2026-11-04): the headless suite passes (766 checks: sim 93, ui 198, world 160, game 166, ai 149; 421 s); the
+end-to-end scenarios pass at 1280 x 720 (unlock 17, economy 21, menu 28, settings1 5 + settings2 6, modes 29, races
+72 on Hairpin Valley and Summit Rush with the Racer and the Dune, all with `gfx=low`; terminal 34 with `gfx=low` and
+again with `gfx=high` for its screenshot; surfaces 13 with `gfx=high`). With `gfx=low`, `scenario=surfaces` failed its
+snow-spray check (7 puffs alive, 8 wanted) twice; v6.7.0 from `git archive` passed it once with 8 at the same spot.
+Low graphics emits 30 % of the spray, about 7.8 puffs alive on average there, so with `gfx=low` that check is a coin
+flip in either version (nothing in v6.8.0 touches the effects): run `surfaces` with `gfx=high` (17 puffs). The FleetSim
+libraries were not touched (nothing in the simulation changed); the Windows release export was made from a fresh
+import (no errors or warnings; `sim/unlocks.gd` is in the pack) and zipped as `build/TrackRush-6.8.0-windows.zip`
+(not started: no Windows here).
+
+## How v6.8.0 (unlocking tracks) was verified
+
+- **The rule and the save file** (`tests/test_sim.gd` "tracks open one at a time", on its own save file): a new
+  career has only Rookie Oval open; no medal opens nothing; bronze (and author) on Rookie Oval opens Hairpin Valley
+  once (announced once: `claim` returns the id only when it was locked); a medal on a locked track opens nothing;
+  silver on Hairpin Valley opens Ramp Rally; the list is in the file's career (still version 4) and read back; the
+  last track opens nothing. **Sticky**: the bronze that opened Hairpin Valley earns no medal once `medals.json`'s
+  bronze is 30 s faster (patched in memory), and Hairpin Valley stays open; also when the record moves to the archive
+  (another signature). **The upgrade** of a v6.7 save: Rookie Oval at bronze, Hairpin Valley driven without a medal,
+  an archived Ramp Rally time under today's bronze, an archived Technical Trial time without a medal, an unknown car
+  on Coastal GP, the Kestrel's bronze on Canyon Run and three kinds of junk open exactly Hairpin Valley, Ramp Rally,
+  Banked Speedway, Technical Trial, Coastal GP, Canyon Run and Night Highway (8 open), stored in the file; a version 3
+  save the same way; the flag opens all 15. **Junk**: five non-lists are worked out again; a list keeps known and
+  unknown ids once each. **Terminal and reset**: `unlock tracks` opens all 15, a gold while the flag is on opens the
+  next track for good without an announcement, `reset_career` turns the flag off and keeps what medals opened.
+- **The menu and the finish panel** (`tests/test_ui.gd` "locked tracks", the in-memory store): its default is every
+  track open (so the older interface tests are unchanged); with Hairpin Valley opened, tiles 3-15 are locked with
+  "Bronze on 02" ... "Bronze on 14" and a tooltip; 3 picks locked Ramp Rally (its panel's note, Drive LOCKED, not the
+  primary style); Enter still emits drive (the app refuses); the arrows move over locked tiles; Race the AI's tooltip
+  says the track is locked, Watch the AI's doesn't; a car for sale shows LOCKED / BUY first on a locked track; NEW
+  until picked or the menu is left. The finish panel's line ("Lighthouse Bay unlocked", "track 11 is open: pick it
+  on the menu"; only the first part 480 px wide) with the tallest payout fits: 693 px at 1280 x 720 (+30), 522 at
+  800 x 600 and 1024 x 600 (+26), 795 at 480 x 800 (+30).
+- **In the app** (`tests/test_game.gd` "the app: the tracks open one at a time", a new save file): 14 tiles locked;
+  Hairpin Valley picked: the panel's note, Drive LOCKED; Drive, Race the Rookie AI and Enter are refused with the
+  message; Watch the Rookie AI drives Hairpin Valley; Train the AI opens on it; Rookie Oval drives, the medal
+  autopilot's run opens Hairpin Valley (finish state and panel, read at 1280 x 720: the headless window the panel
+  gets depends on the tests run before it, and 520 px or narrower shows only "Hairpin Valley unlocked"), the tile is NEW, picking it clears NEW and Drive
+  reads DRIVE, leaving the menu clears a NEW too. The career test opens Seaside Stunts first and checks its author run
+  opens Forest Rally; the terminal tests check the new `status` row, the reset warning and that a reset keeps the
+  medal-opened track. `tests/test_ai.gd`: the training screen's Race best races on Rookie Oval and, on locked Hairpin
+  Valley, gives a note instead (Watch best still works there).
+- **End to end** (`scenario=unlock`, 1280 x 720, 17 checks, 175 s with `gfx=low`): a new career shows 14 locked tiles;
+  2 picks Hairpin Valley (its note, LOCKED); with the lock note on each of the 14 locked tracks the menu still fits
+  without scrolling (the lowest button ends at 718 px; the note is 66 px high, above the stats); Enter and a click on
+  Race the Rookie AI are refused with the message; Watch the Rookie AI (clicked) drives Hairpin Valley, Train the AI
+  (clicked) opens there; a slow autopilot (`Autopilot.basic`, 40 m/s at most) takes bronze on Rookie Oval in 2:49.750
+  (bronze 3:03): the finish panel says Hairpin Valley unlocked; back on the menu it is NEW and Ramp Rally locked;
+  2 picks it (NEW gone), Enter drives it; the save file holds `tracks_open: ["hairpin-valley"]`. `scenario=economy`
+  now also checks that its Elite gold opened Hairpin Valley and, after opening tracks 3-12 itself, that the Seaside
+  Stunts run opened Forest Rally (the menu: Forest Rally NEW, the last two locked). The other scenarios open every
+  track first (`unlock tracks`). Screenshots: `docs/screenshots/menu.png` and `finish.png` (from `economy`, new: the
+  NEW tile, the locked tiles and the unlock line; the five reworked tracks' minimaps are current), `locked.png`
+  (from `unlock`) and `terminal.png` again (from `terminal` with `gfx=high`: `status` now ends with the Tracks row,
+  "1 of 15 open; next: Hairpin Valley (bronze on Rookie Oval)", and the tiles behind it are locked).
 
 ## How v6.7.0 (the terminal) was verified
 
@@ -638,6 +709,11 @@ started: no Windows here).
   time is reproduced. Caps are stored as k / 100.0 so they read back as the same double (`snappedf` does not).
 - **The interface is built in code** from the tokens in `ui/ui_style.gd` (colours, four text sizes, 4 px spacing
   grid, one slant); red / green only for losses / gains, the yellow accent for the one thing that matters.
+- **Locked tracks** (v6.8.0): `Unlocks.is_open(id)` is the one question (unknown ids, such as test roads, are open);
+  the interface asks `UiData.track_open(i)` / `track_lock(i)`, whose in-memory store (tests, previews) has
+  `career.tracks_open = null`, meaning every track open: set a list to test locked tiles. Only a finish opens a track
+  (`Unlocks.claim` in `PlayMode._on_finish`); nothing derives it from the best times after the one-time upgrade.
+  End-to-end scenarios other than `economy`, `terminal` and `unlock` start with `SaveData.unlock_tracks(true)`.
 - **Godot files in git**: commit the `.uid` files next to scripts and shaders and the `.import` files of assets
   (Godot 4.4+ needs them for stable references); never `.godot/` or `build/`.
 - **Running Godot while others work**: the editor and `--import` write `.godot/` and `.import` files, so when several
@@ -718,6 +794,19 @@ started: no Windows here).
   position (`physical_keycode` `KEY_QUOTELEFT`), whatever it types on the layout: on a German keyboard that is ^,
   which Windows may treat as a dead key (the terminal still opens and closes, the input ignores the key). A backquote
   typed with another key (German Shift+´) goes into the input as a character and does not close it.
+- **Unlocking tracks (v6.8.0)**: the upgrade of an older save is generous on purpose: every track with any best time
+  stays open (every track was open before), even without a medal on the track before it, and archived times count
+  against today's bronze, not the bronze of their day (simpler; the old medal times are not kept). Records of other
+  physics versions count too. A `reset career` after `unlock tracks` can leave gaps (a track opened by a medal while
+  the flag was on stays open, the ones before it lock again). The NEW mark lives only in memory (a restart drops
+  it). A bronze is judged with the medal the payout uses (`Medals.medal_for` against `medals.json`), so a run with
+  no medal times (none for that track and car) opens nothing. A save written by v6.8.0 and then by an older game keeps
+  `tracks_open` (older games don't touch unknown career keys), but medals won in the older game open nothing until a
+  finish in v6.8.0 or later. Not done (not asked): unlocking cars or AI levels by progress, a message when a newer
+  medal table would have opened a track.
+- **The menu's side column is 28 px wider on tracks with a long surface line** (Hairpin Valley "Asphalt + packed
+  snow", from v6.3.0, not new): the meta label doesn't wrap, so the tiles get a little narrower while such a track is
+  picked. Seen on the v6.8.0 screenshots; harmless, but a wrap or an ellipsis there would keep the layout still.
 - Archived records, scores and ghosts (save file `"archive"`) are kept but nothing in the game shows them yet
   (`SaveData.get_archived` reads them).
 - `web/docs/tracks-overview.svg` shows the layouts only, not the surfaces, and only the first 12 tracks.
@@ -842,17 +931,24 @@ re-run the medal times.
    owner: `buy` and `reset career` were added (buying with the terminal's money; a fresh start), amounts take commas
    and are capped at 1,000,000,000 a command, only `reset career` asks for `confirm` (setting money or points lower is
    an explicit command, not a wipe), `reset career` keeps best times, ghosts, networks and settings.
-8. **Unlock the next map after bronze.** Default: **the next track unlocks after a bronze (or better) on the previous
-   one, with any car**. Track 1 is always open; "previous" is the menu order (`data/tracks.json`). It can be derived
-   from the saved best times (`Medals.medal_for` per car), so nothing new needs saving: the terminal's `unlock all` /
-   `unlock tracks` is already saved (v6.7.0) as `SaveData.tracks_unlocked()`; a track is open when that is true, or
-   it is the first, or the previous track has a bronze or better with any car. Add a `UiData` wrapper for the menu
-   (and a store entry for tests), and update the terminal's `status` "Tracks" row (`game/terminal.gd` `_status`: it
-   says "all 15 open" today) to count the open tracks; `reset career` already clears the flag, but tracks opened by
-   medals stay open after it (best times are kept). Locked tiles need a look on the menu, and the keys / pad must skip
-   or refuse them. Decide with the owner whether Watch / Train the AI may use locked tracks.
+8. **Unlock the next map after bronze.** **Done in v6.8.0.** The next track unlocks after a bronze (or better) on the
+   previous one, with any car; track 1 is always open; "previous" is the menu order. `sim/unlocks.gd` has the rule;
+   the finish claims the next track (`Unlocks.claim`) and the save file keeps opened tracks for good in
+   `career.tracks_open` (version 4 kept), so they are **sticky**: a faster bronze (item 9) or a changed track never
+   locks one again. Choices made for the owner: an older save opens, once, every track it has a best time on (current
+   or archived, any car) and the track after every bronze or better, archived times judged against today's bronze
+   (the simpler rule); locked tracks can't be driven or raced against the AI (Drive, Race the AI and the training
+   screen's Race best say what opens them), Watch the AI and Train the AI work everywhere (the panel says so); locked
+   tiles have a padlock and "Bronze on 02", and the keys, pad and mouse still pick them; the finish panel says "Ramp
+   Rally unlocked" and the new tile is NEW once; `unlock all` / `unlock tracks` open everything; `reset career` turns
+   that flag off but keeps the tracks medals opened (including those won while the flag was on); the terminal's
+   `status` row counts the open tracks and names the next one's requirement.
 9. **Faster bronze.** Default: **bronze = 1.3 × the author time (was 1.5 ×)**, still rounded up to a whole second.
    Change `Medals.FACTORS.bronze` and the method text in `tools/medals.gd` (it names the factors); the bronze times in `data/medals.json` can be
    recomputed from the stored author times (`Medals.medal_set`) without the 20-minute sweep. Medals are worked out from
    best times when shown, so saved records re-rate themselves; the medal parity check against the browser version no
-   longer applies to bronze.
+   longer applies to bronze. Tracks already opened stay open (v6.8.0 `career.tracks_open`, tested with a bronze made
+   30 s faster); from then on a track opens at the new bronze. The e2e `unlock` scenario takes bronze with a slow
+   autopilot (`Autopilot.basic` capped at 40 m/s: 2:49.750 on Rookie Oval against bronze 3:03); 1.3 × the author
+   2:01.867 gives 2:39, so it needs a faster cap then (45 m/s gave 2:42.367: about 50). The Rookie AI (1.6 ×) gets
+   further from bronze; the README's medal text and examples name 50 % and 3:03.

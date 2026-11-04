@@ -39,6 +39,11 @@ extends RefCounted
 ##   opponents       opponent() (the picked opponent: an AI level id or "mine", the player's own
 ##                   network), opponent_levels(t, c) [{id, name, blurb, time (s or -1), pays {money,
 ##                   points} (what beating it would pay now; 0 when paid), paid (bool)}]
+##   locked tracks (v6.8.0) track_open(i) (bool), track_lock(i) {medal, index, name} (what opens track i:
+##                   that medal on track `index`, called `name`; {} when open), open_track_count();
+##                   sim/ Unlocks in the game, the store's career.tracks_open in tests (null: all open).
+##                   mark_new_track(id) / is_new_track(id) / clear_new_tracks(): the menu's NEW mark on a
+##                   track a finish just opened (this session only)
 
 const FIXTURE_PATH := "res://ui/fixtures/web_v5.json"
 const TRACKS_JSON := "res://data/tracks.json"
@@ -376,8 +381,9 @@ static func network_labels() -> Dictionary:
 
 # ---------------------------------------------------------------- the career (v6.5.0)
 
+## (tracks_open: null = every track open, else the ids opened besides the first: Unlocks' rule)
 static func _new_career() -> Dictionary:
-	return {"money": 0, "points": 0, "cars": ["racer"], "paid": {}, "prices": {}}
+	return {"money": 0, "points": 0, "cars": ["racer"], "paid": {}, "prices": {}, "tracks_open": null}
 
 
 ## The career's money (the save file's in the game).
@@ -436,6 +442,57 @@ static func opponent_levels(track: String, car: String) -> Array:
 		out.append({"id": l.id, "name": l.name, "blurb": l.blurb, "time": Opponents.time_of(track, car, String(l.id)),
 			"pays": {"money": p.money, "points": p.points}, "paid": paid.has(Economy.AI_PREFIX + String(l.id))})
 	return out
+
+
+# ---------------------------------------------------------------- locked tracks (v6.8.0)
+
+## The tracks a finish just opened, for the menu's NEW mark (track id -> true; this session only).
+static var _new_tracks: Dictionary = {}
+
+
+## True when track `i` can be driven (and raced against the AI): the first track always, any
+## other once bronze or better was won on the track before it (sim/unlocks.gd), or every track
+## after the terminal's `unlock tracks`. Watch the AI and Train the AI work on every track.
+static func track_open(i: int) -> bool:
+	if i <= 0:
+		return true
+	if _save:
+		return Unlocks.is_open(track_id(i))
+	var open: Variant = store.career.get("tracks_open")
+	return not (open is Array) or (open as Array).has(track_id(i))
+
+
+## What opens locked track `i`: {medal ("bronze"), index (the track before it), name (its name)};
+## {} when the track is open.
+static func track_lock(i: int) -> Dictionary:
+	if track_open(i):
+		return {}
+	return {"medal": Unlocks.MEDAL, "index": i - 1, "name": str(track_info(i - 1).name)}
+
+
+static func open_track_count() -> int:
+	var n := 0
+	for i in track_count():
+		if track_open(i):
+			n += 1
+	return n
+
+
+## A finish opened track `id`: the menu marks its tile NEW (until it is picked or the menu is left).
+static func mark_new_track(id: String) -> void:
+	_new_tracks[id] = true
+
+
+static func is_new_track(id: String) -> bool:
+	return _new_tracks.has(id)
+
+
+## Drop the NEW mark of track `id` ("": of every track).
+static func clear_new_tracks(id: String = "") -> void:
+	if id == "":
+		_new_tracks.clear()
+	else:
+		_new_tracks.erase(id)
 
 
 # ---------------------------------------------------------------- settings
@@ -498,4 +555,5 @@ static func _has_static(script: Script, fn: String) -> bool:
 static func reset() -> void:
 	_save = false
 	store = {"records": {}, "scores": {}, "ghosts": {}, "settings": {}, "network": null, "career": _new_career()}
+	_new_tracks.clear()
 	_maps.clear()

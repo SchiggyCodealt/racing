@@ -128,7 +128,7 @@ func _draw() -> void:
 	if locked:
 		# a padlock and the price (in the accent when you can buy it)
 		var col := UiStyle.ACCENT if affordable else UiStyle.TEXT_2
-		_padlock(Vector2(spec_x, base - 10.0), col)
+		W.padlock(self, Vector2(spec_x, base - 10.0), col)
 		var pf := UiStyle.font("text_semi", UiStyle.FS_S, 0, true)
 		W.ellipsis(self, pf, UiStyle.FS_S, Vector2(spec_x + 13.0, base), UiFormat.money(price), size.x - px - spec_x - 13.0, col)
 	else:
@@ -148,11 +148,3 @@ func _draw() -> void:
 		draw_rect(bar, UiStyle.BG_4)
 		var f := clampf(float(info.bars.get(STATS[k][0], 0.0)), 0.0, 1.0)
 		draw_rect(Rect2(bar.position, Vector2(roundf(cw * f), 4)), UiStyle.ACCENT if selected else UiStyle.TEXT_2)
-
-
-## A small padlock, 9 x 11 px, its top left at `at`.
-func _padlock(at: Vector2, col: Color) -> void:
-	draw_arc(at + Vector2(4.5, 4.0), 3.0, PI, TAU, 8, col, 1.5, true)
-	draw_line(at + Vector2(1.5, 4.0), at + Vector2(1.5, 5.5), col, 1.5)
-	draw_line(at + Vector2(7.5, 4.0), at + Vector2(7.5, 5.5), col, 1.5)
-	draw_rect(Rect2(at + Vector2(0, 5.0), Vector2(9, 6.5)), col)

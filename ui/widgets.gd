@@ -2,7 +2,7 @@ extends RefCounted
 ## widgets.gd
 ## ------------------------------------------------------------------
 ## Small drawing helpers shared by the custom-drawn widgets (track tiles, car cards, key
-## caps, the HUD): CSS-like text placement and the arrow icon. Preload it:
+## caps, the HUD): CSS-like text placement, the arrow icon and the padlock. Preload it:
 ##   const W := preload("res://ui/widgets.gd")
 
 
@@ -45,6 +45,14 @@ static func arrow(ci: CanvasItem, c: Vector2, angle: float, color: Color, s: flo
 	var w := 1.8 * k
 	ci.draw_line(p.call(6, 10.5), p.call(6, 2.6), color, w, true)
 	ci.draw_polyline(PackedVector2Array([p.call(2.4, 5.8), p.call(6, 2.2), p.call(9.6, 5.8)]), color, w, true)
+
+
+## A small padlock (the locked cars and tracks), 9 x 11 px at k = 1, its top left at `at`.
+static func padlock(ci: CanvasItem, at: Vector2, col: Color, k: float = 1.0) -> void:
+	ci.draw_arc(at + Vector2(4.5, 4.0) * k, 3.0 * k, PI, TAU, 8, col, 1.5 * k, true)
+	ci.draw_line(at + Vector2(1.5, 4.0) * k, at + Vector2(1.5, 5.5) * k, col, 1.5 * k)
+	ci.draw_line(at + Vector2(7.5, 4.0) * k, at + Vector2(7.5, 5.5) * k, col, 1.5 * k)
+	ci.draw_rect(Rect2(at + Vector2(0, 5.0) * k, Vector2(9, 6.5) * k), col)
 
 
 ## The menu's side view of a car (menu.js silhouette): the profile's parts and wheels, the same

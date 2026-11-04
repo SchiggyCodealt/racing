@@ -6,6 +6,8 @@ extends Control
 ## the difficulty bars and your best time. The selected tile is lighter, underlined with
 ## the accent, its map and number in the accent. Drawn by hand (no child nodes), so 15 of
 ## them cost next to nothing. Click picks the track, a double click drives.
+## v6.8.0: a locked track's tile is darker, with a padlock top right and what opens it in the
+## foot ("Bronze on 02": bronze on track 02); a track a finish just opened says NEW top right.
 
 signal picked
 signal activated
@@ -19,6 +21,10 @@ var difficulty := 1
 var best_text := ""          # "" when there is no best time
 var medal := ""              # "" when none is earned
 var map: Dictionary = {}
+var locked := false
+var lock_note := ""          # the foot of a locked tile: "Bronze on 02"
+var is_new := false          # just opened: NEW top right
+var _tip := ""               # the tooltip without the lock
 var selected := false:
 	set(v):
 		if v != selected:
@@ -45,7 +51,8 @@ func setup(i: int, info: Dictionary, track_map: Dictionary) -> void:
 	difficulty = info.difficulty
 	map = track_map
 	# (the number keys reach the first 12 tracks; further ones are picked with the arrows, mouse or pad)
-	tooltip_text = "%s (key %s)" % [title, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="][i]] if i < 12 else title
+	_tip = "%s (key %s)" % [title, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="][i]] if i < 12 else title
+	tooltip_text = _tip
 	queue_redraw()
 
 
@@ -53,6 +60,16 @@ func setup(i: int, info: Dictionary, track_map: Dictionary) -> void:
 func set_record(best: String, medal_: String) -> void:
 	best_text = best
 	medal = medal_
+	queue_redraw()
+
+
+## Lock the tile (`note`: its foot, "Bronze on 02"; `why`: the tooltip's line) or open it; `fresh`:
+## the track was just opened (NEW).
+func set_lock(on: bool, note: String = "", why: String = "", fresh: bool = false) -> void:
+	locked = on
+	lock_note = note if on else ""
+	is_new = fresh and not on
+	tooltip_text = "%s\nLocked: %s" % [_tip, why] if on and why != "" else _tip
 	queue_redraw()
 
 
@@ -81,15 +98,23 @@ func _gui_input(e: InputEvent) -> void:
 
 func _draw() -> void:
 	var w := size.x
-	var bg := UiStyle.CARD_HI if selected or _hover else UiStyle.CARD
+	var bg := UiStyle.CARD_HI if selected or _hover else (UiStyle.PANEL if locked else UiStyle.CARD)
 	draw_rect(Rect2(Vector2.ZERO, size), bg)
 	if selected:
 		draw_rect(Rect2(0, size.y - 3, w, 3), UiStyle.ACCENT)
 	var num_top := UiStyle.S3 if name_size > UiStyle.FS_M else UiStyle.S2
-	# number and medal disc (absolutely placed in the corners)
+	# number and medal disc (absolutely placed in the corners); a padlock or NEW instead of the medal
 	W.text(self, UiStyle.font("display", UiStyle.FS_S, 0, true), UiStyle.FS_S, pad_x, num_top, UiStyle.FS_S,
 		UiFormat.track_number(index), UiStyle.ACCENT if selected else UiStyle.TEXT_3)
-	if medal != "":
+	if locked:
+		W.padlock(self, Vector2(w - pad_x - 9.0, num_top), UiStyle.TEXT if selected else UiStyle.TEXT_2)
+	elif is_new:
+		var nf := UiStyle.font("display_bold", 11, 0, true)
+		var tw := nf.get_string_size("NEW", HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+		var r := Rect2(w - pad_x - tw - 8.0, num_top - 1.0, tw + 8.0, 15.0)
+		draw_rect(r, UiStyle.ACCENT)
+		W.text(self, nf, 11, r.position.x + 4.0, r.position.y, r.size.y, "NEW", UiStyle.ACCENT_INK)
+	elif medal != "":
 		var d := 14.0 * 0.78
 		UiStyle.draw_medal(self, Vector2(w - pad_x - d * 0.5, num_top + d * 0.5), d, medal)
 	# map
@@ -98,11 +123,16 @@ func _draw() -> void:
 	# name (cut with an ellipsis)
 	var name_top := map_top + map_h + UiStyle.S2
 	var name_lh := roundf(name_size * 1.25)
-	W.text(self, UiStyle.face("display"), name_size, pad_x, name_top, name_lh, title, UiStyle.TEXT, false, w - 2 * pad_x)
-	# foot: difficulty bars (narrow ones, so a ten-minute best still fits) and the best time
+	W.text(self, UiStyle.face("display"), name_size, pad_x, name_top, name_lh, title,
+		UiStyle.TEXT_2 if locked and not selected else UiStyle.TEXT, false, w - 2 * pad_x)
+	# foot: difficulty bars (narrow ones, so a ten-minute best still fits) and the best time, or
+	# what opens a locked track
 	var foot_top := name_top + name_lh + (UiStyle.S2 if name_size > UiStyle.FS_M else UiStyle.S1)
 	UiStyle.draw_difficulty(self, Vector2(pad_x + 1, foot_top + 6.5), difficulty, 6.0, 2.0)
-	if best_text != "":
+	if locked:
+		W.text(self, UiStyle.font("text", UiStyle.FS_S, 0, true), UiStyle.FS_S, w - pad_x, foot_top + 2.5, UiStyle.FS_S,
+			lock_note, UiStyle.TEXT_2 if selected else UiStyle.TEXT_3, true)
+	elif best_text != "":
 		W.text(self, UiStyle.font("display", UiStyle.FS_S, 0, true), UiStyle.FS_S, w - pad_x, foot_top + 2.5, UiStyle.FS_S,
 			best_text, UiStyle.TEXT if selected else UiStyle.TEXT_2, true)
 
@@ -120,7 +150,11 @@ func _draw_map(r: Rect2) -> void:
 		pts.append(off + p * k)
 	if map.closed:
 		pts.append(pts[0])
-	draw_polyline(pts, UiStyle.ACCENT if selected else UiStyle.TEXT_2, 2.0, true)
-	draw_circle(off + map.start * k, 3.0, UiStyle.TEXT, true, -1.0, true)
+	# (a locked track's map is dimmed)
+	var a := 0.45 if locked else 1.0
+	var line := UiStyle.ACCENT if selected else (UiStyle.TEXT_3 if locked else UiStyle.TEXT_2)
+	draw_polyline(pts, Color(line, line.a * (0.7 if locked and selected else 1.0)), 2.0, true)
+	var dot := Color(UiStyle.TEXT, a)
+	draw_circle(off + map.start * k, 3.0, dot, true, -1.0, true)
 	if map.finish != null:
-		draw_circle(off + map.finish * k, 3.0, UiStyle.TEXT, true, -1.0, true)
+		draw_circle(off + map.finish * k, 3.0, dot, true, -1.0, true)

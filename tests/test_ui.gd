@@ -29,6 +29,7 @@ func run(t) -> bool:
 	_hud(t)
 	_finish(t)
 	_career(t)
+	_unlocks(t)
 	_scale(t)
 	UiData.reset()
 	return true
@@ -747,6 +748,98 @@ func _career(t) -> void:
 	f.update(Fx.panel_payout())
 	_settle(h)
 	t.check(f.get_global_rect().end.y <= 600.5, "800 x 600: the payout panel still fits (%d px high)" % roundi(f.size.y))
+	h.free()
+	UiData.reset()
+
+
+## v6.8.0: locked tracks on the menu (the in-memory store: career.tracks_open) and the finish
+## panel's unlock line.
+func _unlocks(t) -> void:
+	t.section("locked tracks (v6.8.0)")
+	Fx.save_data_v5()
+	var hm := _menu(t)
+	var menu: MainMenu = hm[1]
+	var tiles: Array = menu.get("_tiles")
+	var drive_btn: Button = menu.get("_drive_btn")
+	t.check(UiData.store.career.tracks_open == null and UiData.open_track_count() == 15 and tiles.all(func(x: Control) -> bool: return not x.locked),
+		"the store's default (tests, previews): every track open")
+	UiData.store.career.tracks_open = ["hairpin-valley"]
+	UiData.set_setting("car", "racer")
+	menu.select(0)
+	t.check(UiData.open_track_count() == 2 and not tiles[0].locked and not tiles[1].locked and tiles[2].locked and tiles[14].locked and
+		tiles[2].lock_note == "Bronze on 02" and tiles[14].lock_note == "Bronze on 14" and str(tiles[2].tooltip_text).contains("Locked: bronze on Hairpin Valley opens it") and
+		UiData.track_lock(2) == {"medal": "bronze", "index": 1, "name": "Hairpin Valley"} and UiData.track_lock(1).is_empty(),
+		"Rookie Oval and Hairpin Valley open: tiles 3-15 locked (Ramp Rally: \"%s\", its tooltip says what opens it)" % tiles[2].lock_note)
+	var inp := Fx.FakeInput.new()
+	var drives := [0]
+	menu.drive.connect(func() -> void: drives[0] += 1)
+	menu.handle_keys(_press(inp, ["Digit3"]))
+	var lock_text: String = (menu.get("_td_lock_text") as RichTextLabel).get_parsed_text()
+	t.check(menu.selected_track == 2 and (menu.get("_td_lock") as Control).visible and lock_text.begins_with("Locked: win bronze or better on Hairpin Valley (02, any car)") and
+		lock_text.ends_with("Watch the AI and Train the AI work here anyway; they pay nothing.") and drive_btn.text == "LOCKED" and drive_btn.theme_type_variation == "" and
+		drive_btn.tooltip_text.begins_with("Ramp Rally is locked: win bronze or better on Hairpin Valley"),
+		"3 picks locked Ramp Rally: its panel says what opens it and that the AI lab works there; Drive reads LOCKED")
+	menu.handle_keys(_press(inp, ["Enter"]))
+	menu.handle_keys(_press(inp, ["ArrowRight"]))
+	t.check(drives[0] == 1 and menu.selected_track == 3 and tiles[3].locked, "Enter still asks to drive (the game refuses with a message); the arrows move on over locked tiles")
+	var ghost_btn: Button = menu.get("_ghost_btn")
+	var watch_btn: Button = menu.get("_watch_btn")
+	UiData.set_setting("opponent", "rookie")
+	menu.refresh()
+	t.check(ghost_btn.tooltip_text.contains("Banked Speedway is locked") and ghost_btn.tooltip_text.contains("Watch the AI works here") and
+		not watch_btn.tooltip_text.contains("locked"), "Race the AI's tooltip says the track is locked; Watch the AI's doesn't")
+	UiData.set_setting("car", "kestrel")
+	menu.refresh()
+	t.check(drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("Kestrel costs"), "a car for sale comes first: its LOCKED (or BUY) on a locked track too")
+	UiData.store.career.money = 20000
+	menu.refresh()
+	t.check(drive_btn.text == "BUY $10,000", "with the money: BUY $10,000 (buying works on any track)")
+	UiData.set_setting("car", "racer")
+	UiData.store.career.money = 0
+	menu.select(1)
+	t.check(drive_btn.text == "DRIVE" and drive_btn.theme_type_variation == "PrimaryButton" and not (menu.get("_td_lock") as Control).visible, "an open track: DRIVE, no lock note")
+	# NEW: a track a finish just opened, until it is picked or the menu is left
+	UiData.store.career.tracks_open = ["hairpin-valley", "ramp-rally"]
+	UiData.mark_new_track("ramp-rally")
+	menu.refresh()
+	var was_new: bool = tiles[2].is_new and not tiles[2].locked and not tiles[1].is_new
+	menu.select(2)
+	var picked_clears: bool = not tiles[2].is_new and not UiData.is_new_track("ramp-rally")
+	UiData.mark_new_track("ramp-rally")
+	menu.select(0)
+	menu.show_menu(false)
+	menu.show_menu(true)
+	t.check(was_new and picked_clears and not tiles[2].is_new, "the tile of a track a finish opened is NEW until it is picked, or the menu is left")
+	# (whether the side column still fits 1280 x 720 with the lock note needs real frames: the e2e
+	# unlock scenario measures it)
+	hm[0].free()
+
+	# the finish panel: the track the run opened
+	var h := _holder(t)
+	var f := FinishPanel.new()
+	h.add_child(f)
+	var sizes_ok := true
+	var heights: PackedStringArray = []
+	for sz: Vector2 in [Vector2(1280, 720), Vector2(1920, 1080), Vector2(1024, 600), Vector2(800, 600), Vector2(480, 800)]:
+		h.size = sz
+		f.set_window_size(sz)
+		f.update(Fx.panel_payout())
+		_settle(h)
+		var h0 := f.size.y
+		f.update(Fx.panel_unlock())
+		_settle(h)
+		var r := f.get_global_rect()
+		sizes_ok = sizes_ok and r.end.y <= sz.y + 0.5 and r.position.y >= -0.5 and r.end.x <= sz.x + 0.5 and r.position.x >= -0.5
+		heights.append("%dx%d: %d px high, +%d (at %d, %d)" % [sz.x, sz.y, roundi(r.size.y), roundi(r.size.y - h0), roundi(r.position.x), roundi(r.position.y)])
+	var narrow := _texts(f)
+	f.set_window_size(Vector2(1280, 720))
+	f.update(Fx.panel_unlock())
+	var texts := _texts(f)
+	t.check(texts.has("Lighthouse Bay unlocked") and texts.has("track 11 is open: pick it on the menu") and narrow.has("Lighthouse Bay unlocked") and
+		not narrow.has("track 11 is open: pick it on the menu") and sizes_ok,
+		"the finish panel says Lighthouse Bay unlocked, track 11 is open (480 px wide: the first part only); with the payout it fits (%s)" % ", ".join(heights))
+	f.update(Fx.panel_payout())
+	t.check(not _texts(f).has("Lighthouse Bay unlocked"), "no unlock: no such line")
 	h.free()
 	UiData.reset()
 

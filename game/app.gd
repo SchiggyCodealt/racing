@@ -235,13 +235,17 @@ func show_menu() -> void:
 
 
 ## Drive (driver "human"), Race the AI (ghost) or Watch the AI (driver "ai") on the selected
-## track. You drive only a car you own (a locked one is offered for sale instead). The AI drives
-## the picked car: the menu's opponent level (the shipped network with that level's speed cap),
-## or with "My AI" the car's own trained network.
+## track. You drive only a car you own (a locked one is offered for sale instead), and only on an
+## open track (v6.8.0, sim/unlocks.gd: a locked track says what opens it; Watch the AI works on
+## every track). The AI drives the picked car: the menu's opponent level (the shipped network with
+## that level's speed cap), or with "My AI" the car's own trained network.
 func play(driver: String, ghost: bool) -> void:
 	var car := UiData.picked_car()
 	if driver == "human" and not UiData.owns_car(car):
 		offer_car(car)
+		return
+	if driver == "human" and not UiData.track_open(selected_track):
+		show_message("Track locked", locked_text(selected_track))
 		return
 	if driver == "ai" or ghost:
 		if not AiLink.ready():
@@ -264,6 +268,13 @@ func play(driver: String, ghost: bool) -> void:
 			return
 	start_play({"track": tracks[selected_track], "driver": driver, "ghost": ghost, "ai_car": car,
 		"net": AiLink.clone_net(network.net) if not network.is_empty() else null})
+
+
+## Why locked track `i` can't be driven, and what opens it (the menu's message).
+func locked_text(i: int) -> String:
+	var lock := UiData.track_lock(i)
+	return "%s opens when you win a %s medal or better on %s (track %s), with any car. Watch the AI and Train the AI work on every track; they pay nothing." % [
+		UiData.track_info(i).name, str(lock.get("medal", Unlocks.MEDAL)), str(lock.get("name", "")), UiFormat.track_number(int(lock.get("index", i - 1)))]
 
 
 ## A locked car was asked to drive: offer it for its price (asking first), or say how much money

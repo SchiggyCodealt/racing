@@ -614,6 +614,18 @@ func _train_screen() -> void:
 		"Save best network: in the save file as the Racer's network (the file says car: racer), and the game is told (network_saved)")
 	d.press(d.watch_btn)
 	t.check(asked.size() == 1 and asked[0][0] == "watch" and asked[0][3] == "racer", "Watch best asks the game to show the best network driving (in the Racer)")
+	# v6.8.0: Race best only on an open track (this save is a new career: only Rookie Oval is open)
+	var raced: Array = []
+	mode.race_requested.connect(func(rt: BuiltTrack, _net: NeuralNetwork, _car: String) -> void: raced.append(rt.id))
+	mode.call("_play_best", true)
+	var keep := tr.track
+	tr.track = Tracks.build("hairpin-valley") # (as if the session had moved on to Hairpin Valley)
+	mode.call("_play_best", true)
+	var locked_note := String(s.get("note"))
+	mode.call("_play_best", false)
+	tr.track = keep
+	t.check(raced == ["rookie-oval"] and locked_note.begins_with("Hairpin Valley is locked, so Race best can't start: win bronze or better on Rookie Oval") and
+		asked.size() == 2 and asked[1][1] == "hairpin-valley", "Race best races on Rookie Oval; on locked Hairpin Valley it says so (Watch best still works there)")
 	mode.exit()
 	mode.queue_free()
 	# a new screen resumes the session

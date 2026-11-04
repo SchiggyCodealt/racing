@@ -48,10 +48,19 @@ extends SceneTree
 ##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow.
 ##   economy   money, points and the car shop (v6.5.0) from a new career: $0 and only the Racer;
 ##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting a
-##             second late: the AI car leads, then loses) and the Expert AI on Seaside Stunts (the
-##             author run): the finish panel's payout, the money and points on the menu; the
+##             second late: the AI car leads, then loses; v6.8.0: the gold opens Hairpin Valley) and,
+##             with tracks 3-12 opened by the scenario (as bronzes on each would), the Expert AI on
+##             Seaside Stunts (the author run: it opens Forest Rally): the finish panel's payout, the
+##             money and points on the menu (Forest Rally NEW, the last two tracks locked); the
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
+##   unlock    the tracks open one at a time (v6.8.0) from a new career: only Rookie Oval is open,
+##             14 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
+##             reads LOCKED, the menu fits 1280 x 720); Enter (Drive) and Race the Rookie AI are
+##             refused with a message; Watch the Rookie AI and Train the AI work there; a bronze on
+##             Rookie Oval (a slow autopilot: 40 m/s at most) opens Hairpin Valley: the finish panel
+##             says so, its tile is NEW until picked, then it drives; the save file holds it.
+##             Shots: unlock_menu, unlock_locked, unlock_message, unlock_finish, unlock_menu_after.
 ##   terminal  the terminal (v6.7.0) from a new career: ` on the menu opens it with the input
 ##             focused; typed commands (key events with their characters) run: help, money 25000
 ##             (the menu's header shows it at once, the save file holds it), points 200, status; a
@@ -64,8 +73,9 @@ extends SceneTree
 ##             opens it from the Terminal row (A) and closes it (B); exit + Enter closes it without
 ##             driving; in a race (Drive with the Dune) ` does nothing. Shots: terminal_menu,
 ##             terminal_settings, terminal_over_settings.
-##   Every other scenario starts by owning every car and picking My AI as the opponent (they
-##   were written before the career: they drive every car and race the car's own network).
+##   Every other scenario starts by owning every car, every track open (the terminal's unlock
+##   tracks) and picking My AI as the opponent (they were written before the career: they drive
+##   every car on every track and race the car's own network).
 ## Prints "ok"/"FAIL" lines and "E2E <scenario>: n passed, m failed"; quits with 1 on a failure.
 ## out=<dir> (default user://e2e) also holds the scratch files of the modes scenario;
 ## net=<file> is the network it loads (default the test fixture, a browser-format file).
@@ -99,9 +109,10 @@ func _main() -> void:
 	await frames(3)
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
 	var t0 := Time.get_ticks_msec()
-	if not (scenario in ["economy", "terminal"]):
+	if not (scenario in ["economy", "terminal", "unlock"]):
 		for c: String in Cars.ids():
 			SaveData.give_car(c)
+		SaveData.unlock_tracks(true)
 		app.ui.menu.select_opponent(UiData.MY_AI)
 	match scenario:
 		"races":
@@ -126,6 +137,8 @@ func _main() -> void:
 			await economy()
 		"terminal":
 			await terminal()
+		"unlock":
+			await unlock()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -259,7 +272,12 @@ func pick(track_id: String, car: String) -> void:
 func autopilot(a_lat: float, look_k: float, nitro: bool = true) -> void:
 	var m: Node = app.mode
 	var cid: String = str((m.get("car_def") as Dictionary).get("id", Cars.DEFAULT_CAR)) if m.get("car_def") is Dictionary else Cars.DEFAULT_CAR
-	_pilot = Autopilot.medal(m.get("track"), a_lat, look_k, nitro, Autopilot.DECEL, Cars.spec(cid))
+	drive_with(Autopilot.medal(m.get("track"), a_lat, look_k, nitro, Autopilot.DECEL, Cars.spec(cid)))
+
+
+## Drive the race in progress with autopilot `p`, feeding the input layer.
+func drive_with(p: Autopilot) -> void:
+	_pilot = p
 	var inp := app.input
 	inp.feed = func(_speed: float) -> void:
 		var mode: Node = app.mode
@@ -1025,7 +1043,14 @@ func economy() -> void:
 	check(app.mode == app.menu_mode and money_l.text == UiFormat.money(UiData.money()) and str(menu.get("_ai_status_text")).contains("Beaten: paid"),
 		"back on the menu: %s, %s; the Elite AI is paid" % [money_l.text, points_l.text])
 
-	# the Expert AI on Seaside Stunts (the author run): more money on a later track
+	check(Dictionary(fs.get("unlocked", {})).get("id") == "hairpin-valley" and _texts(app.ui.hud.finish).has("Hairpin Valley unlocked") and
+		not (menu.get("_tiles")[1] as Control).get("locked") and (menu.get("_tiles")[1] as Control).get("is_new"),
+		"the gold opened Hairpin Valley: the finish panel said so, its tile is NEW")
+
+	# the Expert AI on Seaside Stunts (the author run): more money on a later track (v6.8.0: tracks
+	# 3-12 opened here as bronzes on each would; the run then opens Forest Rally)
+	for i in range(2, 12):
+		SaveData.open_track(Tracks.ids()[i])
 	await pick("seaside-stunts", "racer")
 	await click(btns["expert"])
 	var money1 := UiData.money()
@@ -1045,9 +1070,12 @@ func economy() -> void:
 	w = _sum("seaside-stunts", want)
 	ids = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
 	check(ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x, "the author time beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [UiFormat.money(w.x), w.y])
+	check(Dictionary((m.get("finish_state") as Dictionary).get("unlocked", {})).get("id") == "forest-rally", "and opens Forest Rally")
 	await key(KEY_ESCAPE)
 	await frames(30)
-	check(money_l.text == UiFormat.money(UiData.money()) and points_l.text == "%s pts" % UiFormat.points(UiData.points()), "the menu: %s, %s" % [money_l.text, points_l.text])
+	var tiles: Array = menu.get("_tiles")
+	check(money_l.text == UiFormat.money(UiData.money()) and points_l.text == "%s pts" % UiFormat.points(UiData.points()) and tiles[12].is_new and
+		tiles[13].locked and tiles[14].locked and UiData.open_track_count() == 13, "the menu: %s, %s; Forest Rally NEW, the last two tracks locked" % [money_l.text, points_l.text])
 	await shot("economy_menu")
 
 	# the shop: the Vortex is short of money, the Kestrel is bought
@@ -1078,6 +1106,16 @@ func economy() -> void:
 	await key(KEY_ESCAPE)
 	await frames(4)
 	check(app.mode == app.menu_mode, "back on the menu")
+
+
+## The texts of every Label under `n`.
+func _texts(n: Node) -> PackedStringArray:
+	var out := PackedStringArray()
+	if n is Label:
+		out.append((n as Label).text.strip_edges())
+	for c in n.get_children():
+		out.append_array(_texts(c))
+	return out
 
 
 ## The money (x) and points (y) of rewards `ids` on track `tid`.
@@ -1254,3 +1292,111 @@ func terminal() -> void:
 	await frames(4)
 	check(app.mode == app.menu_mode and not term.visible, "Esc: back on the menu, the terminal closed")
 
+
+# ---------------------------------------------------------------- the tracks open one at a time (v6.8.0)
+
+func unlock() -> void:
+	var menu: MainMenu = app.ui.menu
+	var tiles: Array = menu.get("_tiles")
+	var drive_btn: Button = menu.get("_drive_btn")
+	var lock_note: Control = menu.get("_td_lock")
+	var msg: Label = app.message.get("_text")
+	menu.select_opponent("rookie")
+	var locked := tiles.filter(func(x: Control) -> bool: return x.get("locked")).size()
+	check(UiData.open_track_count() == 1 and locked == 14 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14",
+		"a new career: only Rookie Oval is open, 14 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
+	await frames(10)
+	await shot("unlock_menu")
+	# the keys still pick a locked track
+	await key(KEY_2)
+	await wait_until(func() -> bool: return not app.building_track(), 60.0)
+	await frames(10)
+	var lock_text := (menu.get("_td_lock_text") as RichTextLabel).get_parsed_text()
+	check(menu.selected_track == 1 and lock_note.is_visible_in_tree() and lock_text.begins_with("Locked: win bronze or better on Rookie Oval") and drive_btn.text == "LOCKED",
+		"2 picks locked Hairpin Valley: %s; Drive reads LOCKED" % lock_text)
+	# the whole menu still fits 1280 x 720 with the lock note (on every locked track)
+	var win := Vector2(root.size)
+	var bar := (menu.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	var worst := 0.0
+	var worst_id := ""
+	for i in range(1, 15):
+		menu.select(i)
+		await frames(3)
+		var end := maxf((menu.get("_train_btn") as Control).get_global_rect().end.y, (menu.get("_detail") as Control).get_global_rect().end.y)
+		if end > worst:
+			worst = end
+			worst_id = UiData.track_id(i)
+	await key(KEY_2)
+	await wait_until(func() -> bool: return not app.building_track(), 60.0)
+	await frames(5)
+	var note_r := lock_note.get_global_rect()
+	var stats_r := ((menu.get("_stats") as Array)[0].box as Control).get_global_rect()
+	check(win == Vector2(1280, 720) and worst <= win.y + 0.5 and bar.max_value <= bar.page + 0.5 and note_r.end.y <= stats_r.position.y,
+		"1280 x 720 with the lock note on every locked track: no scrolling, the lowest button ends at %d px (%s); the note (%d px high) sits above the stats" % [
+		roundi(worst), worst_id, roundi(note_r.size.y)])
+	await shot("unlock_locked")
+	# Drive and Race the AI: refused with a message
+	await key(KEY_ENTER)
+	await frames(5)
+	check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("Hairpin Valley opens when you win a bronze medal or better on Rookie Oval") and
+		msg.text.contains("Watch the AI and Train the AI work on every track"), "Enter (Drive): refused: %s" % msg.text)
+	await shot("unlock_message")
+	await key(KEY_ESCAPE)
+	await frames(3)
+	check(not app.message.visible, "Esc closes the message")
+	await click(menu.get("_ghost_btn"))
+	await frames(3)
+	check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("Hairpin Valley opens"), "Race the Rookie AI (clicked): refused too")
+	await key(KEY_ESCAPE)
+	await frames(3)
+	# Watch the AI and Train the AI work on a locked track
+	await click(menu.get("_watch_btn"))
+	await frames(30)
+	var wm: Node = app.mode
+	check(wm != app.menu_mode and wm.get("driver") == "ai" and (wm.get("track") as BuiltTrack).id == "hairpin-valley", "Watch the Rookie AI (clicked): the AI drives Hairpin Valley")
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(app.mode == app.menu_mode, "Esc: back on the menu")
+	await click(menu.get("_train_btn"))
+	await frames(5)
+	check(app.train_mode != null and app.mode == app.train_mode, "Train the AI (clicked): the training screen opens on Hairpin Valley")
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(app.mode == app.menu_mode, "Esc: back on the menu")
+	# a bronze on Rookie Oval opens Hairpin Valley
+	await key(KEY_1)
+	await wait_until(func() -> bool: return not app.building_track(), 60.0)
+	check(drive_btn.text == "DRIVE" and not lock_note.is_visible_in_tree(), "1: Rookie Oval, DRIVE")
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and m.get("driver") == "human" and (m.get("track") as BuiltTrack).id == "rookie-oval", "Enter drives Rookie Oval"):
+		return
+	drive_with(Autopilot.basic(m.get("track"), 11.0, 7.5, 40.0, Cars.spec("racer")))
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 900.0)
+	fast(false)
+	stop_autopilot()
+	await frames(40)
+	var fs: Dictionary = m.get("finish_state")
+	var race: RaceState = m.get("race")
+	var u: Dictionary = fs.get("unlocked", {})
+	check(race.finished and Dictionary(fs.get("payout", {})).get("medal") == "bronze" and u.get("id") == "hairpin-valley" and app.ui.hud.panel_open and
+		_texts(app.ui.hud.finish).has("Hairpin Valley unlocked") and _texts(app.ui.hud.finish).has("track 02 is open: pick it on the menu"),
+		"%s, a bronze: the finish panel says Hairpin Valley unlocked (track 02 is open)" % RaceState.format_time(race.finish_time))
+	await shot("unlock_finish")
+	await key(KEY_ESCAPE)
+	await frames(30)
+	check(app.mode == app.menu_mode and not tiles[1].locked and tiles[1].is_new and tiles[2].locked and tiles[2].lock_note == "Bronze on 02" and UiData.open_track_count() == 2,
+		"back on the menu: Hairpin Valley open and NEW; Ramp Rally locked (Bronze on 02)")
+	await shot("unlock_menu_after")
+	await key(KEY_2)
+	await wait_until(func() -> bool: return not app.building_track(), 60.0)
+	check(not tiles[1].is_new and drive_btn.text == "DRIVE" and not lock_note.is_visible_in_tree(), "2 picks it: NEW gone, DRIVE")
+	await key(KEY_ENTER)
+	await frames(5)
+	check(app.mode != app.menu_mode and (app.mode.get("track") as BuiltTrack).id == "hairpin-valley", "Enter drives Hairpin Valley")
+	await key(KEY_ESCAPE)
+	await frames(10)
+	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.path))
+	check(disk is Dictionary and JsMath.same(disk.get("version"), 4) and (disk.career as Dictionary).get("tracks_open") == ["hairpin-valley"],
+		"the save file: career.tracks_open = [\"hairpin-valley\"] (still version 4)")

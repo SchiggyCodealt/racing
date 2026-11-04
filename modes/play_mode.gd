@@ -401,6 +401,12 @@ func _on_finish() -> void:
 			else:
 				s.lines = ["%s hasn't finished: you win!" % ai_name()]
 		s.payout = _payout(t, level if won else "")
+		# bronze or better opens the next track (v6.8.0, sim/unlocks.gd)
+		var opened := Unlocks.claim(track.id, String(s.payout.medal))
+		if opened != "":
+			s.unlocked = {"id": opened, "name": String(Tracks.def(opened).get("name", opened)),
+				"number": UiFormat.track_number(Tracks.index_of(opened)), "medal": Unlocks.MEDAL, "from": track.name}
+			UiData.mark_new_track(opened)
 		s.score = _score_state()
 		record = SaveData.get_record(track.id, car_def.id)
 	else:

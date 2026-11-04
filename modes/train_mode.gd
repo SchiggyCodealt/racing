@@ -1062,6 +1062,11 @@ func _play_best(ghost: bool) -> void:
 	var tr := session.trainer
 	if tr == null:
 		return
+	if ghost and not Unlocks.is_open(tr.track.id):
+		# (v6.8.0: you race only on open tracks; watching works everywhere)
+		_note("%s is locked, so Race best can't start: win %s or better on %s to open it. Watch best works on every track." % [
+			Tracks.def(tr.track.id).get("name", tr.track.id), Unlocks.MEDAL, Tracks.def(Unlocks.previous(tr.track.id)).get("name", "")])
+		return
 	_stop_max()
 	var net: NeuralNetwork = tr.best_net if tr.best_net != null else tr.population.genomes[0].net
 	if ghost:

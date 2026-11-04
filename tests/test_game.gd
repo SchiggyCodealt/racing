@@ -348,6 +348,9 @@ func _app(t) -> void:
 	_app_terminal(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	_app_unlock(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	app.free()
 	UiData.reset()
 
@@ -429,6 +432,119 @@ func _run_until(m: Node, cond: Callable, max_s: float) -> void:
 		n += 1
 
 
+## The texts of every Label under `n`.
+func _texts(n: Node) -> PackedStringArray:
+	var out := PackedStringArray()
+	if n is Label:
+		out.append((n as Label).text.strip_edges())
+	for c in n.get_children():
+		out.append_array(_texts(c))
+	return out
+
+
+## v6.8.0: the tracks open one at a time, on a new save file. Only Rookie Oval is open; the other
+## tiles are locked (a padlock, "Bronze on 01"); a locked track can be picked, and its panel says
+## what opens it; Drive reads LOCKED and Drive / Race the AI are refused with a message, while
+## Watch the AI and the training screen (but not its Race best) work there. A bronze on Rookie
+## Oval opens Hairpin Valley: the finish panel says so and its tile is NEW until it is picked.
+func _app_unlock(t, app: GameApp) -> void:
+	t.section("the app: the tracks open one at a time (v6.8.0)")
+	var path := "user://test_game_unlock.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var menu: MainMenu = app.ui.menu
+	var msg: Label = app.message.get("_text")
+	var drive_btn: Button = menu.get("_drive_btn")
+	var tiles: Array = menu.get("_tiles")
+	menu.select_car("racer")
+	menu.select_opponent("rookie")
+	menu.select(1)
+	var locked := tiles.filter(func(x: Control) -> bool: return x.locked).size()
+	t.check(not tiles[0].locked and locked == 14 and tiles[1].lock_note == "Bronze on 01" and tiles[2].lock_note == "Bronze on 02" and
+		str(tiles[1].tooltip_text).contains("bronze on Rookie Oval opens it") and UiData.open_track_count() == 1,
+		"a new career: only Rookie Oval is open; 14 tiles locked (Hairpin Valley: %s)" % tiles[1].lock_note)
+	var lock_note: Control = menu.get("_td_lock")
+	var lock_text: String = (menu.get("_td_lock_text") as RichTextLabel).get_parsed_text()
+	t.check(menu.selected_track == 1 and lock_note.visible and lock_text.contains("Locked: win bronze or better on Rookie Oval") and
+		lock_text.contains("Watch the AI and Train the AI work here anyway") and drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("Hairpin Valley is locked"),
+		"Hairpin Valley can be picked: its panel says what opens it and that the AI lab works there; Drive reads LOCKED")
+	app.play("human", false)
+	t.check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("Hairpin Valley opens when you win a bronze medal or better on Rookie Oval") and
+		msg.text.contains("Watch the AI and Train the AI work on every track"), "Drive there: refused with a message saying what opens it")
+	app.message.close()
+	app.play("human", true)
+	t.check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("Hairpin Valley opens"), "Race the Rookie AI there: refused too")
+	app.message.close()
+	inp_enter(app)
+	t.check(app.mode == app.menu_mode and app.message.visible, "Enter on the locked tile: the same message")
+	app.message.close()
+	if AiLink.ready():
+		app.play("ai", false)
+		t.check(app.mode != app.menu_mode and app.mode.get("driver") == "ai" and app.mode.get("track") == app.tracks[1],
+			"Watch the Rookie AI on Hairpin Valley: it works (the AI lab works on every track)")
+		app.show_menu()
+		app.train()
+		var tm := app.train_mode
+		t.check(tm != null and app.mode == tm and int(tm.get("_track_index")) == 1, "Train the AI opens there too (on Hairpin Valley; its Race best is checked in test_ai.gd)")
+		if tm != null and app.mode == tm:
+			tm.emit_signal("exit_requested")
+		t.check(app.mode == app.menu_mode, "back on the menu")
+	# a bronze on Rookie Oval opens Hairpin Valley
+	menu.select(0)
+	var track: BuiltTrack = app.tracks[0]
+	var medals := Medals.medal_times(track, "racer")
+	app.play("human", false)
+	var m: Node = app.mode
+	t.check(m != app.menu_mode and m.get("track") == track and drive_btn.text == "DRIVE", "Rookie Oval drives")
+	# (the medal autopilot's author run: any medal from bronze up opens the next track)
+	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
+	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
+	_feed(app, null)
+	var fs: Dictionary = m.get("finish_state")
+	var u: Dictionary = fs.get("unlocked", {})
+	# (the panel at 1280 x 720: the headless window it is given depends on the tests run before,
+	# and 520 px wide or less shows only the first part of the line)
+	var panel: Control = app.ui.hud.finish
+	var win0: Vector2 = panel.get("_win")
+	panel.call("set_window_size", Vector2(1280, 720))
+	var texts := _texts(panel)
+	panel.call("set_window_size", win0)
+	t.check(m.get("phase") == "finished" and String(fs.get("payout", {}).get("medal", "")) != "" and u.get("id") == "hairpin-valley" and u.get("name") == "Hairpin Valley" and
+		texts.has("Hairpin Valley unlocked") and texts.has("track 02 is open: pick it on the menu"),
+		"the %s medal on Rookie Oval: the finish panel says Hairpin Valley unlocked (track 02 is open)" % String(fs.get("payout", {}).get("medal", "")))
+	app.show_menu()
+	t.check(not tiles[1].locked and tiles[1].is_new and tiles[2].locked and UiData.open_track_count() == 2 and SaveData.opened_tracks() == PackedStringArray(["hairpin-valley"]),
+		"back on the menu: Hairpin Valley's tile is open and NEW; Ramp Rally is still locked")
+	menu.select(1)
+	t.check(not tiles[1].is_new and drive_btn.text == "DRIVE" and not (menu.get("_td_lock") as Control).visible, "picking it clears NEW; Drive reads DRIVE")
+	UiData.mark_new_track("hairpin-valley")
+	menu.refresh()
+	var shown: bool = tiles[1].is_new
+	m = app.start_play({"track": track, "driver": "human"})
+	app.show_menu()
+	t.check(shown and not UiData.is_new_track("hairpin-valley") and not tiles[1].is_new, "NEW shows once: leaving the menu clears it too")
+	# a finish without a medal opens nothing; a bronze on an open track whose next one is open: no announcement
+	var none := Unlocks.claim("hairpin-valley", "")
+	var again := Unlocks.claim("rookie-oval", "author")
+	t.check(none == "" and again == "" and not Unlocks.is_open("ramp-rally"), "no medal: nothing opens; a medal again on Rookie Oval: nothing new to announce")
+	app._finish_build_task()
+	SaveData.use_file(SAVE)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	menu.select(0)
+	app._finish_build_task()
+	menu.refresh()
+
+
+## Enter on the menu (the menu reads the game's input).
+func inp_enter(app: GameApp) -> void:
+	app.input.clear_pressed()
+	app.input.press("Enter")
+	app.ui.menu.handle_keys(app.input)
+	app.input.clear_pressed()
+
+
 ## v6.5.0: the career in the app, on a new save file: $0, 0 points and only the Racer; a locked
 ## car's Drive says how much money is missing, or (with the money) asks and buys it; Race the AI
 ## against a level is the shipped network with that level's speed cap, which finishes in its
@@ -476,9 +592,11 @@ func _app_career(t, app: GameApp) -> void:
 	t.check(app.mode != app.menu_mode and str(app.mode.get("car_def").id) == "kestrel", "now Drive drives it")
 	app.show_menu()
 
-	# Race the Rookie AI on Seaside Stunts with the Racer (the author run of the medal sweep)
+	# Race the Rookie AI on Seaside Stunts with the Racer (the author run of the medal sweep; the
+	# track is opened first, as a bronze on Lighthouse Bay would: this new career has only track 1)
 	var tid := "seaside-stunts"
 	var ti := Tracks.ids().find(tid)
+	SaveData.open_track(tid)
 	menu.select_car("racer")
 	menu.select(ti)
 	var track: BuiltTrack = app.tracks[ti]
@@ -514,6 +632,9 @@ func _app_career(t, app: GameApp) -> void:
 		p.get("won") == true and p.get("level") == "rookie" and str(fs.get("lines", [""])[0]).contains("Rookie AI hasn't finished: you win!") and
 		UiData.money() == money0 + w_money and UiData.points() == points0 + w_points and app.ui.hud.panel_open,
 		"the author time beats the Rookie AI: paid bronze, silver, gold, author and the Rookie win, %s and %d pts (the finish panel's payout)" % [UiFormat.money(w_money), w_points])
+	var u: Dictionary = fs.get("unlocked", {})
+	t.check(u.get("id") == "forest-rally" and u.get("number") == "13" and SaveData.opened_tracks().has("forest-rally") and UiData.is_new_track("forest-rally") and
+		_texts(app.ui.hud.finish).has("Forest Rally unlocked"), "and it opens the next track: the finish panel says Forest Rally unlocked (track 13)")
 	var gr: RaceState = m.get("ghost").race
 	_run_until(m, func() -> bool: return gr.finished, 120.0)
 	t.check(gr.finished and absf(gr.finish_time - rookie_t) < 0.0005, "the Rookie AI finishes in its stored time %s (%s: the race against it is the one tools/opponents.gd measured)" % [
@@ -589,7 +710,9 @@ func _app_terminal(t, app: GameApp) -> void:
 	t.check(SaveData.get_money() == 25000 and money_l.text == "$25,000" and points_l.text == "200 pts", "money 25000, points 200: the menu's header shows %s, %s at once" % [money_l.text, points_l.text])
 	term.submit("car dune")
 	menu.select_car("dune")
-	t.check(SaveData.owns_car("dune") and drive_btn.text == "DRIVE", "car dune: the Dune is yours (Drive, not BUY)")
+	# (Drive reads LOCKED instead when the track picked by the tests before is locked in this new career)
+	t.check(SaveData.owns_car("dune") and drive_btn.text == ("DRIVE" if UiData.track_open(menu.selected_track) else "LOCKED"),
+		"car dune: the Dune is yours (%s, not BUY)" % drive_btn.text)
 	term.submit("buy kestrel")
 	t.check(SaveData.owns_car("kestrel") and SaveData.get_money() == 15000 and money_l.text == "$15,000", "buy kestrel: bought with the money, $15,000 left")
 	inp.press("Escape")
@@ -760,21 +883,24 @@ func _terminal(t) -> void:
 	r = term.run("unlock all")
 	t.check(not r.changed and text_of.call(r).contains("already"), "unlock all again: nothing new")
 
-	# status (a gold on Rookie Oval with the Racer)
+	# status (a gold on Rookie Oval with the Racer: it opens Hairpin Valley, for good)
 	var ro := Tracks.build("rookie-oval")
 	SaveData.submit_record("rookie-oval", "racer", float(Medals.medal_times(ro, "racer").gold) - 0.1, [])
+	var opened := Unlocks.claim("rookie-oval", "gold")
 	SaveData.submit_record("rookie-oval", "dune", float(Medals.medal_times(ro, "dune").bronze), [])
 	term.run("money set 4321")
 	r = term.run("status")
 	var st: String = text_of.call(r)
 	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(6 of 6)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
-		st.contains("1 of 15 tracks") and st.contains("all 15 open for good"), "status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag")
+		st.contains("1 of 15 tracks") and st.contains("Tracks | all 15 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
+		"status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag (the gold opened Hairpin Valley for good, unannounced: it was open)")
 	var mc: Dictionary = Terminal.medal_counts()
 	t.check(int(mc.gold) == 1 and int(mc.bronze) == 1 and int(mc.tracks) == 1, "medal_counts: the best medal of each track and car")
 
 	# reset (asks first)
 	r = term.run("reset career")
-	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset career confirm") and SaveData.get_money() == 4321 and not r.changed, "reset career: says what it would do and how to confirm; nothing changes")
+	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset career confirm") and text_of.call(r).contains("Tracks opened by medals stay open") and
+		SaveData.get_money() == 4321 and not r.changed, "reset career: says what it would do (tracks opened by medals stay open) and how to confirm; nothing changes")
 	r = term.run("reset")
 	var r7: Dictionary = term.run("reset records confirm")
 	var r8: Dictionary = term.run("money 5 confirm")
@@ -783,6 +909,9 @@ func _terminal(t) -> void:
 	r = term.run("Reset Career CONFIRM")
 	t.check(r.changed and SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and not SaveData.tracks_unlocked() and
 		not SaveData.get_record("rookie-oval", "racer").is_empty(), "reset career confirm: $0, only the Racer, the flag off; the records stay")
+	st = text_of.call(term.run("status"))
+	t.check(Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally") and st.contains("Tracks | 2 of 15 open; next: Ramp Rally (bronze on Hairpin Valley)"),
+		"after the reset the track the gold opened stays open, those the flag opened lock again: %s" % st.get_slice("Tracks | ", 1))
 	# clear, exit
 	r = term.run("clear")
 	r2 = term.run("exit")

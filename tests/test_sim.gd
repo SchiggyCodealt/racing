@@ -115,6 +115,7 @@ func run(checker: Variant) -> bool:
 	_medals()
 	_save()
 	_career()
+	_unlocks()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
 		"format_time rounds correctly (119.9996 s -> 2:00.000; no time -> --:--.---)")
@@ -1785,6 +1786,133 @@ func _save() -> void:
 
 
 # ---- money and points (v6.5.0: sim/economy.gd, the career in sim/save.gd) ------------------
+
+## v6.8.0: the tracks open one at a time (sim/unlocks.gd): the rule, opened tracks staying open
+## when a medal gets harder or a track changes, the one-time upgrade of older saves (current and
+## archived best times), junk, the terminal's flag and the career reset.
+func _unlocks() -> void:
+	t.section("tracks open one at a time (v6.8.0, sim/unlocks.gd)")
+	var path: String = "user://test_unlock_save.json"
+	var write := func(d: Dictionary) -> void:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(JSON.stringify(d))
+		f.close()
+		SaveData.use_file(path)
+	var clean := func() -> void:
+		for f: String in [path, path + ".bad", path + ".tmp"]:
+			if FileAccess.file_exists(f):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	var open_ids := func() -> PackedStringArray:
+		var out: PackedStringArray = []
+		for id: String in Tracks.ids():
+			if Unlocks.is_open(id):
+				out.append(id)
+		return out
+	var ids: PackedStringArray = Tracks.ids()
+	var pv: int = Car.PHYSICS_VERSION
+	var rec := func(time: float, sig: String) -> Dictionary: return {time = time, splits = [], physics = pv, sig = sig, date = "x"}
+	var ro: BuiltTrack = Tracks.build("rookie-oval")
+	var mro: Dictionary = Medals.medal_times(ro, "racer")
+
+	# the rule
+	clean.call()
+	SaveData.use_file(path)
+	var ok: bool = open_ids.call() == PackedStringArray(["rookie-oval"]) and Unlocks.open_count() == 1 and Unlocks.is_open("no-such-track") and \
+		Unlocks.lock_text("hairpin-valley") == "Bronze on Rookie Oval to unlock" and Unlocks.lock_text("rookie-oval") == "" and \
+		Unlocks.previous("hairpin-valley") == "rookie-oval" and Unlocks.previous("rookie-oval") == "" and Unlocks.next(ids[ids.size() - 1]) == "" and \
+		Unlocks.earns("author") and Unlocks.earns("gold") and Unlocks.earns("silver") and Unlocks.earns("bronze") and not Unlocks.earns("") and not Unlocks.earns("tin")
+	var c0: String = Unlocks.claim("rookie-oval", "")
+	var c1: String = Unlocks.claim("rookie-oval", "bronze")
+	var c2: String = Unlocks.claim("rookie-oval", "author")
+	var c3: String = Unlocks.claim("ramp-rally", "gold") # (locked: no)
+	var c4: String = Unlocks.claim("hairpin-valley", "silver")
+	SaveData.use_file(path) # read back from the file
+	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and c0 == "" and c1 == "hairpin-valley" and c2 == "" and c3 == "" and c4 == "ramp-rally" and \
+		open_ids.call() == PackedStringArray(["rookie-oval", "hairpin-valley", "ramp-rally"]) and Unlocks.lock_text("banked-speedway") == "Bronze on Ramp Rally to unlock" and \
+		disk is Dictionary and JsMath.same(disk.get("version"), 4) and disk.career.get("tracks_open") == ["hairpin-valley", "ramp-rally"]
+	SaveData.open_track(ids[ids.size() - 2])
+	ok = ok and Unlocks.claim(ids[ids.size() - 2], "bronze") == ids[ids.size() - 1] and Unlocks.claim(ids[ids.size() - 1], "author") == ""
+	t.check(ok, "a new career: only Rookie Oval open; no medal opens nothing; bronze (or better) opens the next track once (announced once); a locked track's medal opens nothing; in the file's career.tracks_open (still version 4); the last track opens nothing")
+
+	# sticky: a bronze on Rookie Oval opened Hairpin Valley; a later version makes bronze faster than
+	# that time (or changes the track, archiving the time): Hairpin Valley stays open
+	write.call({version = 4, records = {"rookie-oval": {racer = rec.call(float(mro.bronze), ro.signature())}},
+		career = {money = 0, points = 0, cars = ["racer"], paid = {}}})
+	var first: bool = Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally")
+	SaveData.add_points(0) # (writes the file)
+	var cars_m: Dictionary = Medals.data().tracks["rookie-oval"].cars.racer
+	var bronze0: float = float(cars_m.bronze)
+	cars_m.bronze = bronze0 - 30.0
+	SaveData.use_file(path)
+	var harder: String = Medals.medal_for(Medals.medal_times(ro, "racer"), bronze0) # (mro is that same Dictionary: its bronze changed too)
+	var still: bool = Unlocks.is_open("hairpin-valley")
+	Medals._loaded = false # (medals.json again)
+	write.call({version = 4, records = {"rookie-oval": {racer = rec.call(bronze0, "1:2")}},
+		career = {money = 0, points = 0, cars = ["racer"], paid = {}, tracks_open = ["hairpin-valley"]}})
+	var moved: bool = SaveData.get_record("rookie-oval", "racer").is_empty() and SaveData.get_archived("records", "rookie-oval", "racer").has("1:2")
+	t.check(first and harder == "" and still and moved and Unlocks.is_open("hairpin-valley") and float(Medals.medal_times(ro, "racer").bronze) == bronze0,
+		"sticky: the bronze that opened Hairpin Valley earns no medal once bronze is 30 s faster, and the track stays open; also when the record moves to the archive (a changed track)")
+
+	# the upgrade of a save from v6.7.0 or older (no career.tracks_open; every track was open): every
+	# track with a best time (current or archived, any car) and the track after every bronze or
+	# better (current or archived: archived times against today's bronze)
+	var hv: BuiltTrack = Tracks.build("hairpin-valley")
+	var rr: BuiltTrack = Tracks.build("ramp-rally")
+	var tt: BuiltTrack = Tracks.build("technical-trial")
+	var cr: BuiltTrack = Tracks.build("canyon-run")
+	var m_hv: Dictionary = Medals.medal_times(hv, "racer")
+	var m_rr: Dictionary = Medals.medal_times(rr, "racer")
+	var m_tt: Dictionary = Medals.medal_times(tt, "racer")
+	var m_cr: Dictionary = Medals.medal_times(cr, "kestrel")
+	write.call({version = 4, records = {
+		"rookie-oval": {racer = rec.call(float(mro.bronze), ro.signature())},          # bronze: opens Hairpin Valley
+		"hairpin-valley": {racer = rec.call(float(m_hv.bronze) + 9.0, hv.signature())}, # driven, no medal: open, Ramp Rally not by it
+		"ramp-rally": {racer = rec.call(float(m_rr.bronze) - 5.0, "1:2")},              # an old version's bronze (archived): Banked Speedway
+		"technical-trial": {racer = rec.call(float(m_tt.bronze) + 5.0, String(V65_SIGS["technical-trial"]))}, # archived, no medal
+		"coastal-gp": {bus = rec.call(1.0, Tracks.signature("coastal-gp"))},            # an unknown car: driven, no medal
+		"canyon-run": {kestrel = rec.call(float(m_cr.bronze), cr.signature())},         # the Kestrel's bronze: Night Highway
+		"lighthouse-bay": 5, "seaside-stunts": {racer = {time = "x"}}},
+		archive = {records = {"forest-rally": {racer = {"9:9": {time = -3.0}}}}},
+		career = {money = 10, points = 1, cars = ["racer"], paid = {}}})
+	var want: PackedStringArray = ["hairpin-valley", "ramp-rally", "banked-speedway", "technical-trial", "coastal-gp", "canyon-run", "night-highway"]
+	ok = SaveData.opened_tracks() == want and Unlocks.open_count() == 8 and not Unlocks.is_open("grand-marathon") and not Unlocks.is_open("mountain-pass") and \
+		not Unlocks.is_open("lighthouse-bay") and not Unlocks.is_open("seaside-stunts") and not Unlocks.is_open("forest-rally") and SaveData.get_money() == 10
+	SaveData.add_points(0)
+	SaveData.use_file(path)
+	disk = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and disk is Dictionary and disk.career.get("tracks_open") == Array(want) and SaveData.opened_tracks() == want
+	# version 3 (no career at all) the same way; a new player: none; with the terminal's flag: all open
+	write.call({version = 3, records = {"rookie-oval": {racer = rec.call(float(mro.author), ro.signature())}}})
+	var v3: bool = SaveData.opened_tracks() == PackedStringArray(["hairpin-valley"]) and int(SaveData.take_welcome().get("medals", 0)) == 4
+	write.call({version = 4, career = {money = 0, points = 0, cars = ["racer"], paid = {}, tracks_unlocked = true}})
+	var flag: bool = SaveData.opened_tracks().is_empty() and Unlocks.open_count() == ids.size() and Unlocks.lock_text("summit-rush") == ""
+	t.check(ok and v3 and flag, "a save from v6.7.0: opens the tracks driven (Hairpin Valley, Ramp Rally, Technical Trial, Coastal GP, Canyon Run) and the ones after a bronze (Hairpin Valley, Banked Speedway after an archived Ramp Rally time under today's bronze, Night Highway after the Kestrel's): 8 open, in the file; junk ignored; a version 3 save the same way; with the terminal's flag every track is open")
+
+	# junk in career.tracks_open: not a list is worked out again; a list is cleaned (unknown ids kept)
+	var j_ok: int = 0
+	for junk: Variant in ["x", 5, {}, null, true]:
+		write.call({version = 4, records = {"rookie-oval": {racer = rec.call(float(mro.bronze), ro.signature())}},
+			career = {money = 0, points = 0, cars = ["racer"], paid = {}, tracks_open = junk}})
+		if SaveData.opened_tracks() == PackedStringArray(["hairpin-valley"]):
+			j_ok += 1
+	write.call({version = 4, career = {money = 0, points = 0, cars = ["racer"], paid = {}, tracks_open = ["ramp-rally", 3, "", "ramp-rally", "future-track", {}]}})
+	t.check(j_ok == 5 and SaveData.opened_tracks() == PackedStringArray(["ramp-rally", "future-track"]) and Unlocks.is_open("ramp-rally") and not Unlocks.is_open("hairpin-valley"),
+		"junk: %d of 5 non-lists are worked out again from the best times; a list keeps its track ids once each (an id from a newer version too)" % j_ok)
+
+	# the terminal: unlock tracks opens everything; reset career turns it off, the tracks medals
+	# opened stay open (a medal won while the flag was on counts too)
+	write.call({version = 4, career = {money = 50, points = 5, cars = ["racer"], paid = {}, tracks_open = ["hairpin-valley"]}})
+	SaveData.unlock_tracks(true)
+	var all_open: bool = Unlocks.open_count() == ids.size()
+	var quiet: String = Unlocks.claim("canyon-run", "gold") # (open by the flag: Night Highway opens for good, nothing to announce)
+	SaveData.reset_career()
+	SaveData.use_file(path)
+	t.check(all_open and quiet == "" and not SaveData.tracks_unlocked() and open_ids.call() == PackedStringArray(["rookie-oval", "hairpin-valley", "night-highway"]) and
+		SaveData.get_money() == 0, "unlock tracks opens all 15; reset career turns the flag off but keeps what medals opened (Hairpin Valley, and Night Highway from a gold while the flag was on)")
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	clean.call()
+
 
 func _career() -> void:
 	t.section("money and points: the reward table, payouts, the shop, the save file's career (v6.5.0)")

@@ -38,19 +38,28 @@ extends RefCounted
 ##                                                    version 4 for the medals already held, once ({} after)
 ## The terminal (v6.7.0, game/terminal.gd) also uses:
 ##   SaveData.tracks_unlocked() -> bool                every track open whatever the medals (the terminal's
-##                                                    `unlock all`; tracks unlocking one by one is item 8)
+##                                                    `unlock all` / `unlock tracks`)
 ##   SaveData.unlock_tracks(on)                       set or clear that flag (true when it changed)
 ##   SaveData.reset_career()                          a new career: $0, 0 points, the starting cars, nothing
-##                                                    paid, the tracks flag off (records, ghosts, scores,
-##                                                    networks and settings stay)
+##                                                    paid, the tracks flag off; the tracks opened by medals
+##                                                    stay open (records, ghosts, scores, networks and
+##                                                    settings stay too)
+## Unlocking tracks (v6.8.0; sim/unlocks.gd has the rule):
+##   SaveData.opened_tracks() -> the tracks opened by medals (track ids; the first track is always open)
+##   SaveData.open_track(id)                          open track `id` for good (true when it was not yet)
 ##
 ## File layout: {version, records: {track: {car: {time, splits, date, physics, sig}}},
 ## ghosts: {track: {car: ghost}}, scores: {track: {car: {score, date, rules, physics, sig}}},
 ## settings: {...}, networks: {car: {slot: network file}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
-## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?}}.
+## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
+## tracks_open}}.
 ## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
-## stays: older games keep the key as it is.) Records and ghosts made under
+## stays: older games keep the key as it is. tracks_open, v6.8.0: the tracks medals opened, for good;
+## version 4 stays too: a career without it (a save from v6.7.0 or older, when every track was
+## open) gets it once from its best times (Unlocks.from_records: every track with a best time, and
+## the track after every bronze or better, archived times included). Ids the game doesn't know are
+## kept, for a newer version's tracks.) Records and ghosts made under
 ## another Car.PHYSICS_VERSION, and scores under other ScoreState.SCORE_RULES, are not read.
 ## Track versions: records, scores and ghosts carry the signature of the track they were made on
 ## (BuiltTrack.signature(): its layout and road surfaces). When a track changes (v6.3 put dirt and
@@ -121,6 +130,8 @@ static func _all() -> Dictionary:
 		if new_career:
 			_start_career(_data)
 		_repair_career(_data)
+		if not (_data.career.get("tracks_open") is Array):
+			_data.career.tracks_open = Array(Unlocks.from_records(_data))
 		_data.version = VERSION
 	return _data
 
@@ -256,6 +267,14 @@ static func _repair_career(d: Dictionary) -> void:
 		c.erase("welcome")
 	if c.has("tracks_unlocked") and not (c.tracks_unlocked is bool and c.tracks_unlocked):
 		c.erase("tracks_unlocked") # (only true is kept: absent means off)
+	if c.get("tracks_open") is Array:
+		var open: Array = []
+		for id: Variant in c.tracks_open:
+			if id is String and id != "" and not open.has(id):
+				open.append(id)
+		c.tracks_open = open
+	elif c.has("tracks_open"):
+		c.erase("tracks_open") # (not a list: worked out again from the best times, see _all)
 
 
 ## Entries kept from older versions of a track: {signature: entry} (section: "records",
@@ -601,7 +620,7 @@ static func take_welcome() -> Dictionary:
 
 
 ## True when every track is open whatever the medals held (the terminal's `unlock all`, v6.7.0).
-## Item 8 (the next track unlocks after a bronze on the previous one) reads this first.
+## Unlocks.is_open reads it first.
 static func tracks_unlocked() -> bool:
 	_mutex.lock()
 	var on: bool = _career().get("tracks_unlocked") == true
@@ -624,11 +643,35 @@ static func unlock_tracks(on: bool = true) -> bool:
 	return on != was
 
 
+## The tracks opened by medals, for good (v6.8.0; the first track is always open and isn't listed).
+static func opened_tracks() -> PackedStringArray:
+	_mutex.lock()
+	var out := PackedStringArray(_career().tracks_open)
+	_mutex.unlock()
+	return out
+
+
+## Open track `id` for good (Unlocks.claim). True when it was not open by a medal yet.
+static func open_track(id: String) -> bool:
+	if id == "":
+		return false
+	_mutex.lock()
+	var open: Array = _career().tracks_open
+	var is_new: bool = not open.has(id)
+	if is_new:
+		open.append(id)
+		_write()
+	_mutex.unlock()
+	return is_new
+
+
 ## Start the career over (the terminal's `reset career confirm`): $0, 0 points, only the starting
 ## cars, no rewards paid (so medals and AI wins pay again when they are next won), the tracks flag
-## off. Best times, scores, ghosts, AI networks and settings are kept.
+## off. The tracks medals opened stay open (only those the flag opened lock again). Best times,
+## scores, ghosts, AI networks and settings are kept.
 static func reset_career() -> void:
 	_mutex.lock()
-	_all().career = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}}
+	var open: Array = (_career().tracks_open as Array).duplicate()
+	_all().career = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}, tracks_open = open}
 	_write()
 	_mutex.unlock()

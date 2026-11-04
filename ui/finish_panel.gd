@@ -19,6 +19,8 @@ extends PanelContainer
 ##   best        {car: "Racer", time: 215.05}: your best before this run (not a record)
 ##   next        {medal: "gold", time: 208.0}: the next medal above the best time
 ##   lines       ["AI ghost: 3:40.000, you win!"]: plain lines (the AI ghost's result)
+##   unlocked    (v6.8.0) the track this run opened: {id, name, number ("03"), medal ("bronze"), from (this
+##               track's name)}; absent when it opened none
 ##   payout      (v6.5.0) what the run was paid: {items: [{id, kind "medal" | "ai", label, money,
 ##               points}], money, points, money_total, points_total, repeat: [reward ids paid before],
 ##               medal (the run's medal, "" none), level (the AI level raced, "" none), won (beat it)}
@@ -206,6 +208,15 @@ func _rebuild() -> void:
 			_delta(t - float(nx.time))], 2))
 	for line in s.get("lines", []):
 		_box.add_child(_line([[str(line), "text", small, UiStyle.TEXT]]))
+	# the track this run opened (v6.8.0)
+	if s.has("unlocked"):
+		var u: Dictionary = s.unlocked
+		var head: Array = ["%s unlocked" % str(u.get("name", "")), "display_bold", _num_size(), UiStyle.ACCENT, 0.08, true, roundf(_num_size() * 1.4)]
+		var note: Array = ["track %s is open: pick it on the menu" % str(u.get("number", "")), "text", small, UiStyle.TEXT_2]
+		if _one_col: # (the note doesn't fit beside it there; the panel is tall enough already)
+			_box.add_child(_line([head], UiStyle.S1 if _short else UiStyle.S2))
+		else:
+			_box.add_child(_line([head, _sp(), note], UiStyle.S1 if _short else UiStyle.S2))
 	if s.has("payout"):
 		_box.add_child(_payout(s.payout))
 	if s.has("score"):

@@ -49,12 +49,14 @@ const COMMANDS: Array[Dictionary] = [
 		more = ["buy kestrel pays the Kestrel's price from your money, like BUY on the car picker."], complete = ["@cars"]},
 	{name = "unlock", args = "all | cars | tracks", help = "own every car and open every track", run = "_unlock",
 		more = ["unlock all: every car is yours and every track is open, for good (the save file keeps it).",
-			"unlock cars: only the cars; unlock tracks: only the tracks."], complete = ["all", "cars", "tracks"]},
-	{name = "status", args = "", help = "your money, points, cars and medals", run = "_status",
-		more = ["status shows your money, career points, the cars you own and the medals you hold."]},
+			"unlock cars: only the cars; unlock tracks: only the tracks (without it, bronze on a track opens the next)."],
+		complete = ["all", "cars", "tracks"]},
+	{name = "status", args = "", help = "your money, points, cars, medals and open tracks", run = "_status",
+		more = ["status shows your money, career points, the cars you own, the medals you hold and the tracks open."]},
 	{name = "reset", args = "career", help = "start the career over (asks first)", run = "_reset", wipes = true,
 		more = ["reset career sets money and points to 0, keeps only the Racer and makes every medal and AI win pay again.",
-			"Best times, ghosts, AI networks and settings stay. It asks first: type reset career confirm to do it."], complete = ["career"]},
+			"Tracks opened by medals stay open (those only unlock tracks opened lock again). Best times, ghosts, AI networks",
+			"and settings stay. It asks first: type reset career confirm to do it."], complete = ["career"]},
 	{name = "clear", args = "", help = "clear the terminal", run = "_clear", more = ["clear empties the terminal (Ctrl+L too)."]},
 	{name = "exit", args = "", help = "close the terminal (Esc or ` too)", run = "_exit", more = ["exit closes the terminal, as Esc and ` do."]},
 ]
@@ -386,7 +388,22 @@ func _status(_args: PackedStringArray, out: Out) -> void:
 	for k: String in Medals.ORDER:
 		parts.append("%d %s" % [int(m[k]), k])
 	out.row("Medals", "%s (the best of each track and car; %d of %d tracks have one)" % [", ".join(parts), int(m.tracks), Tracks.ids().size()])
-	out.row("Tracks", "all %d open for good (unlock all)" % Tracks.ids().size() if SaveData.tracks_unlocked() else "all %d open" % Tracks.ids().size())
+	out.row("Tracks", tracks_row())
+
+
+## The status row of the tracks: how many are open, and what opens the next locked one.
+static func tracks_row() -> String:
+	var n := Tracks.ids().size()
+	if SaveData.tracks_unlocked():
+		return "all %d open (unlock tracks)" % n
+	var open := Unlocks.open_count()
+	if open >= n:
+		return "all %d open" % n
+	for id: String in Tracks.ids():
+		if not Unlocks.is_open(id):
+			return "%d of %d open; next: %s (%s on %s)" % [open, n, String(Tracks.def(id).get("name", id)), Unlocks.MEDAL,
+				String(Tracks.def(Unlocks.previous(id)).get("name", ""))]
+	return "%d of %d open" % [open, n]
 
 
 ## The medals the best times hold: {author, gold, silver, bronze: how many track-and-car pairs
@@ -415,7 +432,7 @@ func _reset(args: PackedStringArray, out: Out) -> void:
 	if args.size() != 1 or args[0] != "career":
 		out.add("error", "reset: try reset career (start the career over; it asks first).")
 		return
-	if not out.confirm("This starts the career over: money and points back to 0, only the Racer, and every medal and AI win pays again. Best times, ghosts, AI networks and settings stay."):
+	if not out.confirm("This starts the career over: money and points back to 0, only the Racer, and every medal and AI win pays again. Tracks opened by medals stay open; those only unlock tracks opened lock again. Best times, ghosts, AI networks and settings stay."):
 		return
 	SaveData.reset_career()
 	var own: PackedStringArray = []
