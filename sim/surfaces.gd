@@ -16,10 +16,21 @@ extends RefCounted
 ##              at a bigger slip angle, so slides start sooner and are easier to hold)
 ##   esc        share of the stability control's corrective moment it can still make (it brakes
 ##              single wheels, which a loose surface lets slide)
+##   brake      (v6.10) the brakes on it: the braking force and the tyres' grip for braking, × this
+##              (the tyres dig in and a wedge of gravel or snow builds in front of them; the ABS
+##              lets the wheels slip more there), so a car stops sooner than its cornering grip
+##              alone would let it; each car keeps its own grip share, so their order stays
+##   abs        (v6.10) share of that braking grip the ABS uses at full pedal (asphalt: 0.97, the
+##              old rule); the rest is left for steering, so a braking car still turns in instead
+##              of ploughing on (a friction ellipse: braking eats less of the cornering grip)
+##   wall       (v6.10) wall friction × this: a car touching a barrier along it slides on and
+##              loses less of its speed along the wall (the wall hit and the rub; the speed into
+##              the wall still goes)
 ## Look fields (world/): road (sRGB colour of the road; asphalt keeps its own texture), rough
 ##   and bumps (the road's roughness and the strength of its relief), dust (what the tyres
 ##   throw up: "" nothing, "dust", "snow"; also how the barriers look along it: dusty feet or
-##   snow on top), marks (tyre mark colour), rumble (camera rumble at speed, 0..1), lines
+##   snow on top), marks (tyre mark colour), grime (v6.10, was v6.3's camera "rumble": how much
+##   mud or snow it throws at the screen, 0..1, world/screen_grime.gd), lines
 ##   (whether painted lines and kerbs are drawn on it), spray (v6.4, optional: the colour of
 ##   what the tyres throw up; without it the road's colour, lightened; snow's is a shaded
 ##   blue-grey so it shows against the white road). The road shader has slots for table
@@ -43,18 +54,18 @@ const BLEND: int = 2
 const DEFS: Array[Dictionary] = [
 	{
 		id = "asphalt", name = "Asphalt",
-		grip = 1.0, car_grip = "", roll = 1.0, stiffness = 1.0, esc = 1.0,
-		road = "#4a4a4c", rough = 1.0, bumps = 0.55, dust = "", marks = "#0d0d0d", rumble = 0.0, lines = true,
+		grip = 1.0, car_grip = "", roll = 1.0, stiffness = 1.0, esc = 1.0, brake = 1.0, abs = 0.97, wall = 1.0,
+		road = "#4a4a4c", rough = 1.0, bumps = 0.55, dust = "", marks = "#0d0d0d", grime = 0.0, lines = true,
 	},
 	{
 		id = "dirt", name = "Dirt",
-		grip = 0.7, car_grip = "dirt_grip", roll = 3.0, stiffness = 0.75, esc = 0.6,
-		road = "#8a6a48", rough = 0.95, bumps = 0.9, dust = "dust", marks = "#4a3524", rumble = 0.35, lines = false,
+		grip = 0.7, car_grip = "dirt_grip", roll = 3.0, stiffness = 0.75, esc = 0.6, brake = 1.24, abs = 0.9, wall = 0.55,
+		road = "#8a6a48", rough = 0.95, bumps = 0.9, dust = "dust", marks = "#4a3524", grime = 1.0, lines = false,
 	},
 	{
 		id = "snow", name = "Packed snow",
-		grip = 0.5, car_grip = "snow_grip", roll = 2.2, stiffness = 0.8, esc = 0.6,
-		road = "#ccd6e1", rough = 0.6, bumps = 0.25, dust = "snow", marks = "#8d9cae", rumble = 0.15, lines = false,
+		grip = 0.5, car_grip = "snow_grip", roll = 2.2, stiffness = 0.8, esc = 0.6, brake = 1.28, abs = 0.9, wall = 0.45,
+		road = "#ccd6e1", rough = 0.6, bumps = 0.25, dust = "snow", marks = "#8d9cae", grime = 0.85, lines = false,
 		spray = "#7d95b6",
 	},
 ]
@@ -101,7 +112,7 @@ static func car_grips(spec: CarSpec) -> PackedFloat64Array:
 
 
 ## Σ weight × value of every surface at fractional sample p of the track (values: a column,
-## e.g. column("rumble")); the asphalt value on a track without surfaces.
+## e.g. column("grime")); the asphalt value on a track without surfaces.
 static func mix_at(track: BuiltTrack, p: float, values: PackedFloat64Array) -> float:
 	if track.surf_w.is_empty():
 		return values[ASPHALT]
@@ -111,7 +122,7 @@ static func mix_at(track: BuiltTrack, p: float, values: PackedFloat64Array) -> f
 	return out
 
 
-## A table column as numbers (physics: "roll", "stiffness", "esc"; look: "rumble", ...).
+## A table column as numbers (physics: "roll", "stiffness", "esc", "brake", "abs", "wall"; look: "grime", ...).
 static func column(field: String) -> PackedFloat64Array:
 	var out := PackedFloat64Array()
 	for d: Dictionary in DEFS:

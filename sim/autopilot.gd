@@ -15,12 +15,15 @@ extends RefCounted
 ##       ±4 samples, aims 6 m + 0.35 × speed ahead (4..14 samples), no nitro
 ##   var ctrl: Car.Controls = pilot.drive(car)      every step (the same Controls object)
 ##   (both take the car's spec last: on a track with dirt or snow the planned cornering
-##   grip and braking are scaled by the car's grip share on the road there, v6.3; on an
-##   all-asphalt track the plan is the same with or without it)
+##   grip and braking are scaled by the car's grip share on the road there, v6.3, the
+##   braking also by what the brakes do on that surface, v6.10: its "brake" × its ABS
+##   share against asphalt's; on an all-asphalt track the plan is the same with or without it)
 ##
 ## Both are deterministic: the same car state gives the same controls.
 
 const DECEL: float = 11.0 # m/s², the braking the medal autopilot plans with
+static var _BRAKE: PackedFloat64Array = Surfaces.column("brake")
+static var _ABS: PackedFloat64Array = Surfaces.column("abs")
 const NITRO_STEER: float = 0.25 # nitro at full throttle with |steer| below this
 const LOOK_MAX: float = 80.0 # m, the furthest the medal autopilot aims
 ## The medal sweep's two cornering settings (tools/medals.gd).
@@ -79,15 +82,22 @@ func _plan(window: int, span: float, cap: float, straight: float, grip: float, d
 	var f := PackedFloat32Array()
 	f.resize(1)
 	vt.resize(n)
-	# the car's grip share on the road at every sample (only on tracks with dirt or snow)
+	# the car's grip share on the road at every sample (only on tracks with dirt or snow), and
+	# its braking share (v6.10: the grip × the surface's brakes and ABS share, against asphalt's)
 	var share := PackedFloat64Array()
+	var bshare := PackedFloat64Array()
 	if spec != null and track.has_surfaces():
 		share.resize(n)
+		bshare.resize(n)
 		for i in n:
 			var g: float = 0.0
+			var gb: float = 0.0
 			for sf in track.surf_n:
-				g += track.surf_w[i * track.surf_n + sf] * spec.surface_grip[sf]
+				var w: float = track.surf_w[i * track.surf_n + sf]
+				g += w * spec.surface_grip[sf]
+				gb += w * spec.surface_grip[sf] * (_BRAKE[sf] * _ABS[sf] / _ABS[Surfaces.ASPHALT])
 			share[i] = g
+			bshare[i] = gb
 	for i in n:
 		var a: int = _at(i - window)
 		var b: int = _at(i + window)
@@ -102,7 +112,7 @@ func _plan(window: int, span: float, cap: float, straight: float, grip: float, d
 		for i in range(n - 1, -1, -1):
 			var j: int = (i + 1) % n if closed else i + 1
 			if j < n:
-				var dc: float = decel if share.is_empty() else decel * share[i]
+				var dc: float = decel if share.is_empty() else decel * bshare[i]
 				var v: float = minf(vt[i], sqrt(vt[j] * vt[j] + 2.0 * dc * seg))
 				if f32:
 					f[0] = v

@@ -307,6 +307,9 @@ void FleetSim::set_track(const Dictionary &d) {
 	t.surf_roll = doubles(d.get("surf_roll", Variant()));
 	t.surf_stiff = doubles(d.get("surf_stiff", Variant()));
 	t.surf_esc = doubles(d.get("surf_esc", Variant()));
+	t.surf_brake = doubles(d.get("surf_brake", Variant()));
+	t.surf_abs = doubles(d.get("surf_abs", Variant()));
+	t.surf_wall = doubles(d.get("surf_wall", Variant()));
 	t.cell = num(d, "grid_cell", 12.0);
 	t.min_x = num(d, "grid_min_x", 0.0);
 	t.min_z = num(d, "grid_min_z", 0.0);
@@ -337,7 +340,7 @@ void FleetSim::set_track(const Dictionary &d) {
 	if (!t.surf_w.empty()) {
 		const size_t S = (size_t)t.surf_n;
 		bool surf_ok = S >= 1 && t.surf_w.size() == n * S && t.surf_roll.size() == S && t.surf_stiff.size() == S &&
-				t.surf_esc.size() == S;
+				t.surf_esc.size() == S && t.surf_brake.size() == S && t.surf_abs.size() == S && t.surf_wall.size() == S;
 		if (!surf_ok) {
 			ERR_PRINT("FleetSim.set_track: the road surface tables do not match");
 			have_track = false;
@@ -947,7 +950,7 @@ PackedFloat64Array FleetSim::debug_drive(int start_idx, const PackedFloat64Array
 }
 
 String FleetSim::version() const {
-	return "trackrush-native 3";
+	return "trackrush-native 4";
 }
 
 void FleetSim::_bind_methods() {

@@ -43,9 +43,11 @@ extends SceneTree
 ##   surfaces  dirt and snow (v6.3): the menu's track panel names a track's surfaces (Ramp Rally
 ##             "Asphalt + dirt", Mountain Pass "Asphalt + dirt + packed snow"); Drive with the Dune
 ##             on Ramp Rally (the medal autopilot): no dust on asphalt; on the dirt the tyres throw
-##             up dust (a pooled effect), the tyre marks take the dirt's colour and the camera
-##             rumbles; Hairpin Valley with the Racer: snow spray and grey-blue marks on the snow.
-##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow.
+##             up dust (a pooled effect), the tyre marks take the dirt's colour and (v6.10) mud
+##             splashes the screen (world/screen_grime.gd: never in the middle, the camera does not
+##             rumble), gone again soon after the dirt ends; Hairpin Valley with the Racer: snow
+##             spray, grey-blue marks and snow and frost on the screen.
+##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow, surfaces_after.
 ##   economy   money, points and the car shop (v6.5.0) from a new career: $0 and only the Racer;
 ##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting a
 ##             second late: the AI car leads, then loses; v6.8.0: the gold opens Hairpin Valley) and,
@@ -733,8 +735,12 @@ func settings_set() -> void:
 	var menu: MainMenu = app.ui.menu
 	await key(KEY_O)
 	check(menu.settings.visible, "O opens Settings")
-	# rows: quality, fullscreen, vsync, interface size, ghost
+	# rows: quality, screen dirt and snow (v6.10), fullscreen, vsync, interface size, ghost
 	await key(KEY_RIGHT) # quality High -> Low
+	await key(KEY_DOWN)
+	await key(KEY_ENTER) # screen dirt and snow On -> Off
+	await frames(3)
+	await shot("settings") # (the new row picked, Off)
 	await key(KEY_DOWN)
 	await key(KEY_DOWN)
 	await key(KEY_ENTER) # vsync On -> Off
@@ -750,6 +756,7 @@ func settings_set() -> void:
 	check(UiData.get_setting("vsync") == false and DisplayServer.window_get_vsync_mode() == DisplayServer.VSYNC_DISABLED, "vsync off applied")
 	check(is_equal_approx(float(UiData.get_setting("ui_scale")), 1.25) and is_equal_approx(app.ui.ui_scale, 1.25), "interface 125% applied")
 	check(UiData.get_setting("ghost") == false, "ghost off")
+	check(UiData.get_setting("grime") == false and not ScreenGrime.enabled, "screen dirt and snow off applied")
 	print("PICKED ", UiData.picked_car())
 
 
@@ -760,9 +767,11 @@ func settings_check() -> void:
 	check(is_equal_approx(app.ui.ui_scale, 1.25), "after a restart: interface 125%")
 	check(UiData.get_setting("ghost") == false and app.ui.menu.get("_ghost_check").checked == false, "after a restart: ghost off (menu tick too)")
 	check(UiData.picked_car() == Cars.ids()[1], "after a restart: the picked car (%s)" % UiData.picked_car())
+	check(UiData.get_setting("grime") == false and not ScreenGrime.enabled, "after a restart: screen dirt and snow off")
 	# put them back (and check the file holds them)
 	var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SaveData.path))
-	check(raw.settings.quality == "low" and raw.settings.vsync == false and raw.settings.ghost == false, "the save file holds the settings")
+	check(raw.settings.quality == "low" and raw.settings.vsync == false and raw.settings.ghost == false and raw.settings.grime == false,
+		"the save file holds the settings")
 
 
 # ---------------------------------------------------------------- screenshots
@@ -850,7 +859,9 @@ func surfaces() -> void:
 
 ## Drive (medal autopilot) to the first stretch of `sid` on track `tid` with car `cid`: the tyres
 ## throw up nothing on asphalt; on the surface they throw up its dust (or snow), leave marks of its
-## colour, and the camera rumbles. transition: a shot just before the border too.
+## colour, and mud (or snow) splashes the screen, outside its middle (v6.10, in place of the
+## camera's rumble). transition: a shot just before the border too, and the screen clean again on
+## the asphalt after the stretch.
 func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> void:
 	var tag := "%s / %s" % [tid, cid]
 	await pick(tid, cid)
@@ -897,8 +908,33 @@ func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> 
 	check(pool != null and most >= need and pool.node.visible, "%s: on the %s (sample %d, %.0f km/h, slip %.2f) the tyres throw up %s: up to %d puffs alive over 12 frames (at least %d at this quality's %d %% emission; pool %d)" % [
 		tag, sid, c.idx, c.speed * 3.6, c.slip, "dust" if sid == "dirt" else "snow", most, need, roundi(CarEffects.spark_share * 100.0), pool.max if pool != null else 0])
 	check(model.skids.used > 0 and slot > 0.9, "%s: the newest tyre mark has the %s's colour (weight %.2f)" % [tag, sid, slot])
-	check(cam.ground_rumble > 0.02, "%s: the camera rumbles on the %s (%.3f)" % [tag, sid, cam.ground_rumble])
+	var g: ScreenGrime = m.get("grime")
+	var kind := 0 if sid == "dirt" else 1
+	var splats := 0
+	var inside := 0
+	if g != null:
+		for b: ScreenGrime.Blob in g.blobs():
+			splats += 1 if b.kind == kind else 0
+			inside += 1 if g.keep_metric(b.pos, g.reach(b)) < 0.999 else 0
+	var layer := 0.0
+	if g != null:
+		layer = g.film if sid == "dirt" else g.frost
+	check(g != null and g.visible and splats >= 3 and layer > 0.1 and inside == 0,
+		"%s: %s on the screen: %d splats, %s %.2f, none in the middle" % [tag, "mud" if sid == "dirt" else "snow", splats, "film" if sid == "dirt" else "frost", layer])
+	# (a shake now can only be a wall's)
+	check(cam.shake == 0.0 or cam.trauma > 0.0 or cam.rumble > 0.01, "%s: the camera does not rumble on the %s (shake %.3f)" % [tag, sid, cam.shake])
 	await shot("surfaces_" + sid)
+	if transition and g != null:
+		# past the stretch: the screen clears on the asphalt
+		fast(true)
+		await wait_until(func() -> bool: return c.idx > last + 12, 300.0)
+		fast(false)
+		var t0 := Time.get_ticks_msec()
+		await wait_until(func() -> bool: return g.count() == 0 and g.film < 0.2, 120.0) # (real time: slow frames run the overlay slower)
+		var secs := (Time.get_ticks_msec() - t0) / 1000.0
+		check(g.count() == 0 and g.film < 0.2 and track.surface[c.idx] == Surfaces.ASPHALT,
+			"%s: back on asphalt the mud is gone (after %.1f s of real time at this frame rate; film %.2f)" % [tag, secs, g.film])
+		await shot("surfaces_after")
 	stop_autopilot()
 	await key(KEY_ESCAPE)
 	await frames(4)

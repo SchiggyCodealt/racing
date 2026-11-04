@@ -44,7 +44,7 @@ extends Node3D
 ## wall_nx, wall_nz, idx); missing fields fall back as in the web game.
 ## Car frame: x = left, y = up, z = forward; the origin is on the road
 ## between the axles. A ghost makes no smoke, skid marks or sparks and has no
-## lights or glass; it shows the nitro jets. The car's meshes are on visual
+## lights or glass; it shows the nitro jets (and with opts.dust, v6.10, dust and snow spray). The car's meshes are on visual
 ## layer CAR_LAYER (the contact shadow and the headlights skip them).
 
 const Shapes = preload("res://world/car_shapes.gd")
@@ -67,6 +67,9 @@ const CELEBRATION := 3.6
 
 var car_id := "racer"
 var ghost := false
+## (v6.10) a ghost that throws up dust and snow on loose ground (opts.dust: the AI opponent you
+## race, so its spray can reach your screen; the best-run ghost stays clean)
+var throws_dust := false
 ## 1: the full mesh, 0: the lighter one (low quality).
 var detail := 1
 var skeleton: Skeleton3D
@@ -138,10 +141,11 @@ static var _skin: Skin = null
 
 ## car_id: one of Cars.ids() (unknown: racer).
 ## opts: ghost (bool), color (Color or "#rrggbb": body colour, or the ghost's colour),
-## detail (0 or 1: a fixed mesh whatever the quality).
+## detail (0 or 1: a fixed mesh whatever the quality), dust (bool, a ghost: throws_dust).
 func _init(p_car_id := "racer", opts := {}) -> void:
 	car_id = p_car_id if Shapes.shapes().has(p_car_id) else "racer"
 	ghost = opts.get("ghost", false)
+	throws_dust = ghost and bool(opts.get("dust", false))
 	_forced_detail = int(opts.get("detail", -1))
 	detail = _forced_detail if _forced_detail >= 0 else 1
 	var look: Dictionary = Cars.get_car(car_id).get("look", {})
@@ -522,15 +526,11 @@ func update(state: Variant, prev_state: Variant = null, alpha := 1.0, dt := 1.0 
 			else:
 				skids.lift(wi)
 		smoke.update(dt)
-		if car.grounded and loose > 0.05 and car.speed > 3.0:
-			var strength := clampf(minf(1.0, (car.speed - 3.0) / 35.0) * 0.6 + slip * 0.8, 0.0, 1.0)
-			var rate := (minf(1.0, (car.speed - 3.0) / 35.0) * 30.0 + slip * 30.0) * CarEffects.spark_share
-			_dust_acc = _spray_emit(ground.x, rate, _dust_acc, "dust", car, xf, strength, dt)
-			_spray_acc = _spray_emit(ground.y, rate * 1.4, _spray_acc, "snow", car, xf, strength, dt)
-		if dust != null:
-			dust.update(dt)
-		if spray != null:
-			spray.update(dt)
+		_loose_spray(car, ground, slip, xf, dt)
+	elif throws_dust:
+		# (v6.10) an AI opponent's ghost throws up dust and snow too (no smoke or marks)
+		var slip := car.slip if car.has_slip else (0.75 if car.drifting else clampf((absf(car.side_speed) - 4.0) / 6.0, 0.0, 1.0))
+		_loose_spray(car, ground_at(car, track if track != null else (_world.track if _world != null else null)), slip, xf, dt)
 
 	# sparks where the car hits or scrapes a wall (ghosts have none)
 	if sparks != null:
@@ -727,6 +727,19 @@ static func ground_at(car: CarEffects.Pose, tr: BuiltTrack) -> Vector4:
 	out.z = tr.surf_w[i * n + 1] if n > 1 else 0.0
 	out.w = tr.surf_w[i * n + 2] if n > 2 else 0.0
 	return out
+
+
+## The dust and snow spray of a car rolling or sliding on loose ground (`ground`: ground_at()).
+func _loose_spray(car: CarEffects.Pose, ground: Vector4, slip: float, xf: Transform3D, dt: float) -> void:
+	if car.grounded and ground.x + ground.y > 0.05 and car.speed > 3.0:
+		var strength := clampf(minf(1.0, (car.speed - 3.0) / 35.0) * 0.6 + slip * 0.8, 0.0, 1.0)
+		var rate := (minf(1.0, (car.speed - 3.0) / 35.0) * 30.0 + slip * 30.0) * CarEffects.spark_share
+		_dust_acc = _spray_emit(ground.x, rate, _dust_acc, "dust", car, xf, strength, dt)
+		_spray_acc = _spray_emit(ground.y, rate * 1.4, _spray_acc, "snow", car, xf, strength, dt)
+	if dust != null:
+		dust.update(dt)
+	if spray != null:
+		spray.update(dt)
 
 
 ## Dust or snow puffs from the rear wheels (in turn) at `rate` a second × weight w; returns the

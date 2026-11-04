@@ -785,7 +785,7 @@ func _fleet_cars() -> void:
 	t.check(all_same, "every car's spec reaches FleetSim as data, every number the same (%d keys; not read: %s)%s%s" % [
 		Trainer.spec_data(Cars.default_spec()).size() - NOT_READ.size(), ", ".join(NOT_READ),
 		"" if missing.is_empty() else "; missing: " + ", ".join(missing), "" if differ.is_empty() else "; differ: " + ", ".join(differ)])
-	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 3", "the native library is version 3 (road surfaces)")
+	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 4", "the native library is version 4 (v6.10: brakes, ABS and wall friction on loose ground)")
 	# lockstep, the other five cars on different tracks and rules
 	for c: Array in [["kestrel", "hairpin-valley", "crash"], ["thunder", "banked-speedway", "crash"], ["drifter", "ramp-rally", "crash"],
 			["dune", "rookie-oval", "ride"], ["vortex", "seaside-stunts", "crash"]]:
@@ -795,19 +795,23 @@ func _fleet_cars() -> void:
 ## FleetSim on dirt and snow: every car driven over the entry and the exit of every loose stretch
 ## of the three tracks with dirt and snow, by the medal autopilot in GDScript (on the exits with
 ## seeded steering noise and handbrake pulls, so the cars slide), the same controls replayed by
-## FleetSim.debug_drive: the states the same (bit for bit) at every step.
+## FleetSim.debug_drive: the states the same (bit for bit) at every step. v6.10: also Northern
+## Lights (snow bowls, much wall contact), and the steps braking or touching a wall on loose ground
+## (the loose brakes, ABS and wall friction) are counted: there must be some on every track.
 func _fleet_surfaces() -> void:
 	t.section("FleetSim on dirt and snow: every car")
 	if not Trainer.native_available():
 		t.check(true, "FleetSim not loaded: only the GDScript simulation is checked")
 		return
 	const STEPS := 900
-	for tid: String in ["ramp-rally", "hairpin-valley", "mountain-pass"]:
+	for tid: String in ["ramp-rally", "hairpin-valley", "mountain-pass", "northern-lights"]:
 		var track := Tracks.build(tid)
 		var td := Trainer.track_data(track, 1)
 		var all_same := true
 		var drives := 0
 		var loose_steps := 0
+		var loose_brake := 0
+		var loose_wall := 0
 		var first := ""
 		for id in Cars.ids():
 			var spec := Cars.spec(id)
@@ -835,6 +839,8 @@ func _fleet_surfaces() -> void:
 					car.step(track, c, Trainer.STEP)
 					want.append_array([car.x, car.y, car.z, car.yaw, car.vx, car.vz, car.speed, car.yaw_rate, car.prog, car.slip])
 					loose_steps += 1 if car._env_loose else 0
+					loose_brake += 1 if car._env_loose and c.throttle < 0.0 else 0
+					loose_wall += 1 if car._env_loose and car.hit_wall else 0
 				var got: PackedFloat64Array = fs.call("debug_drive", st[0], tape, Trainer.STEP)
 				drives += 1
 				if got != want:
@@ -845,9 +851,9 @@ func _fleet_surfaces() -> void:
 							k += 1
 						first = "%s from sample %d: step %d field %d: %s / %s" % [id, st[0], k / 10, k % 10,
 							want[k] if k < want.size() else NAN, got[k] if k < got.size() else NAN]
-		t.check(all_same and drives >= 12 and loose_steps > drives * 200,
-			"%s (%s): every car over the entries and exits of its loose stretches, %d drives of %d steps (%d steps with an axle on loose ground): FleetSim's car the same as GDScript's at every step%s" % [
-				tid, Surfaces.summary(track), drives, STEPS, loose_steps, "" if first == "" else "; first difference " + first])
+		t.check(all_same and drives >= 12 and loose_steps > drives * 200 and loose_brake > 0 and loose_wall > 0,
+			"%s (%s): every car over the entries and exits of its loose stretches, %d drives of %d steps (%d steps with an axle on loose ground, %d of them braking, %d touching a wall): FleetSim's car the same as GDScript's at every step%s" % [
+				tid, Surfaces.summary(track), drives, STEPS, loose_steps, loose_brake, loose_wall, "" if first == "" else "; first difference " + first])
 
 
 ## Training improves with every car (FleetSim; the GDScript path is the same simulation).

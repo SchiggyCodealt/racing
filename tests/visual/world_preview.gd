@@ -19,6 +19,8 @@ extends SceneTree
 ##   speed     km/h shown by the camera (field of view) and the effects, default 120
 ##   angle     orbit angle (rad)
 ##   frames    frames to render before the shot (default 6)
+##   grime     S: mud and snow on the screen (world/screen_grime.gd) after S seconds at this spot
+##             (slip=0..1 sliding), as if driven there that long
 ##   out       PNG path (default user://world_preview.png)
 ## Prints the track build stats and the frame's draw calls and primitives.
 
@@ -89,6 +91,15 @@ func _initialize() -> void:
 			var hy := track.heading(j)
 			agents.append({"alive": k % 9 != 4, "prev": null, "car": {"x": track.px[j] + track.nx[j] * la, "y": track.py[j] - la * tan(track.bank[j]),
 				"z": track.pz[j] + track.nz[j] * la, "yaw": hy + rng.randf_range(-0.15, 0.15), "idx": j, "speed": 30.0}})
+	var grime: ScreenGrime = null
+	var gpose := CarEffects.Pose.new()
+	if o.has("grime"):
+		grime = ScreenGrime.new(track)
+		world.add_child(grime)
+		state["slip"] = float(o.get("slip", "0"))
+		gpose.read(state)
+		for k in roundi(float(o["grime"]) * 60.0):
+			grime.update(1.0 / 60.0, gpose, track)
 	var rays: SensorRays = null
 	if o.get("rays", "0") == "1":
 		rays = SensorRays.new()
@@ -102,6 +113,8 @@ func _initialize() -> void:
 			ghost.update(gstate, null, 1.0, dt, track)
 		if fleet != null:
 			fleet.update(agents, track, 0, f * dt, 1.0)
+		if grime != null:
+			grime.update(dt, gpose, track)
 		if rays != null:
 			var d := PackedFloat32Array()
 			var fx := sin(yaw)

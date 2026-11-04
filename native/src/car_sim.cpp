@@ -530,6 +530,9 @@ void axle_mix(CarState &c, const Spec &P, const Track &track, double p) {
 	double st = 0.0;
 	double r = 0.0;
 	double e = 0.0;
+	double bk = 0.0;
+	double ab = 0.0;
+	double wl = 0.0;
 	double a0 = 0.0;
 	for (int s = 0; s < S; s++) {
 		double wa = W[k * S + s];
@@ -541,12 +544,18 @@ void axle_mix(CarState &c, const Spec &P, const Track &track, double p) {
 		st += w * track.surf_stiff[s];
 		r += w * track.surf_roll[s];
 		e += w * track.surf_esc[s];
+		bk += w * track.surf_brake[s];
+		ab += w * track.surf_abs[s];
+		wl += w * track.surf_wall[s];
 	}
 	c.mx_pure = a0 == 1.0;
 	c.mx_g = g;
 	c.mx_k = st;
 	c.mx_r = r;
 	c.mx_e = e;
+	c.mx_b = bk;
+	c.mx_a = ab;
+	c.mx_w = wl;
 }
 
 // Car._surface_mix: the surface blend under both axles (front cg_to_front ahead, rear cg_to_rear behind).
@@ -563,6 +572,9 @@ void surface_mix(CarState &c, const Spec &P, const Track &track) {
 	c.env_kf = c.mx_k;
 	c.env_rf = c.mx_r;
 	double esc_f = c.mx_e;
+	double bk_f = c.mx_b;
+	double abs_f = c.mx_a;
+	double wall_f = c.mx_w;
 	axle_mix(c, P, track, p0 - (P.cg_to_rear * cos_t) / track.seg_len);
 	if (pure_f && c.mx_pure) {
 		return;
@@ -573,6 +585,9 @@ void surface_mix(CarState &c, const Spec &P, const Track &track) {
 	c.env_rr = c.mx_r;
 	c.env_sesc = (esc_f + c.mx_e) * 0.5;
 	c.env_pk = std::atan((P.peak_slip / c.env_kf) * P.steer_slip_gain);
+	c.env_bk = (bk_f + c.mx_b) * 0.5;
+	c.env_abs = (abs_f + c.mx_a) * 0.5;
+	c.env_wall = (wall_f + c.mx_w) * 0.5;
 }
 
 // Car._surface_env: gravity along the road and the normal load (once per step).
@@ -807,6 +822,9 @@ void planar_step(CarState &c, const Spec &P, double h) {
 
 	// --- longitudinal tyre forces ---
 	double brake = c.env_brake;
+	if (loose) {
+		brake *= c.env_bk; // (v6.10) the brakes do more on loose ground
+	}
 	if (brake > stop_f * 0.9) {
 		brake = stop_f * 0.9;
 	}
@@ -836,6 +854,10 @@ void planar_step(CarState &c, const Spec &P, double h) {
 	} else {
 		double fy_prev = std::fabs(c.fyr) < cap_r ? std::fabs(c.fyr) : cap_r;
 		double long_cap = 0.97 * std::sqrt(cap_r * cap_r - fy_prev * fy_prev);
+		if (loose && brake > 0.0) {
+			// (v6.10) braking on loose ground: more braking grip, the ABS's share of it
+			long_cap = c.env_abs * c.env_bk * std::sqrt(cap_r * cap_r - fy_prev * fy_prev);
+		}
 		double want = drive_r - brake * (1.0 - P.brake_front) * sgn_u;
 		bool sliding = std::fabs(c.slip_r) > P.peak_slip * P.slide_drive;
 		if (sliding && want > 0.0) {
@@ -858,6 +880,11 @@ void planar_step(CarState &c, const Spec &P, double h) {
 	// Front: driving/braking has priority, cornering gets what is left.
 	double fx_f = drive_f - brake * P.brake_front * sgn_u;
 	double fx_cap_f = 0.97 * cap_f;
+	bool ellipse = loose && brake > 0.0;
+	if (ellipse) {
+		// (v6.10) braking on loose ground: braking grip × env_bk, the ABS's share of it, cornering on an ellipse
+		fx_cap_f = c.env_abs * c.env_bk * cap_f;
+	}
 	if (fx_f > fx_cap_f) {
 		tc_cut = maxf(tc_cut, (fx_f - fx_cap_f) / (std::fabs(c.env_drive) + 1.0));
 		fx_f = fx_cap_f;
@@ -865,6 +892,10 @@ void planar_step(CarState &c, const Spec &P, double h) {
 		fx_f = -fx_cap_f;
 	}
 	double fy_cap_f = std::sqrt(maxf(0.0, cap_f * cap_f - fx_f * fx_f));
+	if (ellipse) {
+		double q = fx_f / (c.env_bk * cap_f);
+		fy_cap_f = cap_f * std::sqrt(maxf(0.0, 1.0 - q * q));
+	}
 	c.tc_cut = tc_cut;
 
 	// --- steering angle: speed-sensitive lock + countersteer assist when the rear slides ---
@@ -1030,6 +1061,9 @@ void rub(CarState &c, const Spec &P, double h) {
 	double tvz = c.vz - vn * nz;
 	c.rub_t = minf(P.wall_rub_build, c.rub_t + h);
 	double k = P.wall_rub * h * (P.wall_rub_build > 0.0 ? c.rub_t / P.wall_rub_build : 1.0);
+	if (c.env_loose) {
+		k *= c.env_wall; // (v6.10) slipperier walls along dirt and snow
+	}
 	c.vx -= tvx * k;
 	c.vz -= tvz * k;
 }
@@ -1059,6 +1093,10 @@ void impulse(CarState &c, const Spec &P, double dx, double dz, double nx, double
 		double vt = std::sqrt(tvx * tvx + tvz * tvz);
 		if (vt > 1e-6) {
 			double dv = (P.wall_friction + P.wall_crush * jn) * jn;
+			if (c.env_loose) {
+				// (v6.10) slipperier walls along dirt and snow: less friction, the hard hit's crush as before
+				dv = (P.wall_friction * c.env_wall + P.wall_crush * jn) * jn;
+			}
 			// slow sliding: the friction fades out, so a car pressed nose-in slides off
 			if (vt < P.wall_slide) {
 				dv *= vt / P.wall_slide;

@@ -89,8 +89,9 @@ const DEFAULT_PATH: String = "user://trackrush_save.json"
 ## Settings, their defaults and (by the default's type) the type a stored value must have.
 ## car: the car picked on the menu (Cars.get_car() turns an unknown id into the racer);
 ## quality: the graphics quality ("auto" | "high" | "medium" | "low"); opponent (v6.5.0): the menu's
-## AI opponent (an AI level id, sim/opponents.gd, or "mine": the player's own network).
-const SETTINGS: Dictionary = {ghost = true, car = "racer", quality = "auto", opponent = "rookie"}
+## AI opponent (an AI level id, sim/opponents.gd, or "mine": the player's own network); grime (v6.10):
+## mud and snow on the screen on loose ground (world/screen_grime.gd).
+const SETTINGS: Dictionary = {ghost = true, car = "racer", quality = "auto", opponent = "rookie", grime = true}
 
 static var path: String = DEFAULT_PATH
 static var _data: Dictionary = {}

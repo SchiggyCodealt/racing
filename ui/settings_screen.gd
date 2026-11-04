@@ -28,6 +28,8 @@ const ROWS := [
 	{"section": "Graphics", "key": "quality", "label": "Graphics quality", "type": "choice",
 		"options": [["high", "High"], ["low", "Low"]],
 		"hint": "Low draws less scenery, fewer sparks and shorter nitro trails, turns off scenery shadows and renders at a lower resolution."},
+	{"key": "grime", "label": "Screen dirt and snow", "type": "toggle",
+		"hint": "On dirt and snow, mud and snow splash onto the screen around its edges (never over the middle) and slide off on asphalt."},
 	{"section": "Display", "key": "fullscreen", "label": "Fullscreen", "type": "toggle",
 		"hint": "Fill the whole screen instead of a window."},
 	{"key": "vsync", "label": "Vertical sync", "type": "toggle",

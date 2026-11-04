@@ -52,7 +52,7 @@ const TrackMapView := preload("res://ui/track_map_view.gd")
 
 ## Settings and their defaults (the web's trackrush.settings plus the Godot port's display settings).
 const SETTING_DEFAULTS := {"car": "racer", "ghost": true, "quality": "high", "fullscreen": false, "vsync": true, "ui_scale": "auto",
-	"opponent": "rookie"}
+	"opponent": "rookie", "grime": true}
 ## The menu's opponent choice for the player's own trained network (the others are AI level ids).
 const MY_AI := "mine"
 ## Score rules the menu's tooltips quote (score.js SCORE.comboMax).
@@ -497,7 +497,8 @@ static func clear_new_tracks(id: String = "") -> void:
 
 # ---------------------------------------------------------------- settings
 
-## A remembered setting ("car", "ghost", "quality", "fullscreen", "vsync", "ui_scale"), from
+## A remembered setting ("car", "ghost", "quality", "fullscreen", "vsync", "ui_scale", "opponent",
+## "grime"), from
 ## the save file in the game. Quality "auto" (the save file's default: start high and let
 ## the frame-time governor step down) reads as "high", the Settings screen's matching choice.
 static func get_setting(key: String) -> Variant:

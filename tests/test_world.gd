@@ -2,7 +2,9 @@ extends RefCounted
 ## test_world.gd: headless checks of the 3D world (world/): noise and random ports,
 ## themes and quality levels, car models, chase camera, track meshes, fleet; the road
 ## surfaces (v6.3): dirt and snow roads, no paint on them, dusty / snowy barriers, dust and
-## snow spray (pooled, scaled by quality), surface-coloured tyre marks, the camera's rumble;
+## snow spray (pooled, scaled by quality), surface-coloured tyre marks; (v6.10) the barriers'
+## grime shader, the AI opponent's dust, no camera rumble on loose ground but mud and snow on
+## the screen (world/screen_grime.gd: builds, fades, quality, setting, the middle kept clear);
 ## the themes of v6.4: the arctic sky's northern lights, the autumn woods, the highland's snow
 ## beside snowy road (and the trees that know it).
 ## The pictures themselves are checked by eye with tests/visual/world_*.gd.
@@ -422,30 +424,47 @@ func _surfaces(t) -> void:
 	plain.free()
 	asphalt.free()
 	node.free()
-	# barriers: snow on top along Hairpin Valley's snow, plain concrete elsewhere
+	# barriers (v6.10): the grime shader on a track with dirt or snow, with the colours of the
+	# all-asphalt track and what the road beside them throws at them in the alpha: 0 snow along
+	# Hairpin Valley's snow, 1 dirt along Ramp Rally's dirt, 0.5 elsewhere
 	var hv := Tracks.build("hairpin-valley")
-	var hnode := TrackMesh.build(hv)
-	var hplain := TrackMesh.build(Tracks.build_asphalt("hairpin-valley"))
-	var bc := PackedColorArray()
-	var bp := PackedColorArray()
-	for n: Node in hnode.get_children():
-		if String(n.name).begins_with("barriers-"):
-			bc.append_array((n as MeshInstance3D).mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR])
-			bp.append_array((hplain.find_child(n.name, false, false) as MeshInstance3D).mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR])
-	var changed := 0
-	var same := 0
-	var lum := 0.0
-	for k in mini(bc.size(), bp.size()):
-		if bc[k] == bp[k]:
-			same += 1
-		else:
-			changed += 1
-			lum += bc[k].get_luminance() - bp[k].get_luminance()
-	t.check(bc.size() == bp.size() and changed > 500 and same > changed and lum > 0.0,
-		"barriers: snow on them along the snow (%d vertices, %.2f brighter on average), the rest as on the all-asphalt track (%d)" % [
-			changed, lum / maxi(1, changed), same])
-	hnode.free()
-	hplain.free()
+	var bars := {}
+	for tid: String in ["hairpin-valley", "ramp-rally"]:
+		var tn := TrackMesh.build(hv if tid == "hairpin-valley" else rr)
+		var tp := TrackMesh.build(Tracks.build_asphalt(tid))
+		var same_rgb := true
+		var grime_mat := true
+		var hist := Vector3i.ZERO # snow, nothing, dirt
+		var plain_mat := true
+		for n: Node in tn.get_children():
+			if not String(n.name).begins_with("barriers-"):
+				continue
+			var mi := n as MeshInstance3D
+			var other := tp.find_child(n.name, false, false) as MeshInstance3D
+			var bm: Material = mi.mesh.surface_get_material(0)
+			grime_mat = grime_mat and bm is ShaderMaterial and (bm as ShaderMaterial).shader.resource_path.ends_with("barrier_grime.gdshader")
+			plain_mat = plain_mat and other.mesh.surface_get_material(0) is StandardMaterial3D
+			var bc: PackedColorArray = mi.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+			var bp: PackedColorArray = other.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+			same_rgb = same_rgb and bc.size() == bp.size()
+			for k in mini(bc.size(), bp.size()):
+				var dc := Vector3(bc[k].r - bp[k].r, bc[k].g - bp[k].g, bc[k].b - bp[k].b)
+				same_rgb = same_rgb and dc.length() < 0.01
+				if bc[k].a < 0.02:
+					hist.x += 1
+				elif absf(bc[k].a - 0.5) < 0.01:
+					hist.y += 1
+				elif bc[k].a > 0.98:
+					hist.z += 1
+		bars[tid] = {same = same_rgb, mat = grime_mat and plain_mat, hist = hist}
+		tn.free()
+		tp.free()
+	var bh: Dictionary = bars["hairpin-valley"]
+	var br: Dictionary = bars["ramp-rally"]
+	t.check(bh.mat and br.mat and bh.same and br.same and bh.hist.x > 500 and bh.hist.y > 500 and bh.hist.z == 0 and \
+		br.hist.z > 500 and br.hist.y > 500 and br.hist.x == 0,
+		"barriers: the grime shader (plain material on the all-asphalt tracks), the same colours, snowy along the snow (%d vertices), dirty along the dirt (%d), clean elsewhere (%d / %d)" % [
+			bh.hist.x, br.hist.z, bh.hist.y, br.hist.y])
 
 	# the tyres on loose ground: dust on dirt, snow spray on snow, made only when needed, pooled;
 	# tyre marks of the surface's colour (faint ones without a slide); fewer puffs at low quality
@@ -485,23 +504,131 @@ func _surfaces(t) -> void:
 	t.check(d1.mark.b > 0.99 and d1.mark.a == 0.0 and s1.mark.a > 0.99 and a1.mark.b == 0.0 and a1.mark.a == 0.0,
 		"tyre marks take the colour of the surface: dirt %.2f, snow %.2f, none on asphalt" % [d1.mark.b, s1.mark.a])
 
-	# the camera rumbles on dirt at speed (not on asphalt, not with reduced motion)
-	var rumble: Dictionary = {}
-	for sid: String in ["dirt", "asphalt", "dirt reduced"]:
-		ChaseCamera.reduce_motion = sid == "dirt reduced"
-		var cam := ChaseCamera.new()
-		cam.set_track(rr)
-		var i := 400 if sid != "asphalt" else 40
-		var y := rr.heading(i)
-		var st := {"x": rr.px[i], "y": rr.py[i], "z": rr.pz[i], "yaw": y, "vx": sin(y) * 35.0, "vz": cos(y) * 35.0, "speed": 35.0, "idx": i, "grounded": true}
-		cam.snap(st, rr)
-		for f in 90:
-			cam.update(st, 1.0 / 60.0)
-		rumble[sid] = Vector2(cam.ground_rumble, cam.shake)
-		cam.free()
-	ChaseCamera.reduce_motion = false
-	t.check(rumble.dirt.x > 0.3 and rumble.dirt.y > 0.05 and rumble.asphalt.y == 0.0 and rumble["dirt reduced"].y == 0.0,
-		"the camera rumbles on dirt at 126 km/h (shake %.3f), not on asphalt, not with reduced motion" % rumble.dirt.y)
+	# (v6.10) the AI opponent's ghost throws up dust too (opts.dust); the best-run ghost doesn't
+	var gd := {}
+	for with_dust: bool in [true, false]:
+		var gcar := CarModel.new("racer", {"ghost": true, "dust": with_dust})
+		t.tree.root.add_child(gcar)
+		var gi := 400
+		var gy := rr.heading(gi)
+		var gst := {"x": rr.px[gi], "y": rr.py[gi], "z": rr.pz[gi], "yaw": gy, "vx": sin(gy) * 30.0, "vz": cos(gy) * 30.0, "speed": 30.0,
+			"forward_speed": 30.0, "idx": gi, "grounded": true, "slip": 0.2}
+		for f in 40:
+			gcar.update(gst, null, 1.0, 1.0 / 60.0, rr)
+		gd[with_dust] = gcar.dust.alive if gcar.dust != null else 0
+		gcar.free()
+	t.check(gd[true] > 5 and gd[false] == 0, "the AI opponent's ghost throws up dust on dirt (%d puffs), the best-run ghost none" % gd[true])
+
+	# (v6.10) no more camera rumble on loose ground (the screen gets mud and snow instead); the
+	# wall shake stays (see the camera section)
+	var cam := ChaseCamera.new()
+	cam.set_track(rr)
+	var ci := 400
+	var cy := rr.heading(ci)
+	var cst := {"x": rr.px[ci], "y": rr.py[ci], "z": rr.pz[ci], "yaw": cy, "vx": sin(cy) * 35.0, "vz": cos(cy) * 35.0, "speed": 35.0, "idx": ci, "grounded": true}
+	cam.snap(cst, rr)
+	for f in 90:
+		cam.update(cst, 1.0 / 60.0)
+	t.check(cam.shake == 0.0, "the camera stays still on dirt at 126 km/h (shake %.3f)" % cam.shake)
+	cam.free()
+	_screen_grime(t, rr, hv)
+
+
+## (v6.10) world/screen_grime.gd: mud and snow on the screen.
+func _screen_grime(t, rr: BuiltTrack, hv: BuiltTrack) -> void:
+	var dirt_i := 400 # (Ramp Rally: dirt from sample 168 to 730)
+	var tar_i := 40   # (asphalt)
+	var snow_i := 650 # (Hairpin Valley: snow from 492 to 815)
+	var pose := func(tr: BuiltTrack, i: int, speed: float, slip: float, dx := 0.0) -> CarEffects.Pose:
+		var y := tr.heading(i)
+		return CarEffects.Pose.new().read({"x": tr.px[i] + sin(y) * dx, "y": tr.py[i], "z": tr.pz[i] + cos(y) * dx, "yaw": y,
+			"vx": sin(y) * speed, "vz": cos(y) * speed, "speed": speed, "forward_speed": speed, "idx": i, "grounded": true, "slip": slip})
+	var drive := func(g: ScreenGrime, tr: BuiltTrack, p: CarEffects.Pose, secs: float, ahead := Vector2.ZERO) -> void:
+		for f in roundi(secs * 60.0):
+			g.update(1.0 / 60.0, p, tr, ahead)
+	# whether anything is drawn inside the keep-out ellipse around the middle of the screen
+	var clear := func(g: ScreenGrime) -> bool:
+		for b: ScreenGrime.Blob in g.blobs():
+			if g.keep_metric(b.pos, g.reach(b)) < 0.999:
+				return false
+		return true
+	var g := ScreenGrime.new(rr)
+	t.tree.root.add_child(g)
+	var s := g.screen()
+	# the middle of the screen (30..70 % each way) lies inside the keep-out ellipse
+	var mid_in := g.keep_metric(s * 0.3, 0.0) < 1.0 and g.keep_metric(s * 0.7, 0.0) < 1.0 and \
+		g.keep_metric(Vector2(s.x * 0.3, s.y * 0.7), 0.0) < 1.0 and g.keep_metric(Vector2(s.x * 0.7, s.y * 0.3), 0.0) < 1.0
+	var clear_all := true
+	# dirt at 126 km/h, sliding a little: mud builds up
+	for k in 6:
+		drive.call(g, rr, pose.call(rr, dirt_i, 35.0, 0.3), 0.5)
+		clear_all = clear_all and clear.call(g)
+	var mud := {n = g.count(), fly = g.flyer_count(), level = g.level, film = g.film, frost = g.frost, kinds = _kinds(g)}
+	# then asphalt: it stops, slides off and fades
+	drive.call(g, rr, pose.call(rr, tar_i, 35.0, 0.0), 2.5)
+	clear_all = clear_all and clear.call(g)
+	var off := {n = g.count(), film = g.film}
+	drive.call(g, rr, pose.call(rr, tar_i, 35.0, 0.0), 4.0)
+	var off2 := {n = g.count() + g.flyer_count(), film = g.film, vis = g._rect.visible}
+	t.check(mid_in and mud.n >= 12 and mud.kinds.x == mud.n and mud.fly > 0 and mud.level.x > 0.6 and mud.film > 0.4 and mud.frost == 0.0,
+		"dirt at 126 km/h for 3 s: %d mud splats, %d clods flying past, a film of mud %.2f, no frost" % [mud.n, mud.fly, mud.film])
+	t.check(off.n == 0 and off.film < 0.15 and off2.n == 0 and off2.film == 0.0 and not off2.vis,
+		"then asphalt: the splats gone after 2.5 s, the film %.2f, nothing left after 6.5 s" % off.film)
+	t.check(clear_all, "nothing ever drawn inside the keep-out ellipse around the middle of the screen")
+	# standing still: nothing; a car close ahead on the dirt throws its dust at the screen
+	g.clear()
+	var still: CarEffects.Pose = pose.call(rr, dirt_i, 0.0, 0.0)
+	drive.call(g, rr, still, 2.0)
+	var n_still := g.count()
+	var ahead := ScreenGrime.ahead_of(still, pose.call(rr, dirt_i + 6, 30.0, 0.0), rr)
+	var behind := ScreenGrime.ahead_of(still, pose.call(rr, dirt_i - 6, 30.0, 0.0), rr)
+	var far := ScreenGrime.ahead_of(still, pose.call(rr, dirt_i + 25, 30.0, 0.0), rr)
+	var on_tar := ScreenGrime.ahead_of(pose.call(rr, tar_i, 0.0, 0.0), pose.call(rr, tar_i + 6, 30.0, 0.0), rr)
+	drive.call(g, rr, still, 2.0, ahead)
+	t.check(n_still == 0 and ahead.x > 0.5 and behind == Vector2.ZERO and far.x < 0.1 and on_tar == Vector2.ZERO and g.count() > 3,
+		"standing on the dirt: no mud; a car 12 m ahead at 108 km/h throws %.2f of its dust at the screen (%d splats; none from behind, %.2f from 50 m, none on asphalt)" % [
+			ahead.x, g.count(), far.x])
+	# fewer at low quality
+	g.clear()
+	CarEffects.spark_share = 0.3
+	var low_max := 0
+	for k in 8:
+		drive.call(g, rr, pose.call(rr, dirt_i, 35.0, 0.3), 0.5)
+		low_max = maxi(low_max, g.count())
+	CarEffects.spark_share = 1.0
+	t.check(low_max <= roundi(ScreenGrime.MAX_SPLATS * 0.3) and low_max < mud.n,
+		"low quality: at most %d splats (%d at most, high: %d)" % [low_max, roundi(ScreenGrime.MAX_SPLATS * 0.3), mud.n])
+	# the setting switches it off
+	ScreenGrime.enabled = false
+	drive.call(g, rr, pose.call(rr, dirt_i, 35.0, 0.3), 1.0)
+	var off_n := g.count() + g.flyer_count()
+	var off_vis := g.visible
+	ScreenGrime.enabled = true
+	drive.call(g, rr, pose.call(rr, dirt_i, 35.0, 0.3), 1.0)
+	t.check(off_n == 0 and not off_vis and g.count() > 0, "the setting off: nothing on the screen; on again: mud again (%d)" % g.count())
+	g.free()
+	# snow: flecks of snow and frost, no mud
+	var gs := ScreenGrime.new(hv)
+	t.tree.root.add_child(gs)
+	var clear_snow := true
+	for k in 8:
+		drive.call(gs, hv, pose.call(hv, snow_i, 35.0, 0.2), 0.5)
+		clear_snow = clear_snow and clear.call(gs)
+	var ks := _kinds(gs)
+	t.check(ks.y >= 10 and ks.x == 0 and gs.frost > 0.4 and gs.film == 0.0 and clear_snow,
+		"snow at 126 km/h for 4 s: %d flecks of snow (melting into drops), frost %.2f, no mud, the middle kept clear" % [ks.y, gs.frost])
+	gs.free()
+
+
+## Splats of mud (x) and snow (y) on the screen.
+static func _kinds(g: ScreenGrime) -> Vector2i:
+	var k := Vector2i.ZERO
+	for b: ScreenGrime.Blob in g.blobs():
+		if b.kind == 0:
+			k.x += 1
+		elif b.kind == 1:
+			k.y += 1
+	return k
 
 
 func _fleet(t) -> void:

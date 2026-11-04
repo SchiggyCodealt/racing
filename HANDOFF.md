@@ -4,14 +4,19 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-04 (v6.9.0: feature 9 of 9, the last: a faster bronze medal, 1.3 × the author time instead of
+_Last updated: 2026-11-04 (v6.10.0: round 2, item 1 of 3: dirt and snow polish: mud and snow on the screen instead of
+the camera rumble, richer dirt and snow textures, ragged surface changes, dirty and slidier barriers, better brakes on
+loose ground; v6.9.0: feature 9 of 9, the last of the first round: a faster bronze medal, 1.3 × the author time instead of
 1.5 ×; v6.8.0: feature 8, the tracks open one at a time: a bronze or better on a track opens the next; v6.7.0: feature 7, a terminal in Settings and on the `` ` `` key for money, points, cars
 and unlocks; v6.6.0: feature 6, the tightest corners of five old tracks made more forgiving; v6.5.0: feature 5, money and career points from medals and AI opponents, a car shop; v6.4.0: feature 4, three new
 tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI training
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.9.0, all nine features done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.10.0, round 2 item 1 of 3 done (dirt and snow polish); before it all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+
+Round 2 (asked on 2026-11-04, built one at a time in this order): 1. **dirt and snow polish (v6.10.0, done)**,
+2. car upgrades (v6.11.0, next), 3. sound and music (v6.12.0). See [Round 2](#round-2-the-owners-three-new-items).
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -92,6 +97,63 @@ and the Pro (1.24-1.27 ×) between silver and bronze; the menu's level texts say
 track and car). The browser comparison (`tools/medals.gd --js`) checks author, gold and silver only
 (`Medals.WEB_FACTORS` keeps the browser's 1.5 ×). With this, the nine features the owner asked for after the port
 are all done: see [Next](#next-the-owners-nine-features) for what is left open across them.
+v6.10.0 is round 2's item 1, dirt and snow polish. The owner: "instead of shaking the camera on bad terrain add a
+particle or mud\snow overlay to the screen also make the textures for mud and snow more complex / more random. Make
+the change from normal terrain a little prettier than just a straight line. The walls should also be slidier on mud
+and snow make the dirty as well. Improve the brake handling a little as well on bad roads". What it does:
+- **Mud and snow on the screen** (`world/screen_grime.gd`, a CanvasLayer at layer 4 under the interface, made by
+  `modes/play_mode.gd` only on a track with surfaces; shaders `world/shaders/screen_splat.gdshader`, one
+  MultiMeshInstance2D quad per splat, and `screen_film.gdshader`, a full-screen ColorRect): mud splats (metaball
+  lumps with droplets, some with a drip that runs down) and a film of dried mud and specks from the corners and the
+  bottom on dirt; flecks of snow that melt into clear drops and frost from the corners on snow; a few clods or flakes
+  flying past. It builds with speed and sliding (from the surfaces' new look column `grime`, which replaces v6.3's
+  `rumble`: dirt 1, snow 0.85) and with the AI opponent close ahead (`ScreenGrime.ahead_of`: within 28 m, in your lane,
+  at speed on loose ground; the opponent's ghost now throws up dust and snow too, `CarModel` opts `dust`, the best-run
+  ghost stays clean); on asphalt the splats age 3 × faster and slide outward and the film and frost fade (all gone
+  within about 2.5 s). Nothing is ever drawn inside a keep-out ellipse around the middle of the screen (`KEEP_C`,
+  `KEEP_R`: 34 % × 31 % of the screen's width and height as radii): splats are placed and kept outside it, flyers
+  start on its edge and leave, the film and frost stop at it. At most 40 splats and 12 flyers at High, scaled by
+  `CarEffects.spark_share` (12 and 4 at Low). Settings has a new row **Screen dirt and snow** (setting `grime`, on by
+  default, `SaveData.SETTINGS` and `UiData.SETTING_DEFAULTS`; `GameApp` sets `ScreenGrime.enabled`). The camera's
+  ground rumble is gone (`ChaseCamera.ground_rumble` removed); wall hits and scrapes still shake it.
+- **Richer textures**: `Tex.loose()` is now 512 px (R: dirt detail with cracks and clustered rounded pebbles; G: big
+  patches; B: snow detail with glints; A: medium noise) with a normal map from its height; the road shader
+  (`world/shaders/road_surface.gdshader`, rewritten) mixes two samples at different scales and angles by a large
+  noise (no visible tile), drifts the dirt's colour over 50-200 m, and draws procedural wheel ruts (two lanes of two
+  tracks, wandering, stronger in some places than others), damp patches, small dark puddles in the ruts; on snow
+  packed tracks, loose powder at the sides, glints that twinkle with the view (a little emission), glossy ice and
+  bluish hollows; the normals follow (rut walls, flat puddles and ice).
+- **Prettier surface changes**: the road's vertices carry `CUSTOM0` = (lateral fraction, half width, the *wide*
+  weights of surfaces 1 and 2), the wide weights being the surface shares smoothed with a triangle filter over ±10
+  samples (about ±20 m, `TrackMesh.wide_weights()`). The shader's `cover()` puts the 50 % line where mix(wide,
+  physics, 0.35) crosses 0.5, made ragged by big patches, tongues stretched along the road (dirt carried along the wheel
+  tracks, snow drifting in from the edges) and scattered clumps, with a dusty or frosted film on the tarmac round it.
+  The physics blend is unchanged (±2 samples, about 10 m), and the look's middle follows it, so look and feel agree.
+  On asphalt away from any surface (both wide weights 0) the road is exactly the old asphalt.
+- **Dirty barriers**: on a track with surfaces the barriers use `world/shaders/barrier_grime.gdshader`: the plain
+  colours times the detail texture as before, and the vertex alpha says what the road beside them throws at them (0.5
+  nothing, 1 dirt, 0 snow, from the wide weights, so it fades in and out): along dirt dust darkening the lower half,
+  smears and procedural drops of mud, wet mud at the foot, grime streaks from the top; along snow a crust on the top
+  faces, snow piled at the foot, rime and flecks low down, a glossy glaze of ice. All-asphalt tracks keep the plain
+  StandardMaterial3D.
+- **Slidier walls** (physics column `wall`: dirt 0.55, snow 0.45; `sim/car.gd` `_impulse` and `_rub` on loose ground):
+  the linear wall friction of a hit and the rub are scaled, the crush term (the speed going into the wall) is not, so
+  a wall still costs time (`tests/test_sim.gd`: the medal autopilot beats never braking with the Racer on all seven
+  surface tracks).
+- **Better brakes on loose ground** (physics columns `brake`: dirt 1.24, snow 1.28; `abs`: asphalt 0.97, loose 0.9):
+  on loose ground the brake force × `brake`, the rear's longitudinal limit and the front's braking limit are `abs` ×
+  `brake` × the tyre's grip, and a braked front tyre keeps its cornering grip on a friction ellipse (semi-axis `brake`
+  × grip) instead of the circle. The autopilot plans its braking with grip × `brake` × `abs` / 0.97. Every car stops
+  12-14 % shorter from 100 km/h on dirt and 15 % on snow; braking flat out in a 120 m curve from 0.45 g no car spins
+  any more (v6.9.0: five of six on snow, two on dirt). Asphalt is untouched (the `_env_loose` branch), so the eight
+  all-asphalt tracks run bit for bit as before.
+- **FleetSim** mirrors it (`native/src/`: `surf_brake`, `surf_abs`, `surf_wall`, `version()` "trackrush-native 4");
+  all four libraries rebuilt. `Car.PHYSICS_VERSION` stays 3 on purpose: asphalt is unchanged, and on the surface tracks
+  old records and ghosts (which store positions) keep counting against the new medal times.
+- **Knock-on**: medal times of the seven surface tracks worked out again (`tools/medals.gd --update`; the eight
+  asphalt tracks unchanged to the byte), their 42 AI opponents recalibrated (`tools/opponents.gd --tracks=...`) and
+  the Drifter's Forest Rally network retrained (its Elite had fallen to 1.066 × the author time, slower than gold);
+  `--check` reproduces every stored race.
 
 | Area | State | Where |
 | --- | --- | --- |
@@ -112,7 +174,8 @@ are all done: see [Next](#next-the-owners-nine-features) for what is left open a
 | Faster bronze (v6.9.0): `Medals.FACTORS.bronze` 1.3, `Medals.WEB_FACTORS` (the browser's), `tools/medals.gd --factors` (gold / silver / bronze from the stored author times, no sweep) and `--js` comparing only the medals whose factor is the browser's; `data/medals.json`'s bronze times; the AI levels' menu texts | done; the factors, the file, every bronze, a v6.8.0 player whose bronze no longer counts (open tracks and paid rewards kept), the level texts against every track and car are tests; e2e `unlock` takes the new bronze | `sim/medals.gd`, `tools/medals.gd`, `data/medals.json`, `sim/opponents.gd` |
 | Unlocking tracks (v6.8.0): the rule and the claim at the finish, the save file's `career.tracks_open` (with the one-time upgrade from best times), the menu's locked and NEW tiles and lock note, the refusals in the app and on the training screen, the finish panel's line, the terminal's `status` row | done; the rule, stickiness across a medal-time change and a changed track, the upgrade (current and archived times, unknown cars, junk), the flag and the reset, the refusals, Watch / Train on a locked track, the menu and the finish panel are tests; e2e `unlock` | `sim/unlocks.gd`, `sim/save.gd`, `ui/ui_data.gd`, `ui/track_tile.gd`, `ui/main_menu.gd`, `ui/finish_panel.gd`, `ui/widgets.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `game/app.gd`, `game/terminal.gd` |
 | Terminal (v6.7.0): the console screen (log, input, history, Tab), the commands table, the Settings row, the `` ` `` key on the menu and Settings, the save file's tracks flag and career reset | done; every command with good and bad input, Tab, the save effects, the keys that open and close it, `` ` `` in a race are tests; e2e `terminal` | `game/terminal.gd`, `ui/terminal_screen.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/menu_input.gd`, `sim/save.gd` |
-| Tests: headless suite (770 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
+| Tests: headless suite (784 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -208,6 +271,81 @@ on Rookie Oval and Hairpin Valley with the Racer and the Dune, modes 29) and wit
 were not touched (nothing in the simulation changed); the Windows release export was made from a fresh import (no
 errors or warnings; the pack's `data/medals.json` has bronze 1.3) and zipped as `build/TrackRush-6.9.0-windows.zip`
 (not started: no Windows here).
+
+v6.10.0 (2026-11-04): the headless suite passes (784 checks: sim 98, ui 201, world 168, game 166, ai 151; 353 s); the
+end-to-end scenarios pass at 1280 x 720 (surfaces 16 with `gfx=high`; races 108 on Hairpin Valley, Northern Lights
+and Ramp Rally with the Racer and the Dune, settings1 6 + settings2 7, menu 28, modes 29, economy 21 with `gfx=low`);
+all four FleetSim libraries were rebuilt ("trackrush-native 4") and match the GDScript simulation step for step on
+the surface tracks; the medal times of the seven dirt and snow tracks and their AI opponents were redone (`--check`
+reproduces every stored time); the Windows release export was made from a fresh import (no errors or warnings; the
+new shaders and `world/screen_grime.gd` are in the pack) and zipped as `build/TrackRush-6.10.0-windows.zip` (not
+started: no Windows here).
+
+## How v6.10.0 (dirt and snow polish) was verified
+
+- **Brakes** (`tests/test_sim.gd`, against the v6.9.0 distances it keeps as a table, `V69_BRAKE100`;
+  `tools/car_stats.gd --surface=dirt|snow`): 100-0 km/h on dirt 29.8 / 27.3 / 37.7 / 30.0 / 27.4 / 37.2 m (Racer,
+  Kestrel, Thunder, Drifter, Dune, Vortex; v6.9.0 34.0 / 31.2 / 43.0 / 34.8 / 31.2 / 42.4: 12-14 % shorter), on snow
+  36.6 / 32.8 / 47.1 / 34.5 / 28.7 / 47.1 m (43.0 / 38.5 / 55.2 / 40.5 / 33.8 / 55.2: 15 % shorter). The test wants
+  10-20 % on every car and surface, the Dune shortest on snow and within 0.2 m of the shortest on dirt, the Thunder
+  and the Vortex longest. Asphalt is bit for bit as before (`car_stats.gd` on asphalt gives v6.9.0's numbers for all
+  six cars: 30.7 / 27.7 / 33.8 / 33.1 / 31.7 / 28.8 m; the medal times of the eight asphalt tracks are byte for byte
+  the same and the v6.5 medal hashes of the asphalt tracks still match). Braking flat out from 0.45 g in a 120 m
+  curve: in v6.9.0 five of six cars spun on snow and the Thunder and Vortex on dirt; now none, at most 1.7° of
+  sideslip on dirt and 2.5° on snow (a test).
+- **Walls** (`tests/test_sim.gd`): coasting at 108 km/h into a wall at 11° and scraping it for 2 s, the Racer loses
+  11.3 m/s on asphalt (as before), 7.1 on dirt (v6.9.0 10.7) and 5.4 on snow (7.1). Walls still cost time: the medal
+  autopilot's lap against never braking (riding the walls), Racer, one lap: Hairpin Valley 1:21.967 / 1:26.900, Ramp
+  Rally 1:05.950 / 1:09.233, Mountain Pass 1:55.217 / 1:58.283, Canyon Run 1:29.950 / 1:39.300, Forest Rally 1:09.683
+  / 1:11.633, Northern Lights 1:07.650 / 1:07.783 (v6.9.0: +0.433 s, now +0.133 s), Summit Rush 1:49.317 / 1:53.017.
+  With the Vortex and the Thunder never braking is faster on Northern Lights (see Known limitations).
+- **FleetSim** (`tests/test_ai.gd` "FleetSim on dirt and snow: every car", now with Northern Lights): every car over
+  the entries and exits of the loose stretches of Ramp Rally, Hairpin Valley, Mountain Pass and Northern Lights (72
+  drives of 900 steps; 38231 steps with an axle on loose ground, 3962 of them braking, 891 touching a wall) is the
+  same in FleetSim as in GDScript at every step. All four libraries were rebuilt (Linux and Windows, debug and
+  release; `version()` "trackrush-native 4", checked by a test).
+- **Medal times** (`tools/medals.gd --update --jobs=3` for the seven surface tracks): the eight asphalt tracks'
+  entries are unchanged (JSON compared); the new author times (Racer / Kestrel / Thunder / Drifter / Dune / Vortex,
+  against v6.9.0): Hairpin Valley -3.68 / -4.10 / -3.27 / -4.33 / -1.82 / -3.73 s, Ramp Rally -1.48 / -1.57 / -2.57 /
+  -2.17 / +0.03 / -3.87, Mountain Pass -0.70 / -0.12 / -1.27 / -0.50 / -0.05 / -0.98, Canyon Run -0.42 / -0.95 / -1.52
+  / -0.15 / +1.78 / -0.93, Forest Rally -3.45 / -2.33 / -7.73 / -1.35 / +2.00 / -8.28, Northern Lights -2.53 / -1.35 /
+  -6.22 / -0.53 / -0.25 / -9.32, Summit Rush -1.88 / -1.57 / -2.85 / -2.62 / +0.67 / -3.80.
+- **AI opponents** (`tools/opponents.gd levels` for the seven tracks, all six cars): all 42 recalibrated; the
+  Drifter's Forest Rally network was retrained (`--train --retrain`, 80 generations, 3:11.133 against the author's
+  3:14.500) because its Elite came out at 1.066 × the author time, slower than gold. Rookie 1.582-1.618 × the author
+  time, Amateur 1.384-1.415, Pro 1.238-1.261, Expert 1.118-1.143, Elite 0.988-1.021, each level slower than the one
+  above on every track and car; `--check` reproduces every stored time (496 s). Opened tracks and paid rewards are in
+  the save file and nothing touches them (`Car.PHYSICS_VERSION` stays 3, so records and ghosts set before still
+  count).
+- **The screen overlay** (`tests/test_world.gd`, a ScreenGrime fed car poses on Ramp Rally and Hairpin Valley): 3 s on
+  dirt at speed, 20 splats and a film of 0.66; after 2.5 s on asphalt none left and the film at 0.12, nothing at all
+  after 6.5 s; nothing inside the keep-out ellipse at any time; the AI car close ahead raises it (standing on the
+  dirt: no mud; a car 12 m ahead at 108 km/h: 0.82 of its dust, 10 splats; none from a car behind or on asphalt, none
+  from 50 m); Low graphics keeps it at 8 or fewer (cap 12); the setting off draws nothing; 4 s on snow: 21 flecks and
+  frost at 0.65, no mud. The chase camera stays still on dirt at 126 km/h (no rumble) and still shakes on a wall hit.
+  The AI opponent's ghost throws up dust on dirt (19 puffs); the best-run ghost none.
+- **The barriers** (`tests/test_world.gd`): on a surface track they carry the grime shader with the same vertex
+  colours as the track built all-asphalt and the dirt and snow weights in the alpha (Ramp Rally: 30632 vertices dirty;
+  Hairpin Valley: 17248 snowy); an all-asphalt track keeps the plain material.
+- **Settings and jumps** (`tests/test_ui.gd`): the new row is on by default, Enter turns it off and on and emits the
+  setting; the rows below moved one down. Jumps (`tests/test_sim.gd`, every car): the test's slow driver now takes a
+  surface track's grip into account (`Autopilot.basic` with the car's spec), as the Vortex hit a wall on Forest
+  Rally's dirt at 41 m/s with the old one and took off sideways; 240 jumps, no bounce, no spin, at most 28.5° of turn.
+- **End to end** (1280 x 720): `surfaces` with `gfx=high` 16 passed (Ramp Rally with the Dune: 64 dust puffs, 28 mud
+  splats and a film of 0.70 on the dirt, none in the middle, no camera shake; back on asphalt the screen was clean
+  after 22.8 s of real time at the software renderer's frame rate (the overlay's step is capped at 0.1 s a frame, so
+  about 2 s of its time); Hairpin Valley with the Racer: 26 snow puffs, 19 flecks, frost 0.55); `races` 108 passed
+  with `gfx=low` on Hairpin Valley, Northern Lights and Ramp Rally with the Racer and the Dune (every finish equals
+  the new author time to the millisecond, e.g. Hairpin Valley 3:54.500 and 3:48.050); `settings1` 6 + `settings2` 7
+  (the new row turned off, still off after a restart and in the save file); `menu` 28, `modes` 29, `economy` 21. The
+  first `surfaces` run failed only its wait for the clean screen (20 s of real time at about 0.7 frames a second); it
+  now waits up to 120 s and reports the time.
+- **Pictures** (`tests/visual/world_preview.gd`, now with `grime=` and `slip=`, and the e2e shots at 1280 x 720,
+  `gfx=high`, all looked at): the overlay was toned down twice (its first shapes read as leaves and bubbles, the frost
+  as lightning; now metaball lumps with droplets and drips, and a grainy frost haze), the barrier mud went from
+  blotches to drops. `docs/screenshots/screen_mud.png` and `screen_snow.png` are from `scenario=surfaces`;
+  `border_old.png` (v6.9.0, from a copy of that version) and `border_new.png` are `world_preview` from the same camera
+  on Ramp Rally.
 
 ## How v6.9.0 (a faster bronze) was verified
 
@@ -683,7 +821,9 @@ errors or warnings; the pack's `data/medals.json` has bronze 1.3) and zipped as 
   name, usage, help, the method that runs it, the words Tab offers, `wipes` for commands that ask for `confirm`), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
   the road surfaces (`sim/surfaces.gd` `DEFS`: physics and look columns; FleetSim gets the physics columns from
   `Trainer.track_data`, the road shader has colour slots for table entries 1 and 2; v6.4.0 added the optional look
-  column `spray`, the colour of what the tyres throw up), the rewards (`sim/economy.gd` `REWARDS`, `TRACK_STEP`), the
+  column `spray`, the colour of what the tyres throw up; v6.10.0 the physics columns `brake`, `abs` and `wall`, which
+  `Trainer.track_data` passes to FleetSim as `surf_brake` / `surf_abs` / `surf_wall`, and the look column `grime` in
+  place of `rumble`), the rewards (`sim/economy.gd` `REWARDS`, `TRACK_STEP`), the
   car prices (`price` in `sim/cars.gd`; 0 = owned from the start) and the AI levels (`sim/opponents.gd` `LEVELS`:
   id, name, pace, blurb; a new level also needs an `ai-<id>` reward and a `tools/opponents.gd` run).
 - **Road surfaces** are marked in the track designs (`tools/gen_tracks.gd`, turtle `.surface("dirt")` ...
@@ -730,7 +870,8 @@ errors or warnings; the pack's `data/medals.json` has bronze 1.3) and zipped as 
   medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION` (3: track signatures on records and
   scores, the archive; `_migrate` upgrades versions 1 and 2; 4 (v6.5.0): the `career` section, started once from the
   medals held when it is missing), ghost format 3, the track signatures above, FleetSim's
-  `version()` ("trackrush-native 3": road surfaces; 2 scaled the sensors by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
+  `version()` ("trackrush-native 4": v6.10.0's brakes, anti-lock limit and wall friction on loose ground; 3: road
+  surfaces; 2 scaled the sensors by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
   change to the physics, a car, the points, a track or its laps, and `tools/car_stats.gd` after changing a car.
 - **AI networks belong to a car.** `SaveData.load_network(car, slot)` / `save_network(data, car, slot)` keep one
   network per car and slot (`"best"`, the one the player trains; more slots per car can sit beside it, e.g. shipped
@@ -786,6 +927,30 @@ errors or warnings; the pack's `data/medals.json` has bronze 1.3) and zipped as 
   input or interface.
 
 ## Known limitations
+
+- **Dirt and snow polish (v6.10.0)**:
+  - **Northern Lights still rewards riding the walls with some cars.** With the Racer the medal autopilot's lap beats
+    never braking by only 0.13 s there (v6.9.0: 0.43 s; the other six surface tracks 1.9-9.4 s). With the Vortex and
+    the Thunder, never braking was already faster in v6.9.0 (by 1.12 s and 0.17 s a lap) and is more so now (2.43 s
+    and 0.83 s), and on Mountain Pass with the Vortex (1.88 → 2.40 s): its banked snow bowls hold a car that rides the
+    outside wall, and the slidier snow walls (× 0.45) lose it less speed. Lower `wall` for snow towards 0.6-0.7 (then
+    `tools/medals.gd --update` and the opponents) if the owner finds it exploitable.
+  - **On dirt some cars now brake about as well as on asphalt**: the Racer 29.8 m from 100 km/h (asphalt 30.7), the
+    Kestrel 27.3 (27.7), the Drifter 30.0 (33.1), the Dune 27.4 (31.7): the asked-for 10-20 % gain plus the dirt's
+    rolling drag. Snow is still longer than asphalt for every car but the Dune. One number per surface (`brake`).
+  - **The Dune's author times** came out slower on Canyon Run (+1.78 s), Forest Rally (+2.00 s), Summit Rush (+0.67 s)
+    and Ramp Rally (+0.03 s), although it brakes better: its fastest autopilot setting changed; the other cars are
+    0.1-9.3 s faster. Records set before stay (`Car.PHYSICS_VERSION` not bumped) and are judged against the new times.
+  - **The screen overlay was only seen with software rendering**, at 1280 x 720 (cost on a real graphics card not
+    measured: one full-screen pass for the film and frost, only while either is above zero, and up to 52 small quads).
+    It also shows in Watch the AI (the camera follows the AI car there). It is a lens effect, not tied to the 3D view,
+    so it does not react to the camera turning.
+  - **Older pictures of dirt and snow**: `docs/screenshots/dirt.png`, `snow.png`, `forest-rally.png`,
+    `northern-lights.png` and `summit-rush.png` show the dirt and snow textures, borders and barriers before v6.10.0
+    (and an older bronze); `screen_mud.png`, `screen_snow.png` and `border_new.png` show v6.10.0's.
+  - **Snow on white snow is hard to see**: the flecks are shaded blue-grey on their lower right and melt into drops
+    with dark rims so they show, and the frost is a blue-grey haze with white grains; over the sky and trees they read
+    best.
 
 - **Never run on Windows, on a real graphics card or with a real gamepad.** Everything was run on Linux with
   software rendering (llvmpipe) and simulated input. The Windows `.exe` and `.dll` were built and packed but not
@@ -921,6 +1086,27 @@ errors or warnings; the pack's `data/medals.json` has bronze 1.3) and zipped as 
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
 
+## Round 2: the owner's three new items
+
+Asked on 2026-11-04, to be built one at a time in this order, each pushed to GitHub when done. Kept from round 1:
+tracks a player opened stay open (`career.tracks_open`), rewards already paid stay paid, medal times come from
+`tools/medals.gd` with bronze 1.3 × the author time, the AI opponents ship in `data/opponents` (`tools/opponents.gd`
+trains, calibrates and `--check`s them), everything runs locally.
+
+1. **Dirt and snow polish.** **Done in v6.10.0** (see the status above and
+   [How v6.10.0 was verified](#how-v6100-dirt-and-snow-polish-was-verified)). Choices made where the owner gave none:
+   the overlay keeps an oval around the middle of the screen clear and can be switched off in Settings (on by
+   default); the physics blend between surfaces stays about 10 m while the look spreads over about ±20 m; braking on
+   loose ground is 12-15 % shorter; walls along dirt and snow keep 55 % and 45 % of their friction.
+   **Open**: the Known limitations above (Northern Lights and wall riding with the Vortex and Thunder, dirt braking
+   close to asphalt, never seen on a real graphics card).
+2. **Car upgrades (v6.11.0)**: next. Nothing in v6.10.0 is in its way: the brake gain and the anti-lock share are per
+   surface, not per car, so a brake upgrade can scale the car's `brake` force as before; the surface table's physics
+   columns are read through `Surfaces.column()` and FleetSim's track data.
+3. **Sound and music (v6.12.0)**: after that. v6.10.0 has hooks for it: `ScreenGrime.level` (mud, snow) and the
+   surfaces' `grime` say how hard the ground is being thrown up (gravel and snow noise), and the wall scrape still
+   drives `ChaseCamera.rumble`.
+
 ## Next: the owner's nine features
 
 The owner asked for these after the port, in this order. **All nine are done (v6.1.0-v6.9.0)**; what is left open
@@ -1054,7 +1240,7 @@ across them (details in [Known limitations](#known-limitations)):
   track id, not per track version; the terminal is a cheat with no limits; unlocks are generous when upgrading old
   saves; the NEW mark on a just-opened track lives only in memory.
 - **Small known issues**: the menu's side column is 28 px wider while a track with a long surface line is picked;
-  seven README screenshots show an older bronze in the HUD; Technical Trial with the Racer differs from the browser
+  seven README screenshots show an older bronze in the HUD (and five of them the dirt and snow before v6.10.0); Technical Trial with the Racer differs from the browser
   by 1 s (a last-bit difference in a wall-grinding run); terrain noise differs from the browser's.
 - **Waiting for the owner**: a licence for the project (none is chosen; no `LICENSE` file on purpose) and, if wanted,
-  a release on GitHub with `TrackRush-6.9.0-windows.zip` (built locally, not in git).
+  a release on GitHub with `TrackRush-6.10.0-windows.zip` (built locally, not in git).

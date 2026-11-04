@@ -73,39 +73,72 @@ static func asphalt() -> Dictionary:
 	return out
 
 
-## Loose ground for world/shaders/road_surface.gdshader: {map, normal} (256 px, 7 m a tile).
-## map is linear data: R dirt detail (grain, light and dark pebbles), G large soft patches (0..1,
-## the ragged border where the road changes surface), B packed snow detail (fine and bright,
-## a few sparkles); normal: the pebbles and grain (the shader keeps it faint on snow).
+## Loose ground for world/shaders/road_surface.gdshader: {map, normal} (512 px, 7 m a tile).
+## v6.10: richer and less regular. map is linear data:
+##   R dirt detail: layered grain, scattered gravel and pebbles of 2-9 cm (light and dark, each a
+##     rounded stone), fine cracks
+##   G large soft patches (0..1): the shader samples it at several scales for the ragged surface
+##     borders, damp patches, puddles and icy patches, and to hide the tiling
+##   B packed snow detail: soft drifts, fine grain and a few glints (255: the shader makes them sparkle)
+##   A medium noise of its own (0..1): clumps where the surface changes, powder lumps, frost
+## normal: the stones, the grain and the cracks (the shader keeps it faint on snow).
 static func loose() -> Dictionary:
 	if _cache.has("loose"):
 		return _cache["loose"]
-	var S := 256
+	var S := 512
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 31
-	var blot := _noise_image(S, 6.0, 4, 41).get_data()
+	var blot := _noise_image(S, 7.0, 4, 41).get_data()
 	var patch := _noise_image(S, 3.0, 3, 43).get_data()
-	var fine := _noise_image(S, 14.0, 3, 47).get_data()
+	var fine := _noise_image(S, 22.0, 3, 47).get_data()
+	var mid := _noise_image(S, 5.0, 3, 53).get_data()
+	var crack := _noise_image(S, 11.0, 2, 59).get_data()
 	var bpp := blot.size() / (S * S)
-	var cd := PackedByteArray()
-	cd.resize(S * S * 3)
 	var hgt := PackedFloat32Array()
 	hgt.resize(S * S)
+	var dirt := PackedFloat32Array()
+	dirt.resize(S * S)
+	var cd := PackedByteArray()
+	cd.resize(S * S * 4)
 	for k in S * S:
 		var b := 0.5 + (blot[k * bpp] / 255.0 - 0.5) * 0.6
 		var f := fine[k * bpp] / 255.0
+		var cr := absf(crack[k * bpp] / 255.0 - 0.5) # (cracks along the noise's mid line)
 		var grain := rng.randf()
-		var r := rng.randf()
-		var pebble := 1.0 if r < 0.018 else (-1.0 if r < 0.04 else 0.0)
-		var dirt := 0.8 + (b - 0.5) * 0.3 + (grain - 0.5) * 0.16 + pebble * (0.2 if pebble > 0.0 else 0.32)
-		var snow := 0.94 + (f - 0.5) * 0.08 + (grain - 0.5) * 0.04 + (0.06 if rng.randf() < 0.004 else 0.0)
-		cd[k * 3] = clampi(int(dirt * 255.0), 0, 255)
-		cd[k * 3 + 1] = patch[k * bpp]
-		cd[k * 3 + 2] = clampi(int(snow * 255.0), 0, 255)
-		hgt[k] = grain * 0.45 + absf(pebble) * 0.9 + b * 0.5
+		var line := 1.0 - clampf(cr / 0.025, 0.0, 1.0)
+		dirt[k] = 0.8 + (b - 0.5) * 0.34 + (f - 0.5) * 0.12 + (grain - 0.5) * 0.16 - line * 0.12
+		hgt[k] = grain * 0.35 + b * 0.5 + f * 0.25 - line * 0.35
+		var snow := 0.93 + (f - 0.5) * 0.07 + (b - 0.5) * 0.05 + (grain - 0.5) * 0.035
+		cd[k * 4 + 1] = patch[k * bpp]
+		cd[k * 4 + 2] = clampi(int(snow * 254.0), 0, 254)
+		cd[k * 4 + 3] = mid[k * bpp]
+	# gravel and pebbles: rounded stones of 1-4 px radius (most small), light or dark, wrapping at the edges
+	for n in 3400:
+		var cx := rng.randi_range(0, S - 1)
+		var cy := rng.randi_range(0, S - 1)
+		# (in drifts: denser where the medium noise is high, few where it is low)
+		if rng.randf() > smoothstep(0.25, 0.75, mid[(cy * S + cx) * bpp] / 255.0) * 0.9 + 0.1:
+			continue
+		var r := 1.0 + pow(rng.randf(), 2.6) * 3.4
+		var tone := rng.randf_range(0.08, 0.17) if rng.randf() < 0.5 else -rng.randf_range(0.14, 0.27)
+		var ri := ceili(r)
+		for dy in range(-ri, ri + 1):
+			for dx in range(-ri, ri + 1):
+				var d2 := float(dx * dx + dy * dy) / (r * r)
+				if d2 > 1.0:
+					continue
+				var k := posmod(cy + dy, S) * S + posmod(cx + dx, S)
+				var dome := sqrt(1.0 - d2)
+				dirt[k] = lerpf(dirt[k], 0.8 + tone - (0.06 if dx + dy > 0 else -0.04) * dome, 0.85)
+				hgt[k] = maxf(hgt[k], 0.6 + dome * 0.9 * r / 3.0)
+	for k in S * S:
+		cd[k * 4] = clampi(int(dirt[k] * 255.0), 0, 255)
+	# glints in the snow: a few single bright crystals
+	for n in 900:
+		cd[(rng.randi_range(0, S - 1) * S + rng.randi_range(0, S - 1)) * 4 + 2] = 255
 	var nimg := Image.create_from_data(S, S, false, Image.FORMAT_RF, hgt.to_byte_array())
-	nimg.bump_map_to_normal_map(2.0)
-	var out := {"map": _tex(Image.create_from_data(S, S, false, Image.FORMAT_RGB8, cd)), "normal": _tex(nimg)}
+	nimg.bump_map_to_normal_map(3.0)
+	var out := {"map": _tex(Image.create_from_data(S, S, false, Image.FORMAT_RGBA8, cd)), "normal": _tex(nimg)}
 	_cache["loose"] = out
 	return out
 

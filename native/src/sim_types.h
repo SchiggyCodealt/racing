@@ -72,8 +72,8 @@ struct Track {
 	std::vector<double> px, py, pz, tx, tz, nx, nz, hw, bank;
 	std::vector<double> phys_slope, phys_kv; // Car.track_phys()
 	// road surfaces (BuiltTrack.surf_w: surf_n blend weights a sample; empty = all asphalt) and the
-	// surface table's physics columns (sim/surfaces.gd: roll, stiffness, esc)
-	std::vector<double> surf_w, surf_roll, surf_stiff, surf_esc;
+	// surface table's physics columns (sim/surfaces.gd: roll, stiffness, esc; v6.10: brake, abs, wall)
+	std::vector<double> surf_w, surf_roll, surf_stiff, surf_esc, surf_brake, surf_abs, surf_wall;
 	int surf_n = 0;
 	// wall grid (collision.gd WallGrid)
 	double cell = 12.0, min_x = 0.0, min_z = 0.0;
@@ -142,7 +142,8 @@ struct CarState {
 	// the road surface under the axles (car.gd _env_loose ... _env_pk, _mx_*)
 	bool env_loose = false;
 	double env_gf = 1.0, env_gr = 1.0, env_kf = 1.0, env_kr = 1.0, env_rf = 1.0, env_rr = 1.0, env_sesc = 1.0, env_pk = 0.0;
-	double mx_g = 1.0, mx_k = 1.0, mx_r = 1.0, mx_e = 1.0;
+	double env_bk = 1.0, env_abs = 0.97, env_wall = 1.0; // (v6.10) brakes, ABS share, wall friction
+	double mx_g = 1.0, mx_k = 1.0, mx_r = 1.0, mx_e = 1.0, mx_b = 1.0, mx_a = 0.97, mx_w = 1.0;
 	bool mx_pure = true;
 	// scratch (car.gd _loc, _contact, _att_pitch, _att_roll)
 	Loc loc;

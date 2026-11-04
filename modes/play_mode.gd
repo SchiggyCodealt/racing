@@ -84,6 +84,8 @@ var model: CarModel
 var ghost_model: CarModel = null
 var pb_model: CarModel = null
 var camera: ChaseCamera
+## (v6.10) mud and snow on the screen (a track with dirt or snow only)
+var grime: ScreenGrime = null
 
 # the run
 var car: Car
@@ -150,7 +152,7 @@ func enter() -> void:
 	model = CarModel.new(car_def.id)
 	world.add_child(model)
 	if with_ghost:
-		ghost_model = CarModel.new(ai_def.id, {"ghost": true, "color": AI_GHOST_COLOR})
+		ghost_model = CarModel.new(ai_def.id, {"ghost": true, "color": AI_GHOST_COLOR, "dust": true})
 		world.add_child(ghost_model)
 	elif driver == "human":
 		# your best run on this track with this car (if there is one yet), drawn as that car
@@ -163,6 +165,9 @@ func enter() -> void:
 	camera.set_track(track)
 	world.add_child(camera)
 	camera.make_current()
+	if track.has_surfaces():
+		grime = ScreenGrime.new(track)
+		world.add_child(grime)
 	_enter_view()
 	var hud := app.ui.hud
 	var cname: String = car_def.name
@@ -200,7 +205,7 @@ func _enter_view() -> void:
 
 
 func exit() -> void:
-	for n: Node in [model, ghost_model, pb_model, camera]:
+	for n: Node in [model, ghost_model, pb_model, camera, grime]:
 		if n != null and is_instance_valid(n):
 			n.queue_free()
 	_exit_view()
@@ -246,7 +251,11 @@ func restart() -> void:
 	_restart_view()
 	_save_prev()
 	model.reset_effects()
+	if ghost_model != null:
+		ghost_model.reset_effects() # (its dust, v6.10)
 	camera.snap(car, track)
+	if grime != null:
+		grime.clear()
 	_update_gates(true)
 
 
@@ -267,6 +276,8 @@ func respawn(standing: bool = false) -> void:
 	watch = _new_watch(car, race.time)
 	_save_prev()
 	camera.snap(car, track)
+	if grime != null:
+		grime.clear()
 
 
 func update(dt: float) -> void:
@@ -582,6 +593,12 @@ func render(dt: float, alpha: float) -> void:
 			pb_model.set_fade(CarModel.ghost_fade(Vector3(pp.x, pp.y, pp.z), at, cam, true))
 		else:
 			pb_model.set_fade(0.0)
+	if grime != null:
+		# mud and snow on the screen: from the car the camera follows and the AI car close ahead
+		var ahead := Vector2.ZERO
+		if not ghost.is_empty():
+			ahead = ScreenGrime.ahead_of(view, ghost_model.pose, track)
+		grime.update(dt, view, track, ahead)
 	_render_view(view)
 
 	# HUD

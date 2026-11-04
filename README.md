@@ -35,6 +35,14 @@ track (see [Unlocking tracks](#unlocking-tracks)).
 Version 6.9.0 makes the bronze medal faster: 1.3 × the author time instead of 1.5 × (2:39 instead of 3:03 for the
 Racer on Rookie Oval). Tracks you have opened stay open and rewards already paid stay paid (see [Medals](#medals)).
 With it, all nine features the owner asked for after the port are done.
+Version 6.10.0 polishes dirt and snow: instead of shaking the camera, loose ground now splashes **mud and snow onto the
+screen** (round the edges, never over the middle; it slides off on asphalt, and Settings can turn it off); the dirt
+and snow roads have **richer, less repetitive textures** (wheel ruts, puddles, pebbles, packed tracks, powder, ice,
+glints); the **change from asphalt to dirt or snow is ragged and spread out** instead of a straight line; the
+**barriers get dirty** along dirt and crusted with snow and ice along snow, and are **slidier** there; and the **brakes
+work better on loose ground** (10-15 % shorter stops, no more spins when braking in a curve). The medal times and AI
+opponents of the seven dirt and snow tracks are new; the other eight tracks are unchanged (see
+[Road surfaces](#road-surfaces)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -48,7 +56,7 @@ With it, all nine features the owner asked for after the port are done.
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.9.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.10.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -404,8 +412,8 @@ it doesn't depend on the frame rate, and an AI trained at Max speed drives exact
 
 Most of the road is asphalt. Since version 6.3.0 four tracks also have stretches of **dirt** and **packed snow**, and
 the three tracks of version 6.4.0 are mostly dirt or snow.
-You see them coming: a brown gravel road or a white one of packed snow, with a ragged edge where it meets the asphalt,
-no painted lines or kerbs, and dusty or snow-capped barriers alongside. You also feel them:
+You see them coming: a brown gravel road or a white one of packed snow, no painted lines or kerbs, and muddy or
+snow-crusted barriers alongside. You also feel them:
 
 | The Dune throwing up dust on Ramp Rally's dirt | The Racer sliding on Hairpin Valley's packed snow |
 | --- | --- |
@@ -417,6 +425,9 @@ no painted lines or kerbs, and dusty or snow-capped barriers alongside. You also
 | Dirt | 55-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Forest Rally (88 % of a lap), Ramp Rally (47 %), Summit Rush (30 %), Canyon Run (14 %), Mountain Pass (11 %) |
 | Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Northern Lights (79 %), Hairpin Valley (27 %), Summit Rush (21 %), Mountain Pass (19 %) |
 
+Since version 6.10.0 the brakes do more on loose ground (dirt × 1.24, snow × 1.28) with a gentler anti-lock limit, and
+the barriers along it are slidier (wall friction × 0.55 on dirt, × 0.45 on snow).
+
 How the physics handles it (`sim/surfaces.gd` holds the table, `sim/car.gd` uses it):
 
 - Each car keeps **its own share of its grip** on each surface, for cornering, braking and traction alike. The Dune's
@@ -426,17 +437,30 @@ How the physics handles it (`sim/surfaces.gd` holds the table, `sim/car.gd` uses
 - **Rolling resistance** is higher, so the top speed and the acceleration drop a little.
 - The front and rear tyres each feel the road under them, and the change from one surface to the next is **blended
   over about 10 m**: the grip never jumps, and on the way onto dirt the front tyres lose grip a moment before the rear.
+- **Brakes on loose ground (version 6.10.0).** Braking used to lock up and run wide there: in a curve most cars spun
+  when braking hard on snow. Now the brakes press harder (× 1.24 on dirt, × 1.28 on snow) while an anti-lock limit
+  keeps the tyres just short of locking (90 % of their grip instead of 97 %), and a braked front tyre keeps more of
+  its cornering grip (a friction ellipse instead of a circle). Every car stops 12-14 % shorter from 100 km/h on dirt
+  and 15 % shorter on snow, and braking flat out in a 120 m curve from 0.45 g leaves at most 2.5° of sideslip. The
+  cars keep their order: the Dune stops shortest on snow and, with the Kestrel, on dirt; the Thunder and Vortex
+  longest. On dirt the Racer, Kestrel, Drifter and Dune now stop about as short as on asphalt (the dirt's rolling drag
+  helps the brakes); snow is still longer for every car but the Dune.
+- **Walls along loose ground (version 6.10.0)** are slidier: the friction of a wall hit and of rubbing along it is ×
+  0.55 on dirt and × 0.45 on snow (the speed going into the wall still goes). Scraping a wall at 108 km/h for 2 s, the
+  Racer loses 11.3 m/s on asphalt, 7.1 on dirt and 5.4 on snow. Walls still cost time: the medal autopilot's lap beats
+  never braking (riding the walls) on every dirt and snow track with the Racer (see Known limits in `HANDOFF.md` for
+  the Vortex and Thunder on Northern Lights).
 
 What that does to each car (measured with `tools/car_stats.gd --surface=dirt` and `--surface=snow`):
 
 | Car | Grip kept on dirt / snow | 100-0 km/h: asphalt / dirt / snow | Cornering grip on a 30 m circle: asphalt / dirt / snow | Top speed: dirt / snow (asphalt) | Drift held on dirt / snow |
 | --- | --- | --- | --- | --- | --- |
-| Racer | 70 % / 55 % | 30.7 / 34.0 / 43.0 m | 1.68 / 1.15 / 0.91 g | 266.7 / 271.1 km/h (277.7) | 1.08 / 1.47 s |
-| Kestrel | 72 % / 58 % | 27.7 / 31.2 / 38.4 m | 1.78 / 1.26 / 1.02 g | 225.9 / 227.6 km/h (230.2) | 0.93 / 1.13 s |
-| Thunder | 62 % / 48 % | 33.8 / 43.0 / 55.3 m | 1.47 / 0.90 / 0.68 g | 294.0 / 301.3 km/h (312.7) | 2.42 / 0.90 s |
-| Drifter | 74 % / 60 % | 33.1 / 34.7 / 40.5 m | 1.59 / 1.15 / 0.93 g | 256.7 / 259.7 km/h (264.3) | 2.95 / 4.00 s |
-| Dune | 97 % / 72 % | 31.7 / 31.2 / 33.8 m | 1.71 / 1.63 / 1.21 g | 217.6 / 219.5 km/h (222.4) | 0.58 / 0.63 s |
-| Vortex | 55 % / 42 % | 28.8 / 42.4 / 55.2 m | 1.68 / 0.89 / 0.67 g | 315.8 / 320.3 km/h (321.4) | 3.10 / 3.35 s |
+| Racer | 70 % / 55 % | 30.7 / 29.8 / 36.6 m (6.9.0: 34.0 / 43.0) | 1.68 / 1.15 / 0.91 g | 266.7 / 271.1 km/h (277.7) | 1.08 / 1.47 s |
+| Kestrel | 72 % / 58 % | 27.7 / 27.3 / 32.8 m (31.2 / 38.5) | 1.78 / 1.26 / 1.02 g | 225.9 / 227.6 km/h (230.2) | 0.93 / 1.13 s |
+| Thunder | 62 % / 48 % | 33.8 / 37.7 / 47.1 m (43.0 / 55.2) | 1.47 / 0.90 / 0.68 g | 294.0 / 301.3 km/h (312.7) | 2.42 / 0.90 s |
+| Drifter | 74 % / 60 % | 33.1 / 30.0 / 34.5 m (34.8 / 40.5) | 1.59 / 1.15 / 0.93 g | 256.7 / 259.7 km/h (264.3) | 2.95 / 4.00 s |
+| Dune | 97 % / 72 % | 31.7 / 27.4 / 28.7 m (31.2 / 33.8) | 1.71 / 1.63 / 1.21 g | 217.6 / 219.5 km/h (222.4) | 0.58 / 0.63 s |
+| Vortex | 55 % / 42 % | 28.8 / 37.2 / 47.1 m (42.4 / 55.2) | 1.68 / 0.89 / 0.67 g | 315.8 / 320.3 km/h (321.4) | 3.10 / 3.35 s |
 
 Why these tracks:
 
@@ -450,9 +474,40 @@ Why these tracks:
 
 The three tracks of version 6.4.0 were made for the surfaces: see [Tracks](#tracks). The other eight tracks are all
 asphalt and unchanged. On loose ground the tyres throw up **dust** on dirt and **snow spray** (blue-grey, so it shows
-on the white road) on snow (more when you slide; fewer particles at Medium and Low graphics), leave **tyre tracks in the colour of
-the surface** (faint ones even without sliding), and the camera **rumbles** a little on dirt (less on snow). The
+on the white road) on snow (more when you slide; fewer particles at Medium and Low graphics; the AI opponent you race
+throws them up too), leave **tyre tracks in the colour of the surface** (faint ones even without sliding). The
 menu's track panel names a track's surfaces ("Circuit · 3 laps · 2.37 km a lap · Asphalt + dirt").
+
+**How they look (version 6.10.0).**
+
+- **Mud and snow on the screen.** On dirt, splats of mud hit the screen (some run down in a drip) and a film of dried
+  mud and specks creeps in from the corners and the bottom; on snow, flecks of snow land and melt into clear drops and
+  frost grows in from the corners; a few clods or flakes fly past close to the camera. It builds up with speed, with
+  sliding and when you follow the AI car close behind on loose ground, and on asphalt it slides off and fades within
+  about two seconds. It always stays out of an oval around the middle of the screen, so the road ahead stays clear;
+  there are fewer splats at lower graphics quality, and **Screen dirt and snow** in [Settings](#settings) turns it off.
+  (It replaces version 6.3's camera rumble on loose ground; hitting or scraping a wall still shakes the camera.)
+- **The roads.** Dirt has two worn wheel ruts in each lane (darker and packed, fewer stones), damp patches, small dark
+  puddles in the ruts, pebbles and cracks, and a colour that drifts over 50-200 m; snow has packed grey tyre tracks in
+  the lanes, loose white powder at the sides, glints that twinkle as you move, glossy blue-grey ice in places and
+  bluish shade in the hollows. The detail is mixed from two samples at different scales and angles, so no tile repeats
+  at driving height.
+- **Where the surface changes** the road is no longer cut by a straight line: the dirt reaches onto the asphalt in big
+  ragged patches and tongues carried along the wheel tracks, snow drifts in from the edges, scattered clumps lie a
+  little before and after, and the tarmac next to it is dusty or frosted. The look spreads over about ±20 m while the
+  grip still changes over about 10 m, and the middle of the look's change follows the grip's, so what you see and what
+  you feel agree.
+- **The barriers** along dirt are darker low down with smears and drops of mud, wet mud at the foot and grime
+  streaks running down; along snow they have a crust of snow on top, snow piled at the foot, rime and flecks of snow
+  low down and a glossy glaze of ice in places. It fades in and out with the surface.
+
+| Mud on the screen on Ramp Rally | Snow and frost on Hairpin Valley |
+| --- | --- |
+| ![The Dune at 145 km/h on Ramp Rally's rutted, pebbly dirt between muddy barriers, splats and specks of mud round the edges of the screen and clods flying past, the middle clear](docs/screenshots/screen_mud.png) | ![The Racer on Hairpin Valley's packed snow with flecks of snow and melting drops round the edges of the screen and a haze of frost in its top corners](docs/screenshots/screen_snow.png) |
+
+| The change onto dirt, version 6.9.0 | The same spot in version 6.10.0 |
+| --- | --- |
+| ![Ramp Rally: the asphalt ends at a straight line across the road and the dirt begins](docs/screenshots/border_old.png) | ![Ramp Rally: tongues and patches of dirt reach onto the asphalt along the wheel tracks, dusty tarmac round them](docs/screenshots/border_new.png) |
 
 The four tracks are **new versions** of themselves: best times, best scores and ghosts set on them before 6.3.0 no
 longer count (the menu shows none and the medals are new), and so do the AI's best laps there. They are not deleted:
@@ -465,6 +520,24 @@ old all-asphalt ones:
 | Ramp Rally (dirt) | +13.22 s | +9.32 s | +19.40 s | +11.90 s | +1.77 s | +28.95 s |
 | Mountain Pass (dirt and snow) | +5.58 s | +4.08 s | +7.37 s | +4.77 s | +1.60 s | +8.80 s |
 | Canyon Run (dirt) | +8.62 s | +7.95 s | +6.65 s | +9.25 s | +0.77 s | +14.23 s |
+
+**Version 6.10.0** changed the brakes and walls on loose ground, so the medal times of the seven dirt and snow tracks
+were worked out again (`tools/medals.gd --update`; the eight asphalt tracks keep theirs to the millisecond) and their
+AI opponents recalibrated. Best times, scores and ghosts set before stay (a record set under the old brakes may be a
+little easier or harder to beat now), and so do tracks opened and rewards paid. The author times, against 6.9.0:
+
+| Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
+| --- | --- | --- | --- | --- | --- | --- |
+| Hairpin Valley | -3.68 s | -4.10 s | -3.27 s | -4.33 s | -1.82 s | -3.73 s |
+| Ramp Rally | -1.48 s | -1.57 s | -2.57 s | -2.17 s | +0.03 s | -3.87 s |
+| Mountain Pass | -0.70 s | -0.12 s | -1.27 s | -0.50 s | -0.05 s | -0.98 s |
+| Canyon Run | -0.42 s | -0.95 s | -1.52 s | -0.15 s | +1.78 s | -0.93 s |
+| Forest Rally | -3.45 s | -2.33 s | -7.73 s | -1.35 s | +2.00 s | -8.28 s |
+| Northern Lights | -2.53 s | -1.35 s | -6.22 s | -0.53 s | -0.25 s | -9.32 s |
+| Summit Rush | -1.88 s | -1.57 s | -2.85 s | -2.62 s | +0.67 s | -3.80 s |
+
+(Mostly faster: braking later and sliding along walls saves time. The Dune, which already braked best on loose
+ground, gains little, and its fastest autopilot run came out up to 2 s slower on four tracks.)
 
 ### Tracks
 
@@ -665,6 +738,7 @@ The **Settings** screen (the button in the menu's header, or **O**) has:
 | Setting | Choices | What it does |
 | --- | --- | --- |
 | Graphics quality | High (default) / Low | **High** starts with everything on and steps down to medium and then low by itself when frames get slow. **Low** stays low: less scenery, fewer sparks and shorter nitro trails, no scenery shadows or grass, and a lower rendering resolution. |
+| Screen dirt and snow | On (default) / Off | (Version 6.10.0) On dirt and snow, mud and snow splash onto the screen around its edges (never over the middle) and slide off on asphalt. Off: a clean screen. |
 | Fullscreen | On / Off | Fill the whole screen instead of a window. |
 | Vertical sync | On (default) / Off | Match the monitor's refresh rate: no tearing, a little more input lag. |
 | Interface size | Auto (default), 100 %-200 % | The size of the menus and the HUD. Auto: 100 % up to 1920x1080, bigger on larger screens. |
@@ -755,7 +829,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.9.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.10.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -778,7 +852,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 | Command | What it does |
 | --- | --- |
 | `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |

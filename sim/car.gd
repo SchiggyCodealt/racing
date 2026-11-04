@@ -27,6 +27,9 @@ extends RefCounted
 ##     builds with slip (and the steering lock that matches it), the rolling
 ##     resistance grows and the ESC can do less. Pure asphalt under both axles
 ##     skips all of it, so all-asphalt tracks run the v6.2 physics bit for bit.
+##     v6.10: the brakes do more there (the surface's "brake": force and braking grip),
+##     the ABS keeps part of the front's grip for steering ("abs", a friction ellipse
+##     while braking), and the walls are slipperier ("wall" × the wall friction and rub).
 ##  7. Nitro: ctrl.nitro (0..1) burns the tank on the ground in a forward gear,
 ##     not braking, no handbrake; opens the throttle at least that far and adds
 ##     min(nitro_force, nitro_power / speed) of push, fading out below nitro_top.
@@ -192,10 +195,16 @@ var _env_rf: float = 1.0     # rolling resistance factor, front / rear
 var _env_rr: float = 1.0
 var _env_sesc: float = 1.0   # share of the ESC moment left
 var _env_pk: float = 0.0     # front slip angle at the tyre's peak on this surface (the lock's allowance)
+var _env_bk: float = 1.0     # (v6.10) brakes × this (force and braking grip), both axles' mean
+var _env_abs: float = 0.97   # (v6.10) share of the braking grip the ABS uses
+var _env_wall: float = 1.0   # (v6.10) wall friction × this
 var _mx_g: float = 1.0       # _axle_mix results
 var _mx_k: float = 1.0
 var _mx_r: float = 1.0
 var _mx_e: float = 1.0
+var _mx_b: float = 1.0
+var _mx_a: float = 0.97
+var _mx_w: float = 1.0
 var _mx_pure: bool = true
 # scratch (the JS module's `scratch`, `contact`, `attTmp`), one per car
 var _loc: Collision.Loc = Collision.Loc.new()
@@ -471,6 +480,9 @@ static func _box(src: PackedFloat32Array, dst: PackedFloat32Array, r: int, close
 static var _S_ROLL: PackedFloat64Array = Surfaces.column("roll")
 static var _S_STIFF: PackedFloat64Array = Surfaces.column("stiffness")
 static var _S_ESC: PackedFloat64Array = Surfaces.column("esc")
+static var _S_BRAKE: PackedFloat64Array = Surfaces.column("brake")
+static var _S_ABS: PackedFloat64Array = Surfaces.column("abs")
+static var _S_WALL: PackedFloat64Array = Surfaces.column("wall")
 
 
 ## The surface blend under both axles (v6.3): front axle cg_to_front ahead of the car's
@@ -487,6 +499,9 @@ func _surface_mix(P: CarSpec, track: BuiltTrack) -> void:
 	_env_kf = _mx_k
 	_env_rf = _mx_r
 	var esc_f: float = _mx_e
+	var bk_f: float = _mx_b
+	var abs_f: float = _mx_a
+	var wall_f: float = _mx_w
 	_axle_mix(P, track, p0 - (P.cg_to_rear * cos_t) / track.seg_len)
 	if pure_f and _mx_pure:
 		return
@@ -496,10 +511,14 @@ func _surface_mix(P: CarSpec, track: BuiltTrack) -> void:
 	_env_rr = _mx_r
 	_env_sesc = (esc_f + _mx_e) * 0.5
 	_env_pk = atan((P.peak_slip / _env_kf) * P.steer_slip_gain)
+	_env_bk = (bk_f + _mx_b) * 0.5
+	_env_abs = (abs_f + _mx_a) * 0.5
+	_env_wall = (wall_f + _mx_w) * 0.5
 
 
 ## Blend of the surfaces at fractional sample p (into _mx_*): the car's grip share, stiffness,
-## rolling resistance and ESC share, each the weights × the surface's number.
+## rolling resistance, ESC share and (v6.10) brakes, ABS share and wall friction, each the
+## weights × the surface's number.
 func _axle_mix(P: CarSpec, track: BuiltTrack, p: float) -> void:
 	var n: int = track.count
 	var k: int
@@ -526,6 +545,9 @@ func _axle_mix(P: CarSpec, track: BuiltTrack, p: float) -> void:
 	var st: float = 0.0
 	var r: float = 0.0
 	var e: float = 0.0
+	var bk: float = 0.0
+	var ab: float = 0.0
+	var wl: float = 0.0
 	var a0: float = 0.0
 	for s in S:
 		var wa: float = W[k * S + s]
@@ -536,11 +558,17 @@ func _axle_mix(P: CarSpec, track: BuiltTrack, p: float) -> void:
 		st += w * _S_STIFF[s]
 		r += w * _S_ROLL[s]
 		e += w * _S_ESC[s]
+		bk += w * _S_BRAKE[s]
+		ab += w * _S_ABS[s]
+		wl += w * _S_WALL[s]
 	_mx_pure = a0 == 1.0
 	_mx_g = g
 	_mx_k = st
 	_mx_r = r
 	_mx_e = e
+	_mx_b = bk
+	_mx_a = ab
+	_mx_w = wl
 
 
 func _surface_env(track: BuiltTrack) -> void:
@@ -758,6 +786,8 @@ func _planar_step(P: CarSpec, h: float) -> void:
 
 	# --- longitudinal tyre forces --------------------------------------------
 	var brake: float = _env_brake
+	if loose:
+		brake *= _env_bk # (v6.10) the brakes do more on loose ground
 	if brake > stop_f * 0.9:
 		brake = stop_f * 0.9
 	var hb: float = _env_hb # handbrake lever 0..1
@@ -785,6 +815,9 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	else:
 		var fy_prev: float = absf(_fyr) if absf(_fyr) < cap_r else cap_r
 		var long_cap: float = 0.97 * sqrt(cap_r * cap_r - fy_prev * fy_prev)
+		if loose and brake > 0.0:
+			# (v6.10) braking on loose ground: more braking grip, the ABS's share of it
+			long_cap = _env_abs * _env_bk * sqrt(cap_r * cap_r - fy_prev * fy_prev)
 		var want: float = drive_r - brake * (1.0 - P.brake_front) * sgn_u
 		var sliding: bool = absf(_slip_r) > P.peak_slip * P.slide_drive
 		if sliding and want > 0.0:
@@ -803,12 +836,20 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	# Front: driving/braking has priority, cornering gets what is left.
 	var fx_f: float = drive_f - brake * P.brake_front * sgn_u
 	var fx_cap_f: float = 0.97 * cap_f
+	var ellipse: bool = loose and brake > 0.0
+	if ellipse:
+		# (v6.10) braking on loose ground: the braking grip is × _env_bk, the ABS uses its share of
+		# it and the cornering grip left follows an ellipse (less lock-up: the car still turns)
+		fx_cap_f = _env_abs * _env_bk * cap_f
 	if fx_f > fx_cap_f:
 		tc_cut = maxf(tc_cut, (fx_f - fx_cap_f) / (absf(_env_drive) + 1.0))
 		fx_f = fx_cap_f
 	elif fx_f < -fx_cap_f:
 		fx_f = -fx_cap_f
 	var fy_cap_f: float = sqrt(maxf(0.0, cap_f * cap_f - fx_f * fx_f))
+	if ellipse:
+		var q: float = fx_f / (_env_bk * cap_f)
+		fy_cap_f = cap_f * sqrt(maxf(0.0, 1.0 - q * q))
 	_tc_cut = tc_cut
 
 	# --- steering angle --------------------------------------------------------
@@ -1076,6 +1117,8 @@ func _rub(P: CarSpec, h: float) -> void:
 	var tvz: float = vz - vn * nz
 	_rub_t = minf(P.wall_rub_build, _rub_t + h)
 	var k: float = P.wall_rub * h * (_rub_t / P.wall_rub_build if P.wall_rub_build > 0.0 else 1.0)
+	if _env_loose:
+		k *= _env_wall # (v6.10) slipperier walls along dirt and snow
 	vx -= tvx * k
 	vz -= tvz * k
 
@@ -1106,6 +1149,9 @@ func _impulse(P: CarSpec, dx: float, dz: float, nx: float, nz: float, h: float) 
 		var vt: float = sqrt(tvx * tvx + tvz * tvz)
 		if vt > 1e-6:
 			var dv: float = (P.wall_friction + P.wall_crush * jn) * jn
+			if _env_loose:
+				# (v6.10) slipperier walls along dirt and snow: less friction, the hard hit's crush as before
+				dv = (P.wall_friction * _env_wall + P.wall_crush * jn) * jn
 			# slow sliding: the friction fades out, so a car pressed nose-in slides off
 			if vt < P.wall_slide:
 				dv *= vt / P.wall_slide

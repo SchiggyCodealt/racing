@@ -99,6 +99,13 @@ const WEB_V3_STATES: Dictionary = {
 	],
 }
 
+## 100-0 km/h stopping distances (m) of v6.9.0 on dirt and snow (tools/car_stats.gd --surface):
+## v6.10's loose-ground brakes are measured against them.
+const V69_BRAKE100: Dictionary = {
+	"dirt": {"racer": 33.98, "kestrel": 31.16, "thunder": 42.96, "drifter": 34.75, "dune": 31.25, "vortex": 42.41},
+	"snow": {"racer": 42.99, "kestrel": 38.45, "thunder": 55.25, "drifter": 40.54, "dune": 33.75, "vortex": 55.22},
+}
+
 var t: Variant # the runner's Checker: t.check(ok, msg), t.section(title)
 var tracks: Array[BuiltTrack] = []
 var _seed: int = 0
@@ -319,7 +326,13 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	# medal times: the kept tracks' unchanged (data/medals.json), the reworked and v6.4 ones for every car
 	var md: Dictionary = Medals.data().get("tracks", {})
 	var kept_ok: bool = true
+	var kept_n: int = 0
 	for id: String in V65_KEPT:
+		# (v6.10 changed the brakes and walls on dirt and snow: those tracks have new medal times,
+		# so only the all-asphalt ones are compared)
+		if by_id(id).has_surfaces():
+			continue
+		kept_n += 1
 		# (v6.9.0 made bronze 1.3 × the author time: the hash is of v6.5's entry, whose bronze was
 		# 1.5 ×, so that bronze is put back first; everything else is compared as it is)
 		var entry: Dictionary = (md.get(id, {}) as Dictionary).duplicate(true)
@@ -333,8 +346,8 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 			var m: Dictionary = Medals.medal_times(by_id(id), c)
 			new_ok = new_ok and not m.is_empty() and is_equal_approx(float(m.bronze), float(Medals.medal_set(float(m.author)).bronze))
 	t.check(kept_ok and new_ok,
-		"medal times: the %d kept tracks keep theirs bit for bit (author, gold, silver, the run; bronze as v6.5 had it at 1.5 ×); every track has them for all %d cars on the current version of the track (bronze = %s × the author time, rounded up, as everywhere)" % [
-			V65_KEPT.size(), Cars.ids().size(), JsMath.num_to_js(float(Medals.data().get("factors", {}).get("bronze", 0.0)))])
+		"medal times: the %d kept all-asphalt tracks keep theirs bit for bit (author, gold, silver, the run; bronze as v6.5 had it at 1.5 ×); every track has them for all %d cars on the current version of the track (bronze = %s × the author time, rounded up, as everywhere)" % [
+			kept_n, Cars.ids().size(), JsMath.num_to_js(float(Medals.data().get("factors", {}).get("bronze", 0.0)))])
 	# menu order, difficulty, surfaces, race type, themes
 	var old_themes: Dictionary = {}
 	for i in 12:
@@ -688,7 +701,9 @@ func _surfaces() -> void:
 			turn["%s %s" % [id, sid]] = CarStats.skidpad(Cars.spec(id), 30.0)
 	CarStats.surface = "asphalt"
 	var rs: Dictionary = Cars.get_car("racer").stats
-	ok = brake["racer dirt"] > brake["racer asphalt"] and brake["racer snow"] > brake["racer dirt"] and \
+	# (v6.10: the loose-ground brakes and the dirt's rolling drag stop the Racer about as short on
+	# dirt as on asphalt; snow is still longer)
+	ok = brake["racer dirt"] > brake["racer asphalt"] * 0.95 and brake["racer snow"] > brake["racer dirt"] and \
 		brake["vortex snow"] / brake["vortex asphalt"] > brake["dune snow"] / brake["dune asphalt"] and \
 		brake["vortex dirt"] / brake["vortex asphalt"] > brake["dune dirt"] / brake["dune asphalt"] and \
 		turn["dune dirt"] > turn["vortex dirt"] + 0.4 and absf(float(Cars.get_car("dune").stats.grip) - float(Cars.get_car("vortex").stats.grip)) < 0.1 and \
@@ -696,6 +711,48 @@ func _surfaces() -> void:
 	t.check(ok, "100-0 km/h: the racer stops in %.1f m on asphalt, %.1f on dirt, %.1f on snow; the Dune %.1f / %.1f / %.1f, the Vortex %.1f / %.1f / %.1f. Fastest 30 m turn on dirt: Dune %.2f g, Vortex %.2f g (on asphalt both about %.2f g)" % [
 		brake["racer asphalt"], brake["racer dirt"], brake["racer snow"], brake["dune asphalt"], brake["dune dirt"], brake["dune snow"],
 		brake["vortex asphalt"], brake["vortex dirt"], brake["vortex snow"], turn["dune dirt"], turn["vortex dirt"], float(rs.grip)])
+
+	# (v6.10) better brakes on loose ground: every car stops 10-20 % shorter from 100 km/h on dirt
+	# and snow than in v6.9.0 (V69_BRAKE100), the cars keep their order (the Dune best on snow, as
+	# good as the best on dirt, the Thunder and the Vortex last), and braking hard in a 120 m curve
+	# from 0.45 g no longer spins a car (a little sideslip at most)
+	var lines_b: PackedStringArray = []
+	var curve_b: PackedStringArray = []
+	ok = true
+	for sid: String in ["dirt", "snow"]:
+		CarStats.surface = sid
+		var d: Dictionary = {}
+		var worst_beta: float = 0.0
+		for id: String in Cars.ids():
+			d[id] = CarStats.brake100(Cars.spec(id))
+			var old: float = float(V69_BRAKE100[sid][id])
+			var cut: float = 1.0 - float(d[id]) / old
+			ok = ok and cut >= 0.1 and cut <= 0.2
+			lines_b.append("%s %s %.1f m (%.1f, -%d %%)" % [id, sid, d[id], old, roundi(cut * 100.0)])
+			var cb: Dictionary = _curve_brake(Cars.spec(id), 120.0, 4.5)
+			ok = ok and not cb.spun and cb.beta < 5.0 and cb.wall == 0
+			worst_beta = maxf(worst_beta, cb.beta)
+		var order: Array = Cars.ids().duplicate()
+		order.sort_custom(func(x: String, y: String) -> bool: return float(d[x]) < float(d[y]))
+		var best: float = float(d[order[0]])
+		ok = ok and float(d.dune) <= best + 0.2 and order.slice(4).has("thunder") and order.slice(4).has("vortex")
+		if sid == "snow":
+			ok = ok and order[0] == "dune"
+		curve_b.append("%s at most %.1f°" % [sid, worst_beta])
+	CarStats.surface = "asphalt"
+	t.check(ok, "v6.10 brakes on loose ground: %s; braking hard in a 120 m curve from 0.45 g, no car spins (sideslip %s)" % [
+		", ".join(lines_b), ", ".join(curve_b)])
+
+	# (v6.10) slidier walls on loose ground: the Racer coasting at 108 km/h into a wall at 11°
+	# (the stats road) loses less speed along it on dirt and less again on snow; asphalt as before
+	var lost: Dictionary = {}
+	for sid: String in ["asphalt", "dirt", "snow"]:
+		CarStats.surface = sid
+		lost[sid] = _scrape(Cars.default_spec(), 30.0, 0.2)
+	CarStats.surface = "asphalt"
+	t.check(lost.snow.x < lost.dirt.x and lost.dirt.x < lost.asphalt.x * 0.8 and lost.asphalt.y > 0 and lost.dirt.y > 0 and lost.snow.y > 0,
+		"the wall along loose ground is slidier: the Racer scraping a wall loses %.1f m/s in 2 s on asphalt, %.1f on dirt, %.1f on snow (wall friction × %.2f / %.2f)" % [
+			lost.asphalt.x, lost.dirt.x, lost.snow.x, float(Surfaces.def(dirt).wall), float(Surfaces.def(snow).wall)])
 
 	# walls still cost time where the road is loose (weak brakes make a wall a better brake than
 	# on asphalt): one lap with the Racer, the medal autopilot (no nitro) at the sweep's usual
@@ -713,6 +770,65 @@ func _surfaces() -> void:
 		ok = ok and clean < ride.x
 		gaps.append("%s %s against %s (%d wall steps)" % [tr.name, RaceState.format_time(clean), RaceState.format_time(ride.x), int(ride.y)])
 	t.check(ok, "walls cost time on dirt and snow too: the medal autopilot's lap beats never braking on %s" % ", ".join(gaps))
+
+
+## (v6.10) Brake fully in a steady curve of radius R (CarStats.circle, the current
+## CarStats.surface) entered at a_lat m/s²: {beta: the largest sideslip (°) while braking above
+## 3 m/s, spun, wall: steps touching a wall}.
+func _curve_brake(spec: CarSpec, R: float, a_lat: float) -> Dictionary:
+	var tr: BuiltTrack = CarStats.circle(R)
+	var v0: float = sqrt(a_lat * R)
+	var car := Car.new(tr, 0, spec)
+	car.place(tr, 0, {x = tr.px[0], z = tr.pz[0], yaw = atan2(tr.tx[0], tr.tz[0]), vx = tr.tx[0] * v0, vz = tr.tz[0] * v0, idx = 0, laps = 0})
+	var ctrl := Car.Controls.new()
+	var out: Dictionary = {beta = 0.0, wall = 0, spun = false}
+	for s in 60 * 14:
+		var look: int = maxi(2, JsMath.roundi((4.0 + car.speed * 0.3) / tr.seg_len))
+		var i: int = (car.idx + look) % tr.N
+		var gx: float = tr.px[i] - car.x
+		var gz: float = tr.pz[i] - car.z
+		var fx: float = sin(car.yaw)
+		var fz: float = cos(car.yaw)
+		ctrl.steer = clampf(3.0 * atan2(gx * fz - gz * fx, gx * fx + gz * fz), -1.0, 1.0)
+		ctrl.throttle = clampf((v0 - car.forward_speed) * 0.8, -1.0, 1.0) if s < 60 * 4 else -1.0
+		car.step(tr, ctrl, DT)
+		if s >= 60 * 4:
+			var beta: float = absf(atan2(car.side_speed, maxf(0.5, absf(car.forward_speed)))) * 180.0 / PI
+			if car.speed > 3.0:
+				out.beta = maxf(out.beta, beta)
+				out.spun = out.spun or beta > 60.0
+			if car.hit_wall:
+				out.wall += 1
+			if car.speed < 0.3:
+				break
+	return out
+
+
+## (v6.10) Coast at v m/s into the left wall of the stats road (CarStats.road, the current
+## CarStats.surface) at `ang` rad: Vector2(speed lost in the 2 s after the first touch, steps touching).
+func _scrape(spec: CarSpec, v: float, ang: float) -> Vector2:
+	var tr: BuiltTrack = CarStats.road()
+	var i: int = 20
+	var hw: float = tr.hw[i]
+	var head: float = atan2(tr.tx[i], tr.tz[i])
+	var yaw: float = head + ang * (1.0 if tr.nx[i] * cos(head) - tr.nz[i] * sin(head) > 0.0 else -1.0)
+	var car := Car.new(tr, i, spec)
+	car.place(tr, i, {x = tr.px[i] + tr.nx[i] * (hw - 4.0), z = tr.pz[i] + tr.nz[i] * (hw - 4.0), yaw = yaw,
+		vx = sin(yaw) * v, vz = cos(yaw) * v, idx = i, laps = 0})
+	var ctrl := Car.Controls.new(0.0, 0.0, false)
+	var touch: int = 0
+	var first: int = -1
+	var v_first: float = 0.0
+	for s in 60 * 4:
+		car.step(tr, ctrl, DT)
+		if car.hit_wall:
+			touch += 1
+			if first < 0:
+				first = s
+				v_first = car.speed
+		if first >= 0 and s - first >= 120:
+			break
+	return Vector2(v_first - car.speed if first >= 0 else 0.0, touch)
 
 
 ## One lap of `tr` with the Racer and the medal autopilot (a_lat, look 0.75, no nitro):
@@ -1129,7 +1245,9 @@ func _jumps(ids: PackedStringArray) -> void:
 				continue
 			for hold: int in [0, 1]:
 				var car := Car.new(track, track.start_idx, Cars.spec(id))
-				var pilot := Autopilot.basic(track, 13.0)
+				# (v6.10: on a track with dirt or snow the driver knows the car's grip there; one that
+				# didn't drove the Vortex into Forest Rally's last jump sideways off a wall)
+				var pilot := Autopilot.basic(track, 13.0, 7.5, 77.0, Cars.spec(id) if track.has_surfaces() else null)
 				var goal: float = car.prog + track.N if track.closed else float(track.count - 12)
 				var yaw0: float = 0.0
 				var landed: int = -1000000000

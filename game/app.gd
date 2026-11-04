@@ -115,6 +115,7 @@ func _ready() -> void:
 	world.add_child(menu_camera)
 	_apply_quality()
 	_apply_display()
+	ScreenGrime.enabled = bool(UiData.get_setting("grime"))
 
 	# the interface, reading keys and pads through the game's input
 	ui = UiRoot.new()
@@ -405,6 +406,8 @@ func orbit(dt: float) -> void:
 func _on_setting_changed(key: String, _value: Variant) -> void:
 	if key == "quality":
 		_apply_quality()
+	elif key == "grime":
+		ScreenGrime.enabled = bool(UiData.get_setting("grime"))
 
 
 ## The graphics quality: the setting (High: the governor may step down; Low: pinned), or the
