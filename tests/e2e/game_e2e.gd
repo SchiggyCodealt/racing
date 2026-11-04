@@ -58,7 +58,8 @@ extends SceneTree
 ##             14 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
 ##             reads LOCKED, the menu fits 1280 x 720); Enter (Drive) and Race the Rookie AI are
 ##             refused with a message; Watch the Rookie AI and Train the AI work there; a bronze on
-##             Rookie Oval (a slow autopilot: 40 m/s at most) opens Hairpin Valley: the finish panel
+##             Rookie Oval (a slow autopilot, 50 m/s at most: 2:32.900 against bronze 2:39 and
+##             silver 2:27, v6.9.0's faster bronze) opens Hairpin Valley: the finish panel
 ##             says so, its tile is NEW until picked, then it drives; the save file holds it.
 ##             Shots: unlock_menu, unlock_locked, unlock_message, unlock_finish, unlock_menu_after.
 ##   terminal  the terminal (v6.7.0) from a new career: ` on the menu opens it with the input
@@ -883,11 +884,18 @@ func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> 
 	# into the stretch, then a moment sliding on it (or the last of it)
 	await wait_until(func() -> bool: return c.idx >= first + 30 and c.idx < last - 10, 60.0)
 	await wait_until(func() -> bool: return c.slip > 0.35 or c.idx >= mini(last - 10, first + 160), 40.0)
-	await frames(12)
-	pool = model.dust if sid == "dirt" else model.spray
+	# the most puffs alive over 12 frames, against 8 at full emission scaled by the graphics quality's
+	# share (CarEffects.spark_share: low emits 30 %, about 8 puffs alive here with random lives, so one
+	# frame's count against 8 was a coin flip; v6.9.0)
+	var most := 0
+	for k in 12:
+		await frames(1)
+		pool = model.dust if sid == "dirt" else model.spray
+		most = maxi(most, pool.alive if pool != null else 0)
+	var need: int = maxi(3, ceili(8.0 * CarEffects.spark_share))
 	var slot := model.skids.newest_tint.x if si == 1 else model.skids.newest_tint.y
-	check(pool != null and pool.alive >= 8 and pool.node.visible, "%s: on the %s (sample %d, %.0f km/h, slip %.2f) the tyres throw up %s: %d puffs alive (pool %d)" % [
-		tag, sid, c.idx, c.speed * 3.6, c.slip, "dust" if sid == "dirt" else "snow", pool.alive if pool != null else 0, pool.max if pool != null else 0])
+	check(pool != null and most >= need and pool.node.visible, "%s: on the %s (sample %d, %.0f km/h, slip %.2f) the tyres throw up %s: up to %d puffs alive over 12 frames (at least %d at this quality's %d %% emission; pool %d)" % [
+		tag, sid, c.idx, c.speed * 3.6, c.slip, "dust" if sid == "dirt" else "snow", most, need, roundi(CarEffects.spark_share * 100.0), pool.max if pool != null else 0])
 	check(model.skids.used > 0 and slot > 0.9, "%s: the newest tyre mark has the %s's colour (weight %.2f)" % [tag, sid, slot])
 	check(cam.ground_rumble > 0.02, "%s: the camera rumbles on the %s (%.3f)" % [tag, sid, cam.ground_rumble])
 	await shot("surfaces_" + sid)
@@ -1371,7 +1379,9 @@ func unlock() -> void:
 	var m: Node = app.mode
 	if not check(m != app.menu_mode and m.get("driver") == "human" and (m.get("track") as BuiltTrack).id == "rookie-oval", "Enter drives Rookie Oval"):
 		return
-	drive_with(Autopilot.basic(m.get("track"), 11.0, 7.5, 40.0, Cars.spec("racer")))
+	# (v6.9.0: bronze is 2:39 now; corner grip 13 m/s² and 50 m/s at most finish in 2:32.900, between
+	# silver and bronze; v6.8.0's 11 m/s² and 40 m/s took 2:49.750)
+	drive_with(Autopilot.basic(m.get("track"), 13.0, 7.5, 50.0, Cars.spec("racer")))
 	fast(true)
 	await wait_until(func() -> bool: return m.get("phase") == "finished", 900.0)
 	fast(false)

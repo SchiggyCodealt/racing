@@ -34,11 +34,14 @@ extends RefCounted
 const DATA_DIR: String = "res://data/opponents"
 const FORMAT: String = "track-rush-opponents"
 ## The levels, slowest first. pace: the target finish time as a share of the car's author time
-## (a network slower than that drives flat out). blurb: the menu's tooltip.
+## (a network slower than that drives flat out). blurb: the menu's text; what it says about the
+## medals holds on every track with every car (tests/test_ai.gd checks it against the measured
+## times; v6.9.0's faster bronze, 1.3 × the author time, put the Amateur just behind bronze and the
+## Pro between silver and bronze).
 const LEVELS: Array[Dictionary] = [
 	{id = "rookie", name = "Rookie", pace = 1.6, blurb = "takes it easy: slower than the bronze medal"},
-	{id = "amateur", name = "Amateur", pace = 1.4, blurb = "a steady driver, between silver and bronze pace"},
-	{id = "pro", name = "Pro", pace = 1.25, blurb = "quick: about silver medal pace"},
+	{id = "amateur", name = "Amateur", pace = 1.4, blurb = "a steady driver, a little slower than bronze"},
+	{id = "pro", name = "Pro", pace = 1.25, blurb = "quick: between silver and bronze pace"},
 	{id = "expert", name = "Expert", pace = 1.13, blurb = "fast: between gold and silver pace"},
 	{id = "elite", name = "Elite", pace = 1.0, blurb = "the fastest: about the author time"},
 ]

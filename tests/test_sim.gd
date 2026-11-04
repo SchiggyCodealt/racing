@@ -116,6 +116,7 @@ func run(checker: Variant) -> bool:
 	_save()
 	_career()
 	_unlocks()
+	_faster_bronze()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
 		"format_time rounds correctly (119.9996 s -> 2:00.000; no time -> --:--.---)")
@@ -319,17 +320,21 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	var md: Dictionary = Medals.data().get("tracks", {})
 	var kept_ok: bool = true
 	for id: String in V65_KEPT:
-		kept_ok = kept_ok and JSON.stringify(md.get(id, {}), "", true).sha256_text() == String(V65_KEPT[id][1])
+		# (v6.9.0 made bronze 1.3 × the author time: the hash is of v6.5's entry, whose bronze was
+		# 1.5 ×, so that bronze is put back first; everything else is compared as it is)
+		var entry: Dictionary = (md.get(id, {}) as Dictionary).duplicate(true)
+		for c: String in (entry.get("cars", {}) as Dictionary):
+			var e: Dictionary = entry.cars[c]
+			e.bronze = Medals.medal_set(float(e.author), Medals.WEB_FACTORS).bronze
+		kept_ok = kept_ok and JSON.stringify(entry, "", true).sha256_text() == String(V65_KEPT[id][1])
 	var new_ok: bool = true
 	for id: String in ids:
-		if V65_KEPT.has(id):
-			continue
 		for c: String in Cars.ids():
 			var m: Dictionary = Medals.medal_times(by_id(id), c)
 			new_ok = new_ok and not m.is_empty() and is_equal_approx(float(m.bronze), float(Medals.medal_set(float(m.author)).bronze))
 	t.check(kept_ok and new_ok,
-		"medal times: the %d kept tracks keep theirs bit for bit; the reworked ones and the 3 of v6.4 have them for all %d cars on the current version of the track (bronze = %s x the author time, rounded up, as everywhere)" % [
-			V65_KEPT.size(), Cars.ids().size(), JsMath.num_to_js(float(Medals.data().get("factors", {}).get("bronze", 1.5)))])
+		"medal times: the %d kept tracks keep theirs bit for bit (author, gold, silver, the run; bronze as v6.5 had it at 1.5 ×); every track has them for all %d cars on the current version of the track (bronze = %s × the author time, rounded up, as everywhere)" % [
+			V65_KEPT.size(), Cars.ids().size(), JsMath.num_to_js(float(Medals.data().get("factors", {}).get("bronze", 0.0)))])
 	# menu order, difficulty, surfaces, race type, themes
 	var old_themes: Dictionary = {}
 	for i in 12:
@@ -1910,6 +1915,86 @@ func _unlocks() -> void:
 	SaveData.use_file(path)
 	t.check(all_open and quiet == "" and not SaveData.tracks_unlocked() and open_ids.call() == PackedStringArray(["rookie-oval", "hairpin-valley", "night-highway"]) and
 		SaveData.get_money() == 0, "unlock tracks opens all 15; reset career turns the flag off but keeps what medals opened (Hairpin Valley, and Night Highway from a gold while the flag was on)")
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	clean.call()
+
+
+## v6.9.0: bronze is 1.3 × the author time (it was 1.5 ×, as in the browser version). The medal
+## times and tools/medals.gd; and a player whose best time was a bronze under 1.5 × but isn't one
+## now: the medal is gone from the menu (worked out from the best time), the track it opened stays
+## open, what was paid stays paid and doesn't pay again.
+func _faster_bronze() -> void:
+	t.section("a faster bronze medal: 1.3 × the author time (v6.9.0)")
+	var d: Dictionary = Medals.data()
+	var tool: GDScript = load("res://tools/medals.gd")
+	var ro: BuiltTrack = Tracks.build("rookie-oval")
+	var mro: Dictionary = Medals.medal_times(ro, "racer")
+	var faster: int = 0
+	var pairs: int = 0
+	var gap_min: float = INF
+	var gap_max: float = 0.0
+	for id: String in Tracks.ids():
+		var tr: BuiltTrack = Tracks.build(id)
+		for c: String in Cars.ids():
+			var m: Dictionary = Medals.medal_times(tr, c)
+			pairs += 1
+			if m.is_empty():
+				continue
+			var was: float = float(Medals.medal_set(float(m.author), Medals.WEB_FACTORS).bronze)
+			if float(m.bronze) < was and float(m.bronze) > float(m.silver):
+				faster += 1
+			gap_min = minf(gap_min, was - float(m.bronze))
+			gap_max = maxf(gap_max, was - float(m.bronze))
+	var ok: bool = is_equal_approx(float(Medals.FACTORS.bronze), 1.3) and is_equal_approx(float(Medals.FACTORS.gold), 1.06) and \
+		is_equal_approx(float(Medals.FACTORS.silver), 1.2) and is_equal_approx(float(Medals.WEB_FACTORS.bronze), 1.5) and \
+		JsMath.same((d.get("factors", {}) as Dictionary).get("bronze"), 1.3) and str(d.get("method", "")).contains("gold/silver/bronze = author × 1.06/1.2/1.3") and \
+		str(tool.call("method_text")) == str(d.get("method", "")) and \
+		JsMath.same(mro.author, 121.867) and JsMath.same(mro.gold, 130) and JsMath.same(mro.silver, 147) and JsMath.same(mro.bronze, 159) and \
+		faster == pairs and tool.call("compared_medals") == ["author", "gold", "silver"]
+	t.check(ok, "bronze = 1.3 × the author time, rounded up (it was 1.5 ×): Rookie Oval with the Racer %s / %s / %s / %s (bronze was 3:03); all %d of %d bronzes faster, by %d-%d s, and still slower than silver; medals.json's factors and method say 1.3; the browser comparison (tools/medals.gd --js) checks author, gold and silver, not bronze (1.5 × there)" % [
+		RaceState.format_time(float(mro.author)), RaceState.format_time(float(mro.gold)), RaceState.format_time(float(mro.silver)), RaceState.format_time(float(mro.bronze)),
+		faster, pairs, int(gap_min), int(gap_max)])
+
+	# a v6.8.0 player: 3:03.000 on Rookie Oval was bronze there, paid $300 and 10 points, and opened
+	# Hairpin Valley
+	var path: String = "user://test_bronze_save.json"
+	var clean := func() -> void:
+		for f: String in [path, path + ".bad", path + ".tmp"]:
+			if FileAccess.file_exists(f):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	var write := func(data: Dictionary) -> void:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(JSON.stringify(data))
+		f.close()
+		SaveData.use_file(path)
+	var rec := func(time: float) -> Dictionary: return {time = time, splits = [], physics = Car.PHYSICS_VERSION, sig = ro.signature(), date = "x"}
+	var old_bronze: float = float(Medals.medal_set(float(mro.author), Medals.WEB_FACTORS).bronze)
+	clean.call()
+	write.call({version = 4, records = {"rookie-oval": {racer = rec.call(old_bronze)}},
+		career = {money = 300, points = 10, cars = ["racer"], paid = {"rookie-oval": {racer = ["bronze"]}}, tracks_open = ["hairpin-valley"]}})
+	var best: float = float(SaveData.get_record("rookie-oval", "racer").time)
+	var now: String = Medals.medal_for(mro, best)
+	var aim: Dictionary = Medals.next_medal(mro, best)
+	ok = old_bronze == 183.0 and now == "" and aim.get("medal") == "bronze" and JsMath.same(aim.get("time"), 159) and \
+		Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally") and \
+		SaveData.paid_rewards("rookie-oval", "racer") == PackedStringArray(["bronze"]) and SaveData.get_money() == 300 and SaveData.get_points() == 10
+	# the same time again: no medal, nothing paid, nothing opened
+	var same: Dictionary = Economy.claim("rookie-oval", "racer", now, "")
+	var opened: String = Unlocks.claim("rookie-oval", now)
+	# the new bronze (2:39): the medal is back, but it was paid: nothing new; then silver pays silver only
+	var b2: Dictionary = Economy.claim("rookie-oval", "racer", Medals.medal_for(mro, float(mro.bronze)), "")
+	var s2: Dictionary = Economy.claim("rookie-oval", "racer", Medals.medal_for(mro, float(mro.silver)), "")
+	SaveData.use_file(path) # (read back)
+	ok = ok and int(same.money) == 0 and opened == "" and int(b2.money) == 0 and Array(b2.repeat) == ["bronze"] and \
+		int(s2.money) == 500 and SaveData.get_money() == 800 and SaveData.paid_rewards("rookie-oval", "racer") == PackedStringArray(["bronze", "silver"]) and \
+		SaveData.opened_tracks() == PackedStringArray(["hairpin-valley"])
+	t.check(ok, "a v6.8.0 player with 3:03.000 on Rookie Oval (bronze at 1.5 ×): no medal now (the next one to aim for is bronze, 2:39), but Hairpin Valley stays open and the $300 / 10 pts stay paid; that time again pays and opens nothing; a 2:39 bronze pays nothing new (paid before), a silver then pays only silver")
+	# a save from v6.7.0 or older (no tracks_open yet) is upgraded against today's bronze: the same
+	# 3:03 opens nothing after it (Rookie Oval is open anyway); a track driven stays open
+	write.call({version = 4, records = {"rookie-oval": {racer = rec.call(old_bronze)}, "ramp-rally": {racer = {time = 999.0, splits = [], physics = Car.PHYSICS_VERSION, sig = Tracks.signature("ramp-rally"), date = "x"}}},
+		career = {money = 0, points = 0, cars = ["racer"], paid = {}}})
+	t.check(SaveData.opened_tracks() == PackedStringArray(["ramp-rally"]) and not Unlocks.is_open("hairpin-valley"),
+		"a save from v6.7.0 or older (every track was open then) is upgraded against today's bronze: a 3:03 on Rookie Oval opens nothing after it; a track with a best time stays open (Ramp Rally)")
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean.call()
 

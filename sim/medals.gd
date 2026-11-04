@@ -6,7 +6,10 @@ extends RefCounted
 ## ------------------------------------------------------------------
 ## Data-driven: the medal list (ORDER / NAMES) and the ratios (FACTORS: gold,
 ## silver and bronze = author × factor, rounded up to a whole second) are data;
-## medals.json stores the factors it was made with next to the times.
+## medals.json stores the factors it was made with next to the times. v6.9.0 made bronze
+## faster: 1.3 × the author time (it was 1.5 ×, as in the browser version; WEB_FACTORS). The
+## medals of a best time are worked out when shown, so saved records re-rate themselves
+## (`tools/medals.gd --factors` rewrites medals.json's times from its author times).
 ##
 ##   Medals.medal_times(track, car_id = "racer", laps = -1) -> {author, gold, silver, bronze, run} or {}
 ##       ({} when none were made for this car, layout, laps, physics or scoring rules)
@@ -19,7 +22,10 @@ const DATA_PATH: String = "res://data/medals.json"
 const ORDER: PackedStringArray = ["author", "gold", "silver", "bronze"]
 const NAMES: Dictionary = {author = "Author", gold = "Gold", silver = "Silver", bronze = "Bronze"}
 ## gold / silver / bronze = author × these, rounded up to a whole second
-const FACTORS: Dictionary = {gold = 1.06, silver = 1.2, bronze = 1.5}
+const FACTORS: Dictionary = {gold = 1.06, silver = 1.2, bronze = 1.3}
+## The browser version's factors (web/src/tracks/medals.js, v5) and the game's until v6.8.0:
+## tools/medals.gd --js compares only the medals whose factor is still the same.
+const WEB_FACTORS: Dictionary = {gold = 1.06, silver = 1.2, bronze = 1.5}
 
 static var _data: Dictionary = {}
 static var _loaded: bool = false

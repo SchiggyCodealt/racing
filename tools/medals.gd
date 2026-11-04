@@ -10,7 +10,12 @@ extends SceneTree
 ##                      the result is the same whatever N is
 ##     --out=/abs/path  write there instead of res://data/medals.json
 ##     --js=/abs/path   also compare with the web game's medal times (a JSON dump of
-##                      web/src/tracks/medals.js MEDALS, see tools/parity/dump_medals.mjs)
+##                      web/src/tracks/medals.js MEDALS, see tools/parity/dump_medals.mjs):
+##                      author times, runs, and the medals whose factor is still the browser's
+##                      (Medals.WEB_FACTORS; since v6.9.0 not bronze, which is 1.3 × here, 1.5 × there)
+##     --factors        no sweep: work gold / silver / bronze out again from the author times
+##                      already in data/medals.json with Medals.FACTORS (after changing a
+##                      factor; v6.9.0 made bronze 1.3 ×) and write it; with --check only compare
 ##     --tracks=a,b     --cars=a,b   only these (for quick checks; nothing is written)
 ##     --update         with --tracks (and --cars): sweep only those and merge them into the
 ##                      existing data/medals.json, every other entry kept as it is (after
@@ -31,7 +36,15 @@ extends SceneTree
 const METHOD: String = "author: fastest finish of the look-ahead autopilot in tools/medals.gd over aLat " + \
 	"14/16/18/20/22/24/26/28/32/40 m/s² × lookK 0.35/0.55/0.75/1/1.3 (braking 11 m/s², aim at most 80 m ahead), " + \
 	"nitro at full throttle with |steer| < 0.25, refilled by the style score; wall touches allowed; " + \
-	"gold/silver/bronze = author × 1.06/1.2/1.5, rounded up to a whole second"
+	"gold/silver/bronze = author × %s, rounded up to a whole second"
+
+
+## The method line of medals.json, naming the factors it was made with (Medals.FACTORS).
+static func method_text() -> String:
+	var f: PackedStringArray = []
+	for m: String in Medals.ORDER.slice(1):
+		f.append(JsMath.num_to_js(float(Medals.FACTORS[m])))
+	return METHOD % "/".join(f)
 
 var _jobs: Array[Dictionary] = []
 var _next: int = 0
@@ -60,6 +73,9 @@ func _initialize() -> void:
 		elif a.begins_with("--cars="):
 			only_cars = a.substr(7).split(",")
 	var partial: bool = only_tracks.size() > 0 or only_cars.size() > 0
+	if args.has("--factors"):
+		quit(_refactor(out_path, check))
+		return
 	if update and (only_tracks.is_empty() or check):
 		print("--update needs --tracks=a,b (and no --check)")
 		quit(1)
@@ -228,7 +244,7 @@ static func medals_json(tracks: Dictionary) -> String:
 	lines.append("{")
 	lines.append("\"generated\": \"by tools/medals.gd: don't edit by hand; re-run it after changing the physics, a car, the scoring rules, a track or its laps\",")
 	lines.append("\"physics\": %d, \"scoreRules\": %d," % [Car.PHYSICS_VERSION, ScoreState.SCORE_RULES])
-	lines.append("\"method\": %s," % JSON.stringify(METHOD))
+	lines.append("\"method\": %s," % JSON.stringify(method_text()))
 	var factors: PackedStringArray = []
 	for m: String in Medals.ORDER.slice(1):
 		factors.append("\"%s\": %s" % [m, n.call(Medals.FACTORS[m])])
@@ -251,7 +267,55 @@ static func medals_json(tracks: Dictionary) -> String:
 	return "\n".join(lines) + "\n"
 
 
+## --factors: gold / silver / bronze worked out again from the author times in medals.json
+## (`path`) with Medals.FACTORS, everything else kept (author times, runs, signatures, laps).
+## Writes the file (with `check`: only says whether it is up to date). Returns the exit code.
+static func _refactor(path: String, check: bool) -> int:
+	var old: String = FileAccess.get_file_as_string(path)
+	var d: Variant = JSON.parse_string(old)
+	if not (d is Dictionary) or not ((d as Dictionary).get("tracks") is Dictionary):
+		print("--factors: cannot read ", path)
+		return 1
+	if not JsMath.same(d.get("physics"), Car.PHYSICS_VERSION) or not JsMath.same(d.get("scoreRules"), ScoreState.SCORE_RULES):
+		print("--factors: %s was made with other physics or scoring rules; run a full sweep" % path)
+		return 1
+	var tracks: Dictionary = {}
+	var changed: Dictionary = {}
+	var n: int = 0
+	for id: String in d.tracks:
+		var t: Dictionary = (d.tracks[id] as Dictionary).duplicate(true)
+		for c: String in t.cars:
+			var e: Dictionary = t.cars[c]
+			var fresh: Dictionary = Medals.medal_set(float(e.author))
+			n += 1
+			for m: String in Medals.ORDER.slice(1):
+				if not JsMath.same(e.get(m), fresh[m]):
+					changed[m] = int(changed.get(m, 0)) + 1
+				e[m] = fresh[m]
+		tracks[id] = t
+	var text: String = medals_json(tracks)
+	var parts: PackedStringArray = []
+	for m: String in Medals.ORDER.slice(1):
+		parts.append("%s %d" % [m, int(changed.get(m, 0))])
+	print("--factors: gold / silver / bronze = author × %s/%s/%s on %d track × car entries; changed: %s" % [
+		JsMath.num_to_js(float(Medals.FACTORS.gold)), JsMath.num_to_js(float(Medals.FACTORS.silver)), JsMath.num_to_js(float(Medals.FACTORS.bronze)),
+		n, ", ".join(parts)])
+	if text == old:
+		print("%s is up to date" % path)
+		return 0
+	if check:
+		print("%s is OUT OF DATE: run tools/medals.gd -- --factors" % path)
+		return 1
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+	print("wrote ", path)
+	return 0
+
+
 ## Compares the sweep with the web game's medal times (JSON dump of MEDALS). Returns 1 when any differ.
+## Only the medals whose factor is the browser's (Medals.WEB_FACTORS) are compared: since v6.9.0
+## bronze is 1.3 × the author time here and 1.5 × there, so it is left out (and said so).
 static func _compare_js(tracks: Dictionary, path: String) -> int:
 	var js: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not (js is Dictionary):
@@ -265,7 +329,7 @@ static func _compare_js(tracks: Dictionary, path: String) -> int:
 			total += 1
 			var e: Dictionary = tracks[id].cars[c]
 			var je: Dictionary = (jt.get("cars", {}) as Dictionary).get(c, {})
-			var keys: Array = ["author", "gold", "silver", "bronze"]
+			var keys: Array = compared_medals()
 			var ok: bool = not je.is_empty() and jt.get("sig") == tracks[id].sig and jt.get("laps") == tracks[id].laps
 			for k: String in keys:
 				ok = ok and je.has(k) and float(je[k]) == float(e[k])
@@ -275,5 +339,20 @@ static func _compare_js(tracks: Dictionary, path: String) -> int:
 				same += 1
 			else:
 				print("differs from the web game: %s %s: gd %s, js %s" % [id, c, e, je])
-	print("compared with the web game's medals.js: %d of %d track × car entries identical (times, winning setting, steps, wall steps)" % [same, total])
+	var skipped: PackedStringArray = []
+	for m: String in Medals.ORDER:
+		if not compared_medals().has(m):
+			skipped.append("%s (%s × the author time here, %s × in the browser)" % [m, JsMath.num_to_js(float(Medals.FACTORS[m])), JsMath.num_to_js(float(Medals.WEB_FACTORS[m]))])
+	print("compared with the web game's medals.js: %d of %d track × car entries identical (%s, winning setting, steps, wall steps)%s" % [
+		same, total, ", ".join(compared_medals()), "" if skipped.is_empty() else "; not compared: " + ", ".join(skipped)])
 	return 0 if same == total else 1
+
+
+## The medals the browser comparison checks: author, and every medal whose factor is still the
+## browser's (["author", "gold", "silver"] since v6.9.0).
+static func compared_medals() -> Array:
+	var out: Array = ["author"]
+	for m: String in Medals.ORDER.slice(1):
+		if is_equal_approx(float(Medals.FACTORS[m]), float(Medals.WEB_FACTORS[m])):
+			out.append(m)
+	return out

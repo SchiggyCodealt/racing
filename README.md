@@ -32,6 +32,9 @@ Version 6.7.0 adds a terminal: in Settings (or with the `` ` `` key on the menu)
 Version 6.8.0 makes the game more linear: the tracks open one at a time. You start with Rookie Oval; a bronze medal
 (or better) on a track, with any car, opens the next one, for good. Watch the AI and Train the AI still work on every
 track (see [Unlocking tracks](#unlocking-tracks)).
+Version 6.9.0 makes the bronze medal faster: 1.3 × the author time instead of 1.5 × (2:39 instead of 3:03 for the
+Racer on Rookie Oval). Tracks you have opened stay open and rewards already paid stay paid (see [Medals](#medals)).
+With it, all nine features the owner asked for after the port are done.
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -45,7 +48,7 @@ track (see [Unlocking tracks](#unlocking-tracks)).
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.8.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.9.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -243,8 +246,8 @@ next medal to aim for under your best time: it is crossed out once the clock pas
 it. The finish panel shows the medal the run earned (marked NEW when it beats your previous one) and how far you
 are from the next.
 
-Gold, silver and bronze are 6 %, 20 % and 50 % slower than the author time, rounded up to a whole second (for
-example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 3:03). Author times:
+Gold, silver and bronze are 6 %, 20 % and 30 % slower than the author time, rounded up to a whole second (for
+example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 2:39). Author times:
 
 | Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -270,11 +273,24 @@ settings, driving each car with the same physics as you: it burns nitro on the s
 refill the tank as yours do (`tools/medals.gd`, see [Tests and tools](#tests-and-tools)). The autopilot only
 follows the centre line and uses nitro simply, so a driver with a real racing line and good nitro timing can beat
 even the author time. A medal counts to the millisecond the HUD shows. (On the six all-asphalt tracks that are still
-the browser version's layouts the first four cars' times are the browser version's. Hairpin Valley, Ramp Rally,
+the browser version's layouts the first four cars' author, gold and silver times are the browser version's; its bronze
+is 1.5 × the author time. Hairpin Valley, Ramp Rally,
 Mountain Pass and Canyon Run got dirt or snow in version 6.3.0 and new times, 0.8-37 s slower than before depending on
 the car: see [Road surfaces](#road-surfaces). Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon
 Run got rounder, wider hairpins in version 6.6.0 and new times again: see [Tracks](#tracks). The Dune and the Vortex,
 and the three tracks of version 6.4.0, exist only in this version.)
+
+**The faster bronze (version 6.9.0).** Until version 6.8.0 bronze was 1.5 × the author time; it is 1.3 × now, 13 to
+54 s faster depending on the track and car. The medals your best times hold are worked out from the times when they
+are shown, so the menu, the HUD and `status` use the new bronze at once. A best time that was a bronze before and is
+slower than the new bronze holds no medal now (the HUD then aims at the new bronze); nothing else is taken away:
+
+- the tracks it opened stay open (the save file keeps them; from now on a track opens at the new bronze), and
+- the money and points it paid stay yours, and a new bronze there pays nothing again (it was paid); silver and better
+  pay as before.
+
+A save from version 6.7.0 or older (from before tracks opened one at a time) still opens every track it has a best
+time on, but the track after one opens only for a time under today's bronze.
 
 ### Unlocking tracks
 
@@ -320,8 +336,8 @@ lists what a run earned and why.
 (see-through: you can drive through it) and you win by finishing ahead of it. Every track and car has its own
 opponents, driven by AI networks shipped with the game (trained on that track with that car; your own network is
 not touched). The levels are the same network held to a lower top speed: Rookie finishes in about 1.6 × the author
-time (slower than bronze), Amateur 1.4 ×, Pro 1.25 × (about silver), Expert 1.13 × (between gold and silver) and
-Elite about the author time (always faster than gold). The menu shows the picked opponent's time on the selected
+time (slower than bronze), Amateur 1.4 × (a little slower than bronze), Pro 1.25 × (between silver and bronze),
+Expert 1.13 × (between gold and silver) and Elite about the author time (always faster than gold). The menu shows the picked opponent's time on the selected
 track. **My AI** races and watches the picked car's own trained network as before; it pays no AI rewards (medals
 still pay). Watch the AI shows any opponent drive.
 
@@ -739,7 +755,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.8.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.9.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -761,11 +777,11 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
 | `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, camera rumble; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
-| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks) |
+| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
 | `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
 | `godot --headless --path . --script res://tools/corners.gd` | Lists the tight corners of every track (radius, road width, banking) and how the medal autopilot takes them with each car: its lowest speed and its wall contacts per lap there, from the author runs in `data/medals.json` (`-- --tracks=a,b`, `--max-r=40` for corners tighter than 40 m, `--sweep` for the wall contacts over all 50 settings of the medal sweep, as long as the medal sweep: about 16 minutes for five tracks on 3 threads; `--tracks-json=` and `--medals=` read older files, `--json=` writes the numbers). Made for version 6.6.0's corner rework |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |

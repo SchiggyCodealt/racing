@@ -4,14 +4,14 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-04 (v6.8.0: feature 8 of 9, the tracks open one at a time: a bronze or better on a track opens
-the next; v6.7.0: feature 7, a terminal in Settings and on the `` ` `` key for money, points, cars
+_Last updated: 2026-11-04 (v6.9.0: feature 9 of 9, the last: a faster bronze medal, 1.3 × the author time instead of
+1.5 ×; v6.8.0: feature 8, the tracks open one at a time: a bronze or better on a track opens the next; v6.7.0: feature 7, a terminal in Settings and on the `` ` `` key for money, points, cars
 and unlocks; v6.6.0: feature 6, the tightest corners of five old tracks made more forgiving; v6.5.0: feature 5, money and career points from medals and AI opponents, a car shop; v6.4.0: feature 4, three new
 tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed snow; v6.2.0: feature 2, AI training
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.8.0, features 1-8 of 9 done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time)
+## Status: v6.9.0, all nine features done (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -80,8 +80,18 @@ mouse), its panel says what opens it, and Drive reads LOCKED; Drive and Race the
 (`GameApp.play`), as is Race best on the training screen; Watch the AI and Train the AI work on every track. The
 finish panel says "Ramp Rally unlocked" and the new tile is NEW until it is picked or the menu is left. The terminal's
 `status` counts the open tracks and names what opens the next one.
-Feature 9 is not built yet; nothing was designed out of it (the car list, medal ratios, settings rows, track list,
-surfaces, rewards, AI levels, terminal commands and the unlock medal are data).
+v6.9.0 adds feature 9, the last of the nine: a faster bronze medal. Bronze is 1.3 × the author time, rounded up to a
+whole second (it was 1.5 ×, as in the browser version): `Medals.FACTORS.bronze`, and `data/medals.json`'s 90 bronze
+times worked out again from the stored author times with the new `tools/medals.gd --factors` (no sweep; gold, silver,
+author times and runs untouched), 13-54 s faster (Rookie Oval with the Racer: 2:39 instead of 3:03). Medals are
+worked out from best times when shown, so saved records re-rate themselves: a best time that was a bronze at 1.5 × but
+is slower than the new bronze holds no medal now, but the tracks it opened stay open (v6.8.0's `career.tracks_open`)
+and what it paid stays paid (a new bronze there pays nothing again). The AI levels were not recalibrated: their
+measured times sit where they did, so the Amateur (1.39-1.41 × the author time) is now a little slower than bronze
+and the Pro (1.24-1.27 ×) between silver and bronze; the menu's level texts say so (tests check them against every
+track and car). The browser comparison (`tools/medals.gd --js`) checks author, gold and silver only
+(`Medals.WEB_FACTORS` keeps the browser's 1.5 ×). With this, the nine features the owner asked for after the port
+are all done: see [Next](#next-the-owners-nine-features) for what is left open across them.
 
 | Area | State | Where |
 | --- | --- | --- |
@@ -99,9 +109,10 @@ surfaces, rewards, AI levels, terminal commands and the unlock medal are data).
 | Career (v6.5.0): money and points (the reward table, paid once), the car shop, the save file's `career` (VERSION 4, migration pays held medals once), the menu's wallet and locked cards, the finish panel's payout | done; reward table, paid-once rule, shop, migrations (v1-v3) and junk are tests; prices checked against a simulated career | `sim/economy.gd`, `sim/save.gd`, `sim/cars.gd` (`price`), `ui/main_menu.gd`, `ui/car_card.gd`, `ui/finish_panel.gd`, `game/app.gd`, `game/message_screen.gd` |
 | AI opponents (v6.5.0): 90 shipped networks with five levels each (a speed cap and the race's time), the menu's opponent chips, Race / Watch the AI against a level | done; every level of every track and car finishes and is slower than the one above (tests); stored races re-run to the millisecond | `data/opponents/`, `sim/opponents.gd`, `ai/opponent_race.gd`, `ai/sensors.gd` (`AIDriver.speed_cap`), `tools/opponents.gd`, `modes/play_mode.gd`, `game/ai_link.gd` |
 | Reworked corners (v6.6.0): five old tracks with rounder, wider hairpins in `tools/gen_tracks.gd`; their medal times and AI opponents; `tools/corners.gd` (each corner's radius, width and how the medal autopilot takes it); `Tracks.build_web` (the browser's layouts for the parity checks) | done; the new minimum radius and width, the unchanged hairpin count and surfaces, the ten untouched tracks and their medal entries, and a v6.5 save's archive and paid rewards are tests | `tools/gen_tracks.gd`, `data/tracks.json`, `data/medals.json`, `data/opponents/`, `tools/corners.gd`, `sim/tracks.gd` |
+| Faster bronze (v6.9.0): `Medals.FACTORS.bronze` 1.3, `Medals.WEB_FACTORS` (the browser's), `tools/medals.gd --factors` (gold / silver / bronze from the stored author times, no sweep) and `--js` comparing only the medals whose factor is the browser's; `data/medals.json`'s bronze times; the AI levels' menu texts | done; the factors, the file, every bronze, a v6.8.0 player whose bronze no longer counts (open tracks and paid rewards kept), the level texts against every track and car are tests; e2e `unlock` takes the new bronze | `sim/medals.gd`, `tools/medals.gd`, `data/medals.json`, `sim/opponents.gd` |
 | Unlocking tracks (v6.8.0): the rule and the claim at the finish, the save file's `career.tracks_open` (with the one-time upgrade from best times), the menu's locked and NEW tiles and lock note, the refusals in the app and on the training screen, the finish panel's line, the terminal's `status` row | done; the rule, stickiness across a medal-time change and a changed track, the upgrade (current and archived times, unknown cars, junk), the flag and the reset, the refusals, Watch / Train on a locked track, the menu and the finish panel are tests; e2e `unlock` | `sim/unlocks.gd`, `sim/save.gd`, `ui/ui_data.gd`, `ui/track_tile.gd`, `ui/main_menu.gd`, `ui/finish_panel.gd`, `ui/widgets.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `game/app.gd`, `game/terminal.gd` |
 | Terminal (v6.7.0): the console screen (log, input, history, Tab), the commands table, the Settings row, the `` ` `` key on the menu and Settings, the save file's tracks flag and career reset | done; every command with good and bad input, Tab, the save effects, the keys that open and close it, `` ` `` in a race are tests; e2e `terminal` | `game/terminal.gd`, `ui/terminal_screen.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/menu_input.gd`, `sim/save.gd` |
-| Tests: headless suite (766 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (770 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -123,7 +134,7 @@ Godot code; numbers travel as hex bits because Godot's JSON reader is not exact 
 | Race timing and points | 72 runs, 2,964 events (48 medal-autopilot races + 24 random-key tapes with respawns) | 71 runs identical (every event, total, breakdown, split, nitro); 1 random wall-banging tape has one wall-contact end 2 steps later after 90 s |
 | Ghosts | recorded runs packed by both | byte-identical (format 3 = the browser's format 2 bytes in base64); replay within 3 cm of the run (8 mm measured) |
 | Car stats | `tools/car_stats.gd` against `web/tools/carStats.mjs` | identical, 4 cars × 12 stats (the Dune and Vortex have no browser counterpart) |
-| Medal times | `tools/medals.gd` (50 autopilot runs per track and car) | 47 of 48 identical; Technical Trial with the Racer 3:45.083 against 3:44.033 (see Known limitations). The v6.1.0 sweep for six cars left the 48 old entries unchanged. (v6.3.0 put dirt and snow on four tracks, which have new times; the parity scripts compare the all-asphalt versions, `Tracks.build_asphalt`) |
+| Medal times | `tools/medals.gd` (50 autopilot runs per track and car) | 47 of 48 identical; Technical Trial with the Racer 3:45.083 against 3:44.033 (see Known limitations). The v6.1.0 sweep for six cars left the 48 old entries unchanged. (v6.3.0 put dirt and snow on four tracks, which have new times; the parity scripts compare the all-asphalt versions, `Tracks.build_asphalt`. Since v6.9.0 bronze is 1.3 × the author time here and 1.5 × in the browser, so `--js` compares author, gold, silver and the runs, not bronze, and says so: 4 of 4 entries identical on Rookie Oval and Banked Speedway with the Racer and the Kestrel) |
 | AI | sensors and network in lockstep (683k inputs, 76k controls); the browser's saved network driving from two track starts | 0 differences, bit for bit; GDScript and FleetSim give the same numbers at every step |
 | Interface | screenshots against the approved v5 ones | about 4 % of pixels differ on the menu (font rendering); 0 layout problems at 1024x600 to 1920x1080 |
 | 3D world | 14 moments side by side with the browser version | close; draw calls 158-216 at high (web 106-127), 74-99 at low (web 78-102) |
@@ -190,6 +201,49 @@ flip in either version (nothing in v6.8.0 touches the effects): run `surfaces` w
 libraries were not touched (nothing in the simulation changed); the Windows release export was made from a fresh
 import (no errors or warnings; `sim/unlocks.gd` is in the pack) and zipped as `build/TrackRush-6.8.0-windows.zip`
 (not started: no Windows here).
+
+v6.9.0 (2026-11-04): the headless suite passes (770 checks: sim 96, ui 198, world 160, game 166, ai 150; 434 s); the
+end-to-end scenarios pass at 1280 x 720 with `gfx=low` (unlock 17, economy 21, surfaces 13 twice, menu 28, races 72
+on Rookie Oval and Hairpin Valley with the Racer and the Dune, modes 29) and with `gfx=high` (terminal 34, for its screenshot); the FleetSim libraries
+were not touched (nothing in the simulation changed); the Windows release export was made from a fresh import (no
+errors or warnings; the pack's `data/medals.json` has bronze 1.3) and zipped as `build/TrackRush-6.9.0-windows.zip`
+(not started: no Windows here).
+
+## How v6.9.0 (a faster bronze) was verified
+
+- **The medal times** (`tools/medals.gd -- --factors`, about a second): 90 of 90 bronze times rewritten, 0 gold, 0
+  silver; a diff with the bronze values masked shows only the method line (the factors line says 1.3); recomputed
+  independently (1.3 × the author time, rounded to the millisecond half up as JS does, then up to a whole second):
+  0 differences; 13-54 s faster than before. `-- --factors --check` reports a file made with other factors as out of
+  date (exit 1). `tests/test_sim.gd` "a faster bronze medal": the factors (gold 1.06, silver 1.2 unchanged), the file's
+  factors and method (and `method_text()` makes the same line), Rookie Oval with the Racer 2:01.867 / 2:10 / 2:27 /
+  2:39, all 90 bronzes faster than before and slower than silver; the v6.5 medal hashes of the ten kept tracks still
+  match once their bronze is put back to 1.5 × (`Medals.WEB_FACTORS`), and every track's bronze is 1.3 ×.
+- **The browser comparison** (`node tools/parity/dump_medals.mjs` then `tools/medals.gd -- --tracks=rookie-oval,banked-speedway
+  --cars=racer,kestrel --js=...`, 100 s): 4 of 4 entries identical (author, gold, silver, winning setting, steps, wall
+  steps), "not compared: bronze (1.3 × the author time here, 1.5 × in the browser)", exit 0. The test checks that
+  `compared_medals()` is author, gold and silver.
+- **A player from before** (`tests/test_sim.gd`, its own save file): a v6.8.0 save with 3:03.000 on Rookie Oval (the
+  old bronze), Hairpin Valley opened and the bronze paid: no medal now and the next medal to aim for is bronze at
+  2:39, Hairpin Valley still open, $300 / 10 pts still there; the same time again pays and opens nothing; a 2:39
+  bronze pays nothing (paid before) and a silver then pays only silver ($500). A save from v6.7.0 with the same 3:03
+  (no `tracks_open` yet) opens nothing after Rookie Oval; a track with a best time (Ramp Rally) stays open. The v6.8.0
+  stickiness test (bronze patched 30 s faster) still passes.
+- **The AI levels** (all 90 tracks × cars, their stored times against the new medals): Rookie 1.58-1.62 × the author
+  time, slower than bronze everywhere (at least 1.212 × bronze); Amateur 1.385-1.414 ×, slower than bronze
+  everywhere (at least 1.058 ×), so "between silver and bronze pace" had become false; Pro 1.237-1.265 ×, between
+  silver and bronze everywhere (was "about silver medal pace"); Expert between gold and silver; Elite at gold or
+  faster (36 at the author time or under). Not recalibrated; the Amateur's and Pro's texts changed and
+  `tests/test_ai.gd` checks every level's text against every track and car.
+- **End to end**: `scenario=unlock` takes the new bronze with a faster slow autopilot (`Autopilot.basic`, corner grip
+  13 m/s², 50 m/s at most): 2:32.900 against bronze 2:39 and silver 2:27, the same to the millisecond as a headless run
+  (which also gave v6.8.0's 2:49.750 for 11 m/s² and 40 m/s; 55 m/s with 11 m/s² only reaches 2:38.283); its 17 checks
+  pass, the finish panel shows a bronze and Hairpin Valley unlocked. `economy` (21) pays and opens as before; the
+  HUD's target in its race reads BRONZE 2:39.000. `surfaces` with `gfx=low` passes twice: the snow-spray check now
+  takes the most puffs alive over 12 frames (8 and 9) against a threshold scaled by the quality's share (3 at low, 6
+  at medium, 8 at high); the dust peaked at 19. Screenshots retaken: `docs/screenshots/menu.png` and `finish.png`
+  (from `economy`: Seaside Stunts' medal times 1:08.233 / 1:13 / 1:22 / 1:29), `locked.png` (from `unlock`: Hairpin
+  Valley 5:10) and `terminal.png` (`terminal` with `gfx=high`: the Rookie Oval panel behind it).
 
 ## How v6.8.0 (unlocking tracks) was verified
 
@@ -623,7 +677,8 @@ import (no errors or warnings; `sim/unlocks.gd` is in the pack) and zipped as `b
   Tabs, snake_case, PascalCase classes; `class_name` only for types other folders need. After adding a
   `class_name`, run `godot --headless --path . --import` once before running scripts.
 - **Data, not code**, where the next features will grow: the cars (`sim/cars.gd` `CARS`), medals (`sim/medals.gd`
-  `ORDER` / `FACTORS`, stored with the times in `data/medals.json`), the settings rows (`ui/settings_screen.gd`
+  `ORDER` / `FACTORS`, stored with the times in `data/medals.json`; after changing a factor run
+  `tools/medals.gd -- --factors`, no sweep; `WEB_FACTORS` are the browser's, for `--js`), the settings rows (`ui/settings_screen.gd`
   `ROWS`, with an `action` row type: v6.7.0's Terminal row), the terminal's commands (`game/terminal.gd` `COMMANDS`:
   name, usage, help, the method that runs it, the words Tab offers, `wipes` for commands that ask for `confirm`), the tracks (`data/tracks.json`), the themes (`world/themes.gd`),
   the road surfaces (`sim/surfaces.gd` `DEFS`: physics and look columns; FleetSim gets the physics columns from
@@ -714,6 +769,11 @@ import (no errors or warnings; `sim/unlocks.gd` is in the pack) and zipped as `b
   `career.tracks_open = null`, meaning every track open: set a list to test locked tiles. Only a finish opens a track
   (`Unlocks.claim` in `PlayMode._on_finish`); nothing derives it from the best times after the one-time upgrade.
   End-to-end scenarios other than `economy`, `terminal` and `unlock` start with `SaveData.unlock_tracks(true)`.
+- **Medals are never stored with a best time** (v6.9.0 relies on it): records hold the time, and the medal is
+  `Medals.medal_for(medal_times, time)` when shown, so a new factor re-rates every save at once. What must not move
+  when a medal gets harder is stored on its own: the tracks a medal opened (`career.tracks_open`) and the rewards
+  paid (`career.paid`). Text that relates something to the medal times (the AI levels' `blurb`) is checked against
+  the measured times by `tests/test_ai.gd`.
 - **Godot files in git**: commit the `.uid` files next to scripts and shaders and the `.import` files of assets
   (Godot 4.4+ needs them for stable references); never `.godot/` or `build/`.
 - **Running Godot while others work**: the editor and `--import` write `.godot/` and `.import` files, so when several
@@ -758,7 +818,22 @@ import (no errors or warnings; `sim/unlocks.gd` is in the pack) and zipped as `b
   17 % faster than the author time on Hairpin Valley, where they ride the walls). The opponents' cars don't collide
   with yours and don't react to it.
 - **The Rookie may still be hard for a brand-new player on long tracks**: it takes 1.6 × the author time, slower
-  than bronze (1.5 ×, 1.3 × after item 9), but it doesn't crash or make mistakes.
+  than bronze (1.3 × since v6.9.0), but it doesn't crash or make mistakes.
+- **The faster bronze (v6.9.0) is harder for a new player**: a new career needs a bronze on Rookie Oval (2:39 with
+  the Racer, the author time + 30 %) before anything else opens. The e2e `unlock` scenario's deliberately slow
+  autopilot (corner grip 13 m/s², 50 m/s at most) makes 2:32.900; v6.8.0's (11 m/s², 40 m/s) made 2:49.750, which
+  is no medal now. No person has tried it. The AI levels were left as they are: beating the Amateur no longer
+  means a bronze (it is 1.39-1.41 × the author time), and beating the Rookie and the Amateur pays without any medal.
+- **Old saves and the new bronze** (v6.9.0): medals are worked out from best times, so a best time between the new
+  and the old bronze shows no medal and the HUD aims at the new bronze; tracks it opened stay open and rewards it
+  paid stay paid (a new bronze pays nothing again: `career.paid` has it). Two one-time upgrades judge against
+  today's medals, so they are less generous with an old 1.5 × bronze: a save from v6.7.0 or older (no
+  `tracks_open` yet) opens the track after one only for a time under today's bronze (the track itself opens anyway:
+  it has a best time), and a save from before v6.5.0 is paid once only for the medals its times hold today.
+- **Screenshots with an old bronze**: the HUD's next-medal line in `docs/screenshots/driving.png`, `race-ai.png`,
+  `dirt.png`, `snow.png`, `forest-rally.png`, `northern-lights.png` and `summit-rush.png` shows the bronze of the
+  version they were taken in (some from before v6.6.0); v6.9.0 retook only `menu.png`, `finish.png`, `locked.png`
+  and `terminal.png`, where the medal times are the subject.
 - **Technical Trial, Racer** (the browser's layout, the game's until v6.5.0): the medal autopilot's best run grinds
   a wall for 281 steps, and a last-bit difference turns into a different finish: 3:45.083 here against 3:44.033 in
   the browser, so gold / silver / bronze were 3:59 / 4:31 / 5:38 (browser 3:58 / 4:29 / 5:37). Lockstep from the JS
@@ -848,9 +923,10 @@ import (no errors or warnings; `sim/unlocks.gd` is in the pack) and zipped as `b
 
 ## Next: the owner's nine features
 
-The owner asked for these after the port, in this order. The defaults below were already announced to the owner;
-confirm anything else before building it. Several touch the physics: keep `sim/` and `native/` in step, and
-re-run the medal times.
+The owner asked for these after the port, in this order. **All nine are done (v6.1.0-v6.9.0)**; what is left open
+across them is at the end of this section ([All nine done](#all-nine-done-what-is-left-open)). For anything new,
+confirm it with the owner first. Anything that touches the physics: keep `sim/` and `native/` in step, and re-run the
+medal times.
 
 1. **Two more cars with detailed models (spinning wheels, a moving driver).** **Done in v6.1.0.** The Dune (buggy:
    all-wheel drive, forgiving grip and gentle slides, soft landings, 222 km/h, the most `dirtGrip` for item 3) and
@@ -943,12 +1019,42 @@ re-run the medal times.
    Rally unlocked" and the new tile is NEW once; `unlock all` / `unlock tracks` open everything; `reset career` turns
    that flag off but keeps the tracks medals opened (including those won while the flag was on); the terminal's
    `status` row counts the open tracks and names the next one's requirement.
-9. **Faster bronze.** Default: **bronze = 1.3 × the author time (was 1.5 ×)**, still rounded up to a whole second.
-   Change `Medals.FACTORS.bronze` and the method text in `tools/medals.gd` (it names the factors); the bronze times in `data/medals.json` can be
-   recomputed from the stored author times (`Medals.medal_set`) without the 20-minute sweep. Medals are worked out from
-   best times when shown, so saved records re-rate themselves; the medal parity check against the browser version no
-   longer applies to bronze. Tracks already opened stay open (v6.8.0 `career.tracks_open`, tested with a bronze made
-   30 s faster); from then on a track opens at the new bronze. The e2e `unlock` scenario takes bronze with a slow
-   autopilot (`Autopilot.basic` capped at 40 m/s: 2:49.750 on Rookie Oval against bronze 3:03); 1.3 × the author
-   2:01.867 gives 2:39, so it needs a faster cap then (45 m/s gave 2:42.367: about 50). The Rookie AI (1.6 ×) gets
-   further from bronze; the README's medal text and examples name 50 % and 3:03.
+9. **Faster bronze.** **Done in v6.9.0.** Bronze is **1.3 × the author time (was 1.5 ×)**, still rounded up to a whole
+   second (`Medals.FACTORS.bronze`). `tools/medals.gd` names the factors from `Medals.FACTORS` in medals.json's method
+   line and has a new `--factors` mode that works gold, silver and bronze out again from the stored author times (no
+   sweep: about a second); it rewrote the 90 bronze times and nothing else. `--js` (the browser comparison) compares
+   only the medals whose factor is still the browser's (`Medals.WEB_FACTORS`): author, gold and silver, and says that
+   bronze is left out. Choices made for the owner: medals stay worked out from best times, so old records re-rate
+   themselves at once; tracks a bronze opened stay open and paid rewards stay paid (a v6.8.0 player whose 3:03 on
+   Rookie Oval was bronze keeps Hairpin Valley and the $300, but has no medal there until a 2:39, which pays nothing
+   new); the AI levels were not recalibrated (their measured times are where they were), only the Amateur's and the
+   Pro's menu texts, which the new bronze made wrong or loose ("a little slower than bronze", "between silver and
+   bronze pace"). The e2e `unlock` scenario's slow autopilot now takes 2:32.900 (13 m/s² corners, 50 m/s), and the
+   `surfaces` snow-spray check counts the most puffs over 12 frames against a threshold scaled by the graphics
+   quality (it was a coin flip with `gfx=low`).
+
+### All nine done: what is left open
+
+Every feature the owner listed after the port is built (v6.1.0-v6.9.0). Nothing is half done, but these are open
+across them (details in [Known limitations](#known-limitations)):
+
+- **Never seen on the owner's kind of machine.** Everything ran on Linux with software rendering (llvmpipe) and
+  simulated input. The Windows `.exe` / `.dll` are built and zipped but were never started on Windows; no real graphics
+  card (frame rates, the car models, headlights, dirt and snow shaders, the dust and spray), no real gamepad (the pad
+  paths are tested with simulated events), no real keyboard layout for the terminal's `` ` `` key (a dead key on some
+  Windows layouts), and the AI opponents' stored times were measured with Linux's maths library (Windows may differ
+  by milliseconds; a win is judged against the race actually driven, so it stays fair).
+- **No human play-testing.** The difficulty of every feature was judged with autopilots: the reworked corners (v6.6.0),
+  the AI levels (v6.5.0; the Rookie may still be hard on long tracks), the prices and rewards (v6.5.0), Northern
+  Lights' flat-out bowls (v6.4.0) and now the faster bronze, which a new career needs on Rookie Oval before anything
+  else opens (v6.8.0 + v6.9.0). The owner should play the first tracks of a new career and say whether 1.3 × feels
+  right; the factor is one number plus `tools/medals.gd -- --factors`.
+- **Deliberate simplifications** the owner may want to revisit: one AI network per track and car, slowed down for the
+  lower levels (they drive the same line, just slower); the AI does not see the road surface; rewards are paid per
+  track id, not per track version; the terminal is a cheat with no limits; unlocks are generous when upgrading old
+  saves; the NEW mark on a just-opened track lives only in memory.
+- **Small known issues**: the menu's side column is 28 px wider while a track with a long surface line is picked;
+  seven README screenshots show an older bronze in the HUD; Technical Trial with the Racer differs from the browser
+  by 1 s (a last-bit difference in a wall-grinding run); terrain noise differs from the browser's.
+- **Waiting for the owner**: a licence for the project (none is chosen; no `LICENSE` file on purpose) and, if wanted,
+  a release on GitHub with `TrackRush-6.9.0-windows.zip` (built locally, not in git).
