@@ -43,6 +43,13 @@ extends Node
 ## network of the track and car with its level's speed cap (opts.level, opts.cap); without a
 ## level the AI ghost is the car's own trained network and pays nothing.
 ##
+## Sound (v6.12.0, audio/): the race plays its theme's music (SoundBank.RACE_MUSIC, a little lower
+## than on the menu); the main car has its CarAudio (the engine synthesized from its rpm, tyres,
+## ground, wind, walls, nitro) and so has the AI ghost (quieter, from where it is); the best-run
+## ghost is silent. The countdown beeps (3, 2, 1, GO; holding the throttle revs the engine), each
+## checkpoint and lap chimes, the finish rings and lowers the music, and a new medal or best time
+## and an opened track follow it with their stingers.
+##
 ## Physics runs at a fixed 60 Hz with an accumulator (the step the AI trains with); the
 ## frame draws the cars between the last two steps (render interpolation), so any display
 ## rate stays smooth. AI cars (watched or ghost) are not eliminated by walls: one that makes
@@ -65,6 +72,9 @@ const AI_GHOST_COLOR := Color("#b36bff")
 const NOTE_TIME := 2.5 # s a HUD note (ghost on / off) stays up
 const POPS_KEPT := 8 # score events kept for the HUD between two frames
 const RESPAWN_AHEAD := 6 # samples a respawned car is moved past its checkpoint (12 m)
+const MUSIC_DB := -3.0 # (v6.12) the race music's level against the menu's
+const FINISH_DUCK_DB := -8.0 # the music under the finish panel
+const STINGER_AT := 0.9 # s after the finish sound: the medal or best-time stinger
 
 ## The app shows the race HUD for this mode.
 var uses_hud := true
@@ -98,6 +108,9 @@ var pb_model: CarModel = null
 var camera: ChaseCamera
 ## (v6.10) mud and snow on the screen (a track with dirt or snow only)
 var grime: ScreenGrime = null
+## (v6.12) the sounds of the main car and of the AI ghost (null: none)
+var car_audio: CarAudio = null
+var ghost_audio: CarAudio = null
 
 # the run
 var car: Car
@@ -169,9 +182,13 @@ func enter() -> void:
 	# the player's car (or the watched AI's) in its own colours; the AI ghost is its car in purple
 	model = CarModel.new(car_def.id, {"levels": levels}) # (v6.11: its upgrades show on the model)
 	world.add_child(model)
+	car_audio = CarAudio.new(app.audio, car_def.id)
+	model.add_child(car_audio)
 	if with_ghost:
 		ghost_model = CarModel.new(ai_def.id, {"ghost": true, "color": AI_GHOST_COLOR, "dust": true})
 		world.add_child(ghost_model)
+		ghost_audio = CarAudio.new(app.audio, ai_def.id, {"positional": true})
+		ghost_model.add_child(ghost_audio)
 	elif driver == "human":
 		# your best run on this track with this car (if there is one yet), drawn as that car
 		pb = _load_pb()
@@ -186,6 +203,8 @@ func enter() -> void:
 	if track.has_surfaces():
 		grime = ScreenGrime.new(track)
 		world.add_child(grime)
+	app.audio.music(SoundBank.race_music(track.theme))
+	app.audio.music_level(MUSIC_DB)
 	_enter_view()
 	var hud := app.ui.hud
 	var cname: String = car_def.name
@@ -223,6 +242,11 @@ func _enter_view() -> void:
 
 
 func exit() -> void:
+	for a: CarAudio in [car_audio, ghost_audio]:
+		if a != null and is_instance_valid(a):
+			a.silence()
+	app.audio.clear_queue()
+	app.audio.duck(0.0)
 	for n: Node in [model, ghost_model, pb_model, camera, grime]:
 		if n != null and is_instance_valid(n):
 			n.queue_free()
@@ -275,6 +299,14 @@ func restart() -> void:
 	if grime != null:
 		grime.clear()
 	_update_gates(true)
+	# (v6.12) sound: the engines start over, the finish's stingers are dropped, the music comes back up,
+	# and the countdown's first beep ("3")
+	for a: CarAudio in [car_audio, ghost_audio]:
+		if a != null:
+			a.reset()
+	app.audio.clear_queue()
+	app.audio.duck(0.0)
+	app.audio.play("count")
 
 
 func _restart_view() -> void:
@@ -296,6 +328,9 @@ func respawn(standing: bool = false) -> void:
 	camera.snap(car, track)
 	if grime != null:
 		grime.clear()
+	if car_audio != null:
+		car_audio.reset()
+	app.audio.play("respawn")
 
 
 func update(dt: float) -> void:
@@ -328,10 +363,14 @@ func update(dt: float) -> void:
 
 func fixed_step(dt: float) -> void:
 	if phase == "countdown":
+		var shown := ceili(clock)
 		clock -= dt
 		if clock <= 0.0:
 			phase = "race"
 			go_timer = 0.8
+			app.audio.play("go")
+		elif ceili(clock) < shown:
+			app.audio.play("count") # (2, 1; restart() beeps the 3)
 		return
 	if go_timer > 0.0:
 		go_timer -= dt
@@ -389,8 +428,10 @@ func _on_gate(ev: Dictionary) -> void:
 	var label: String
 	if ev.kind == "cp":
 		label = "CP %d" % (int(gate.cp) + 1)
+		app.audio.play("checkpoint")
 	elif ev.kind == "lap":
 		label = "LAP %d" % (int(gate.lap) + 1)
+		app.audio.play("lap")
 	else:
 		label = "FINISH"
 	hud.split(label, ev.time, delta)
@@ -447,6 +488,25 @@ func _on_finish() -> void:
 	s.pad = app.input.pad_connected # name the gamepad buttons too
 	finish_state = s
 	app.ui.hud.show_panel(s)
+	_finish_sounds(s)
+
+
+## (v6.12) The finish rings and the music goes down under the finish panel; then a new medal (or,
+## without one, a new best time) gets its stinger, and an opened track its own after that.
+func _finish_sounds(s: Dictionary) -> void:
+	var au := app.audio
+	au.play("finish")
+	au.duck(FINISH_DUCK_DB)
+	var at := STINGER_AT
+	var m: Dictionary = s.get("medal", {})
+	if driver == "human" and bool(m.get("new", false)):
+		au.play_after("medal", at)
+		at += 1.6
+	elif driver == "human" and s.has("record"):
+		au.play_after("best", at)
+		at += 1.3
+	if s.has("unlocked"):
+		au.play_after("unlock", at)
 
 
 ## Pay the run (Economy.claim): the medal time `t` won and the AI level `beaten` ("" none). The
@@ -611,6 +671,14 @@ func render(dt: float, alpha: float) -> void:
 			pb_model.set_fade(CarModel.ghost_fade(Vector3(pp.x, pp.y, pp.z), at, cam, true))
 		else:
 			pb_model.set_fade(0.0)
+	# (v6.12) the cars' sounds; in the countdown the throttle revs the player's engine
+	if car_audio != null:
+		var rev := -1.0
+		if phase == "countdown" and driver == "human":
+			rev = maxf(1.0 if app.input.is_down("accelerate") else 0.0, app.input.pad_throttle)
+		car_audio.update(car, track, dt, rev)
+	if ghost_audio != null and not ghost.is_empty():
+		ghost_audio.update(ghost.car, track, dt)
 	if grime != null:
 		# mud and snow on the screen: from the car the camera follows and the AI car close ahead
 		var ahead := Vector2.ZERO

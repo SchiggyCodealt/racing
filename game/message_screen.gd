@@ -29,7 +29,9 @@ func _init() -> void:
 	var row := UiStyle.hbox(UiStyle.S4, BoxContainer.ALIGNMENT_END)
 	_ok = UiStyle.button("OK", "PrimaryButton", 40)
 	_ok.custom_minimum_size.x = 120
-	_ok.pressed.connect(close)
+	_ok.pressed.connect(func() -> void:
+		UiSound.play("ui_back")
+		close())
 	row.add_child(_ok)
 	_yes = UiStyle.button("", "PrimaryButton", 40)
 	_yes.custom_minimum_size.x = 120
@@ -68,6 +70,7 @@ var asking: bool:
 
 ## The yes button of a question: run its callback and close.
 func confirm() -> void:
+	UiSound.play("ui_confirm")
 	var cb := _on_yes
 	_on_yes = Callable()
 	close()
@@ -104,7 +107,9 @@ func handle_keys(inp: Object) -> void:
 			confirm()
 			return
 		if inp.consume(["menu_back", "menu", "PadB"]):
+			UiSound.play("ui_back")
 			close()
 	elif inp.consume(["menu_accept", "menu_back", "menu", "PadA", "PadB"]):
+		UiSound.play("ui_back")
 		close()
 	inp.clear_pressed()

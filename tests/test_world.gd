@@ -6,7 +6,10 @@ extends RefCounted
 ## grime shader, the AI opponent's dust, no camera rumble on loose ground but mud and snow on
 ## the screen (world/screen_grime.gd: builds, fades, quality, setting, the middle kept clear);
 ## the themes of v6.4: the arctic sky's northern lights, the autumn woods, the highland's snow
-## beside snowy road (and the trees that know it).
+## beside snowy road (and the trees that know it); (v6.12.0) the cars' sound (audio/): every car's
+## engine character, the pitch following the rpm (and the gear changes), the levels, the limiter,
+## crackle, turbo and nitro, the script time, and a car's events (wall hits, landings, nitro, the
+## turbo's blow-off) and ground loops from the sim's state.
 ## The pictures themselves are checked by eye with tests/visual/world_*.gd.
 
 const VNoise = preload("res://world/noise.gd")
@@ -26,6 +29,10 @@ func run(t) -> bool:
 	_camera(t)
 	_tracks(t)
 	_surfaces(t)
+	# (the sound before the fleet and the threaded build: the audio thread lets go of a freed
+	# player's playback a moment later, and quitting right after a free counts it as leaked)
+	_engine_sound(t)
+	_car_sound(t)
 	_fleet(t)
 	_threaded(t)
 	return true
@@ -703,3 +710,326 @@ func _threaded(t) -> void:
 		"World.build_track_node in a worker thread, then show_track(track, node) (%d ms)" % world.render_stats()["build_ms"])
 	world.free()
 	_built = null
+
+
+
+# ---------------------------------------------------------------- sound (v6.12.0)
+
+## Goertzel power of `s` (Hann window) at `f` Hz.
+static func _gz(s: PackedFloat32Array, f: float, rate: float, a: int = 0, n: int = -1) -> float:
+	if n < 0:
+		n = s.size() - a
+	var c := 2.0 * cos(TAU * f / rate)
+	var s1 := 0.0
+	var s2 := 0.0
+	var k := TAU / (n - 1)
+	for i in n:
+		var s0 := s[a + i] * (0.5 - 0.5 * cos(k * i)) + c * s1 - s2
+		s2 = s1
+		s1 = s0
+	return s1 * s1 + s2 * s2 - c * s1 * s2
+
+
+## dB the firing frequency `f0` stands above 2.5 semitones either side.
+static func _prominence(s: PackedFloat32Array, f0: float, rate: float, a: int = 0, n: int = -1) -> float:
+	var p := _gz(s, f0, rate, a, n)
+	var q := 0.5 * (_gz(s, f0 * pow(2.0, -2.5 / 12.0), rate, a, n) + _gz(s, f0 * pow(2.0, 2.5 / 12.0), rate, a, n))
+	return 10.0 * log(maxf(p, 1e-30) / maxf(q, 1e-30)) / log(10.0)
+
+
+## The strongest frequency within ±40 % of `f0` (quarter-semitone steps).
+static func _peak_near(s: PackedFloat32Array, f0: float, rate: float, a: int = 0, n: int = -1) -> float:
+	var best := -1.0
+	var at := f0
+	for k in range(-24, 25):
+		var f := f0 * pow(2.0, k / 48.0)
+		var p := _gz(s, f, rate, a, n)
+		if p > best:
+			best = p
+			at = f
+	return at
+
+
+static func _rms_db(s: PackedFloat32Array, a: int = 0, n: int = -1) -> float:
+	if n < 0:
+		n = s.size() - a
+	var e := 0.0
+	for i in n:
+		e += s[a + i] * s[a + i]
+	return linear_to_db(maxf(1e-10, sqrt(e / maxf(1, n))))
+
+
+## Render `seconds` of voice `v` at `rpm` and `load` (block by block, as the game feeds it).
+static func _drive_voice(v: EngineVoice, at_rpm: float, ld: float, seconds: float, block: int = 400) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	v.rpm = at_rpm
+	v.load = ld
+	v.throttle = ld
+	for i in int(seconds * v.mix_rate / block):
+		out.append_array(v.render_mono(block))
+	return out
+
+
+func _engine_sound(t) -> void:
+	t.section("sound: the engines (audio/engine_voice.gd, v6.12.0)")
+	var keys := ["name", "cylinders", "intervals", "amps", "jitter", "pulse", "pipe", "body", "direct", "tone", "rough", "intake",
+		"whine", "turbo", "turbo_hz", "rattle", "drive", "off", "crackle", "limiter_hz", "gain"]
+	var bad := []
+	for cid: String in Cars.ids():
+		if not EngineVoice.ENGINES.has(cid):
+			bad.append(cid)
+			continue
+		var e: Dictionary = EngineVoice.ENGINES[cid]
+		for k: String in keys:
+			if not e.has(k):
+				bad.append("%s.%s" % [cid, k])
+		if (e.intervals as Array).size() != int(e.cylinders) or (e.amps as Array).size() != int(e.cylinders) or (e.body as Array).size() != 3:
+			bad.append(cid + ": slots")
+	t.check(bad.is_empty() and EngineVoice.ENGINES.size() == Cars.ids().size(), "every car has an engine with every parameter %s" % [bad])
+	var E := EngineVoice.ENGINES
+	var turbos := []
+	for cid: String in E:
+		if float(E[cid].turbo) > 0.0:
+			turbos.append(cid)
+	var jit := 0.0
+	var pipe_lo := 1e9
+	for cid: String in E:
+		jit = maxf(jit, float(E[cid].jitter))
+		pipe_lo = minf(pipe_lo, float(E[cid].pipe[0]))
+	var uneven := false
+	for v: float in E.thunder.intervals:
+		uneven = uneven or absf(v - 1.0) > 0.02
+	t.check(int(E.racer.cylinders) == 6 and int(E.kestrel.cylinders) == 4 and int(E.thunder.cylinders) == 8 and int(E.drifter.cylinders) == 4
+		and int(E.dune.cylinders) == 4 and int(E.vortex.cylinders) == 12 and turbos == ["drifter"] and float(E.dune.rattle) > 0.2
+		and is_equal_approx(float(E.dune.jitter), jit) and uneven and is_equal_approx(float(E.thunder.pipe[0]), pipe_lo)
+		and float(E.vortex.pulse[1]) > float(E.kestrel.pulse[1]) and float(E.thunder.crackle) >= 0.5,
+		"the characters: Racer a V6, Kestrel a four, Thunder a cross-plane V8 (uneven firing, the deepest pipe, big crackle), Drifter the only turbo, Dune the roughest (rattle, jitter), Vortex a V12 (the brightest)")
+	t.check(EngineVoice.of("nope") == E.racer and is_equal_approx(EngineVoice.firing_hz(4, 6000.0), 200.0) and is_equal_approx(EngineVoice.firing_hz(8, 3000.0), 200.0),
+		"firing frequency = rpm / 120 × cylinders (4 at 6000 rpm: 200 Hz); an unknown car sounds like the Racer")
+	# pitch, level, gear change: each car at a third and two thirds of its redline, on load
+	var rate := 24000.0
+	var rows := PackedStringArray()
+	var all_ok := true
+	var levels := []
+	var usec := 0
+	var samples := 0
+	for cid: String in Cars.ids():
+		var v := EngineVoice.new(cid, rate)
+		var red := Cars.spec(cid).redline
+		var lo_rpm := red * 0.35
+		var hi_rpm := red * 0.7
+		var cyl := int(E[cid].cylinders)
+		var t0 := Time.get_ticks_usec()
+		var a := _drive_voice(v, lo_rpm, 1.0, 0.6)
+		var b := _drive_voice(v, hi_rpm, 1.0, 0.6)
+		usec += Time.get_ticks_usec() - t0
+		samples += a.size() + b.size()
+		var n := 8192
+		var start := a.size() - n
+		var pa := _prominence(a, EngineVoice.firing_hz(cyl, lo_rpm), rate, start, n)
+		var pb := _prominence(b, EngineVoice.firing_hz(cyl, hi_rpm), rate, start, n)
+		var fa := _peak_near(a, EngineVoice.firing_hz(cyl, lo_rpm), rate, start, n)
+		var fb := _peak_near(b, EngineVoice.firing_hz(cyl, hi_rpm), rate, start, n)
+		var lvl := _rms_db(b, start, n)
+		var pk := 0.0
+		for x in b:
+			pk = maxf(pk, absf(x))
+		levels.append(lvl)
+		var ok := pa >= 6.0 and pb >= 6.0 and absf(fb / fa - 2.0) < 0.08 and lvl > -24.0 and lvl < -11.0 and pk < 1.0
+		all_ok = all_ok and ok
+		rows.append("%s %d / %d Hz (+%.0f / +%.0f dB, x%.2f) %.1f dBFS" % [cid, roundi(fa), roundi(fb), pa, pb, fb / fa, lvl])
+	t.check(all_ok, "the pitch is the firing frequency of the rpm (a third / two thirds of the redline: twice as high), each car about as loud: " + ", ".join(rows))
+	var spread: float = levels.max() - levels.min()
+	t.check(spread < 6.0, "every car's engine within %.1f dB of the others at two thirds of the redline on load" % spread)
+	var us := float(usec) / samples
+	t.check(us < 6.0, "script time %.2f µs a sample: %.2f ms a 60 Hz frame for the player's engine (24 kHz)" % [us, us * 400.0 / 1000.0])
+	# a gear change: the revs drop with the drive cut, then pick up from the lower rpm
+	var g := EngineVoice.new("racer", rate)
+	var red_r := Cars.spec("racer").redline
+	var up := _drive_voice(g, red_r * 0.9, 1.0, 0.4)
+	var shift := _drive_voice(g, red_r * 0.62, 0.0, 0.15)
+	var on := _drive_voice(g, red_r * 0.64, 1.0, 0.4)
+	var f_up := _peak_near(up, EngineVoice.firing_hz(6, red_r * 0.9), rate, up.size() - 4096, 4096)
+	var f_on := _peak_near(on, EngineVoice.firing_hz(6, red_r * 0.64), rate, 0, 4096)
+	t.check(absf(f_on / f_up - 0.64 / 0.9) < 0.05 and _rms_db(shift) < _rms_db(up) - 2.0,
+		"a gear change: %d Hz on load, quieter off load in the shift, then %d Hz in the next gear (x%.2f, the rpm x%.2f)" % [roundi(f_up), roundi(f_on), f_on / f_up, 0.64 / 0.9])
+	# the limiter, the crackle on a lift, the turbo, nitro
+	var lm := EngineVoice.new("kestrel", rate)
+	lm.limiter = true
+	_drive_voice(lm, Cars.spec("kestrel").redline, 1.0, 0.5)
+	var fired0 := lm.fired
+	t.check(lm.cut > 0 and lm.fired > 0, "on the rev limiter the ignition cuts (%d cut, %d fired)" % [lm.cut, fired0])
+	var th := EngineVoice.new("thunder", rate)
+	_drive_voice(th, Cars.spec("thunder").redline * 0.85, 1.0, 0.5)
+	var p0 := th.popped
+	var lift := _drive_voice(th, Cars.spec("thunder").redline * 0.8, 0.0, 1.0)
+	t.check(p0 == 0 and th.popped > 3, "Thunder: no pops on load, %d crackles on a lift from high revs" % th.popped)
+	var dr := EngineVoice.new("drifter", rate)
+	_drive_voice(dr, Cars.spec("drifter").redline * 0.8, 1.0, 1.5)
+	var spool_on := dr.spool
+	_drive_voice(dr, Cars.spec("drifter").redline * 0.7, 0.0, 0.5)
+	t.check(spool_on > 0.6 and dr.spool < 0.2, "Drifter: the turbo spools up on load (%.2f) and falls on a lift (%.2f)" % [spool_on, dr.spool])
+	var plain := EngineVoice.new("racer", rate)
+	var nit := EngineVoice.new("racer", rate)
+	nit.boost = 1.0
+	var x0 := _drive_voice(plain, red_r * 0.7, 1.0, 0.5)
+	var x1 := _drive_voice(nit, red_r * 0.7, 1.0, 0.5)
+	var hi0 := 0.0
+	var hi1 := 0.0
+	for i in range(1, x0.size()):
+		hi0 += (x0[i] - x0[i - 1]) * (x0[i] - x0[i - 1])
+		hi1 += (x1[i] - x1[i - 1]) * (x1[i] - x1[i - 1])
+	var louder := _rms_db(x1) - _rms_db(x0)
+	var brighter := 10.0 * log(hi1 / maxf(hi0, 1e-20)) / log(10.0) - louder
+	t.check(louder > 0.5 and brighter > 0.5, "nitro: %.1f dB louder and %.1f dB brighter (the highs against the level)" % [louder, brighter])
+	var r1 := EngineVoice.new("dune", rate)
+	var r2 := EngineVoice.new("dune", rate)
+	t.check(_drive_voice(r1, 4000.0, 1.0, 0.2) == _drive_voice(r2, 4000.0, 1.0, 0.2), "the same car and inputs give the same sound (seeded)")
+	t.check(not is_nan(lift[lift.size() - 1]) and _rms_db(lift) > -60.0, "off throttle the engine is still heard (engine braking, %.1f dBFS)" % _rms_db(lift))
+
+
+func _car_sound(t) -> void:
+	t.section("sound: a car's sounds from the sim (audio/car_audio.gd, v6.12.0)")
+	var track := Tracks.build("rookie-oval")
+	var car := Car.new(track, track.start_idx, Cars.spec("thunder"))
+	var ca := CarAudio.new(null, "thunder")
+	var ctrl := Car.Controls.new(0.0, 1.0, false, 0.0)
+	var hit_step := -1
+	var hit_event := -1
+	var max_scrape := 0.0
+	var max_wind := [0.0, 0.0]
+	for i in 60 * 40:
+		car.step(track, ctrl, 1.0 / 60.0)
+		var before := int(ca.events.get("hit_light", 0)) + int(ca.events.get("hit_medium", 0)) + int(ca.events.get("hit_heavy", 0))
+		ca.update(car, track, 1.0 / 60.0)
+		var after := int(ca.events.get("hit_light", 0)) + int(ca.events.get("hit_medium", 0)) + int(ca.events.get("hit_heavy", 0))
+		if hit_step < 0 and car.wall_hits > 0:
+			hit_step = i
+		if hit_event < 0 and after > before:
+			hit_event = i
+		max_scrape = maxf(max_scrape, float(ca.levels.get("scrape", 0.0)))
+		if float(ca.levels.get("wind", 0.0)) > max_wind[0]:
+			max_wind = [float(ca.levels.get("wind", 0.0)), car.speed]
+		if hit_step >= 0 and i > hit_step + 60:
+			break
+	t.check(hit_step > 0 and hit_event == hit_step, "flat out into Rookie Oval's first corner: a wall hit sound in the step the car hits (step %d, %s)" % [hit_step, ca.events])
+	t.check(int(ca.events.get("hit_heavy", 0)) + int(ca.events.get("hit_medium", 0)) > 0, "at speed it is a medium or heavy hit")
+	t.check(max_wind[0] > 0.2 and max_wind[1] > 40.0, "wind with speed (up to %.2f at %.0f m/s); the scrape along the wall up to %.2f" % [max_wind[0], max_wind[1], max_scrape])
+	# the hit sizes by the speed into the wall
+	var sizes := {}
+	for sp: float in [3.0, 8.0, 20.0]:
+		var c2 := Car.new(track, track.start_idx, Cars.spec("racer"))
+		var a2 := CarAudio.new(null, "racer")
+		a2.update(c2, track, 1.0 / 60.0)
+		c2.wall_hits += 1
+		c2.hit_wall = true
+		c2.wall_impact = sp
+		a2.update(c2, track, 1.0 / 60.0)
+		sizes[sp] = a2.events.keys()
+		a2.free()
+	t.check(sizes[3.0] == ["hit_light"] and sizes[8.0] == ["hit_medium"] and sizes[20.0] == ["hit_heavy"], "hits by the speed into the wall: 3 m/s light, 8 medium, 20 heavy %s" % [sizes])
+	var c3 := Car.new(track, track.start_idx, Cars.spec("racer"))
+	var a3 := CarAudio.new(null, "racer")
+	a3.update(c3, track, 1.0 / 60.0)
+	c3.wall_hits += 1
+	c3.wall_impact = 0.5
+	a3.update(c3, track, 1.0 / 60.0)
+	t.check(a3.events.is_empty(), "a touch below %.1f m/s makes no hit sound" % CarAudio.HIT_MIN)
+	# a landing: in the air falling at 7 m/s, then down
+	c3.grounded = false
+	c3.vy = -7.0
+	for i in 20:
+		a3.update(c3, track, 1.0 / 60.0)
+	c3.grounded = true
+	a3.update(c3, track, 1.0 / 60.0)
+	var landed := int(a3.events.get("land", 0))
+	c3.grounded = false
+	c3.vy = -1.0
+	a3.update(c3, track, 1.0 / 60.0)
+	c3.grounded = true
+	a3.update(c3, track, 1.0 / 60.0)
+	t.check(landed == 1 and int(a3.events.get("land", 0)) == 1, "a landing at 7 m/s thumps, a hop at 1 m/s does not")
+	c3.boosting = true
+	a3.update(c3, track, 1.0 / 60.0)
+	a3.update(c3, track, 1.0 / 60.0)
+	t.check(int(a3.events.get("nitro_on", 0)) == 1, "the nitro lighting is heard once")
+	# a respawn jump (far away in one frame) makes no hit or landing
+	c3.x += 100.0
+	c3.wall_hits += 3
+	c3.wall_impact = 20.0
+	a3.update(c3, track, 1.0 / 60.0)
+	t.check(not a3.events.has("hit_heavy"), "a respawn (a jump of 100 m) starts over: no hit from it")
+	# the ground under the car
+	var ramp := Tracks.build("ramp-rally")
+	var hair := Tracks.build("hairpin-valley")
+	var dirt := 0
+	var snow := 0
+	for i in ramp.count:
+		if CarAudio.loose_at(ramp, i).x > 0.95:
+			dirt += 1
+	for i in hair.count:
+		if CarAudio.loose_at(hair, i).y > 0.95:
+			snow += 1
+	var none := true
+	for i in range(0, track.count, 7):
+		none = none and CarAudio.loose_at(track, i) == Vector2.ZERO
+	t.check(dirt > ramp.count / 4 and snow > hair.count / 8 and none and CarAudio.loose_at(null, 3) == Vector2.ZERO,
+		"the ground: Ramp Rally's dirt (%d of %d samples), Hairpin Valley's snow (%d of %d), Rookie Oval none" % [dirt, ramp.count, snow, hair.count])
+	# gravel on the dirt at speed: its loop level, none on asphalt
+	var c4 := Car.new(ramp, ramp.start_idx, Cars.spec("dune"))
+	var a4 := CarAudio.new(null, "dune")
+	var di := -1
+	for i in ramp.count:
+		if CarAudio.loose_at(ramp, i).x > 0.99:
+			di = i
+			break
+	c4.idx = di
+	c4.speed = 30.0
+	c4.slip = 0.2
+	for i in 30:
+		a4.update(c4, ramp, 1.0 / 60.0)
+	var g_dirt := float(a4.levels.get("gravel", 0.0))
+	c4.idx = ramp.start_idx
+	for i in 120:
+		a4.update(c4, ramp, 1.0 / 60.0)
+	t.check(g_dirt > 0.3 and float(a4.levels.get("gravel", 0.0)) < 0.01 and float(a4.levels.get("road", 0.0)) > 0.1,
+		"the Dune at 30 m/s: gravel %.2f on the dirt, %.3f on asphalt (road roar %.2f there)" % [g_dirt, float(a4.levels.get("gravel", 0.0)), float(a4.levels.get("road", 0.0))])
+	c4.slip = 0.8
+	for i in 30:
+		a4.update(c4, ramp, 1.0 / 60.0)
+	t.check(float(a4.levels.get("tyre_squeal", 0.0)) > 0.3, "sliding on asphalt: the tyres squeal (%.2f)" % float(a4.levels.get("tyre_squeal", 0.0)))
+	# in the tree (headless: the dummy audio driver): the engine is fed, the turbo blows off on a lift
+	GameAudio.setup_buses()
+	var holder := Node3D.new()
+	t.tree.root.add_child(holder)
+	var c5 := Car.new(track, track.start_idx, Cars.spec("drifter"))
+	var a5 := CarAudio.new(null, "drifter")
+	holder.add_child(a5)
+	c5.gear = 3
+	c5.rpm = Cars.spec("drifter").redline * 0.85
+	c5.throttle = 1.0
+	# (the game's audio thread asks for the engine as it plays; here each frame renders its 1/60 s)
+	for i in 90:
+		a5.update(c5, track, 1.0 / 60.0)
+		a5.engine.render_mono(400)
+	var sp_on := a5.engine.spool
+	c5.throttle = 0.0
+	for i in 10:
+		a5.update(c5, track, 1.0 / 60.0)
+		a5.engine.render_mono(400)
+	var player: AudioStreamPlayer = a5.get("_engine_player")
+	t.check(player != null and player.playing and player.bus == "Engine" and a5.updates == 100, "in the tree the engine plays on the Engine bus (headless: the dummy driver)")
+	var ahead := a5.queued()
+	t.check(ahead > 0.0 and ahead <= CarAudio.LEAD_MIN + 0.005,
+		"at 60 frames a second the engine is rendered %.0f ms ahead of what has played (the generator's ring is bigger than its buffer_length: counted from the empty ring)" % (ahead * 1000.0))
+	t.check(sp_on > 0.5 and int(a5.events.get("blowoff", 0)) == 1, "the Drifter's turbo (spool %.2f) blows off once on the lift" % sp_on)
+	var per := float(a5.usec) / a5.updates
+	t.check(per < 2000.0, "a car's sound costs %.2f ms of script time a frame (engine, events, loops)" % (per / 1000.0))
+	holder.free()
+	var pos := CarAudio.new(null, "vortex", {"positional": true})
+	t.check(pos.positional and is_equal_approx(pos.level, 0.6) and is_equal_approx(pos.engine.mix_rate, CarAudio.ENGINE_RATE_3D),
+		"another car's sound: positional, quieter (0.6), a lighter engine voice (%d Hz)" % int(CarAudio.ENGINE_RATE_3D))
+	pos.free()
+	ca.free()
+	a3.free()
+	a4.free()

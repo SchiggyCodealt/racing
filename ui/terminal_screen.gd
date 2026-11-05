@@ -144,6 +144,7 @@ func focus_line() -> void:
 ## Esc, ` and the pad's B or Menu close it.
 func handle_keys(inp: Object) -> void:
 	if inp.consume(["Escape", "Backquote", "PadB", "PadStart"]):
+		UiSound.play("ui_back")
 		close()
 		return
 	if is_open and not line.has_focus():
@@ -286,6 +287,9 @@ func _on_line_input(e: InputEvent) -> void:
 	if k == null or not k.pressed:
 		return
 	var code: Key = k.physical_keycode if k.physical_keycode != KEY_NONE else k.keycode
+	# (v6.12.0) a key click for every key typed, a heavier one for Enter (ui/ui_sound.gd)
+	if code != KEY_QUOTELEFT and code != KEY_ESCAPE and code != KEY_SHIFT and code != KEY_CTRL and code != KEY_ALT:
+		UiSound.play("key_enter" if code == KEY_ENTER or code == KEY_KP_ENTER else "key")
 	match code:
 		KEY_ENTER, KEY_KP_ENTER:
 			if not k.echo:

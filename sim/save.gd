@@ -103,8 +103,11 @@ const DEFAULT_PATH: String = "user://trackrush_save.json"
 ## car: the car picked on the menu (Cars.get_car() turns an unknown id into the racer);
 ## quality: the graphics quality ("auto" | "high" | "medium" | "low"); opponent (v6.5.0): the menu's
 ## AI opponent (an AI level id, sim/opponents.gd, or "mine": the player's own network); grime (v6.10):
-## mud and snow on the screen on loose ground (world/screen_grime.gd).
-const SETTINGS: Dictionary = {ghost = true, car = "racer", quality = "auto", opponent = "rookie", grime = true}
+## mud and snow on the screen on loose ground (world/screen_grime.gd); (v6.12) vol_master, vol_music,
+## vol_sfx, vol_engine: the volumes 0..1 (audio/game_audio.gd), mute_unfocused: no sound while the
+## window is in the background. Older files lack them and read the defaults (no migration needed).
+const SETTINGS: Dictionary = {ghost = true, car = "racer", quality = "auto", opponent = "rookie", grime = true,
+	vol_master = 1.0, vol_music = 0.7, vol_sfx = 0.8, vol_engine = 0.8, mute_unfocused = true}
 
 static var path: String = DEFAULT_PATH
 static var _data: Dictionary = {}

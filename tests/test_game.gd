@@ -8,7 +8,11 @@ extends RefCounted
 ## and the terminal in the app (opened from the menu and Settings, the menu redrawn, ` in a race);
 ## (v6.11.0) car upgrades: the car picker's part chips in the app (asking first, money short, a
 ## locked car, the top level), the races driving the upgraded car (the AI opponents stock), and the
-## terminal's upgrade and buy <car> <part>.
+## terminal's upgrade and buy <car> <part>; (v6.12.0) sound: the buses and their limiter, the volume
+## settings (applied, saved, read back, old files), the background mute, the sound files, pooled
+## effects, the music's cross-fade and ducking, and in the app the sounds of the countdown, the
+## checkpoints, a wall hit, the finish and its stinger, the shop's cash and refusals, the menu's
+## clicks (all on the dummy audio driver: headless, nothing is heard and nothing is printed).
 ## The real game under a display is checked by tests/e2e/game_e2e.gd.
 
 const AiLink := preload("res://game/ai_link.gd")
@@ -24,6 +28,7 @@ func run(t) -> bool:
 	_app(t)
 	_terminal(t)
 	_terminal_upgrades(t)
+	_audio(t)
 	UiData.reset()
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	if FileAccess.file_exists(SAVE):
@@ -258,9 +263,13 @@ func _app(t) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	SaveData.use_file(path)
+	SaveData.set_setting("vol_music", 0.3) # (v6.12: a saved volume is on its bus from the start)
 	var app: GameApp = (load("res://main.tscn") as PackedScene).instantiate()
 	t.tree.root.add_child(app)
 	t.check(app.mode == app.menu_mode and app.ui.menu.visible and not app.ui.hud.visible, "starts on the menu")
+	var music_db := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
+	t.check(is_equal_approx(music_db, GameAudio.volume_db(0.3)), "a saved volume applies from the start (music 30%%: %.1f dB)" % music_db)
+	UiData.set_setting("vol_music", 0.7) # (the app applies it)
 	t.check(app.tracks.size() == 15 and app.world.track == app.tracks[0], "15 tracks, the first one shown")
 	t.check(app.ui.input == app.input and app.ui.menu.input == app.input, "the interface reads the game's input")
 	# (the player's own network first: the opponent "My AI"; the AI levels are checked in _app_career)
@@ -356,6 +365,9 @@ func _app(t) -> void:
 	if app.mode != app.menu_mode:
 		app.show_menu()
 	_app_unlock(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
+	_app_audio(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
 	app.free()
@@ -1113,3 +1125,262 @@ func _terminal_upgrades(t) -> void:
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+
+# ---------------------------------------------------------------- sound (v6.12.0)
+
+func _audio(t) -> void:
+	t.section("sound: buses, volumes, the background mute, effects and music (audio/game_audio.gd)")
+	var path := "user://test_game_audio.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	UiData.use_save_data(true)
+	GameAudio.setup_buses()
+	GameAudio.setup_buses()
+	var names := []
+	var sends := []
+	for i in AudioServer.bus_count:
+		names.append(AudioServer.get_bus_name(i))
+		sends.append(str(AudioServer.get_bus_send(i)) if i > 0 else "")
+	var m := AudioServer.get_bus_index("Master")
+	var limiters := 0
+	for k in AudioServer.get_bus_effect_count(m):
+		if AudioServer.get_bus_effect(m, k) is AudioEffectHardLimiter:
+			limiters += 1
+	var lim := AudioServer.get_bus_effect(m, 0) as AudioEffectHardLimiter
+	t.check(names == ["Master", "Music", "SFX", "Engine"] and sends == ["", "Master", "Master", "Master"] and limiters == 1 and lim != null
+		and is_equal_approx(lim.ceiling_db, GameAudio.LIMIT_DB), "buses Music, SFX and Engine into Master, one hard limiter on Master at %.1f dB (made twice: still one)" % GameAudio.LIMIT_DB)
+	t.check(GameAudio.volume_db(1.0) == 0.0 and absf(GameAudio.volume_db(0.5) - -12.04) < 0.01 and GameAudio.volume_db(0.0) == GameAudio.SILENT,
+		"a volume v is v² in amplitude: 100% 0 dB, 50% -12 dB, 0 silent")
+	var ga := GameAudio.new()
+	t.tree.root.add_child(ga)
+	t.check(ga.get_child_count() == GameAudio.POOL_2D + GameAudio.POOL_3D + 2, "pooled players made once: %d plain, %d positional, 2 for the music" % [GameAudio.POOL_2D, GameAudio.POOL_3D])
+	var vol := func(b: String) -> float: return AudioServer.get_bus_volume_db(AudioServer.get_bus_index(b))
+	t.check(is_equal_approx(vol.call("Master"), GameAudio.volume_db(1.0)) and is_equal_approx(vol.call("Music"), GameAudio.volume_db(0.7))
+		and is_equal_approx(vol.call("SFX"), GameAudio.volume_db(0.8)) and is_equal_approx(vol.call("Engine"), GameAudio.volume_db(0.8)),
+		"the default volumes on the buses (master 100%, music 70%, effects and engines 80%)")
+	UiData.set_setting("vol_sfx", 0.5)
+	UiData.set_setting("vol_music", 0.0)
+	UiData.set_setting("vol_engine", 0.3)
+	ga.apply_settings()
+	t.check(absf(vol.call("SFX") - -12.04) < 0.01 and AudioServer.is_bus_mute(AudioServer.get_bus_index("Music")) and absf(vol.call("Engine") - GameAudio.volume_db(0.3)) < 0.001,
+		"changed volumes reach the buses (effects 50%: -12 dB; music 0: muted)")
+	SaveData.use_file(path) # read back from the file
+	t.check(is_equal_approx(float(UiData.get_setting("vol_sfx")), 0.5) and float(UiData.get_setting("vol_music")) == 0.0 and is_equal_approx(float(UiData.get_setting("vol_engine")), 0.3),
+		"the volumes are saved in the save file and read back")
+	var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	(raw.settings as Dictionary).erase("vol_sfx")
+	(raw.settings as Dictionary).erase("mute_unfocused")
+	raw.settings["vol_master"] = "loud"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(raw))
+	f.close()
+	SaveData.use_file(path)
+	t.check(is_equal_approx(float(UiData.get_setting("vol_sfx")), 0.8) and UiData.get_setting("mute_unfocused") == true and is_equal_approx(float(UiData.get_setting("vol_master")), 1.0),
+		"an older file without them (or a bad value) reads the defaults")
+	UiData.set_setting("vol_music", 0.7)
+	UiData.set_setting("vol_sfx", 0.8)
+	UiData.set_setting("vol_engine", 0.8)
+	ga.apply_settings()
+	# the window in the background
+	ga.set_focused(false)
+	var muted := AudioServer.is_bus_mute(m) and ga.muted_in_background()
+	ga.set_focused(true)
+	t.check(muted and not AudioServer.is_bus_mute(m), "the window in the background mutes Master; in front again it plays")
+	ga.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var by_note := AudioServer.is_bus_mute(m) and not ga.focused
+	ga.notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	t.check(by_note and not AudioServer.is_bus_mute(m), "the same from the window's focus notifications")
+	UiData.set_setting("mute_unfocused", false)
+	ga.apply_settings()
+	ga.set_focused(false)
+	t.check(not AudioServer.is_bus_mute(m) and not ga.muted_in_background(), "Mute in the background off: it keeps playing")
+	ga.set_focused(true)
+	UiData.set_setting("mute_unfocused", true)
+	UiData.set_setting("vol_master", 0.0)
+	ga.apply_settings()
+	t.check(AudioServer.is_bus_mute(m), "master volume 0: Master muted")
+	UiData.set_setting("vol_master", 1.0)
+	ga.apply_settings()
+	# every sound and the music exist and load (loops loop)
+	var bad := []
+	for nm: String in SoundBank.SFX:
+		var d := SoundBank.sfx(nm)
+		for file: String in d.files:
+			var st := ga.stream(file)
+			if st == null:
+				bad.append(file)
+			elif bool(d.loop) and not (st is AudioStreamWAV and (st as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD):
+				bad.append(file + " (no loop)")
+	for nm: String in SoundBank.MUSIC:
+		var ms: Variant = load(SoundBank.music_path(nm))
+		if not (ms is AudioStreamOggVorbis) or not (ms as AudioStreamOggVorbis).loop or (ms as AudioStreamOggVorbis).get_length() < 20.0:
+			bad.append(nm)
+	var themes := []
+	for th: String in SoundBank.RACE_MUSIC:
+		if not SoundBank.MUSIC.has(SoundBank.race_music(th)):
+			themes.append(th)
+	for tid: String in Tracks.ids():
+		var th: String = str(Tracks.build(tid).theme)
+		if not SoundBank.RACE_MUSIC.has(th):
+			themes.append(tid + ": " + th)
+	t.check(bad.is_empty() and themes.is_empty(), "every sound file loads (%d sounds, the loops loop), the %d music tracks loop, every track's theme has its race music %s %s" % [
+		SoundBank.SFX.size(), SoundBank.MUSIC.size(), bad, themes])
+	# effects: pooled, on their bus, logged; unknown names do nothing
+	var h0 := ga.total
+	var p := ga.play("checkpoint")
+	t.check(p != null and p.playing and p.bus == "SFX" and ga.sounds_since(h0) == PackedStringArray(["checkpoint"]), "play(): a pooled player on the SFX bus, logged")
+	t.check(ga.play("no_such_sound") == null and ga.total == h0 + 1, "an unknown sound: nothing (no error)")
+	for i in 6:
+		ga.play("key")
+	var keys := 0
+	for c: Node in ga.get_children():
+		if c is AudioStreamPlayer and (c as AudioStreamPlayer).playing and (c as AudioStreamPlayer).bus == "SFX" and ga.get("_owner").get(c, "") == "key":
+			keys += 1
+	t.check(keys == int(SoundBank.sfx("key").voices), "six quick key clicks: at most %d at once (the oldest stops)" % int(SoundBank.sfx("key").voices))
+	t.check(ga.play("hit_heavy") != null and ga.play("hit_heavy") == null, "the same hit twice in one moment: once (its gap)")
+	var p3 := ga.play_at("land", Vector3(10, 0, 0))
+	t.check(p3 is AudioStreamPlayer3D and p3.playing, "play_at(): a positional player")
+	ga.play_after("medal", 0.9)
+	ga.step_queue(0.5)
+	var early := ga.played("medal")
+	ga.step_queue(0.5)
+	t.check(early == 0 and ga.played("medal") == 1 and ga.queued().is_empty(), "play_after(): the medal stinger plays 0.9 s later")
+	ga.play_after("best", 0.5)
+	ga.stop_effects()
+	ga.step_queue(1.0)
+	t.check(ga.played("best") == 0, "stop_effects() drops the queued ones too")
+	# music: a cross-fade, its level for the context, ducking
+	ga.music("menu")
+	ga._step_music(2.0)
+	var full := ga.music_volume_db()
+	ga.music_level(-3.0)
+	ga.duck(-8.0)
+	for i in 120:
+		ga._step_music(1.0 / 60.0)
+	var ducked := ga.music_volume_db()
+	ga.music("overdrive")
+	ga._step_music(0.6)
+	var mp: Array = ga.get("_music")
+	var both := (mp[0] as AudioStreamPlayer).playing and (mp[1] as AudioStreamPlayer).playing
+	ga._step_music(2.0)
+	t.check(absf(full) < 0.01 and absf(ducked - -11.0) < 0.3 and both and not ((mp[0] as AudioStreamPlayer).playing and (mp[1] as AudioStreamPlayer).playing)
+		and ga.music_name == "overdrive", "music: full level, -3 dB in a race and -8 dB more under the finish panel (%.1f dB), a cross-fade to the next" % ducked)
+	ga.music("")
+	ga._step_music(2.0)
+	t.check(not (mp[0] as AudioStreamPlayer).playing and not (mp[1] as AudioStreamPlayer).playing, "music(\"\") fades out")
+	t.check(AudioServer.get_mix_rate() > 0.0, "headless: the dummy audio driver runs (mix rate %d Hz)" % int(AudioServer.get_mix_rate()))
+	ga.free()
+	UiData.reset()
+	SaveData.use_file(SAVE)
+
+
+## The sounds of the game in the app: the menu's clicks and music, the shop, a race's cues.
+func _app_audio(t, app: GameApp) -> void:
+	t.section("the app: sound (v6.12.0)")
+	var path := "user://test_game_app_audio.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var a := app.audio
+	var menu: MainMenu = app.ui.menu
+	t.check(a != null and a.music_name == SoundBank.MENU_MUSIC and UiSound.player.is_valid(), "the app's audio: the menu music plays, the interface's sounds go to it")
+	var h := a.total
+	var since := func(from: int) -> PackedStringArray: return a.sounds_since(from)
+	# the shop: a refusal, a purchase
+	menu.select_car("vortex")
+	app.play("human", false)
+	t.check(app.message.visible and since.call(h).has("ui_error"), "Drive a locked car without the money: the refusal's sound (ui_error)")
+	app.message.close()
+	SaveData.add_money(100000)
+	h = a.total
+	var r := app.buy_car("kestrel")
+	t.check(r.ok and since.call(h) == PackedStringArray(["cash"]), "buying a car: the cash sound")
+	h = a.total
+	r = app.buy_upgrade("racer", "engine")
+	t.check(r.ok and since.call(h) == PackedStringArray(["cash"]), "buying an upgrade: the cash sound")
+	h = a.total
+	app.offer_car("dune")
+	t.check(app.message.asking and since.call(h).has("ui_confirm"), "BUY asks first, with the confirm sound")
+	app.message.close()
+	# a volume changed on the Settings screen reaches its bus
+	menu.settings.set_value("vol_engine", 0.4)
+	t.check(is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Engine")), GameAudio.volume_db(0.4)), "Settings' Engines slider: the Engine bus follows")
+	menu.settings.set_value("vol_engine", 0.8)
+	# a race: the theme's music, the countdown, the checkpoints, the finish and its stinger
+	menu.select_car("racer")
+	h = a.total
+	var m: Node = app.start_play({"track": app.tracks[0], "driver": "human"})
+	var ca: CarAudio = m.get("car_audio")
+	t.check(a.music_name == SoundBank.race_music(app.tracks[0].theme) and ca != null and ca.car_id == "racer" and m.get("ghost_audio") == null,
+		"Drive: the race music (%s), the car's sound; no AI car" % a.music_name)
+	app.input.held = {"accelerate": true}
+	for i in 60:
+		m.update(1.0 / 60.0)
+	var rev := ca.engine.rpm
+	app.input.held = {}
+	_run_until(m, func() -> bool: return m.get("phase") == "race", 5.0)
+	var cd: PackedStringArray = since.call(h)
+	t.check(cd.count("count") == 3 and cd.count("go") == 1 and cd[cd.size() - 1] == "go", "the countdown: three beeps and GO %s" % [cd])
+	t.check(rev > (m.get("car") as Car).spec.idle_rpm + 1500.0 and ca.updates > 60, "the throttle on the grid revs the engine (%d rpm)" % rev)
+	var run: Dictionary = Medals.medal_times(app.tracks[0], "racer").get("run", {"aLat": 24.0, "lookK": 1.0})
+	_feed(app, Autopilot.medal(app.tracks[0], float(run.aLat), float(run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
+	var race: RaceState = m.get("race")
+	var gates := [0]
+	var same_step := [true]
+	h = a.total
+	var watch := func() -> bool:
+		if race.splits.size() > gates[0]:
+			gates[0] = race.splits.size()
+			var last: String = str(a.history.back()[0]) if a.history.size() > 0 else ""
+			same_step[0] = same_step[0] and (last in ["checkpoint", "lap", "finish", "medal", "best"])
+		return m.get("phase") == "finished"
+	_run_until(m, watch, 200.0)
+	_feed(app, null)
+	var got: PackedStringArray = since.call(h)
+	t.check(m.get("phase") == "finished" and got.count("checkpoint") + got.count("lap") == race.splits.size() - 1 and got.has("finish") and same_step[0],
+		"the race: a chime at every checkpoint (%d) and lap (%d), the finish's sound, each in the step it is taken" % [got.count("checkpoint"), got.count("lap")])
+	var q: Array = a.queued()
+	t.check(is_equal_approx(a.duck_db, PlayMode.FINISH_DUCK_DB) and q.size() >= 1 and str(q[0][1]) == "medal" and is_equal_approx(float(q[0][0]), PlayMode.STINGER_AT),
+		"the finish: the music down %d dB, the new medal's stinger %.1f s after" % [int(PlayMode.FINISH_DUCK_DB), PlayMode.STINGER_AT])
+	a.step_queue(1.0)
+	t.check(a.played("medal") >= 1, "and it plays")
+	# R: the countdown again, the stingers dropped, the music back up
+	app.input.pressed["restart"] = true
+	m.update(1.0 / 60.0)
+	t.check(m.get("phase") == "countdown" and a.queued().is_empty() and a.duck_db == 0.0, "R: the queued stingers dropped, the music back up")
+	# a wall: flat out into the first corner
+	_run_until(m, func() -> bool: return m.get("phase") == "race", 5.0)
+	app.input.held = {"accelerate": true}
+	h = a.total
+	var car: Car = m.get("car")
+	_run_until(m, func() -> bool: return car.wall_hits > 0, 60.0)
+	m.update(1.0 / 60.0)
+	app.input.held = {}
+	var hits: PackedStringArray = since.call(h)
+	t.check(car.wall_hits > 0 and (hits.has("hit_heavy") or hits.has("hit_medium") or hits.has("hit_light")), "flat out into the wall: a hit sound %s" % [hits])
+	# quitting mid-race (the window's close request): the music and every car's sound stop
+	var ep: AudioStreamPlayer = ca.get("_engine_player")
+	var was := ep.playing
+	a.shutdown()
+	m.update(1.0 / 60.0) # (the race goes on until the game has quit: the car's sound must not start again)
+	var music_on := false
+	for p: AudioStreamPlayer in a.get("_music"):
+		music_on = music_on or p.playing
+	var loops_on := false
+	for p: Node in (ca.get("_loops") as Dictionary).values():
+		loops_on = loops_on or bool(p.get("playing"))
+	t.check(was and not ep.playing and not loops_on and not music_on and a.music_name == "",
+		"quitting mid-race: the music and the car's engine and loops stop and stay stopped (GameAudio.shutdown)")
+	# Esc: the menu, its music, the car silent
+	app.input.pressed["menu"] = true
+	m.update(1.0 / 60.0)
+	t.check(app.mode == app.menu_mode and a.music_name == SoundBank.MENU_MUSIC and not ep.playing, "Esc: the menu music, the car's engine stops")
+	# the menu's clicks
+	UiSound.clear()
+	app.input.press("KeyC")
+	menu.handle_keys(app.input)
+	t.check(UiSound.count("ui_move") >= 1, "a car change on the menu clicks")
+	SaveData.use_file(SAVE)

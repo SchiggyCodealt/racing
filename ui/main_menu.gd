@@ -284,12 +284,16 @@ func _build_head() -> void:
 	_settings_btn = Dialog.button_with_cap("Settings", "O")
 	_settings_btn.tooltip_text = "Graphics, ghost, fullscreen, vsync and the terminal"
 	_settings_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_settings_btn.pressed.connect(func() -> void: show_settings(true))
+	_settings_btn.pressed.connect(func() -> void:
+		UiSound.play("ui_confirm")
+		show_settings(true))
 	_head.add_child(_settings_btn)
 	_controls_btn = Dialog.button_with_cap("Controls", "H")
 	_controls_btn.tooltip_text = "Every keyboard and gamepad control"
 	_controls_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_controls_btn.pressed.connect(func() -> void: show_controls(true))
+	_controls_btn.pressed.connect(func() -> void:
+		UiSound.play("ui_confirm")
+		show_controls(true))
 	_head.add_child(_controls_btn)
 
 
@@ -328,7 +332,10 @@ func _build_tracks() -> void:
 		var m := UiData.track_map(i)
 		_maps.append(m)
 		tile.setup(i, UiData.track_info(i), m)
-		tile.picked.connect(select.bind(i))
+		tile.picked.connect(func() -> void:
+			if i != selected_track:
+				UiSound.play("ui_move")
+			select(i))
 		tile.activated.connect(func() -> void: drive.emit())
 		_grid.add_child(tile)
 		_tiles.append(tile)
@@ -346,7 +353,10 @@ func _build_cars() -> void:
 		var card: Control = CarCard.new()
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.setup(id, UiData.car_info(id), UiData.car_profile(id))
-		card.picked.connect(select_car.bind(id))
+		card.picked.connect(func() -> void:
+			if id != UiData.picked_car():
+				UiSound.play("ui_move")
+			select_car(id))
 		card.activated.connect(func() -> void: drive.emit())
 		_cars_grid.add_child(card)
 		_cards.append(card)
@@ -536,7 +546,9 @@ func _build_go() -> void:
 	_ghost_check = CheckToggle.new()
 	_ghost_check.text = "Race my best-run ghost"
 	_ghost_check.tooltip_text = "In Drive, a see-through copy of your best run on the track with the car you drive races with you (G switches it during a race)"
-	_ghost_check.toggled.connect(func(on: bool) -> void: UiData.set_setting("ghost", on))
+	_ghost_check.toggled.connect(func(on: bool) -> void:
+		UiSound.play("ui_move")
+		UiData.set_setting("ghost", on))
 	actions.add_child(_ghost_check)
 	_side.add_child(actions)
 	_gaps.ai = _spacer(_side, UiStyle.S3)
@@ -564,7 +576,9 @@ func _build_go() -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size.x = 1
 		b.clip_text = true
-		b.pressed.connect(select_opponent.bind(id))
+		b.pressed.connect(func() -> void:
+			UiSound.play("ui_move")
+			select_opponent(id))
 		_opp_row.add_child(b)
 		_opp_btns[id] = b
 	var om := UiStyle.margin([0, UiStyle.S1, 0, 0])
@@ -989,6 +1003,7 @@ func handle_keys(inp: Object) -> void:
 	if controls.visible:
 		# the Controls screen: Esc, H, ?, Backspace, Enter or Space close it (pad: B, A, View or Menu); nothing else
 		if inp.consume(["Escape", "KeyH", "Slash", "Backspace", "Enter", "Space", "PadB", "PadA", "PadBack", "PadStart"]):
+			UiSound.play("ui_back")
 			show_controls(false)
 		inp.clear_pressed()
 		return
@@ -1003,6 +1018,7 @@ func handle_keys(inp: Object) -> void:
 		return
 	if settings.visible:
 		if inp.consume(["Backquote"]):
+			UiSound.play("ui_confirm")
 			show_terminal(true)
 		else:
 			settings.handle_keys(inp)
@@ -1010,19 +1026,24 @@ func handle_keys(inp: Object) -> void:
 		inp.clear_pressed()
 		return
 	if inp.consume(["Backquote"]):
+		UiSound.play("ui_confirm")
 		show_terminal(true)
 		_terminal_was_open = terminal.visible
 		inp.clear_pressed()
 		return
 	if inp.consume(["KeyH", "Slash", "PadBack"]):
+		UiSound.play("ui_confirm")
 		show_controls(true)
 		inp.clear_pressed()
 		return
 	if inp.consume(["KeyO"]):
+		UiSound.play("ui_confirm")
 		show_settings(true)
 		inp.clear_pressed()
 		return
 	var n := _tiles.size()
+	var was_track := selected_track
+	var was_car := UiData.picked_car()
 	if inp.consume(["ArrowRight", "ArrowDown", "KeyD", "KeyS"]):
 		select((selected_track + 1) % n)
 	if inp.consume(["ArrowLeft", "ArrowUp", "KeyA", "KeyW"]):
@@ -1032,6 +1053,8 @@ func handle_keys(inp: Object) -> void:
 			select(k)
 	if inp.consume(["KeyC"]):
 		cycle_car(-1 if inp.consume(["Shift+KeyC"]) else 1)
+	if selected_track != was_track or UiData.picked_car() != was_car:
+		UiSound.play("ui_move") # (v6.12.0: ui/ui_sound.gd)
 	if inp.consume(["Enter", "Space", "NumpadEnter"]):
 		drive.emit()
 	else:
@@ -1096,6 +1119,8 @@ func _pad_cars() -> Array:
 ## used; a press while it is hidden only shows it. "Load network…" is left out (its file
 ## dialog needs a mouse or keyboard anyway).
 func handle_pad(inp: Object) -> void:
+	var was_track := selected_track
+	var was_car := UiData.picked_car()
 	var dir: String = inp.nav_dir()
 	var a: bool = inp.consume(["PadA"])
 	var b: bool = inp.consume(["PadB"])
@@ -1149,6 +1174,7 @@ func handle_pad(inp: Object) -> void:
 				at = _controls_btn if ctrls.has(_controls_btn) else null # above the top row: Controls
 	elif a and shown:
 		if on_car:
+			UiSound.play("ui_confirm")
 			at = null # the car is picked: back to the tracks
 		elif at != null:
 			_press(at)
@@ -1157,7 +1183,12 @@ func handle_pad(inp: Object) -> void:
 			drive.emit()
 			return
 	if b:
+		if at != null:
+			UiSound.play("ui_back")
 		at = null
+	if (dir != "" and shown) or step != 0:
+		if at != _pad_at or selected_track != was_track or UiData.picked_car() != was_car:
+			UiSound.play("ui_move") # (v6.12.0: ui/ui_sound.gd)
 	_pad_at = at
 	_mark(at if bool(inp.get("pad_active")) else null, bool(inp.get("pad_active")))
 

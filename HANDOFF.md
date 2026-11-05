@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-04 (v6.11.0: round 2, item 2 of 3: car upgrades: engine, tyres, nitro and loose grip, three
+_Last updated: 2026-11-05 (v6.12.0: round 2, item 3 of 3: sound and music: every car's engine synthesized live from the
+sim's rpm, throttle, load, gear and nitro (six characters), tyres, gravel, snow, wind, walls, landings, nitro, the
+race's cues, the menus' clicks and the shop's cash, four synthesized music loops, Master / Music / Effects / Engines
+volumes and a background mute in Settings; v6.11.0: round 2, item 2 of 3: car upgrades: engine, tyres, nitro and loose grip, three
 levels each, bought on the car picker, shown on the stat bars and the model; medal times and AI opponents stay stock;
 v6.10.0: round 2, item 1 of 3: dirt and snow polish: mud and snow on the screen instead of
 the camera rumble, richer dirt and snow textures, ragged surface changes, dirty and slidier barriers, better brakes on
@@ -15,10 +18,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.11.0, round 2 items 1 and 2 of 3 done (dirt and snow polish, car upgrades); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.12.0, round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 2 (asked on 2026-11-04, built one at a time in this order): 1. **dirt and snow polish (v6.10.0, done)**,
-2. **car upgrades (v6.11.0, done)**, 3. sound and music (v6.12.0, next). See [Round 2](#round-2-the-owners-three-new-items).
+2. **car upgrades (v6.11.0, done)**, 3. **sound and music (v6.12.0, done)**. See [Round 2](#round-2-the-owners-three-new-items).
 
 The owner (on Windows, not a programmer by trade) asked to "port it to an engine", and listed nine new features
 for after the port (see [Next](#next-the-owners-nine-features)). v6.0.0 was the port: the Godot game does
@@ -214,6 +217,64 @@ three levels each, so money is still useful once all six cars are bought." What 
   v6.10.0 did not run); short windows (760 px and less) now pad a row 4 px above and below (was 6; 1024 x 600 already
   had 4), so every setting fits again.
 
+v6.12.0 is round 2's item 3, sound and music (the game had none before). The owner: "Sound and music: engine sound
+that follows the revs, tyre squeal, gravel and snow crunch, wall hits, nitro, music and volume sliders." What it does:
+- **Buses** (`audio/game_audio.gd`, `class_name GameAudio`, one per game: `GameApp.audio`): Music, SFX and Engine send
+  to Master, which has an `AudioEffectHardLimiter` (ceiling -0.5 dB, release 80 ms; `setup_buses()` is idempotent and
+  works without a game, for tests). Volumes are settings 0..1 in tenths (`vol_master` 1.0, `vol_music` 0.7, `vol_sfx`
+  0.8, `vol_engine` 0.8 by default) applied as `volume_db = linear_to_db(v²)` (half way is -12 dB; 0 mutes the bus);
+  `mute_unfocused` (on) mutes Master on `NOTIFICATION_APPLICATION_FOCUS_OUT` until focus comes back. Effects play from
+  pools made once (14 plain players, 8 positional), each sound with a level, a random pitch spread, a shortest gap
+  and a voice limit (the oldest stops) from `audio/sound_bank.gd` (data); `play_after()` queues the finish's stingers;
+  `history` / `total` / `sounds_since()` let tests see what played. Music: two players cross-fading (1.2 s), a level
+  per context (`music_level`: races -3 dB) and `duck()` (the finish panel -8 dB). `shutdown()` stops everything, every car's sound too
+  (the `CarAudio.GROUP` nodes; on `NOTIFICATION_WM_CLOSE_REQUEST`; the e2e harness calls it before quitting, see
+  Known limitations). The settings are applied when the save file has been read (`GameApp._ready`).
+- **Engines** (`audio/engine_voice.gd`, `class_name EngineVoice`, plain RefCounted maths, no nodes): synthesized live
+  into an `AudioStreamGenerator` (24 kHz for the player's car, 16 kHz for the AI car) by a source-filter model: one
+  pressure pulse per cylinder firing (`firing_hz = rpm / 120 × cylinders`, the per-car firing intervals and pulse
+  sizes give the V8's burble and the buggy's lope), low-passed brighter with load, revs and nitro, plus combustion
+  noise, through an exhaust-pipe feedback comb and three fixed body resonances (so the timbre stays put while the
+  pitch follows the revs), plus intake roar, a whine locked to the revs (the nitro adds one an octave up), a turbo
+  whistle with spool, a rattle, crackle pops after a lift from high revs, the rev limiter's ignition cut, a DC blocker
+  and a soft clip. Each car is one `ENGINES` entry (data: cylinders, intervals, amps, jitter, pulse, pipe, body,
+  intake, whine, turbo, rattle, crackle, limiter, gain): Racer race V6, Kestrel high-revving four (loud intake),
+  Thunder cross-plane V8 (uneven firing, the lowest pipe, most crackle), Drifter turbo four (spool whistle, blow-off),
+  Dune air-cooled buggy four (jitter, rattle), Vortex V12 (bright, whine). `follow(car)` reads `car.rpm`, `throttle`,
+  `gear`, `_shift` (the load is 0 while a gear change runs, so the drop and pick-up come from the sim itself) and
+  `boost`. Every car is calibrated to about -17 dBFS RMS on load at two thirds of its redline (`gain`).
+- **A car's sounds** (`audio/car_audio.gd`, `class_name CarAudio`, a child of the car model, fed once a frame from
+  `PlayMode.render`): the engine (rendered 2.5 frames, 50-120 ms, ahead of what has played; `queued()` and `skips()`
+  say how far ahead and how often it ran dry), loops on SFX with level
+  and pitch from the sim (tyre squeal from `car.slip` on the asphalt share, gravel and snow from the surface weights
+  under the car × speed × slip, road roar, wind from speed, scrape from `car.wall_scrape`, nitro rush from
+  `car.boost`), one-shots (wall hits light / medium / heavy by the speed into the wall from `car.wall_impact` and the
+  wall normal, landings by the speed down, the nitro lighting, the turbo's blow-off on a lift at spool > 0.45). A
+  respawn or restart (a jump of more than 20 m) starts it over without a hit. The AI car you race gets a positional
+  one (`AudioStreamPlayer3D`, 0.6 level; the chase camera is the listener); the best-run ghost has none (silent: it
+  would double your own engine). In the countdown the throttle revs the engine freely (72 % of the rev range).
+- **The race's cues** (`modes/play_mode.gd`): "count" at 3, 2, 1 and "go", "checkpoint" / "lap" in the step a gate is
+  taken, "finish", then 0.9 s later "medal" (a new medal) or "best" (a new best time without one) and "unlock" (a
+  track opened) after it; the music ducks under the finish panel; R drops the queued stingers; Esc stops the car.
+  The menu plays `SoundBank.MENU_MUSIC`, a race its theme's (`SoundBank.RACE_MUSIC`: meadow, seaside, highland →
+  Overdrive; night, dusk, arctic → Neon Rush; desert, canyon, alpine, autumn → Dust Devil).
+- **The interface** (`ui/ui_sound.gd`, `class_name UiSound`: a static `player` Callable the app points at
+  `GameAudio.play_ui`, so `ui/` doesn't depend on `audio/`; `played` keeps the last names for tests): "ui_move" when a
+  selection or value moves, "ui_confirm" when a button or screen opens, "ui_back" on close, "ui_error" with
+  every refusal message (`GameApp.refuse()`), "cash" when a car or upgrade is bought, "key" / "key_enter" in the
+  terminal.
+- **Settings** (`ui/settings_screen.gd`): a `slider` row type (`ui/volume_bar.gd`: ten slanted blocks and the per cent;
+  keys and pad step 10 %, a click or drag sets it), the Audio section (Master, Music, Effects, Engines, Mute in the
+  background) and two columns from 1100 px of width (`TWO_COLUMNS`; Audio and Career in the right one, set by the
+  section's `"column": 1`; the keys still go through `ROWS` in order). Narrower windows keep one column, which now
+  scrolls at 1024 x 600; the picked row is kept in view.
+- **Files** (`tools/gen_sounds.py`, Python + numpy, ffmpeg for Ogg; deterministic, about a minute): 32 effects
+  (`assets/audio/sfx/*.wav`, 16-bit mono 44.1 kHz, 3.0 MB; imported as QOA, the 7 loops with `edit/loop_mode=2`) and 4
+  music loops (`assets/audio/music/*.ogg`, Vorbis q5 stereo, 3.4 MB, `loop=true`): "Pit Lane" (menus, 108 BPM house,
+  16 bars, 35.6 s), "Overdrive" (128 BPM electro house), "Neon Rush" (138 BPM trance), "Dust Devil" (164 BPM
+  breakbeat), each 32 bars with reverb and delay tails wrapped round so they loop without a seam. All synthesized;
+  nothing downloaded (`assets/audio/CREDITS.md`). `tools/engine_preview.gd` renders the engines to WAV and measures them.
+
 | Area | State | Where |
 | --- | --- | --- |
 | Game logic without graphics: tracks (builder, collision), car physics and nitro, the six cars, race timing, points, ghosts, medals, save file, autopilot | done; the four browser cars checked number for number against the browser version, the Dune and Vortex (v6.1.0) by tests and the medal sweep | `sim/`, `data/tracks.json`, `data/medals.json` |
@@ -235,7 +296,8 @@ three levels each, so money is still useful once all six cars are bought." What 
 | Terminal (v6.7.0): the console screen (log, input, history, Tab), the commands table, the Settings row, the `` ` `` key on the menu and Settings, the save file's tracks flag and career reset | done; every command with good and bad input, Tab, the save effects, the keys that open and close it, `` ` `` in a race are tests; e2e `terminal` | `game/terminal.gd`, `ui/terminal_screen.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/menu_input.gd`, `sim/save.gd` |
 | Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
 | Car upgrades (v6.11.0): the parts table, upgraded specs, prices, the save file's `career.upgrades` (VERSION 5), the picker's part chips and green bars, the app's ask-first purchase, play and train modes driving the upgraded car (opponents stock), records and ghosts tagged with the levels, the parts on the model, the terminal's `upgrade` / `buy <car> <part>` / `status` row, `tools/upgrades.gd` | done; specs per part / level / car, measured effects, laps, stability (jumps, lane keeping, curve braking on three surfaces), prices and buying, migration and junk, an upgraded ghost replaying exactly, FleetSim parity with upgraded specs, the app, the terminal, the picker and the model are tests; e2e `upgrades` | `sim/upgrades.gd`, `sim/car_spec.gd`, `sim/score.gd`, `sim/save.gd`, `sim/economy.gd`, `sim/replay.gd`, `sim/autopilot.gd`, `ai/trainer.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `ui/part_chip.gd`, `ui/main_menu.gd`, `ui/car_card.gd`, `ui/ui_data.gd`, `game/app.gd`, `game/terminal.gd`, `world/car_build.gd`, `world/car_model.gd`, `world/car_shapes.gd`, `tools/upgrades.gd` |
-| Tests: headless suite (845 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Sound and music (v6.12.0): buses with a limiter, volumes and the background mute (settings), pooled effects, music with cross-fade and ducking, the live engine synthesizer (six characters), a car's loops and one-shots from the sim, the race's cues, the interface's clicks, the shop's cash, the Settings sliders in two columns, the generated effects and music | done; buses, volumes, saving, the mute, every file, pools, the queue, music, the engines (pitch against rpm, levels, gear change, limiter, crackle, turbo, nitro), a car's events and loops, the app's sounds of a race and the shop, the sliders are tests; e2e `audio` under Movie Maker (levels, clipping, pitch against the sim's rpm, cues on time, the mute) | `audio/`, `assets/audio/`, `tools/gen_sounds.py`, `tools/engine_preview.gd`, `ui/volume_bar.gd`, `ui/ui_sound.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/terminal_screen.gd`, `game/app.gd`, `game/message_screen.gd`, `modes/play_mode.gd`, `sim/save.gd`, `ui/ui_data.gd` |
+| Tests: headless suite (929 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -347,6 +409,57 @@ the end-to-end scenarios pass at 1280 x 720 with `gfx=low` (upgrades 15, menu 28
 line, see below); the FleetSim libraries were not touched (an upgrade only changes spec numbers FleetSim already
 takes); the Windows release export was made from a fresh import (no errors or warnings; `sim/upgrades.gd` and
 `ui/part_chip.gd` are in the pack) and zipped as `build/TrackRush-6.11.0-windows.zip` (not started: no Windows here).
+
+v6.12.0 (2026-11-05): the headless suite passes (929 checks: sim 110, ui 224, world 199, game 234, ai 162; 554 s; no
+audio errors with the dummy driver); the end-to-end scenarios pass at 1280 x 720 with `gfx=low` and
+`--audio-driver Dummy` (settings1 7 + settings2 8, menu 28, terminal 34, upgrades 15, economy 21, perf 1: 1.9 ms of
+script time a race frame at 60 fps with the sound) and `surfaces` 16 with `gfx=high`; `audio` 54 under Movie
+Maker at 640 x 360 (see below); the FleetSim libraries were not touched; the Windows release export was made from a
+fresh import (no errors or warnings; the 4 music and 32 effect files and `audio/` are in the pack, 43.5 MB zipped)
+and zipped as `build/TrackRush-6.12.0-windows.zip` (not started: no Windows here).
+
+## How v6.12.0 (sound and music) was verified
+
+Nobody listened: everything here is measured (see Known limitations). The game's sound was recorded with Movie Maker
+(`scenario=audio` under `--write-movie`, lockstep: every frame 1/60 s of game and 800 samples at 48 kHz) on a copy of
+the project at 640 x 360, and analysed in Python (levels of the recorded AVI's audio, the engine's pitch against the
+rpm the frames logged, spectrograms with the firing frequency drawn over them).
+- **Engines** (`tests/test_world.gd`, each car on load at a third and two thirds of its redline): the firing
+  frequency stands out of the spectrum by 25-44 dB and doubles exactly with the rpm (Racer 144 / 287 Hz, Kestrel 110
+  / 219, Thunder 175 / 350, Drifter 89 / 177, Dune 79 / 159, Vortex 322 / 644); levels -15.2 to -18.3 dBFS RMS
+  (within 3.1 dB of each other); a gear change 369 → 262 Hz (× 0.71, the rpm's ratio) with the load gone in the
+  shift; the limiter cuts 64 of 219 firings; the Thunder pops 11 times on a lift, never on load; the Drifter's turbo
+  spools to 0.83 and falls to 0.10 on a lift (one blow-off); nitro 4.0 dB louder and 2.1 dB brighter; engine braking
+  -22.8 dBFS; the same inputs give the same samples. Script time 1.4-2.0 µs a sample (0.6-0.8 ms a frame at 24 kHz).
+- **In a race** (Movie Maker, the medal autopilot; Seaside Stunts with the Drifter, Mountain Pass with the Dune): the
+  engine's pitch is within 50 cents of the sim's firing frequency in 99 % of 679 and 1,125 windows (median error 3.1
+  and 2.3 cents); at every upshift (7 and 19) the pitch drops, 57-58 ms after the rpm does (median; 3.5 frames: the 50
+  ms the engine is rendered ahead and the mix); the engine never ran dry. The first recording found it 8 frames late: an
+  `AudioStreamGenerator`'s ring is a power of two (8,191 frames for 0.25 s at 24 kHz), so `CarAudio` filled it 91 ms
+  further than meant; it now counts from the empty ring (`queued()`; `tests/test_world.gd` checks 50 ms).
+- **Levels** (the recording, after the master volume, defaults): menu music RMS -23.5 dBFS (peak -10.2); race 1
+  -18.6 dBFS (peak -1.4), race 2 -18.9 (peak -1.1), engine bus -17.9 / -18.2, effects -20.0 / -21.0, music -18.7 /
+  -18.5; a flat-out wall hit with the Thunder at 64 m/s peaks at -0.5 dBFS (the limiter's ceiling; nothing at full
+  scale anywhere); Music at 0: the mix silent (-200 dBFS); the window in the background: digital silence.
+- **Timing**: the countdown's beeps 1.000-1.017 s apart; every checkpoint, lap and finish chime in the frame its gate
+  is taken (7 of 7, 12 of 12), the checkpoints raising the effects bus 4.4-17.3 dB within 83 ms; the medal stinger
+  0.883 s after the finish (`STINGER_AT` 0.9 s, within a frame) with the music down to -11 dB; the wall hit in its
+  contact frame, +9.1 dB within 83 ms; the races' events: 9 blow-offs, 6 landings, 16 and 14 nitro lightings, gravel
+  on 586 frames of dirt and snow on 1,189 frames of snow (none on 4,865 of asphalt), wind up to 0.49.
+- **The AI car** (`Race the AI` with a Racer network): its engine positional (`AudioStreamPlayer3D` at the AI car's
+  model, level 0.6, 16 kHz, 482 updates in the run), the best-run ghost silent. All 54 checks of the third recording
+  pass (the second stopped race 2 after 1,200 s of real time: the limit is in game time now).
+- **Headless** (`tests/test_game.gd`): buses and the limiter, the volume law, saved volumes (and applied when the
+  game starts: the first e2e `settings2` run found they weren't, `GameAudio._ready` ran before the save was read), the
+  background mute, every file, the pools and voice limits, the queue, music levels and cross-fades, an app race's
+  sounds step by step, the shop's sounds, quitting mid-race. No audio errors with the dummy driver.
+- **Settings** (`tests/test_ui.gd`, e2e `settings1` / `settings2` and `audio`): the five rows, keys, pad, a click on a
+  bar, two columns at 1280 x 720 (a real frame: every row on screen, no scrolling), one column at 1024 x 600 (scrolls,
+  the picked row kept in view); the Music volume and the mute off survive a restart.
+- **Cost** (e2e `perf`, Night Highway): 1.9 ms of script time a race frame at 60 fps, of which the car's sound is
+  0.75 ms (1.8-1.9 µs a sample); 1.4-1.6 ms before v6.12.0.
+- Clips (not in git): the menu music, the first 30 s of both races and the wall hit as Ogg files, the races' Engine
+  bus as float WAV.
 
 ## How v6.11.0 (car upgrades) was verified
 
@@ -1055,6 +1168,22 @@ takes); the Windows release export was made from a fresh import (no errors or wa
   when a medal gets harder is stored on its own: the tracks a medal opened (`career.tracks_open`) and the rewards
   paid (`career.paid`). Text that relates something to the medal times (the AI levels' `blurb`) is checked against
   the measured times by `tests/test_ai.gd`.
+- **Sound** (v6.12.0): everything plays through `GameApp.audio` (`GameAudio`) on one of four buses (Master with the
+  limiter; Music, SFX, Engine into it); never make a stray `AudioStreamPlayer`, add a name to `audio/sound_bank.gd`
+  (file, level, pitch spread, shortest gap, voices) and call `play()` / `play_3d()` / `play_after()`. A new car gets
+  an `EngineVoice.ENGINES` entry (data; calibrate its `gain` with `tools/engine_preview.gd` to about -17 dBFS at
+  two thirds of the redline on load). `ui/` stays free of `audio/`: interface sounds go through `UiSound.play(name)`.
+  The files are generated: change `tools/gen_sounds.py`, run it (`python3 tools/gen_sounds.py`, numpy and ffmpeg),
+  then reimport (`godot --headless --import`); the effects' `.import` files set QOA and the loops' loop mode, keep
+  them. Sounds of a test or e2e scenario are read from `GameAudio.history` / `sounds_since()`, never by timing.
+  An `AudioStreamGenerator`'s ring buffer is the next power of two above `buffer_length × mix_rate` (8,191 frames
+  for 0.25 s at 24 kHz, not 6,000): count what is queued from the free space of the empty ring, as `CarAudio`
+  does, or the engine runs 90 ms late (the first Movie Maker run of v6.12.0 found it: 8 frames of lag, now 4).
+- **Recording what the game sounds like**: headless Godot has no audio output, so listen through Movie Maker
+  (`--write-movie out.avi`, lockstep: 60 frames of picture and 800 audio samples each, whatever the machine's speed).
+  It ignores `--resolution`: run a copy of the project with an `override.cfg` that sets
+  `display/window/size/window_width_override` / `height_override` (640 x 360 keeps the AVI small). Add
+  `--audio-driver Dummy` to runs under xvfb, or Godot prints two ALSA errors when no sound card is found.
 - **Godot files in git**: commit the `.uid` files next to scripts and shaders and the `.import` files of assets
   (Godot 4.4+ needs them for stable references); never `.godot/` or `build/`.
 - **Running Godot while others work**: the editor and `--import` write `.godot/` and `.import` files, so when several
@@ -1068,6 +1197,31 @@ takes); the Windows release export was made from a fresh import (no errors or wa
 
 ## Known limitations
 
+- **Sound and music (v6.12.0)**:
+  - **No person has listened to it.** Every sound is synthesized and was checked by measurement only (levels, peaks,
+    the engine's pitch against the sim's rpm, cue timing, spectrograms; see
+    [How v6.12.0 was verified](#how-v6120-sound-and-music-was-verified)). Whether the engines sound like engines,
+    whether the music is any good and whether the mix is balanced by ear is still to be judged; the levels are
+    settings and `SoundBank` / `ENGINES` data, quick to change.
+  - The menu music ("Pit Lane") is darker than the race tracks (its 2-6 kHz band 6-11 dB lower) and is the
+    quietest of the four (RMS -17.0 dBFS in the file against -15.5 for each race track).
+  - There is no pause screen, so only the finish panel ducks the music; Esc leaves a race at once.
+  - The engine is rendered 50-120 ms ahead on the main thread: below about 8 frames a second (a software renderer,
+    a very slow machine) the generator runs dry and the engine stutters. The real-time e2e run under xvfb and
+    llvmpipe (about 3.5 frames a second) does, which is why its engine-pitch and blow-off checks only run under
+    Movie Maker or at 30 frames a second or more.
+  - The shortest gap between two plays of a sound is in wall-clock milliseconds (`Time.get_ticks_msec`), not game
+    time; a Movie Maker run whose frames take longer than the gap can therefore play a sound in two frames that a
+    real-time run would skip.
+  - Quitting while sounds play (an e2e harness quitting at once) can print "ObjectDB instances leaked at exit": the
+    `AudioServer` frees a stopped playback only on its next mix. The game stops everything (music, effects, every
+    car) on the window's close request; the e2e harness calls `GameAudio.shutdown()` and waits 3 frames; a silenced
+    `CarAudio` stays silent (the race's next frames started its loops again, so `scenario=perf`, which quits
+    mid-race, printed "6 ObjectDB instances leaked" until that was fixed); `tests/test_world.gd` runs its sound
+    tests before the long ones.
+  - Settings at 1024 x 600 (one column) now scroll (622 px at 640 x 360): the Audio section added 5 rows; from 1100 px
+    wide there are two columns and everything fits.
+  - Engine sounds don't change with upgrades (an engine 3 sounds like stock).
 - **Car upgrades (v6.11.0)**:
   - **Medals and AI wins get easier with upgrades, on purpose** (the owner's default): a fully upgraded car beats the
     stock author time with the same driving (the medal autopilot's runs: 4-8 % faster on four tracks), and the
@@ -1275,9 +1429,18 @@ trains, calibrates and `--check`s them), everything runs locally.
    trains the upgraded car; the career reset makes every car stock; a cheap mark per part on the model.
    **Open**: the Known limitations above (records don't show their levels, the keyboard weave with tyres 3, no
    loose grip mark on the Drifter and Dune).
-3. **Sound and music (v6.12.0)**: next. v6.10.0 has hooks for it: `ScreenGrime.level` (mud, snow) and the
-   surfaces' `grime` say how hard the ground is being thrown up (gravel and snow noise), and the wall scrape still
-   drives `ChaseCamera.rumble`.
+3. **Sound and music.** **Done in v6.12.0** (see the status above and
+   [How v6.12.0 was verified](#how-v6120-sound-and-music-was-verified)). The owner's pick: "Sound and music: engine
+   sound that follows the revs, tyre squeal, gravel and snow crunch, wall hits, nitro, music and volume sliders."
+   Choices made where the owner gave none: the engines are synthesized live from the sim (no recorded loops, so the
+   pitch is exactly the revs through every gear change), one character per car; the AI car you race is heard
+   positionally and quieter, the best-run ghost is silent; electronic music, one menu track and three race tracks
+   chosen by theme, quieter in a race and ducked under the finish panel; every file generated by
+   `tools/gen_sounds.py` (no downloads: the free sound sites were unreachable from here, and self-made needs no
+   licence); volumes Master 100 %, Music 70 %, Effects 80 %, Engines 80 % by default, muted in the background (on);
+   Settings in two columns from 1100 px so the Audio rows fit 1280 x 720.
+   **Open**: the Known limitations above (nobody has listened to it, the darker menu music, no pause ducking,
+   Settings scroll at 1024 x 600).
 
 ## Next: the owner's nine features
 

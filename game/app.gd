@@ -32,6 +32,11 @@ extends Node
 ## v6.7.0: the terminal (ui/terminal_screen.gd, opened from Settings or with ` on the menu) runs
 ## game/terminal.gd's commands (money, points, cars, unlock all ...) on the save file; the menu
 ## redraws after one changed the career.
+## v6.12.0: sound (audio/): `audio` (GameAudio) makes the buses, applies the volume settings, mutes in
+## the background, plays the effects and the music: the menu's loop on the menu and the training
+## screen, each race mode its theme's (modes/play_mode.gd, which also gives each car its CarAudio);
+## the interface's clicks come through UiSound (ui/ui_sound.gd), a purchase rings the till, a refusal
+## buzzes.
 ##
 ## Command line (after "--"; tools and the end-to-end tests): gfx=high|medium|low pins the
 ## quality (governor off), save=<path> uses another save file, track=<id> starts on that track.
@@ -48,6 +53,8 @@ const TITLE := "Track Rush"
 var world: World
 var ui: UiRoot
 var input: GameInput
+## The sound (v6.12.0).
+var audio: GameAudio
 ## The menu's orbit camera (each race brings its own chase camera).
 var menu_camera: Camera3D
 var tracks: Array[BuiltTrack] = []
@@ -96,6 +103,9 @@ func _ready() -> void:
 	input = GameInput.new()
 	input.name = "GameInput"
 	add_child(input)
+	audio = GameAudio.new()
+	add_child(audio)
+	UiSound.player = audio.play_ui
 
 	# the tracks (cached by sim/ Tracks) and the save data, before the interface reads them
 	for id: String in Tracks.ids():
@@ -103,6 +113,7 @@ func _ready() -> void:
 	UiData.use_tracks(tracks)
 	UiData.use_save_data(true)
 	UiData.on_setting_changed = _on_setting_changed
+	audio.apply_settings() # (v6.12) the saved volumes and mute (its _ready ran before the save was read)
 	var start: int = Tracks.ids().find(str(options.get("track", "")))
 	selected_track = maxi(0, start)
 	_sync_network()
@@ -177,6 +188,8 @@ func _process(delta: float) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE or what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_finish_build_task()
+	if what == NOTIFICATION_PREDELETE and audio != null and UiSound.player == Callable(audio, "play_ui"):
+		UiSound.player = Callable()
 
 
 # ---------------------------------------------------------------- modes
@@ -193,6 +206,12 @@ func set_mode(m: Node) -> void:
 		add_child(m)
 	ui.menu.show_menu(m == menu_mode)
 	ui.hud.show_hud(m.get("uses_hud") == true) # (the race modes draw the HUD)
+	if m.get("uses_hud") != true:
+		# the menu and the training screen: the menu's music, nothing else (v6.12.0)
+		audio.stop_effects()
+		audio.music(SoundBank.MENU_MUSIC)
+		audio.music_level(0.0)
+		audio.duck(0.0)
 	m.enter()
 	input.clear_pressed()
 	if old != null and old != m and old != menu_mode:
@@ -250,25 +269,25 @@ func play(driver: String, ghost: bool) -> void:
 		offer_car(car)
 		return
 	if driver == "human" and not UiData.track_open(selected_track):
-		show_message("Track locked", locked_text(selected_track))
+		refuse("Track locked", locked_text(selected_track))
 		return
 	if driver == "ai" or ghost:
 		if not AiLink.ready():
-			show_message("AI not ready", AiLink.not_ready_text())
+			refuse("AI not ready", AiLink.not_ready_text())
 			return
 		var level := UiData.opponent()
 		var t := tracks[selected_track]
 		if level != UiData.MY_AI:
 			var opp := AiLink.opponent(t.id, car)
 			if opp.has("error"):
-				show_message("No AI opponent", str(opp.error))
+				refuse("No AI opponent", str(opp.error))
 				return
 			start_play({"track": t, "driver": driver, "ghost": ghost, "ai_car": car, "net": AiLink.clone_net(opp.net),
 				"level": level, "cap": Opponents.cap_of(t.id, car, level)})
 			return
 		_sync_network()
 		if network.is_empty():
-			show_message("No AI network", "The %s has no trained AI network yet. Train the AI teaches one (it starts with the %s), or Load network… uses a saved file. Or race one of the AI opponents (Rookie to Elite)." % [
+			refuse("No AI network", "The %s has no trained AI network yet. Train the AI teaches one (it starts with the %s), or Load network… uses a saved file. Or race one of the AI opponents (Rookie to Elite)." % [
 				Cars.get_car(car).name, Cars.get_car(car).name])
 			return
 	start_play({"track": tracks[selected_track], "driver": driver, "ghost": ghost, "ai_car": car,
@@ -289,10 +308,11 @@ func offer_car(car_id: String) -> void:
 	var price := UiData.car_price(car_id)
 	var have := UiData.money()
 	if have < price:
-		show_message("The %s is locked" % cname, "The %s costs %s and you have %s: %s more to go. Medals and wins against the AI opponents pay money (the finish panel shows what each run earned)." % [
+		refuse("The %s is locked" % cname, "The %s costs %s and you have %s: %s more to go. Medals and wins against the AI opponents pay money (the finish panel shows what each run earned)." % [
 			cname, UiFormat.money(price), UiFormat.money(have), UiFormat.money(price - have)])
 		return
 	ui.menu.input = null
+	UiSound.play("ui_confirm")
 	message.ask("Buy the %s?" % cname, "The %s costs %s. You have %s, so %s is left after buying it. It is yours for good: drive it on every track, and train its AI." % [
 		cname, UiFormat.money(price), UiFormat.money(have), UiFormat.money(have - price)], "Buy for %s" % UiFormat.money(price), buy_car.bind(car_id))
 
@@ -300,8 +320,10 @@ func offer_car(car_id: String) -> void:
 ## Buy car `car_id` now (Economy.buy): {ok, error, price, short}. The menu shows it as yours.
 func buy_car(car_id: String) -> Dictionary:
 	var r := UiData.buy_car(car_id)
-	if not r.ok and r.error == "money":
-		show_message("Not enough money", "The %s costs %s: %s more to go." % [Cars.get_car(car_id).name, UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
+	if r.ok:
+		audio.play("cash")
+	elif r.error == "money":
+		refuse("Not enough money", "The %s costs %s: %s more to go." % [Cars.get_car(car_id).name, UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
 	ui.menu.refresh()
 	return r
 
@@ -315,20 +337,21 @@ func offer_upgrade(car_id: String, part: String) -> void:
 		return
 	var cname: String = Cars.get_car(car_id).name
 	if not UiData.owns_car(car_id):
-		show_message("The %s is locked" % cname, "Buy the %s first: then its engine, tyres, nitro and loose grip can be upgraded." % cname)
+		refuse("The %s is locked" % cname, "Buy the %s first: then its engine, tyres, nitro and loose grip can be upgraded." % cname)
 		return
 	var lv: int = UiData.upgrade_levels(car_id)[Upgrades.index_of(part)]
 	if lv >= Upgrades.MAX_LEVEL:
-		show_message("%s: every level" % p.name, "The %s's %s is at level %d of %d already (%s)." % [cname, String(p.name).to_lower(), lv, Upgrades.MAX_LEVEL,
+		refuse("%s: every level" % p.name, "The %s's %s is at level %d of %d already (%s)." % [cname, String(p.name).to_lower(), lv, Upgrades.MAX_LEVEL,
 			Upgrades.effect(part, lv)])
 		return
 	var price := UiData.upgrade_price(car_id, part)
 	var have := UiData.money()
 	if have < price:
-		show_message("Not enough money", "%s level %d for the %s costs %s and you have %s: %s more to go. Medals and wins against the AI opponents pay money." % [
+		refuse("Not enough money", "%s level %d for the %s costs %s and you have %s: %s more to go. Medals and wins against the AI opponents pay money." % [
 			p.name, lv + 1, cname, UiFormat.money(price), UiFormat.money(have), UiFormat.money(price - have)])
 		return
 	ui.menu.input = null
+	UiSound.play("ui_confirm")
 	message.ask("Upgrade the %s's %s?" % [cname, String(p.name).to_lower()],
 		"Level %d of %d: %s over the stock car (%s). It costs %s; you have %s, so %s is left. It counts in every race you drive with the %s and when your own AI drives or trains it. Medal times and the AI opponents stay as they are." % [
 			lv + 1, Upgrades.MAX_LEVEL, Upgrades.effect(part, lv + 1), p.what, UiFormat.money(price), UiFormat.money(have), UiFormat.money(have - price), cname],
@@ -338,8 +361,10 @@ func offer_upgrade(car_id: String, part: String) -> void:
 ## Buy the next level of part `part` for car `car_id` now: {ok, error, price, level, short}.
 func buy_upgrade(car_id: String, part: String) -> Dictionary:
 	var r := UiData.buy_upgrade(car_id, part)
-	if not r.ok and r.error == "money":
-		show_message("Not enough money", "That costs %s: %s more to go." % [UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
+	if r.ok:
+		audio.play("cash")
+	elif r.error == "money":
+		refuse("Not enough money", "That costs %s: %s more to go." % [UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
 	ui.menu.refresh()
 	return r
 
@@ -358,7 +383,7 @@ func start_play(opts: Dictionary) -> Node:
 ## it survives the menu, Watch best and Race best and resumes here.
 func train() -> void:
 	if not AiLink.ready() or not ResourceLoader.exists(TRAIN_MODE_PATH):
-		show_message("AI not ready", AiLink.not_ready_text() if not AiLink.ready()
+		refuse("AI not ready", AiLink.not_ready_text() if not AiLink.ready()
 			else "The training screen (modes/train_mode.gd) is not part of this build yet.")
 		return
 	var s: Variant = load(TRAIN_MODE_PATH)
@@ -366,6 +391,7 @@ func train() -> void:
 		show_message("AI not ready", "The training screen failed to load.")
 		return
 	var m: Node = (s as GDScript).new()
+	UiSound.play("ui_confirm")
 	m.call("setup", self, {"track_index": selected_track, "car": UiData.picked_car()})
 	m.connect("exit_requested", show_menu)
 	m.connect("watch_requested", _on_train_play.bind("ai", false))
@@ -450,6 +476,8 @@ func _on_setting_changed(key: String, _value: Variant) -> void:
 		_apply_quality()
 	elif key == "grime":
 		ScreenGrime.enabled = bool(UiData.get_setting("grime"))
+	elif key in GameAudio.VOLUMES or key == "mute_unfocused":
+		audio.apply_settings()
 
 
 ## The graphics quality: the setting (High: the governor may step down; Low: pinned), or the
@@ -610,6 +638,12 @@ func _on_dialog_closed() -> void:
 	if not message.visible and not _dialog_open:
 		ui.menu.input = input
 		input.clear_pressed()
+
+
+## A refusal (locked, not enough money, no AI): the message with the interface's buzz.
+func refuse(title: String, text: String) -> void:
+	UiSound.play("ui_error")
+	show_message(title, text)
 
 
 ## A short message over everything (the web's alert()).

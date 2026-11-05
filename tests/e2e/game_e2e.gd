@@ -33,13 +33,15 @@ extends SceneTree
 ##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15 by the arrows and
 ##             the pad's three rows of tiles; the menu fits 1280 x 720 without scrolling), Controls
 ##             and Settings screens.
-##   settings1 / settings2   change settings with the keyboard on the Settings screen; the second
+##   settings1 / settings2   change settings with the keyboard on the Settings screen (v6.12: also
+##             the Music volume and the background mute, with a shot of the Audio section); the second
 ##             run (a new process on the same save file) checks they persisted and were applied.
 ##   shots     out=<dir>: menu, driving with nitro, finish panel, the menu after it and (train=0
 ##             skips it) the AI training screen after train_seconds=40 of Max training with
 ##             train_car=<id> (default racer) on train_track=<id> (default lighthouse-bay) (PNGs);
 ##             net=<file> loads that network first (the menu's AI block, training continues it).
-##   perf      script time per frame of a race (Drive with the autopilot, real time).
+##   perf      script time per frame of a race (Drive with the autopilot, real time); v6.12: and the
+##             car's sound's share of it (the engine synthesis, events and loops).
 ##   surfaces  dirt and snow (v6.3): the menu's track panel names a track's surfaces (Ramp Rally
 ##             "Asphalt + dirt", Mountain Pass "Asphalt + dirt + packed snow"); Drive with the Dune
 ##             on Ramp Rally (the medal autopilot): no dust on asphalt; on the dirt the tyres throw
@@ -85,6 +87,28 @@ extends SceneTree
 ##             the author time (the medal times stay stock), the record and ghost keep the levels, R: the ghost replays the
 ##             upgraded run within 3 cm; the menu fits 1280 x 720. Shots: upgrades_menu,
 ##             upgrades_ask, upgrades_max, upgrades_race, upgrades_finish.
+##   audio     sound and music (v6.12.0), best run under Movie Maker (--write-movie out.avi: the
+##             audio is mixed in lockstep with the 60 fps frames, so every number is exact; without
+##             it the dummy driver mixes in real time and the checks hold within a few frames).
+##             AudioEffectCaptures tap Master (before and after its limiter), Music, SFX and Engine,
+##             every frame is logged (audio_frames.csv: rpm, gear, ground, the bus levels, the car's
+##             loop levels; audio_events.csv: each sound and its frame) and clips are recorded
+##             (menu_music.wav, race1_*.wav, race2_*.wav; race*_engine.wav: the Engine bus, float).
+##             The menu: its music plays at a sane level without clipping, a car change clicks;
+##             Settings: two columns at 1280 x 720 with every row on screen (no scrolling), the
+##             Master and Music sliders with the arrow keys (the bus volumes follow, Music Off is
+##             silent), the window in the background mutes the output (its peak meter) and in front
+##             plays again (shot: audio_settings). race1=seaside-stunts car1=drifter and
+##             race2=mountain-pass car2=dune with the medal autopilot: the race's theme music, a free
+##             rev on the grid, the countdown's beeps 60 frames apart, a chime in the frame of every
+##             checkpoint, lap and the finish, each cue raising the SFX bus at once, the finish's
+##             stinger 0.9 s later and the music ducked; not silent, no clipping (the limiter's
+##             ceiling); the engine sounds at the firing frequency of the sim's rpm (Goertzel, every
+##             0.25 s) and through the gear changes (the pitch drops at the upshifts); landings,
+##             nitro, blow-off, wind; gravel on dirt and snow on snow, neither on asphalt. Then
+##             car3=thunder flat out into Rookie Oval's first barrier: the hit sound in the frame of
+##             the contact, heard at once; Race the AI (the test network): its car is a quieter
+##             3D sound at its place. Prints "AUDIO" lines with the measured levels.
 ##   Every other scenario starts by owning every car, every track open (the terminal's unlock
 ##   tracks) and picking My AI as the opponent (they were written before the career: they drive
 ##   every car on every track and race the car's own network).
@@ -153,10 +177,15 @@ func _main() -> void:
 			await unlock()
 		"upgrades":
 			await upgrades()
+		"audio":
+			await audio_run()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
 	Engine.time_scale = 1.0
+	# (v6.12) stop the sound and let the audio thread let go of it before quitting
+	app.audio.shutdown()
+	await frames(3)
 	quit(1 if failed > 0 or passed == 0 else 0)
 
 
@@ -762,6 +791,16 @@ func settings_set() -> void:
 	await key(KEY_RIGHT) # -> 125%
 	await key(KEY_DOWN)
 	await key(KEY_RIGHT) # ghost On -> Off
+	# (v6.12) Audio: down from the ghost to Master volume (the right column's top), then Music 70% -> 60%
+	# and Mute in the background On -> Off
+	await key(KEY_DOWN)
+	await key(KEY_DOWN)
+	await key(KEY_LEFT)
+	for i in 3:
+		await key(KEY_DOWN)
+	await key(KEY_ENTER)
+	await frames(3)
+	await shot("settings_audio")
 	await key(KEY_ESCAPE)
 	await key(KEY_C) # next car
 	await frames(3)
@@ -770,6 +809,9 @@ func settings_set() -> void:
 	check(is_equal_approx(float(UiData.get_setting("ui_scale")), 1.25) and is_equal_approx(app.ui.ui_scale, 1.25), "interface 125% applied")
 	check(UiData.get_setting("ghost") == false, "ghost off")
 	check(UiData.get_setting("grime") == false and not ScreenGrime.enabled, "screen dirt and snow off applied")
+	check(is_equal_approx(float(UiData.get_setting("vol_music")), 0.6) and UiData.get_setting("mute_unfocused") == false
+		and is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), GameAudio.volume_db(0.6)),
+		"music 60%% (the Music bus at %.1f dB), mute in the background off" % AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")))
 	print("PICKED ", UiData.picked_car())
 
 
@@ -781,9 +823,13 @@ func settings_check() -> void:
 	check(UiData.get_setting("ghost") == false and app.ui.menu.get("_ghost_check").checked == false, "after a restart: ghost off (menu tick too)")
 	check(UiData.picked_car() == Cars.ids()[1], "after a restart: the picked car (%s)" % UiData.picked_car())
 	check(UiData.get_setting("grime") == false and not ScreenGrime.enabled, "after a restart: screen dirt and snow off")
+	check(is_equal_approx(float(UiData.get_setting("vol_music")), 0.6) and UiData.get_setting("mute_unfocused") == false
+		and is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), GameAudio.volume_db(0.6)),
+		"after a restart: music 60% on the Music bus, mute in the background off")
 	# put them back (and check the file holds them)
 	var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SaveData.path))
-	check(raw.settings.quality == "low" and raw.settings.vsync == false and raw.settings.ghost == false and raw.settings.grime == false,
+	check(raw.settings.quality == "low" and raw.settings.vsync == false and raw.settings.ghost == false and raw.settings.grime == false
+		and is_equal_approx(float(raw.settings.vol_music), 0.6) and raw.settings.mute_unfocused == false,
 		"the save file holds the settings")
 
 
@@ -996,6 +1042,10 @@ func perf() -> void:
 	await frames(30) # (past the start)
 	var steps0: int = m.get("steps_run")
 	var usec0: int = m.get("step_usec")
+	var ca: CarAudio = m.get("car_audio") # (v6.12: the car's sound, part of the frame's script time)
+	var au0 := ca.usec if ca != null else 0
+	var au_n0 := ca.updates if ca != null else 0
+	var au_s0 := ca.samples if ca != null else 0
 	var pilot0: int = pilot_usec[0]
 	var per_frame := PackedFloat64Array()
 	var t_end := Time.get_ticks_msec() + int(float(opts.get("seconds", "20")) * 1000.0)
@@ -1020,16 +1070,33 @@ func perf() -> void:
 	sorted.sort()
 	var frame_ms: float = (total - pilot_ms) / maxf(1, n)
 	var other_ms: float = frame_ms - step_ms * steps / maxf(1, n)
+	# (v6.12) the car's sound renders the engine for the time a frame took (up to CarAudio.LEAD_MAX), so
+	# on these slow frames it costs several times what it does at 60 fps: take it out of the rest and
+	# add back its cost for 1/60 s of engine (400 samples)
+	var au_here := 0.0
+	var au_60 := 0.0
+	var au_per := 0.0
+	var au_us := 0.0
+	if ca != null:
+		var au_frames := maxf(1, ca.updates - au_n0)
+		au_here = (ca.usec - au0) / 1000.0 / au_frames
+		au_per = float(ca.samples - au_s0) / au_frames
+		au_us = (ca.usec - au0) / maxf(1, ca.samples - au_s0)
+		au_60 = au_here * 400.0 / maxf(1.0, au_per)
+	other_ms -= au_here
 	print("PERF %s%s: %d frames, %d physics steps (%.1f per frame, the frames are slow here)" % [
 		tid, " + AI ghost" if with_ai else "", n, steps, float(steps) / maxf(1, n)])
 	print("PERF script time per frame (all _process, autopilot taken out): avg %.2f ms (raw median %.2f, p95 %.2f)" % [
 		frame_ms, sorted[n / 2], sorted[int(n * 0.95)]])
 	print("PERF   physics step %.3f ms each; the rest of a frame (model, camera, HUD, world, input) %.2f ms" % [step_ms, other_ms])
-	print("PERF   at 60 fps (1 step a frame): %.2f ms of 16.7; worst catch-up frame (6 steps): %.2f ms" % [
-		other_ms + step_ms, other_ms + 6.0 * step_ms])
+	if ca != null:
+		print("PERF   sound (audio/car_audio.gd: the engine synthesized at %d Hz, events, loops) %.3f ms per frame here (%.0f engine samples a frame); %.2f µs a sample: %.2f ms a frame at 60 fps (400 samples)" % [
+			int(CarAudio.ENGINE_RATE), au_here, au_per, au_us, au_60])
+	print("PERF   at 60 fps (1 step a frame, the sound for 1/60 s): %.2f ms of 16.7; worst catch-up frame (6 steps): %.2f ms" % [
+		other_ms + step_ms + au_60, other_ms + 6.0 * step_ms + au_60])
 	print("PERF   autopilot (test input) %.3f ms per step; wall clock %.1f ms per frame incl. drawing (llvmpipe)" % [
 		pilot_ms / maxf(1, steps), wall / maxf(1, n)])
-	check(steps > 0 and other_ms + step_ms < 16.0, "a race frame's script time fits in 16 ms")
+	check(steps > 0 and other_ms + step_ms + au_60 < 16.0, "a race frame's script time fits in 16 ms")
 	first.queue_free()
 	last.queue_free()
 	stop_autopilot()
@@ -1598,3 +1665,771 @@ func upgrades() -> void:
 	await key(KEY_ESCAPE)
 	await frames(6)
 	check(app.mode == app.menu_mode, "back on the menu")
+
+
+# ---------------------------------------------------------------- sound and music (v6.12.0)
+
+## One bus tapped with an AudioEffectCapture (`pre`: in front of the bus's other effects, the
+## Master's limiter; else after them). A bus's effects run before its own volume and mute: the
+## Music, SFX and Engine taps hear their bus before its volume, the Master tap the mix of the
+## three after their volumes but before the master volume (the output's level is the Master tap's
+## plus GameAudio.volume_db(vol_master); AudioServer's Master peak meter is after it). Every frame drain() takes what was mixed since: its RMS and peak, and while
+## `keep` the samples as mono at half the mix rate (pairs averaged).
+class Tap:
+	var bus := ""
+	var cap := AudioEffectCapture.new()
+	var keep := false
+	var samples := PackedFloat32Array()
+	var rms := 0.0
+	var peak := 0.0
+	var got := 0
+	var _odd := false
+	var _half := 0.0
+
+	func _init(p_bus: String, pre: bool = false) -> void:
+		bus = p_bus
+		cap.buffer_length = 2.0
+		AudioServer.add_bus_effect(AudioServer.get_bus_index(bus), cap, 0 if pre else -1)
+
+	func remove() -> void:
+		var b := AudioServer.get_bus_index(bus)
+		for k in AudioServer.get_bus_effect_count(b):
+			if AudioServer.get_bus_effect(b, k) == cap:
+				AudioServer.remove_bus_effect(b, k)
+				return
+
+	func drain() -> void:
+		var n := cap.get_frames_available()
+		got = n
+		rms = 0.0
+		peak = 0.0
+		if n <= 0:
+			return
+		var buf := cap.get_buffer(n)
+		var s2 := 0.0
+		var pk := 0.0
+		for v: Vector2 in buf:
+			s2 += v.x * v.x + v.y * v.y
+			pk = maxf(pk, maxf(absf(v.x), absf(v.y)))
+			if keep:
+				var m := (v.x + v.y) * 0.5
+				if _odd:
+					samples.append((_half + m) * 0.5)
+				else:
+					_half = m
+				_odd = not _odd
+		rms = sqrt(s2 / (2.0 * n))
+		peak = pk
+
+
+## Runs last in every frame: drains the taps, then calls on_frame (the scenario's log).
+class Probe extends Node:
+	var taps: Array = []
+	var on_frame: Callable
+
+	func _init() -> void:
+		process_priority = 2000000
+		process_mode = Node.PROCESS_MODE_ALWAYS
+
+	func _process(_d: float) -> void:
+		for t: Tap in taps:
+			t.drain()
+		if on_frame.is_valid():
+			on_frame.call()
+
+
+## The audio run's state: the taps, the frame log, the sounds played and where each part began.
+var _au := {}
+const AU_COLS := ["frame", "part", "phase", "rpm", "gear", "speed", "slip", "dust", "snow", "splits", "wall_hits",
+	"mix_rms", "mix_peak", "pre_peak", "out_peak_db", "engine_rms", "sfx_rms", "music_rms", "engine_n",
+	"gravel", "snow_lvl", "squeal", "wind", "scrape", "nitro", "boost", "limiter", "music_db", "t_game", "t_audio", "spool"]
+const COL_T_GAME := 28
+const COL_T_AUDIO := 29
+const COL_SPOOL := 30
+
+
+func audio_run() -> void:
+	var a: GameAudio = app.audio
+	var out := out_dir
+	var rate := AudioServer.get_mix_rate()
+	var movie := Engine.get_write_movie_path() != ""
+	print("AUDIO mix rate %d Hz, %s, %s" % [rate, "Movie Maker (lockstep) " + Engine.get_write_movie_path() if movie else "real time (no Movie Maker)",
+		AudioServer.get_output_device()])
+	var names := PackedStringArray()
+	for i in AudioServer.bus_count:
+		names.append("%s -> %s" % [AudioServer.get_bus_name(i), AudioServer.get_bus_send(i)] if i > 0 else AudioServer.get_bus_name(i))
+	check(AudioServer.get_bus_index("Music") > 0 and AudioServer.get_bus_index("SFX") > 0 and AudioServer.get_bus_index("Engine") > 0,
+		"the buses: %s" % ", ".join(names))
+	var lim := AudioServer.get_bus_effect(0, 0)
+	check(lim is AudioEffectHardLimiter, "a hard limiter on Master (ceiling %.1f dB)" % (lim as AudioEffectHardLimiter).ceiling_db if lim is AudioEffectHardLimiter else "no limiter")
+	# the taps: Master before and after the limiter, Music, SFX and Engine
+	var taps := {"pre": Tap.new("Master", true), "mix": Tap.new("Master"), "music": Tap.new("Music"), "sfx": Tap.new("SFX"), "engine": Tap.new("Engine")}
+	var rec := AudioEffectRecord.new()
+	rec.format = AudioStreamWAV.FORMAT_16_BITS
+	AudioServer.add_bus_effect(0, rec, -1)
+	var probe := Probe.new()
+	probe.taps = taps.values()
+	_au = {"rows": [], "events": [], "seen": -1, "part": 0, "taps": taps, "parts": {}, "t_game": 0.0, "f0": Engine.get_process_frames(),
+		"w0": Time.get_ticks_usec(), "lockstep": movie}
+	probe.on_frame = _audio_log
+	root.add_child(probe)
+	# ---- the menu: its music, then the clicks
+	await wait_until(func() -> bool: return a.music_name == "menu", 10.0)
+	await game_seconds(1.5) # (the music fades in)
+	_audio_part("menu")
+	rec.set_recording_active(true)
+	await game_seconds(8.0)
+	rec.set_recording_active(false)
+	_save_clip(rec, out.path_join("menu_music.wav"))
+	var mm := _audio_stats("menu")
+	print("AUDIO menu music (8 s, master %.0f%%, music %.0f%%): mix RMS %.1f dBFS, peak %.1f dBFS; heard (after the master volume) RMS %.1f dBFS" % [
+		float(UiData.get_setting("vol_master")) * 100.0, float(UiData.get_setting("vol_music")) * 100.0,
+		mm.mix_rms_db, mm.mix_peak_db, mm.mix_rms_db + GameAudio.volume_db(float(UiData.get_setting("vol_master")))])
+	check(mm.covered > 0.9 and mm.mix_rms_db > -40.0 and mm.mix_rms_db < -12.0 and mm.music_rms_db > -45.0,
+		"the menu music plays: RMS %.1f dBFS, %.0f%% of the time has sound" % [mm.mix_rms_db, mm.covered * 100.0])
+	check(mm.mix_peak < 0.95, "the menu: no clipping (peak %.3f)" % mm.mix_peak)
+	var n0 := a.total
+	await key(KEY_C)
+	await frames(3)
+	check(_sounds_since(n0).has("ui_move"), "a car change on the menu clicks (ui_move)")
+	# ---- Settings: the Audio rows (two columns at 1280 x 720), the sliders with the keys
+	var menu: MainMenu = app.ui.menu
+	var st: SettingsScreen = menu.settings
+	n0 = a.total
+	await key(KEY_O)
+	await frames(4)
+	check(st.is_open and _sounds_since(n0).has("ui_confirm"), "O opens Settings (ui_confirm)")
+	var win := Vector2(root.size)
+	var bar := (st.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	var inside := true
+	for r: Dictionary in st.get("_rows"):
+		var rr := (r.box as Control).get_global_rect()
+		inside = inside and rr.position.y >= 0.0 and rr.end.y <= win.y + 0.5 and rr.position.x >= 0.0 and rr.end.x <= win.x + 0.5
+	if win.x >= 1280.0 and win.y >= 720.0:
+		check(st.two_columns == (win.x >= SettingsScreen.TWO_COLUMNS) and inside and bar.max_value <= bar.page + 0.5,
+			"%dx%d: Settings in %s, every row on screen, no scrolling" % [win.x, win.y, "two columns" if st.two_columns else "one column"])
+	else: # (a small window, e.g. a quicker Movie Maker run: Settings may scroll there)
+		print("AUDIO %dx%d: Settings in %s, %s" % [win.x, win.y, "two columns" if st.two_columns else "one column",
+			"no scrolling" if bar.max_value <= bar.page + 0.5 else "scrolls %d px" % int(bar.max_value - bar.page)])
+	var rows: Array = st.get("_rows")
+	var at_master := -1
+	for i in rows.size():
+		if str(rows[i].def.key) == "vol_master":
+			at_master = i
+	while st.selected_row != at_master:
+		await key(KEY_DOWN)
+	n0 = a.total
+	var v_master := float(UiData.get_setting("vol_master"))
+	await key(KEY_LEFT)
+	await frames(2)
+	var mi := AudioServer.get_bus_index("Master")
+	var v1 := float(UiData.get_setting("vol_master"))
+	check(is_equal_approx(v1, v_master - 0.1) and is_equal_approx(AudioServer.get_bus_volume_db(mi), GameAudio.volume_db(v1))
+		and _sounds_since(n0).has("ui_move"), "left on Master volume: %d%% -> %d%% (Master bus %.1f dB), a click at the new level" % [
+		roundi(v_master * 100.0), roundi(v1 * 100.0), AudioServer.get_bus_volume_db(mi)])
+	await key(KEY_RIGHT)
+	check(is_equal_approx(float(UiData.get_setting("vol_master")), v_master), "right: back to %d%%" % roundi(v_master * 100.0))
+	await key(KEY_DOWN) # Music
+	var v_music := float(UiData.get_setting("vol_music"))
+	var steps := roundi(v_music * 10.0)
+	for i in steps + 1: # (the last one stays at Off)
+		await key(KEY_LEFT)
+	_audio_part("music_off")
+	await game_seconds(0.8)
+	var off_stats := _audio_stats("music_off", 0.4)
+	check(float(UiData.get_setting("vol_music")) == 0.0 and AudioServer.is_bus_mute(AudioServer.get_bus_index("Music")) and off_stats.mix_rms_db < -60.0,
+		"Music down to Off: the Music bus is muted, the mix is silent (%.0f dBFS)" % off_stats.mix_rms_db)
+	for i in steps:
+		await key(KEY_RIGHT)
+	check(is_equal_approx(float(UiData.get_setting("vol_music")), v_music), "and back up to %d%% with the keys" % roundi(v_music * 100.0))
+	await frames(30)
+	await shot("audio_settings")
+	# the window to the background: everything is muted; back to the front: heard again
+	_audio_part("background")
+	root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	await game_seconds(0.5)
+	var bg_peak: float = _audio_stats("background", 0.3).out_peak_db
+	var muted := AudioServer.is_bus_mute(mi) and a.muted_in_background()
+	root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_IN)
+	_audio_part("foreground")
+	await game_seconds(0.5)
+	var fg_peak: float = _audio_stats("foreground", 0.3).out_peak_db
+	check(muted and bg_peak < -100.0 and fg_peak > -40.0 and not AudioServer.is_bus_mute(mi),
+		"in the background the output is silent (peak %.0f dB), in front it plays again (peak %.1f dB)" % [bg_peak, fg_peak])
+	n0 = a.total
+	await key(KEY_ESCAPE)
+	check(not st.is_open and _sounds_since(n0).has("ui_back"), "Esc closes Settings (ui_back)")
+	# ---- race 1: Seaside Stunts with the Drifter (turbo four): countdown, jumps, checkpoints, finish
+	await _audio_race(str(opts.get("race1", "seaside-stunts")), str(opts.get("car1", "drifter")), "race1", true)
+	# ---- race 2: Mountain Pass with the Dune: gravel and snow
+	await _audio_race(str(opts.get("race2", "mountain-pass")), str(opts.get("car2", "dune")), "race2", true)
+	# ---- a wall: Rookie Oval with the Thunder, full throttle and full lock into the barrier
+	await _audio_wall(str(opts.get("car3", "thunder")))
+	# ---- the AI opponent's car: positional
+	await _audio_ai()
+	# back on the menu: the menu music again, no car sounds
+	await game_seconds(2.0)
+	check(app.mode == app.menu_mode and a.music_name == "menu", "back on the menu: its music again (%s, %s)" % [app.mode.name if app.mode != null else "-", a.music_name])
+	_write_audio_log(out.path_join("audio_frames.csv"), out.path_join("audio_events.csv"))
+	for t: Tap in taps.values():
+		t.remove()
+	for k in AudioServer.get_bus_effect_count(0):
+		if AudioServer.get_bus_effect(0, k) == rec:
+			AudioServer.remove_bus_effect(0, k)
+			break
+	probe.queue_free()
+
+
+## Wait `s` seconds of game time (Movie Maker: exactly s × fps frames).
+func game_seconds(s: float) -> void:
+	var t := 0.0
+	while t < s:
+		await process_frame
+		t += app.get_process_delta_time()
+
+
+func _audio_part(nm: String) -> void:
+	var parts: Dictionary = _au.parts
+	parts[nm] = (_au.rows as Array).size()
+	_au.part = parts.size()
+
+
+## The sound names played since app.audio.total was `n0`.
+func _sounds_since(n0: int) -> PackedStringArray:
+	return app.audio.sounds_since(n0)
+
+
+## One frame of the log (Probe.on_frame).
+func _audio_log() -> void:
+	var t: Dictionary = _au.taps
+	var f := Engine.get_process_frames()
+	var m: Node = app.mode
+	var car: Car = m.get("car") if m != null and m != app.menu_mode and m.get("car") is Car else null
+	var ca: CarAudio = m.get("car_audio") if car != null and m.get("car_audio") is CarAudio else null
+	var loose := CarAudio.loose_at(m.get("track"), car.idx) if car != null else Vector2.ZERO
+	var race: RaceState = m.get("race") if car != null and m.get("race") is RaceState else null
+	var lv: Dictionary = ca.levels if ca != null else {}
+	var ph := ["countdown", "race", "finished"].find(str(m.get("phase"))) if car != null else -1
+	var out_db := maxf(AudioServer.get_bus_peak_volume_left_db(0, 0), AudioServer.get_bus_peak_volume_right_db(0, 0))
+	# the clocks: game time (what the modes step: the frame's delta, capped as the app caps it) and
+	# audio time (Movie Maker: the frames at 60 fps; real time: the wall clock the driver mixes by)
+	_au.t_game = float(_au.t_game) + minf(app.get_process_delta_time(), app.max_frame)
+	var t_audio: float = (f - int(_au.f0)) / 60.0 if bool(_au.lockstep) else (Time.get_ticks_usec() - int(_au.w0)) / 1e6
+	(_au.rows as Array).append(PackedFloat32Array([f, _au.part, ph,
+		ca.engine.rpm if ca != null else 0.0, car.gear if car != null else 0, car.speed if car != null else 0.0, car.slip if car != null else 0.0,
+		loose.x, loose.y, race.splits.size() if race != null else 0, car.wall_hits if car != null else 0,
+		(t.mix as Tap).rms, (t.mix as Tap).peak, (t.pre as Tap).peak, out_db, (t.engine as Tap).rms, (t.sfx as Tap).rms, (t.music as Tap).rms,
+		(t.engine as Tap).samples.size(),
+		lv.get("gravel", 0.0), lv.get("snow", 0.0), lv.get("tyre_squeal", 0.0), lv.get("wind", 0.0), lv.get("scrape", 0.0), lv.get("nitro", 0.0),
+		car.boost if car != null else 0.0, 1.0 if ca != null and ca.engine.limiter else 0.0, app.audio.music_volume_db(),
+		_au.t_game, t_audio, ca.engine.spool if ca != null else 0.0]))
+	# the sounds played since the last frame
+	var h: Array = app.audio.history
+	var seen: int = _au.seen
+	var new: Array = []
+	for i in range(h.size() - 1, -1, -1):
+		if int(h[i][3]) <= seen:
+			break
+		new.push_front([int(h[i][3]), str(h[i][0])])
+	(_au.events as Array).append_array(new)
+	_au.seen = f
+
+
+## Levels over part `nm` (from where it began, or its last `last_s` seconds): RMS in dBFS of the mix
+## (Master before its volume), Music, SFX and Engine; the peaks; how much of the time had sound.
+func _audio_stats(nm: String, last_s: float = -1.0, to: int = -1) -> Dictionary:
+	var rows: Array = _au.rows
+	var a: int = int((_au.parts as Dictionary).get(nm, 0))
+	var b := rows.size() if to < 0 else to
+	if last_s > 0.0 and b > 0:
+		var t_end: float = rows[b - 1][COL_T_AUDIO]
+		while a < b - 1 and float(rows[a][COL_T_AUDIO]) < t_end - last_s:
+			a += 1
+	var s := {"mix": 0.0, "music": 0.0, "sfx": 0.0, "engine": 0.0}
+	var col := {"mix": 11, "music": 17, "sfx": 16, "engine": 15}
+	var peak := 0.0
+	var pre := 0.0
+	var out_peak := -400.0
+	var with_sound := 0
+	for i in range(a, b):
+		var r: PackedFloat32Array = rows[i]
+		for k: String in s:
+			s[k] += r[col[k]] * r[col[k]]
+		peak = maxf(peak, r[12])
+		pre = maxf(pre, r[13])
+		out_peak = maxf(out_peak, r[14])
+		if r[12] > 0.0005:
+			with_sound += 1
+	var n := maxi(1, b - a)
+	var db := func(x: float) -> float: return linear_to_db(maxf(1e-10, sqrt(x / n)))
+	return {"mix_rms_db": db.call(s.mix), "music_rms_db": db.call(s.music), "sfx_rms_db": db.call(s.sfx), "engine_rms_db": db.call(s.engine),
+		"mix_peak": peak, "mix_peak_db": linear_to_db(maxf(1e-10, peak)), "pre_peak": pre, "out_peak_db": out_peak, "covered": float(with_sound) / n, "frames": n}
+
+
+func _save_clip(rec: AudioEffectRecord, path: String) -> void:
+	var w := rec.get_recording()
+	if w != null:
+		w.save_to_wav(path)
+		print("clip ", path, " %.1f s" % w.get_length())
+
+
+## A race with the medal autopilot of the author run, logged; checks what was heard.
+func _audio_race(tid: String, cid: String, tag: String, finish: bool) -> void:
+	var a: GameAudio = app.audio
+	var taps: Dictionary = _au.taps
+	var eng: Tap = taps.engine
+	await pick(tid, cid)
+	var medals := Medals.medal_times(Tracks.build(tid), cid)
+	var run: Dictionary = medals.get("run", {"aLat": 24.0, "lookK": 1.0})
+	eng.samples = PackedFloat32Array()
+	eng.keep = true
+	_audio_part(tag)
+	var e0 := (_au.events as Array).size()
+	var rec := AudioEffectRecord.new()
+	rec.format = AudioStreamWAV.FORMAT_16_BITS
+	AudioServer.add_bus_effect(0, rec, -1)
+	rec.set_recording_active(true)
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and str(m.get("car_def").id) == cid, "%s: Enter drives %s on %s" % [tag, cid, tid]):
+		return
+	var ca: CarAudio = m.get("car_audio")
+	check(ca != null and ca.engine.car_id == cid and not ca.positional, "%s: the car's sound (%s, %s)" % [tag, cid, ca.engine.character.get("name", "?") if ca != null else "-"])
+	var theme := (m.get("track") as BuiltTrack).theme
+	check(a.music_name == SoundBank.race_music(theme), "%s: the race music for the %s theme (%s)" % [tag, theme, a.music_name])
+	# the countdown: hold the throttle (a free rev), then let go
+	app.input.held["accelerate"] = true
+	await game_seconds(1.2)
+	var rev_rpm := ca.engine.rpm
+	app.input.held.erase("accelerate")
+	check(rev_rpm > (m.get("car") as Car).spec.idle_rpm + 1500.0,
+		"%s: the throttle on the grid revs the engine (%d rpm, idle %d)" % [tag, rev_rpm, (m.get("car") as Car).spec.idle_rpm])
+	var skips0 := ca.skips()
+	autopilot(float(run.aLat), float(run.lookK))
+	# (the limit in game time: Movie Maker runs at a few frames a second here, 1/60 s of game each)
+	var race: RaceState = m.get("race")
+	await wait_until(func() -> bool: return m.get("phase") == "finished" or race.time > 400.0, 6000.0)
+	var done: bool = m.get("phase") == "finished"
+	stop_autopilot()
+	await game_seconds(3.5) # (the finish, the medal stinger, the music down)
+	var dry := ca.skips() - skips0
+	var lead := ca.queued()
+	rec.set_recording_active(false)
+	eng.keep = false
+	var rows: Array = _au.rows
+	var r0: int = int((_au.parts as Dictionary)[tag])
+	var r1 := rows.size()
+	_save_clip(rec, out_dir.path_join("%s_%s_%s.wav" % [tag, tid, cid]))
+	for k in AudioServer.get_bus_effect_count(0):
+		if AudioServer.get_bus_effect(0, k) == rec:
+			AudioServer.remove_bus_effect(0, k)
+			break
+	_save_f32(eng.samples, rate_half(), out_dir.path_join("%s_engine.wav" % tag))
+	check(done, "%s: the autopilot finishes (%.1f s)" % [tag, race.time])
+	# the sounds and the frames they fell on
+	var ev: Array = (_au.events as Array).slice(e0)
+	var first := {}
+	var counts := {}
+	for e: Array in ev:
+		counts[e[1]] = int(counts.get(e[1], 0)) + 1
+		if not first.has(e[1]):
+			first[e[1]] = int(e[0])
+	print("AUDIO %s sounds: %s" % [tag, counts])
+	print("AUDIO %s car events: %s" % [tag, ca.events])
+	# the game time of each frame (Movie Maker: 1/60 s a frame; real time: the frames' deltas)
+	var tg := {}
+	var frame_dt := PackedFloat32Array()
+	for i in range(r0, r1):
+		tg[int(rows[i][0])] = float(rows[i][COL_T_GAME])
+		if i > r0:
+			frame_dt.append(float(rows[i][COL_T_AUDIO]) - float(rows[i - 1][COL_T_AUDIO]))
+	frame_dt.sort()
+	var med_dt: float = frame_dt[frame_dt.size() / 2] if frame_dt.size() > 0 else 1.0
+	# the engine is fed a frame ahead (CarAudio.LEAD_MAX): at fewer than ~10 fps it runs dry between
+	# frames, so its pitch and the turbo are measured only when the frames keep up (Movie Maker always)
+	var smooth := bool(_au.lockstep) or med_dt <= 1.0 / 30.0
+	var slack := 1.0 / 60.0 + 0.002 if bool(_au.lockstep) else app.max_frame + 0.002
+	print("AUDIO %s: %d frames, median %.1f ms of audio a frame%s" % [tag, r1 - r0, med_dt * 1000.0, " (Movie Maker)" if bool(_au.lockstep) else ""])
+	# countdown: 3, 2, 1 a second apart, GO a second after the 1
+	var beeps: Array = ev.filter(func(e: Array) -> bool: return e[1] == "count" or e[1] == "go")
+	var spaced := beeps.size() == 4 and str(beeps[3][1]) == "go"
+	var gaps := []
+	for i in range(1, beeps.size()):
+		var d: float = float(tg.get(int(beeps[i][0]), 0.0)) - float(tg.get(int(beeps[i - 1][0]), 0.0))
+		gaps.append(snappedf(d, 0.001))
+		spaced = spaced and absf(d - 1.0) <= slack
+	check(spaced, "%s: countdown 3, 2, 1, GO: %d beeps, %s s apart" % [tag, beeps.size(), gaps])
+	# gates: a chime in the frame each split was taken
+	var gate_frames := []
+	for i in range(r0 + 1, r1):
+		if rows[i][9] > rows[i - 1][9]:
+			gate_frames.append(int(rows[i][0]))
+	var chimes: Array = ev.filter(func(e: Array) -> bool: return e[1] in ["checkpoint", "lap", "finish"])
+	var on_time := 0
+	for g: int in gate_frames:
+		for c: Array in chimes:
+			if absi(int(c[0]) - g) <= 1:
+				on_time += 1
+				break
+	check(gate_frames.size() == race.splits.size() and on_time == gate_frames.size(),
+		"%s: every checkpoint, lap and the finish chimes in the frame it is taken (%d of %d)" % [tag, on_time, gate_frames.size()])
+	# heard: the SFX bus rises right after each cue (the 5 frames after against the 8 before)
+	var rises := _rises(ev, ["count", "go", "checkpoint", "lap", "finish", "medal", "best"], r0, r1)
+	print("AUDIO %s cue onsets (dB rise of the SFX bus in the 83 ms after): %s" % [tag, rises])
+	var heard := 0
+	var total := 0
+	for k: String in rises:
+		for d: float in rises[k]:
+			total += 1
+			if d >= 3.0:
+				heard += 1
+	check(total > 0 and heard >= int(ceil(total * 0.8)), "%s: the cues are heard when they play (%d of %d raise the SFX bus 3 dB or more)" % [tag, heard, total])
+	# the finish: the music goes down, the stinger after it
+	var fs: Dictionary = m.get("finish_state")
+	if done:
+		var fin := int(first.get("finish", -1))
+		var sting := "medal" if bool(fs.get("medal", {}).get("new", false)) else ("best" if fs.has("record") else "")
+		var after: float = float(tg.get(int(first.get(sting, -1)), -9.0)) - float(tg.get(fin, 0.0)) if sting != "" else PlayMode.STINGER_AT
+		var duck_ok := float(rows[r1 - 1][27]) < PlayMode.MUSIC_DB - 6.0
+		check(fin > 0 and absf(after - PlayMode.STINGER_AT) <= slack and duck_ok,
+			"%s: finish, then the %s stinger %.3f s later; the music down to %.1f dB" % [tag, sting, after, rows[r1 - 1][27]])
+	var st := _audio_stats(tag, -1.0, r1)
+	var lim_frames := 0
+	for i in range(r0, r1):
+		if rows[i][13] > db_to_linear(GameAudio.LIMIT_DB):
+			lim_frames += 1
+	print("AUDIO %s levels: mix RMS %.1f dBFS (heard %.1f), engine %.1f, SFX %.1f, music %.1f; peak %.3f after the limiter, %.3f before (the limiter works in %.1f%% of the frames)" % [
+		tag, st.mix_rms_db, st.mix_rms_db + GameAudio.volume_db(float(UiData.get_setting("vol_master"))), st.engine_rms_db, st.sfx_rms_db, st.music_rms_db,
+		st.mix_peak, st.pre_peak, 100.0 * lim_frames / maxf(1, r1 - r0)])
+	check(st.covered > 0.98 and st.mix_rms_db > -32.0 and st.mix_rms_db < -8.0, "%s: not silent, sane level (mix RMS %.1f dBFS)" % [tag, st.mix_rms_db])
+	check(st.mix_peak <= db_to_linear(GameAudio.LIMIT_DB) + 0.01, "%s: no clipping (peak %.3f, the limiter's ceiling %.3f)" % [tag, st.mix_peak, db_to_linear(GameAudio.LIMIT_DB)])
+	# the engine's pitch follows the rpm
+	print("AUDIO %s engine buffer: %.0f ms rendered ahead at the end, ran dry %d times in the race" % [tag, lead * 1000.0, dry])
+	if smooth:
+		check(dry == 0 and lead <= CarAudio.LEAD_MAX, "%s: the engine never runs dry and is rendered %.0f ms ahead" % [tag, lead * 1000.0])
+	var pt := _pitch_track(eng.samples, rows, r0, r1, int(ca.engine.character.cylinders))
+	print("AUDIO %s engine pitch: %d windows, lag %d frames: firing frequency %.1f dB above its neighbours (median); %.0f%% of windows >= 6 dB, %.0f%% of the %d windows just after a gear change; %d upshifts, the pitch drops at %d" % [
+		tag, pt.windows, pt.lag, pt.median_db, pt.share * 100.0, pt.shift_share * 100.0, pt.shift_windows, pt.upshifts, pt.drops])
+	if smooth:
+		check(pt.windows > 50 and pt.share >= 0.8, "%s: the engine sounds at the firing frequency of the sim's rpm (%.0f%% of %d windows)" % [tag, pt.share * 100.0, pt.windows])
+		check(pt.upshifts == 0 or (pt.shift_share >= 0.7 and pt.drops >= int(ceil(pt.upshifts * 0.7))),
+			"%s: through the gear changes too (%d upshifts, the pitch drops at %d)" % [tag, pt.upshifts, pt.drops])
+	else:
+		print("AUDIO %s: the engine's pitch is not checked: %.0f ms frames (run it under Movie Maker)" % [tag, med_dt * 1000.0])
+	# the ground under the car
+	var on_dirt := [0, 0.0]
+	var on_snow := [0, 0.0]
+	var on_road := [0, 0.0, 0.0]
+	for i in range(r0, r1):
+		var r: PackedFloat32Array = rows[i]
+		if r[2] != 1.0 or r[5] < 15.0:
+			continue
+		if r[7] > 0.9:
+			on_dirt[0] += 1
+			on_dirt[1] += r[19]
+		elif r[8] > 0.9:
+			on_snow[0] += 1
+			on_snow[1] += r[20]
+		elif r[7] + r[8] < 0.05:
+			on_road[0] += 1
+			on_road[1] += r[19]
+			on_road[2] += r[20]
+	if on_dirt[0] > 0 or on_snow[0] > 0:
+		print("AUDIO %s ground: dirt %d frames (gravel %.2f), snow %d frames (snow %.2f), asphalt %d frames (gravel %.3f, snow %.3f)" % [
+			tag, on_dirt[0], on_dirt[1] / maxf(1, on_dirt[0]), on_snow[0], on_snow[1] / maxf(1, on_snow[0]), on_road[0],
+			on_road[1] / maxf(1, on_road[0]), on_road[2] / maxf(1, on_road[0])])
+		check((on_dirt[0] == 0 or on_dirt[1] / on_dirt[0] > 0.25) and (on_snow[0] == 0 or on_snow[1] / on_snow[0] > 0.25)
+			and on_road[1] / maxf(1, on_road[0]) < 0.02 and on_road[2] / maxf(1, on_road[0]) < 0.02,
+			"%s: gravel crunch on the dirt, snow on the snow, neither on asphalt" % tag)
+	if int(ca.events.get("land", 0)) > 0 or tid == "seaside-stunts":
+		check(int(ca.events.get("land", 0)) > 0 and int(counts.get("land", 0)) > 0, "%s: landings thump (%d)" % [tag, int(ca.events.get("land", 0))])
+	if float(ca.engine.character.get("turbo", 0.0)) > 0.0:
+		var spool := 0.0
+		for i in range(r0, r1):
+			spool = maxf(spool, rows[i][COL_SPOOL])
+		print("AUDIO %s turbo: spool up to %.2f, %d blow-offs" % [tag, spool, int(counts.get("blowoff", 0))])
+		if smooth:
+			check(int(counts.get("blowoff", 0)) > 0, "%s: the turbo blows off on a lift (%d, spool up to %.2f)" % [tag, int(counts.get("blowoff", 0)), spool])
+	var boosted := 0
+	var nitro_lvl := 0.0
+	for i in range(r0, r1):
+		if rows[i][26] > 0.3:
+			boosted += 1
+		nitro_lvl = maxf(nitro_lvl, rows[i][25])
+	if boosted > 0:
+		check(int(counts.get("nitro_on", 0)) > 0 and nitro_lvl > 0.2, "%s: the nitro lights (%d) and rushes (loop up to %.2f)" % [tag, int(counts.get("nitro_on", 0)), nitro_lvl])
+	var wind := 0.0
+	for i in range(r0, r1):
+		wind = maxf(wind, rows[i][22])
+	check(wind > 0.2, "%s: wind with speed (up to %.2f)" % [tag, wind])
+	var ep: Node = ca.get("_engine_player")
+	await key(KEY_ESCAPE)
+	_audio_part(tag + "_menu")
+	await game_seconds(0.5)
+	var after := _audio_stats(tag + "_menu", 0.3)
+	check(app.mode == app.menu_mode and (not is_instance_valid(ep) or not bool(ep.get("playing"))) and after.engine_rms_db < -80.0 and a.music_name == "menu",
+		"%s: Esc to the menu: the engine stops (%.0f dBFS), the menu music comes back" % [tag, after.engine_rms_db])
+
+
+func rate_half() -> float:
+	return AudioServer.get_mix_rate() * 0.5
+
+
+## Save mono float samples as a 32-bit float WAV (the analysis reads it).
+func _save_f32(buf: PackedFloat32Array, rate: float, path: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		return
+	var data := buf.to_byte_array()
+	f.store_buffer("RIFF".to_ascii_buffer())
+	f.store_32(36 + data.size())
+	f.store_buffer("WAVEfmt ".to_ascii_buffer())
+	f.store_32(16)
+	f.store_16(3) # IEEE float
+	f.store_16(1)
+	f.store_32(int(rate))
+	f.store_32(int(rate) * 4)
+	f.store_16(4)
+	f.store_16(32)
+	f.store_buffer("data".to_ascii_buffer())
+	f.store_32(data.size())
+	f.store_buffer(data)
+	f.close()
+	print("engine audio ", path, " %.1f s" % (buf.size() / rate))
+
+
+## The rise of the SFX bus (dB) right after each sound named in `names`: the loudest of the 5
+## frames after it against the RMS of the 8 frames before.
+func _rises(ev: Array, names: Array, r0: int, r1: int) -> Dictionary:
+	var rows: Array = _au.rows
+	var at := {}
+	for i in range(r0, r1):
+		at[int(rows[i][0])] = i
+	var out := {}
+	for e: Array in ev:
+		if not (e[1] in names) or not at.has(int(e[0])):
+			continue
+		var i: int = at[int(e[0])]
+		if i - 8 < r0 or i + 6 > r1:
+			continue
+		var before := 0.0
+		for k in range(i - 8, i):
+			before += rows[k][16] * rows[k][16]
+		before = sqrt(before / 8.0)
+		var after := 0.0
+		for k in range(i + 1, i + 6):
+			after = maxf(after, rows[k][16])
+		if not out.has(e[1]):
+			out[e[1]] = []
+		(out[e[1]] as Array).append(snappedf(linear_to_db(maxf(after, 1e-9)) - linear_to_db(maxf(before, 1e-9)), 0.1))
+	return out
+
+
+## Goertzel power of `n` samples of `s` from `a` (Hann window) at `f` Hz (`rate`).
+static func _goertzel(s: PackedFloat32Array, a: int, n: int, f: float, rate: float) -> float:
+	var w := TAU * f / rate
+	var c := 2.0 * cos(w)
+	var s1 := 0.0
+	var s2 := 0.0
+	var k := TAU / (n - 1)
+	for i in n:
+		var s0 := s[a + i] * (0.5 - 0.5 * cos(k * i)) + c * s1 - s2
+		s2 = s1
+		s1 = s0
+	return s1 * s1 + s2 * s2 - c * s1 * s2
+
+
+## Does the engine's sound follow the sim's rpm? Every 0.25 s of driving, a window of the Engine bus
+## (85-170 ms) is measured at the firing frequency of the rpm logged `lag` frames earlier
+## (EngineVoice.firing_hz) and 2.5 semitones either side; the firing frequency should stand out.
+## The lag (the generator's lead and the mix) is the one that fits best over the first windows.
+## Upshifts: the pitch 0.15 s before against 0.25 s after (it should drop).
+func _pitch_track(s: PackedFloat32Array, rows: Array, r0: int, r1: int, cyl: int) -> Dictionary:
+	var rate := rate_half()
+	var cand := []
+	for i in range(r0 + 30, r1 - 30, 15):
+		var r: PackedFloat32Array = rows[i]
+		if r[2] == 1.0 and r[3] > 1500.0:
+			cand.append(i)
+	var shift_rows := {}
+	var upshifts := []
+	for i in range(r0 + 1, r1):
+		if rows[i][2] == 1.0 and rows[i][4] > rows[i - 1][4] and rows[i - 1][4] >= 1.0:
+			upshifts.append(i)
+			for k in range(i, mini(r1, i + 24)):
+				shift_rows[k] = true
+	var prom := func(i: int, lag: int) -> float:
+		var rpm: float = rows[i - lag][3]
+		var f0 := EngineVoice.firing_hz(cyl, rpm)
+		var n := clampi(int(12.0 * rate / f0), 2048, 4096)
+		var c := int(rows[i][18]) - n / 2
+		if c < 0 or c + n >= s.size():
+			return -999.0
+		var p0 := _goertzel(s, c, n, f0, rate)
+		var pl := _goertzel(s, c, n, f0 * pow(2.0, -2.5 / 12.0), rate)
+		var ph := _goertzel(s, c, n, f0 * pow(2.0, 2.5 / 12.0), rate)
+		return 10.0 * log(maxf(p0, 1e-20) / maxf(0.5 * (pl + ph), 1e-20)) / log(10.0)
+	var best_lag := 4
+	var best := -1e9
+	for lag: int in range(1, 11):
+		var sum := 0.0
+		var cnt := 0
+		for j in range(0, mini(cand.size(), 60)):
+			var v: float = prom.call(cand[j], lag)
+			if v > -900.0:
+				sum += v
+				cnt += 1
+		if cnt > 0 and sum / cnt > best:
+			best = sum / cnt
+			best_lag = lag
+	var vals := PackedFloat32Array()
+	var good := 0
+	var sw := 0
+	var sgood := 0
+	for i: int in cand:
+		var v: float = prom.call(i, best_lag)
+		if v < -900.0:
+			continue
+		vals.append(v)
+		if v >= 6.0:
+			good += 1
+		if shift_rows.has(i):
+			sw += 1
+			if v >= 6.0:
+				sgood += 1
+	# the windows right after the upshifts (every one, not only those on the 0.25 s grid)
+	var drops := 0
+	for i: int in upshifts:
+		var before := _peak_hz(s, rows, i - 9, best_lag, cyl, rate)
+		var after := _peak_hz(s, rows, i + 15, best_lag, cyl, rate)
+		if before > 0.0 and after > 0.0 and after < before * 0.95:
+			drops += 1
+		var v: float = prom.call(mini(i + 15, r1 - 31), best_lag)
+		if v > -900.0:
+			sw += 1
+			if v >= 6.0:
+				sgood += 1
+	vals.sort()
+	return {"windows": vals.size(), "lag": best_lag, "median_db": vals[vals.size() / 2] if vals.size() > 0 else 0.0,
+		"share": float(good) / maxf(1, vals.size()), "shift_windows": sw, "shift_share": float(sgood) / maxf(1, sw),
+		"upshifts": upshifts.size(), "drops": drops}
+
+
+## The strongest frequency near the firing frequency of row `i` (± 40 %, 1/4-semitone steps), Hz.
+func _peak_hz(s: PackedFloat32Array, rows: Array, i: int, lag: int, cyl: int, rate: float) -> float:
+	if i - lag < 0 or i >= rows.size():
+		return -1.0
+	var f0 := EngineVoice.firing_hz(cyl, rows[i - lag][3])
+	var n := 4096
+	var c := int(rows[i][18]) - n / 2
+	if c < 0 or c + n >= s.size() or f0 < 20.0:
+		return -1.0
+	var best := 0.0
+	var at := -1.0
+	for k in range(-24, 25):
+		var f := f0 * pow(2.0, k / 48.0)
+		var p := _goertzel(s, c, n, f, rate)
+		if p > best:
+			best = p
+			at = f
+	return at
+
+
+## Full throttle down the straight into the first corner's barrier: the hit is heard when it happens.
+func _audio_wall(cid: String) -> void:
+	await pick("rookie-oval", cid)
+	_audio_part("wall")
+	var e0 := (_au.events as Array).size()
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	var ca: CarAudio = m.get("car_audio")
+	var car: Car = m.get("car")
+	await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+	var inp := app.input
+	inp.feed = func(_sp: float) -> void:
+		inp.pad_throttle = 1.0
+		inp.pad_steer = 0.0
+	var hit := await wait_until(func() -> bool: return car.wall_hits > 0, 120.0)
+	await game_seconds(2.0)
+	stop_autopilot()
+	var rows: Array = _au.rows
+	var r0: int = int((_au.parts as Dictionary).wall)
+	var r1 := rows.size()
+	var first := -1
+	var speed := 0.0
+	for i in range(r0 + 1, r1):
+		if rows[i][10] > rows[i - 1][10]:
+			first = int(rows[i][0])
+			speed = rows[i - 1][5]
+			break
+	var ev: Array = (_au.events as Array).slice(e0)
+	var hits: Array = ev.filter(func(e: Array) -> bool: return str(e[1]).begins_with("hit_"))
+	var rises := _rises(ev, ["hit_light", "hit_medium", "hit_heavy"], r0, r1)
+	var scrape := 0.0
+	for i in range(r0, r1):
+		scrape = maxf(scrape, rows[i][23])
+	print("AUDIO wall: first contact frame %d at %.1f m/s; hits %s; SFX rise %s dB; car events %s; scrape loop up to %.2f" % [
+		first, speed, hits, rises, ca.events, scrape])
+	check(hit and hits.size() > 0 and absi(int(hits[0][0]) - first) <= 1,
+		"the %s into the wall at %.0f m/s: %s in the frame it hits (frame %d, the contact %d)" % [cid, speed, hits[0][1] if hits.size() > 0 else "no hit sound", int(hits[0][0]) if hits.size() > 0 else -1, first])
+	var rose := false
+	for k: String in rises:
+		for d: float in rises[k]:
+			rose = rose or d >= 3.0
+	check(rose, "the hit is heard at once (the SFX bus up %s dB in the 83 ms after it)" % [rises])
+	await key(KEY_ESCAPE)
+	await frames(4)
+
+
+## Race the AI ghost (the test network) for a few seconds: its car is a quieter positional sound.
+func _audio_ai() -> void:
+	var net_path := str(opts.get("net", "res://tests/fixtures/game_net.json"))
+	await pick("rookie-oval", "racer")
+	if not check(app.load_network_file(net_path) == "", "the AI network loaded"):
+		return
+	if app.message.visible: # (a note: the network was trained with another car)
+		app.message.close()
+		await frames(2)
+	app.play("human", true)
+	await frames(2)
+	var m: Node = app.mode
+	var ga: CarAudio = m.get("ghost_audio")
+	autopilot(24.0, 1.3)
+	await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+	await game_seconds(5.0)
+	stop_autopilot()
+	var ep: Node = ga.get("_engine_player") if ga != null else null
+	check(ga != null and ga.positional and ep is AudioStreamPlayer3D and bool(ep.get("playing")) and ga.updates > 30 and is_equal_approx(ga.level, 0.6)
+		and ga.get_parent() == m.get("ghost_model") and m.get("pb_model") == null,
+		"Race the AI: the AI car's engine plays in 3D from its car (level %.1f, %d updates); no best-run ghost sound" % [ga.level if ga != null else 0.0, ga.updates if ga != null else 0])
+	if ga != null:
+		var d := (ga.global_position - (m.get("ghost_model") as Node3D).global_position).length()
+		check(d < 0.01, "the AI car's sound is where its car is")
+	await key(KEY_ESCAPE)
+	await frames(4)
+
+
+## The frame log (one row a frame, AU_COLS) and the sounds played (frame, name) as CSV.
+func _write_audio_log(frames_path: String, events_path: String) -> void:
+	var f := FileAccess.open(frames_path, FileAccess.WRITE)
+	if f == null:
+		return
+	var parts := PackedStringArray()
+	for k: String in _au.parts:
+		parts.append("%s=%d" % [k, int(_au.parts[k])])
+	f.store_line("# parts (row index where each began): " + " ".join(parts))
+	f.store_line(",".join(PackedStringArray(AU_COLS)))
+	for r: PackedFloat32Array in _au.rows:
+		var line := PackedStringArray()
+		for v in r:
+			line.append(str(snappedf(v, 0.00001)))
+		f.store_line(",".join(line))
+	f.close()
+	var g := FileAccess.open(events_path, FileAccess.WRITE)
+	if g == null:
+		return
+	g.store_line("frame,sound")
+	for e: Array in _au.events:
+		g.store_line("%d,%s" % [int(e[0]), e[1]])
+	g.close()
+	print("audio log %s (%d frames), %s (%d sounds)" % [frames_path, (_au.rows as Array).size(), events_path, (_au.events as Array).size()])

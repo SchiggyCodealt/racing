@@ -14,6 +14,9 @@ const NitroGauge := preload("res://ui/nitro_gauge.gd")
 const CheckToggle := preload("res://ui/check_toggle.gd")
 
 
+const VolumeBarScript := preload("res://ui/volume_bar.gd")
+
+
 func run(t) -> bool:
 	_formats(t)
 	_data(t)
@@ -25,6 +28,7 @@ func run(t) -> bool:
 	_menu_cars(t)
 	_menu_tracks(t)
 	_settings(t)
+	_settings_audio(t)
 	_terminal(t)
 	_hud(t)
 	_finish(t)
@@ -422,6 +426,86 @@ func _settings(t) -> void:
 	UiData.reset()
 
 
+## (v6.12.0) The Settings screen's Audio rows: volume sliders stepped by the keys, the pad and the
+## mouse, the background mute toggle, the interface's sounds, and the two columns at 1280 x 720.
+func _settings_audio(t) -> void:
+	t.section("Settings: the Audio rows (v6.12.0)")
+	UiData.reset()
+	UiSound.clear()
+	var h := _holder(t)
+	var s := SettingsScreen.new()
+	s.apply_display = false
+	h.add_child(s)
+	s.open()
+	_settle(h)
+	var inp := Fx.FakeInput.new()
+	var got := []
+	s.setting_changed.connect(func(k: String, v: Variant) -> void: got.append([k, v]))
+	var rows: Array = s.get("_rows")
+	var keys := []
+	for r: Dictionary in rows:
+		keys.append(str(r.def.key))
+	var at := keys.find("vol_master")
+	t.check(keys.slice(at, at + 5) == ["vol_master", "vol_music", "vol_sfx", "vol_engine", "mute_unfocused"] and str(rows[at].def.section) == "Audio"
+		and keys.back() == "terminal", "the Audio section: Master, Music, Effects, Engines, Mute in the background (then Career's Terminal)")
+	t.check(is_equal_approx(float(UiData.get_setting("vol_master")), 1.0) and is_equal_approx(float(UiData.get_setting("vol_music")), 0.7)
+		and is_equal_approx(float(UiData.get_setting("vol_sfx")), 0.8) and is_equal_approx(float(UiData.get_setting("vol_engine")), 0.8)
+		and UiData.get_setting("mute_unfocused") == true, "defaults: master 100%, music 70%, effects 80%, engines 80%, muted in the background")
+	var bar: Control = rows[at + 1].segs[0]
+	t.check(is_equal_approx(float(bar.get("value")), 0.7) and bar.call("text") == "70%", "the Music slider shows 70%")
+	# keys: down to the Music row, left / right step a tenth, Enter goes up, the ends hold
+	while s.selected_row != at + 1:
+		s.handle_keys(_press(inp, ["ArrowDown"]))
+	UiSound.clear()
+	s.handle_keys(_press(inp, ["ArrowLeft"]))
+	t.check(is_equal_approx(float(UiData.get_setting("vol_music")), 0.6) and got.back()[0] == "vol_music" and is_equal_approx(float(got.back()[1]), 0.6) and is_equal_approx(float(bar.get("value")), 0.6)
+		and UiSound.count("ui_move") == 1, "left: 60%, setting_changed, the bar follows, one click")
+	for i in 9:
+		s.handle_keys(_press(inp, ["ArrowLeft"]))
+	t.check(float(UiData.get_setting("vol_music")) == 0.0 and bar.call("text") == "0%" and UiSound.count("ui_move") == 7,
+		"down to 0 (Off); more presses hold it there without a click")
+	s.handle_keys(_press(inp, ["Enter"]))
+	s.handle_keys(_press(inp, ["KeyD"]))
+	t.check(is_equal_approx(float(UiData.get_setting("vol_music")), 0.2), "Enter and D step it up (20%)")
+	for i in 12:
+		s.handle_keys(_press(inp, ["ArrowRight"]))
+	t.check(is_equal_approx(float(UiData.get_setting("vol_music")), 1.0), "up to 100% and no further")
+	# the pad: the d-pad / stick left and right
+	s.handle_keys(_press(inp, ["NavLeft"], true))
+	t.check(is_equal_approx(float(UiData.get_setting("vol_music")), 0.9), "the pad's left (d-pad or stick): 90%")
+	# the mouse: a click on the bar sets the nearest tenth
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = Vector2(VolumeBarScript.STEPS * (VolumeBarScript.BLOCK_W + VolumeBarScript.BLOCK_GAP) * 0.5 - 2.0, 10.0)
+	bar.call("_gui_input", ev)
+	t.check(is_equal_approx(float(UiData.get_setting("vol_music")), 0.5) and s.selected_row == at + 1, "a click half way along the bar: 50%")
+	# the toggle
+	while s.selected_row != at + 4:
+		s.handle_keys(_press(inp, ["ArrowDown"]))
+	s.handle_keys(_press(inp, ["Enter"]))
+	t.check(UiData.get_setting("mute_unfocused") == false and got.back() == ["mute_unfocused", false], "Mute in the background: Off with Enter")
+	UiSound.clear()
+	s.handle_keys(_press(inp, ["Escape"]))
+	t.check(not s.is_open and UiSound.count("ui_back") == 1, "Esc closes it with the back sound")
+	# the layout: two columns at 1280 x 720 (Audio and Career on the right), one at 1024 x 600
+	s.open()
+	s.call("_on_layout", 1280.0)
+	_settle(h)
+	var right: Array = s.get("_col")
+	t.check(s.two_columns and (rows[at].box as Control).get_parent() == right[1] and (rows[0].box as Control).get_parent() == right[0]
+		and (rows[rows.size() - 1].box as Control).get_parent() == right[1], "1280 wide: two columns, Graphics to Race on the left, Audio and Career on the right")
+	s.selected_row = at - 1
+	s.handle_keys(_press(inp, ["ArrowDown"]))
+	t.check(s.selected_row == at, "down from the left column's last row goes to the top of the right one (Master volume)")
+	s.call("_on_layout", 1024.0)
+	_settle(h)
+	t.check(not s.two_columns and (rows[at].box as Control).get_parent() == s.get("_list"), "1024 wide: one column, in ROWS order")
+	h.free()
+	UiSound.clear()
+	UiData.reset()
+
+
 ## A stand-in for game/terminal.gd: run echoes the line (or closes / clears / changes on
 ## exit / clear / money), complete offers some names.
 class FakeTerminal:
@@ -467,11 +551,13 @@ func _terminal(t) -> void:
 	term.open()
 	_settle(h)
 	t.check(term.is_open and term.line.has_focus() and term.log_text().contains("Type help for the commands"), "open: the input has the focus, a welcome line in the log")
+	UiSound.clear()
 	for ch in "hi":
 		_type_key(t, (ch.to_upper().unicode_at(0)) as Key, ch)
 	_type_key(t, KEY_ENTER)
 	t.check(fake.ran == ["hi"] and term.line.text == "" and term.log_text().contains("> hi") and term.log_text().contains("ran hi") and
 		term.log_text().contains("Money") and term.history == PackedStringArray(["hi"]), "typing hi and Enter (key events): the line runs, the log shows it and the result (a row too); the input is empty")
+	t.check(UiSound.count("key") == 2 and UiSound.count("key_enter") == 1, "(v6.12.0) each key clicks, Enter has its own sound")
 	term.submit("money 5")
 	term.submit("money 5")
 	t.check(changes[0] == 2 and term.history == PackedStringArray(["hi", "money 5"]), "a command that changed the career emits changed; the same line twice is kept once in the history")
