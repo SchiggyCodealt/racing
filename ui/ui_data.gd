@@ -518,6 +518,15 @@ static func opponent_levels(track: String, car: String) -> Array:
 	return out
 
 
+## (v6.13) What finishing `place` in a field of level `level` pays now on a track with a car (the place
+## rewards not paid yet: {money, points}).
+static func field_pays(track: String, car: String, level: String, place: int) -> Dictionary:
+	var paid: PackedStringArray = SaveData.paid_rewards(track, car) if _save else \
+		PackedStringArray(store.career.paid.get("%s|%s" % [track, car], []))
+	var p := Economy.payout(track, "", "", paid, level, place)
+	return {"money": p.money, "points": p.points}
+
+
 # ---------------------------------------------------------------- locked tracks (v6.8.0)
 
 ## The tracks a finish just opened, for the menu's NEW mark (track id -> true; this session only).

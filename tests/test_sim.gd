@@ -125,6 +125,7 @@ func run(checker: Variant) -> bool:
 	_unlocks()
 	_faster_bronze()
 	_upgrades()
+	_field()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
 		"format_time rounds correctly (119.9996 s -> 2:00.000; no time -> --:--.---)")
@@ -2683,3 +2684,277 @@ func _upgrades() -> void:
 		RaceState.format_time(race.finish_time), RaceState.format_time(float(stock_run.time)), worst * 100.0])
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean_up.call()
+
+
+# ---- Race the field (v6.13.0) ------------------------------------------------------------
+
+## A car off any track at (x, z) heading `yaw` at `speed` along it (contact maths only).
+static func free_car(x: float, z: float, yaw: float, speed: float, car_id: String = "racer") -> Car:
+	var c := Car.new(null, -1, Cars.spec(car_id))
+	c.x = x
+	c.z = z
+	c.yaw = yaw
+	c.vx = sin(yaw) * speed
+	c.vz = cos(yaw) * speed
+	c.speed = speed
+	return c
+
+
+static func car_state(c: Car) -> PackedFloat64Array:
+	return PackedFloat64Array([c.x, c.y, c.z, c.vx, c.vy, c.vz, c.yaw, c.yaw_rate, c.speed])
+
+
+## Drive two cars straight (x += v dt, no physics) and collide them every step for `n` steps.
+## Returns the largest overlap still there after two steps' contact passes in a row (m): what the push's
+## limit (CarContact.MAX_PUSH) leaves after a deep first step must be gone the step after.
+static func kinematic(a: Car, b: Car, n: int) -> float:
+	var worst := 0.0
+	var prev := 0.0
+	for k in n:
+		for c: Car in [a, b]:
+			c.x += c.vx * DT
+			c.z += c.vz * DT
+			c.yaw += c.yaw_rate * DT
+		CarContact.collide(a, b)
+		var o := CarContact.overlap(a, b)
+		if prev > 0.0:
+			worst = maxf(worst, o)
+		prev = o
+	return worst
+
+
+## A scripted field driver: an autopilot (sim/autopilot.gd) behind FieldRace's drive(track, car, race).
+class PilotDriver:
+	var pilot: Autopilot
+	func _init(p: Autopilot) -> void:
+		pilot = p
+	func drive(_t: BuiltTrack, car: Car, _r: Variant) -> Car.Controls:
+		return pilot.drive(car)
+
+
+func _field() -> void:
+	t.section("Race the field: solid cars (v6.13.0, sim/car_contact.gd)")
+	# side by side, overlapping by 0.3 m, the left one drifting into the right one
+	var a := free_car(0.0, 0.0, 0.0, 30.0)
+	var b := free_car(-1.7, 0.4, 0.0, 30.0, "thunder")
+	a.vx = -2.0
+	var h := CarContact.Hit.new()
+	var p0x := a.vx * a.spec.mass + b.vx * b.spec.mass
+	var e0 := a.spec.mass * (a.vx * a.vx + a.vz * a.vz) + b.spec.mass * (b.vx * b.vx + b.vz * b.vz)
+	var hit := CarContact.collide(a, b, h)
+	var p1x := a.vx * a.spec.mass + b.vx * b.spec.mass
+	var e1 := a.spec.mass * (a.vx * a.vx + a.vz * a.vz) + b.spec.mass * (b.vx * b.vx + b.vz * b.vz)
+	t.check(hit and is_equal_approx(h.depth, 0.3) and absf(CarContact.overlap(a, b)) < 1e-9 and h.speed > 1.9 and a.vx > -2.0 and b.vx < 0.0 and
+		absf(a.x - 0.0) > absf(b.x + 1.7) and e1 < e0 and absf(p1x) <= absf(p0x) + 1e-6,
+		"two cars side by side 0.3 m into each other: pushed apart exactly (the light Racer moves %.3f m, the Thunder %.3f m), the closing speed %.1f m/s mostly gone (left car %.2f m/s, right car %.2f m/s), no energy made" % [
+		absf(a.x), absf(b.x + 1.7), h.speed, a.vx, b.vx])
+	t.check(a.vy == 0.0 and b.vy == 0.0 and a.y == 0.0 and b.y == 0.0, "nothing is launched: the contact is flat (no vertical speed, no height change)")
+	t.check(not CarContact.collide(a, b), "once apart and moving apart: nothing more happens (no sticking)")
+	var air := free_car(0.0, 0.0, 0.0, 30.0)
+	var under := free_car(0.5, 0.5, 0.0, 10.0)
+	air.y = CarContact.SKIP_DY + 0.1
+	t.check(not CarContact.collide(air, under) and air.x == 0.0, "a car %.1f m higher (over a kicker) flies over the other" % (CarContact.SKIP_DY + 0.1))
+	# symmetric and deterministic, bit for bit: a glancing rear corner hit with spin
+	var same := true
+	var sym := true
+	for k in 20:
+		var ang := 0.37 * k
+		var mk := func(swap: bool) -> Array:
+			var c1 := free_car(1.0 + 0.1 * k, 2.0, ang, 25.0 + k, "vortex")
+			var c2 := free_car(1.0 + 0.1 * k + 1.2 * cos(ang), 2.0 + 3.1 * sin(ang + 0.4), ang + 0.6, 18.0, "dune")
+			c1.yaw_rate = 0.3
+			if swap:
+				CarContact.collide(c2, c1)
+			else:
+				CarContact.collide(c1, c2)
+			return [car_state(c1), car_state(c2)]
+		var r1: Array = mk.call(false)
+		var r2: Array = mk.call(true)
+		var r3: Array = mk.call(false)
+		sym = sym and r1[0] == r2[0] and r1[1] == r2[1]
+		same = same and r1[0] == r3[0] and r1[1] == r3[1]
+	t.check(sym and same, "collide(a, b) and collide(b, a) give exactly the same cars (20 glancing hits at different angles, bit for bit), and the same again on a re-run")
+	# no tunnelling at top speed: a rear-end at 92 m/s into a standing car, a head-on of two at 92 m/s,
+	# a T-bone at 92 m/s; the cars always end on the side they came from
+	var rear_a := free_car(0.0, 0.0, 0.0, 92.0, "vortex")
+	var rear_b := free_car(0.0, 20.0, 0.0, 0.0, "kestrel")
+	var w1 := kinematic(rear_a, rear_b, 30)
+	var head_a := free_car(0.3, 0.0, 0.0, 92.0, "vortex")
+	var head_b := free_car(0.0, 25.0, PI, 92.0, "vortex")
+	var w2 := kinematic(head_a, head_b, 20)
+	var t_a := free_car(-12.0, 0.0, PI / 2.0, 92.0, "vortex")
+	var t_b := free_car(0.0, 0.0, 0.0, 0.0, "racer")
+	var w3 := kinematic(t_a, t_b, 20)
+	var top := Cars.spec("vortex").max_speed
+	t.check(top <= 92.0 and rear_a.z < rear_b.z and head_a.z < head_b.z and t_a.x < t_b.x and w1 < 1e-6 and w2 < 1e-6 and w3 < 1e-6 and
+		rear_b.vz > 30.0 and rear_a.vz < 92.0,
+		"no tunnelling at top speed (the fastest car's %.0f m/s): a rear-end at 92 m/s into a standing car, a head-on of two at 92 m/s and a T-bone at 92 m/s all stay on their side, what the push's limit leaves after the first step gone the step after (the standing car is shunted to %.0f m/s)" % [
+		top, rear_b.vz])
+	var m_sum := 0.0
+	var e_ok := true
+	for k in 30: # random hits: energy never grows, the yaw kick is bounded
+		var q1 := free_car(rnd() * 2.0, rnd() * 2.0, rnd() * TAU, rnd() * 80.0, Cars.ids()[k % 6])
+		var q2 := free_car(rnd() * 2.0, rnd() * 2.0, rnd() * TAU, rnd() * 80.0, Cars.ids()[(k + 3) % 6])
+		var ke0: float = q1.spec.mass * q1.speed * q1.speed + q2.spec.mass * q2.speed * q2.speed
+		var w0a := q1.yaw_rate
+		var w0b := q2.yaw_rate
+		CarContact.collide(q1, q2)
+		var ke1: float = q1.spec.mass * q1.speed * q1.speed + q2.spec.mass * q2.speed * q2.speed
+		e_ok = e_ok and ke1 <= ke0 * (1.0 + 1e-9) and finite(q1) and finite(q2) and absf(q1.yaw_rate - w0a) <= CarContact.MAX_SPIN + 1e-9 and \
+			absf(q2.yaw_rate - w0b) <= CarContact.MAX_SPIN + 1e-9
+		m_sum += absf(q1.yaw_rate) + absf(q2.yaw_rate)
+	t.check(e_ok, "30 random hits between all six cars: never more kinetic energy after, every number finite, each yaw kick at most %.1f rad/s" % CarContact.MAX_SPIN)
+
+	t.section("Race the field: the grid on every track (sim/field.gd)")
+	var bad: PackedStringArray = []
+	var widest := 0.0
+	for id: String in Cars.ids():
+		widest = maxf(widest, Cars.spec(id).radius)
+	for id: String in Tracks.ids():
+		var tr: BuiltTrack = Tracks.build(id)
+		var g := Field.grid(tr, Field.AI_COUNT + 1)
+		var issues: PackedStringArray = []
+		var last: Dictionary = g[g.size() - 1]
+		if int(last.idx) != tr.start_idx or float(last.lat) >= 0.0:
+			issues.append("the player is not on the start spot's right")
+		var first_cp: int = tr.cp_samples[0] if tr.cp_samples.size() > 0 else tr.finish_idx
+		var cars: Array = []
+		for k in g.size():
+			var s: Dictionary = g[k]
+			var i: int = s.idx
+			if absf(float(s.lat)) + widest + 1.0 > tr.hw[i]:
+				issues.append("slot %d is %.1f m from the wall" % [k + 1, tr.hw[i] - absf(float(s.lat)) - widest])
+			if i >= first_cp - 10:
+				issues.append("slot %d is at the first checkpoint" % (k + 1))
+			if not tr.surface.is_empty() and tr.surface[i] != Surfaces.ASPHALT:
+				issues.append("slot %d is not on asphalt" % (k + 1))
+			if k > 0 and signf(float(s.lat)) == signf(float(g[k - 1].lat)):
+				issues.append("slots %d and %d are on one side" % [k, k + 1])
+			if k > 0 and int(g[k - 1].idx) - i != roundi(Field.SLOT_GAP / tr.seg_len):
+				issues.append("slot %d is not %.0f m behind the one before" % [k + 1, Field.SLOT_GAP])
+			var c := Car.new(tr, i, Cars.spec("thunder"))
+			c.place(tr, i, {x = s.x, z = s.z, yaw = s.yaw, vx = 0.0, vz = 0.0, idx = i, laps = 0})
+			if absf(c.lat - float(s.lat)) > 0.05 or c.idx != i and c.idx != i - 1:
+				issues.append("slot %d does not locate back to itself" % (k + 1))
+			cars.append(c)
+		for i in cars.size():
+			for j in range(i + 1, cars.size()):
+				if CarContact.overlap(cars[i], cars[j], 2.0) > 0.0:
+					issues.append("slots %d and %d are closer than 2 m" % [i + 1, j + 1])
+		# the first corner: the road stays straight-ish over the grid
+		var turn := 0.0
+		for k in range(tr.start_idx, int(g[0].idx)):
+			turn = maxf(turn, absf(wrap_a(atan2(tr.tx[k], tr.tz[k]) - atan2(tr.tx[tr.start_idx], tr.tz[tr.start_idx]))))
+		if turn > deg_to_rad(20.0):
+			issues.append("the grid turns %.0f°" % rad_to_deg(turn))
+		if not issues.is_empty():
+			bad.append("%s: %s" % [id, ", ".join(issues)])
+	t.check(bad.is_empty(), "every track's grid (6 cars, %d m apart, two wide): the player on the start spot (right lane), the AI ahead alternating sides, all on the road with 1 m to spare beside the widest car, on asphalt, before the first checkpoint, at least 2 m apart, on a straight%s" % [
+		int(Field.SLOT_GAP), "" if bad.is_empty() else ": " + "; ".join(bad)])
+
+	t.section("Race the field: the lineup, positions and gaps (sim/field.gd, sim/field_race.gd)")
+	var lu := Field.lineup("rookie-oval", "pro", "racer")
+	var base := Opponents.time_of("rookie-oval", "racer", "pro")
+	var names: Dictionary = {}
+	var paces_ok := lu.size() == Field.AI_COUNT
+	for k in lu.size():
+		var e: Dictionary = lu[k]
+		names[e.id] = true
+		paces_ok = paces_ok and is_equal_approx(float(e.target), Field.PACE[k] * base) and float(e.cap) > 0.0 and Cars.has_car(String(e.car))
+		if k > 0:
+			paces_ok = paces_ok and float(e.target) < float(lu[k - 1].target)
+	t.check(paces_ok and names.size() == Field.AI_COUNT and lu == Field.lineup("rookie-oval", "pro", "racer") and lu != Field.lineup("coastal-gp", "pro", "racer"),
+		"a Pro field on Rookie Oval: five different drivers, the pole sitter the slowest (%.0f s) to the fastest (%.0f s, the Pro AI's time with your car), each with a speed cap; the same field every time, another one on another track" % [
+		float(lu[0].target), float(lu[Field.AI_COUNT - 1].target)])
+	var vs := Field.lineup("banked-speedway", "elite", "vortex")
+	var swapped := 0
+	for e: Dictionary in vs:
+		if String(e.car) == "vortex":
+			swapped += 1
+		paces_ok = paces_ok and Opponents.time_of("banked-speedway", String(e.car), "elite") <= float(e.target) * 1.0001
+	t.check(paces_ok and swapped >= 1, "an Elite field against the Vortex on Banked Speedway: a car that can't keep up there is swapped for your Vortex (%d of 5 drive it)" % swapped)
+	var capo := Field.cap_for("rookie-oval", "racer", Opponents.time_of("rookie-oval", "racer", "amateur"))
+	t.check(is_equal_approx(capo, Opponents.cap_of("rookie-oval", "racer", "amateur")) and Field.cap_for("rookie-oval", "racer", 1.0) == Opponents.cap_of("rookie-oval", "racer", "elite") and
+		Field.cap_for("rookie-oval", "racer", 1000.0) < Opponents.cap_of("rookie-oval", "racer", "rookie") and Field.cap_for("nope", "racer", 100.0) == -1.0 and
+		Field.place_name(1) == "1st" and Field.place_name(2) == "2nd" and Field.place_name(3) == "3rd" and Field.place_name(6) == "6th" and Field.place_name(11) == "11th",
+		"cap_for: a level's own time gives its cap, faster than Elite the Elite's, slower than Rookie less than the Rookie's; place names 1st, 2nd, 3rd, 6th, 11th")
+	# five identical autopilots from the grid: the pole leads, each car a slot behind is about 10 m
+	# behind at the same speed (0.25 s at 40 m/s); the player standing on its slot is last
+	var oval: BuiltTrack = Tracks.build("rookie-oval")
+	var drivers: Array = []
+	var fake: Array = []
+	for k in Field.AI_COUNT:
+		drivers.append(PilotDriver.new(Autopilot.basic(oval, 11.0, 7.5, 40.0)))
+		fake.append({name = "Car %d" % k, code = "C%d" % k, car = "racer", color = "#ffffff", cap = INF, pace = 100.0 + k, slot = k})
+	var pcar := Car.new(oval, oval.start_idx)
+	var prace := RaceState.new(oval)
+	var f := FieldRace.new(oval, fake, drivers, pcar, prace)
+	var stand := Car.Controls.new()
+	for k in 60 * 25:
+		f.step(DT, stand)
+	var order := f.standings()
+	var gaps_ok := true
+	for k in Field.AI_COUNT - 1:
+		var g1 := f.gap(k, k + 1)
+		gaps_ok = gaps_ok and absf(g1 - Field.SLOT_GAP / 40.0) < 0.05
+	var bd := f.board(f.player_index)
+	t.check(order == PackedInt32Array([0, 1, 2, 3, 4, 5]) and f.position(f.player_index) == 6 and gaps_ok and int(bd.pos) == 6 and int(bd.of) == 6 and
+		String(bd.ahead.code) == "C4" and bd.behind.is_empty() and is_equal_approx(float(bd.ahead.gap), f.gap(4, 5)) and float(bd.rows[0].gap) < 0.0 and bd.rows[5].gap == null and
+		f.ai_contacts == 0,
+		"five identical autopilots for 25 s: in grid order, each %.2f s behind the one ahead (10 m at 40 m/s; %.3f, %.3f ...), you standing on the grid are P6/6, %s ahead by %.1f s; no contacts" % [
+		Field.SLOT_GAP / 40.0, f.gap(0, 1), f.gap(1, 2), String(bd.ahead.code), float(bd.ahead.gap)])
+	# finished cars by their times, then by progress, an out car last
+	f.racers[3].race.finished = true
+	f.racers[3].race.finish_time = 90.0
+	f.racers[1].race.finished = true
+	f.racers[1].race.finish_time = 91.0
+	f.racers[0].dnf = true
+	var rs := f.results()
+	t.check(f.standings() == PackedInt32Array([3, 1, 2, 4, 5, 0]) and int(rs[0].i) == 3 and is_equal_approx(float(rs[1].gap), 1.0) and is_equal_approx(f.gap(3, 1), 1.0) and
+		not is_finite(float(rs[2].time)) and bool(rs[5].dnf) and bool(rs[4].me),
+		"standings: the finished by their times (1.0 s apart), then by progress, an out car last; the finish panel's rows say so")
+	# the traffic layer: a fast car closing on a slow one in its lane eases off and steers round it
+	var f2 := FieldRace.new(oval, fake, drivers, Car.new(oval, oval.start_idx), RaceState.new(oval))
+	var slow: Car = f2.racers[0].car
+	var fast: Car = f2.racers[1].car
+	slow.place(oval, 120, {x = oval.px[120], z = oval.pz[120], yaw = atan2(oval.tx[120], oval.tz[120]), vx = oval.tx[120] * 20.0, vz = oval.tz[120] * 20.0, idx = 120, laps = 0})
+	fast.place(oval, 112, {x = oval.px[112] + oval.nx[112] * 0.5, z = oval.pz[112] + oval.nz[112] * 0.5, yaw = atan2(oval.tx[112], oval.tz[112]),
+		vx = oval.tx[112] * 40.0, vz = oval.tz[112] * 40.0, idx = 112, laps = 0})
+	for r: FieldRace.Racer in f2.racers:
+		if r.car != slow and r.car != fast:
+			r.solid = false
+	var c := Car.Controls.new(0.0, 1.0)
+	f2.traffic(f2.racers[1], c)
+	t.check(c.throttle < 0.0 and c.steer > 0.05, "the traffic layer: closing at 20 m/s on a car 16 m ahead in its lane, an AI brakes (throttle %.2f) and steers to the side with more room (%.2f, left: it was 0.5 m left of the other)" % [c.throttle, c.steer])
+
+	t.section("Race the field: pay by place (sim/economy.gd)")
+	var path := "user://test_sim_field.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var tid: String = Tracks.ids()[0]
+	var third := Economy.claim(tid, "racer", "", "", "pro", 3)
+	var again := Economy.claim(tid, "racer", "", "", "pro", 3)
+	var win := Economy.claim(tid, "racer", "", "", "pro", 1)
+	var full := Economy.payout(tid, "", "", PackedStringArray(), "pro", 1)
+	var ids3: PackedStringArray = []
+	for it: Dictionary in third.items:
+		ids3.append(String(it.id))
+	var ids1: PackedStringArray = []
+	for it: Dictionary in win.items:
+		ids1.append(String(it.id))
+	t.check(ids3 == PackedStringArray(["field-pro-5", "field-pro-4", "field-pro-3"]) and int(third.money) == 460 and again.items.is_empty() and again.repeat.size() == 3 and
+		ids1 == PackedStringArray(["field-pro-2", "field-pro-1"]) and int(win.money) == 1060 and int(full.money) == int(third.money) + int(win.money) and
+		int(full.money) == 1520 and int(full.points) == 46 and SaveData.get_money() == 1520 and SaveData.get_points() == 46,
+		"3rd in a Pro field on Rookie Oval pays 5th, 4th and 3rd ($%d); the same again nothing; 1st later pays only the difference (2nd and 1st, $%d): $%d and %d points in all, as a win straight away" % [
+		int(third.money), int(win.money), int(full.money), int(full.points)])
+	var other := Economy.payout(tid, "gold", "", SaveData.paid_rewards(tid, "racer"), "expert", 2)
+	var more := true
+	var lv: PackedStringArray = Opponents.ids()
+	for k in range(1, lv.size()):
+		more = more and int(Economy.payout(tid, "", "", PackedStringArray(), lv[k], 1).money) > int(Economy.payout(tid, "", "", PackedStringArray(), lv[k - 1], 1).money)
+	t.check(other.items.size() == 7 and String(other.items[0].kind) == "medal" and String(other.items[6].kind) == "field" and Economy.label("field-expert-2") == "Expert field: 2nd" and
+		Economy.payout(tid, "", "", PackedStringArray(), "pro", 6).items.is_empty() and Economy.field_ids("nope", 1).is_empty() and Economy.reward(tid, "field-pro-9").is_empty() and
+		Economy.reward(tid, "field-x-1").is_empty() and more and Economy.payout(Tracks.ids()[14], "", "", PackedStringArray(), "pro", 1).money > full.money and
+		SaveData.paid_rewards(tid, "kestrel").is_empty(),
+		"another level pays on its own (gold + Expert 2nd: the medal's 3 rewards and 4 places, labelled \"Expert field: 2nd\"); last place pays nothing; harder fields and later tracks pay more; another car has its own list")

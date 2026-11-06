@@ -23,6 +23,8 @@ extends Control
 ##   block picks the opponent of Race / Watch the AI: an AI level (Rookie to Elite, its finish
 ##   time on this track with this car and what beating it pays now) or My AI (the picked car's
 ##   own trained network, as before).
+## - v6.13.0, Race the field: a button beside Train the AI races five AI drivers at the picked AI level
+##   on a starting grid (off with My AI picked, or a car you don't own; its tooltip says what a win pays).
 ## - v6.11.0, car upgrades (sim/upgrades.gd): under the cards, the picked car's four parts (engine,
 ##   tyres, nitro, loose grip) as chips with their levels and the next level's price; a chip buys
 ##   that level (the game asks first: `upgrade`). A car you don't own shows them greyed out. The car
@@ -50,6 +52,8 @@ signal drive
 signal race_ghost
 signal watch_ai
 signal train_ai
+## (v6.13) Race the field: five AI drivers at the picked AI level on a starting grid
+signal race_field
 signal load_network
 signal save_network
 signal track_selected(index: int)
@@ -147,6 +151,7 @@ var _save_btn: Button
 var _ghost_btn: Button
 var _watch_btn: Button
 var _train_btn: Button
+var _field_btn: Button   # (v6.13) Race the field
 ## The opponent buttons (v6.5.0): AI level id or UiData.MY_AI -> Button.
 var _opp_btns: Dictionary = {}
 var _opp_row: HBoxContainer
@@ -615,9 +620,19 @@ func _build_go() -> void:
 	_ghost_btn.pressed.connect(func() -> void: race_ghost.emit())
 	_watch_btn.pressed.connect(func() -> void: watch_ai.emit())
 	buttons.add_child(pair)
+	# (v6.13) Race the field beside Train the AI (one row: the menu still fits 1280 x 720)
+	var pair2 := UiStyle.hbox(UiStyle.S3)
+	_field_btn = UiStyle.button("Race the field")
 	_train_btn = UiStyle.button("Train the AI")
+	for b in [_field_btn, _train_btn]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.size_flags_stretch_ratio = 1.0
+		b.custom_minimum_size.x = 1
+		b.clip_text = true
+		pair2.add_child(b)
+	_field_btn.pressed.connect(func() -> void: race_field.emit())
 	_train_btn.pressed.connect(func() -> void: train_ai.emit())
-	buttons.add_child(_train_btn)
+	buttons.add_child(pair2)
 	_side.add_child(buttons)
 
 
@@ -659,6 +674,8 @@ func refresh() -> void:
 		return
 	_ghost_btn.text = "Race my AI"
 	_watch_btn.text = "Watch my AI"
+	_field_btn.disabled = true
+	_field_btn.tooltip_text = "Race the field: five AI drivers on a starting grid. Pick an AI level (Rookie to Elite) for them first; My AI races alone"
 	if st.ready:
 		var s := "[color=#a7a9ae][b]Ready[/b][/color]: "
 		var trained := str(st.get("trained_car", car))
@@ -703,6 +720,8 @@ func _render_track_lock() -> void:
 		_drive_btn.tooltip_text = why + ". Watch the AI and Train the AI work here anyway."
 	if not _ghost_btn.disabled:
 		_ghost_btn.tooltip_text = why + ". Watch the AI works here."
+	if not _field_btn.disabled:
+		_field_btn.tooltip_text = why + "."
 
 
 ## The AI block with AI level `opp` picked: its finish time here with the picked car and what
@@ -735,6 +754,12 @@ func _render_opponent(opp: String, car: String, cname: String, owned: bool) -> v
 		else "Buy the %s to race it" % cname) if has else "No %s AI on this track with the %s" % [lname, cname]
 	_watch_btn.tooltip_text = "Watch the %s AI drive this track with the %s, with its sensors and network" % [lname, cname] if has \
 		else "No %s AI on this track with the %s" % [lname, cname]
+	# (v6.13) Race the field at this level: what a win pays now
+	_field_btn.disabled = not has or not owned
+	var win: Dictionary = UiData.field_pays(UiData.track_id(selected_track), car, opp, 1)
+	_field_btn.tooltip_text = ("Race the field: five AI drivers at %s pace on a starting grid; you start last. Places pay once per track and car%s" % [
+		lname, (": a win pays +%s · +%s pts now" % [UiFormat.money(int(win.money)), UiFormat.points(int(win.points))]) if int(win.money) > 0 else " (every place here is paid)"]
+		if owned else "Buy the %s to race it" % cname) if has else "No %s AI on this track with the %s" % [lname, cname]
 
 
 ## The header's money and points.
@@ -1093,7 +1118,7 @@ func _fit_hint() -> void:
 ## The controls the pad highlight can go to (shown and enabled), in the web's order.
 func _pad_controls() -> Array:
 	var out: Array = []
-	var list: Array = [_controls_btn, _settings_btn, _drive_btn, _ghost_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]
+	var list: Array = [_controls_btn, _settings_btn, _drive_btn, _ghost_btn, _watch_btn, _field_btn, _train_btn, _ghost_check, _save_btn]
 	list.append_array(_opp_btns.values())
 	list.append_array(_part_chips)
 	for c in list:

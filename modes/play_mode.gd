@@ -78,6 +78,8 @@ const STINGER_AT := 0.9 # s after the finish sound: the medal or best-time sting
 
 ## The app shows the race HUD for this mode.
 var uses_hud := true
+## (v6.13) Plain Drive races the best-run ghost; Race the field (modes/field_mode.gd) doesn't.
+var uses_pb := true
 var app: GameApp
 var track: BuiltTrack
 var driver := "human"
@@ -189,7 +191,7 @@ func enter() -> void:
 		world.add_child(ghost_model)
 		ghost_audio = CarAudio.new(app.audio, ai_def.id, {"positional": true})
 		ghost_model.add_child(ghost_audio)
-	elif driver == "human":
+	elif driver == "human" and uses_pb:
 		# your best run on this track with this car (if there is one yet), drawn as that car
 		pb = _load_pb()
 		pb_model = CarModel.new(car_def.id, {"ghost": true, "color": PB_COLOR})
@@ -261,6 +263,7 @@ func _exit_view() -> void:
 func restart() -> void:
 	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
 	race = RaceState.new(track)
+	_place_start()
 	record = SaveData.get_record(track.id, car_def.id) # your best with this car
 	medal_target = _aim_for() # fixed for the run: the HUD ticks it at the finish if won
 	# a best run saved during the last race is raced from now on
@@ -310,6 +313,11 @@ func restart() -> void:
 
 
 func _restart_view() -> void:
+	pass
+
+
+## (v6.13) Hook: put the car on its start (the field race: its grid slot, and the field's cars on theirs).
+func _place_start() -> void:
 	pass
 
 
@@ -374,6 +382,11 @@ func fixed_step(dt: float) -> void:
 		return
 	if go_timer > 0.0:
 		go_timer -= dt
+	_race_step(dt)
+
+
+## One race step after the countdown (modes/field_mode.gd steps its whole field instead).
+func _race_step(dt: float) -> void:
 	race_step += 1
 
 	# --- the main car ---
@@ -460,17 +473,7 @@ func _on_finish() -> void:
 		var nx := _next_medal(t, t if is_record else prev)
 		if not nx.is_empty():
 			s.next = nx
-		var won := false
-		if not ghost.is_empty():
-			var gr: RaceState = ghost.race
-			won = not gr.finished or t <= gr.finish_time
-			if gr.finished:
-				var by := absf(gr.finish_time - t)
-				s.lines = ["%s: %s, %s" % [ai_name(), RaceState.format_time(gr.finish_time),
-					("you win by %s s!" % JsMath.to_fixed(by, 3)) if won else ("the AI wins by %s s" % JsMath.to_fixed(by, 3))]]
-			else:
-				s.lines = ["%s hasn't finished: you win!" % ai_name()]
-		s.payout = _payout(t, level if won else "")
+		s.payout = _finish_payout(t, s)
 		# bronze or better opens the next track (v6.8.0, sim/unlocks.gd)
 		var opened := Unlocks.claim(track.id, String(s.payout.medal))
 		if opened != "":
@@ -489,6 +492,21 @@ func _on_finish() -> void:
 	finish_state = s
 	app.ui.hud.show_panel(s)
 	_finish_sounds(s)
+
+
+## The run's payout (and, racing the AI car, the line saying who won, in `s`).
+func _finish_payout(t: float, s: Dictionary) -> Dictionary:
+	var won := false
+	if not ghost.is_empty():
+		var gr: RaceState = ghost.race
+		won = not gr.finished or t <= gr.finish_time
+		if gr.finished:
+			var by := absf(gr.finish_time - t)
+			s.lines = ["%s: %s, %s" % [ai_name(), RaceState.format_time(gr.finish_time),
+				("you win by %s s!" % JsMath.to_fixed(by, 3)) if won else ("the AI wins by %s s" % JsMath.to_fixed(by, 3))]]
+		else:
+			s.lines = ["%s hasn't finished: you win!" % ai_name()]
+	return _payout(t, level if won else "")
 
 
 ## (v6.12) The finish rings and the music goes down under the finish panel; then a new medal (or,
@@ -651,7 +669,6 @@ static func _store_pose(p: Dictionary, c: Car) -> void:
 
 
 func render(dt: float, alpha: float) -> void:
-	var hud := app.ui.hud
 	model.update(car, _prev.get("car"), alpha, dt, track)
 	var view: CarEffects.Pose = model.pose # the car between the last two steps
 	camera.update(view, dt, track)
@@ -671,6 +688,7 @@ func render(dt: float, alpha: float) -> void:
 			pb_model.set_fade(CarModel.ghost_fade(Vector3(pp.x, pp.y, pp.z), at, cam, true))
 		else:
 			pb_model.set_fade(0.0)
+	_render_others(dt, alpha, at, cam)
 	# (v6.12) the cars' sounds; in the countdown the throttle revs the player's engine
 	if car_audio != null:
 		var rev := -1.0
@@ -681,13 +699,33 @@ func render(dt: float, alpha: float) -> void:
 		ghost_audio.update(ghost.car, track, dt)
 	if grime != null:
 		# mud and snow on the screen: from the car the camera follows and the AI car close ahead
-		var ahead := Vector2.ZERO
-		if not ghost.is_empty():
-			ahead = ScreenGrime.ahead_of(view, ghost_model.pose, track)
-		grime.update(dt, view, track, ahead)
+		grime.update(dt, view, track, _grime_ahead(view))
 	_render_view(view)
+	_render_hud(dt)
 
-	# HUD
+
+## (v6.13) Hook: draw the other cars of the race (the field race's AI); `at` is where the main car is
+## drawn, `cam` the camera.
+func _render_others(_dt: float, _alpha: float, _at: Vector3, _cam: Vector3) -> void:
+	pass
+
+
+## The dust or spray of the car ahead that reaches the screen (ScreenGrime.ahead_of): the AI car
+## (the field race: any car of the field).
+func _grime_ahead(view: CarEffects.Pose) -> Vector2:
+	if not ghost.is_empty():
+		return ScreenGrime.ahead_of(view, ghost_model.pose, track)
+	return Vector2.ZERO
+
+
+## (v6.13) Hook: more for the HUD's state (the field race: its positions).
+func _hud_extra(_s: Dictionary) -> void:
+	pass
+
+
+## The HUD of this frame.
+func _render_hud(dt: float) -> void:
+	var hud := app.ui.hud
 	if phase == "countdown":
 		hud.countdown(str(ceili(clock)))
 	elif go_timer > 0.0:
@@ -706,7 +744,7 @@ func render(dt: float, alpha: float) -> void:
 		gt = "AI was stuck: back to its last checkpoint"
 	elif not note.is_empty():
 		gt = note.text
-	hud.update({
+	var s := {
 		"time": race.finish_time if race.finished else race.time,
 		"lap": race.lap(),
 		"laps": race.laps,
@@ -725,7 +763,9 @@ func render(dt: float, alpha: float) -> void:
 		"finished": race.finished,
 		"ghost_text": gt,
 		"pad": app.input.pad_active, # key hints name the gamepad buttons
-	}, dt)
+	}
+	_hud_extra(s)
+	hud.update(s, dt)
 	if not score_events.is_empty():
 		hud.score_pops(score_events)
 		score_events = []

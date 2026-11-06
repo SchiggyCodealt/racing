@@ -35,6 +35,7 @@ func run(t) -> bool:
 	_career(t)
 	_upgrades(t)
 	_unlocks(t)
+	_field_ui(t)
 	_scale(t)
 	UiData.reset()
 	return true
@@ -1032,6 +1033,60 @@ func _unlocks(t) -> void:
 	t.check(not _texts(f).has("Lighthouse Bay unlocked"), "no unlock: no such line")
 	h.free()
 	UiData.reset()
+
+
+## v6.13.0: Race the field on the HUD (place, the cars ahead and behind, the standings) and on the
+## finish panel (the place line, the field's rows with times and gaps, docked on the right).
+func _field_ui(t) -> void:
+	t.section("Race the field: the HUD's field block and the finish panel (v6.13.0)")
+	var h := _holder(t)
+	var hud := RaceHud.new()
+	h.add_child(hud)
+	hud.show_hud(true)
+	var s := Fx.hud_drive()
+	hud.update(s, 0.016)
+	var plate: Control = hud.get("_field_plate")
+	var off := not plate.visible and hud.field_text.is_empty()
+	var cols := [Color("#eef0f2"), Color("#2b2e36"), Color("#d7263d"), Color("#d63af9"), Color("#c8a96a"), Color("#6f4cff")]
+	var codes := ["BRA", "VAN", "YOU", "PAR", "REY", "OST"]
+	var gaps: Array = [-3.41, -0.85, null, 1.24, 12.5, 0.0]
+	var rows: Array = []
+	for k in 6:
+		rows.append({"i": k, "code": codes[k], "name": codes[k], "color": cols[k], "gap": gaps[k], "me": k == 2, "finished": false, "dnf": k == 5})
+	s.field = {"pos": 3, "of": 6, "rows": rows, "ahead": {"code": "VAN", "gap": 0.85}, "behind": {"code": "PAR", "gap": 1.24}}
+	hud.update(s, 0.016)
+	_settle(h)
+	var ft := hud.field_text
+	t.check(off and plate.visible and ft == PackedStringArray(["P3/6", "ahead VAN 0.85", "behind PAR 1.24", "1 BRA -3.41", "2 VAN -0.85", "3 YOU ", "4 PAR +1.24", "5 REY +12.5", "6 OST out"]),
+		"the HUD: no field block in Drive; in a field race P3/6, the cars ahead and behind with their gaps, the standings (+12.5 past 10 s, an out car): %s" % " | ".join(ft))
+	s.field = {"pos": 1, "of": 6, "rows": rows.slice(0, 2), "ahead": {}, "behind": {"code": "VAN", "gap": 0.5}}
+	hud.update(s, 0.016)
+	t.check(hud.field_text[0] == "P1/6" and hud.field_text[1] == "ahead " and not (hud.get("_ahead_l") as Control).visible, "leading: no car ahead shown")
+	t.check(RaceHud.field_gap(0.004) == "+0.00" and RaceHud.field_gap(-10.04) == "-10.0", "gaps: two decimals, one past 10 s")
+	h.free()
+	h = _holder(t)
+	var f := FinishPanel.new()
+	h.add_child(f)
+	f.set_window_size(Vector2(1280, 720))
+	var st := Fx.panel_finish()
+	var res: Array = []
+	var names := ["Ada Brandt", "You", "Rico Vance", "Juno Park", "Sol Reyes", "Kai Ostrom"]
+	var times: Array = [150.2, 151.45, 153.0, INF, INF, INF]
+	for k in 6:
+		res.append({"place": k + 1, "i": k, "name": names[k], "code": names[k].substr(0, 3).to_upper(), "car": "Racer", "color": cols[k],
+			"time": times[k], "gap": float(times[k]) - 150.2, "me": k == 1, "dnf": k == 5})
+	st.field = {"place": 2, "of": 6, "level": "Pro", "rows": res}
+	st.dock = "right"
+	f.update(st)
+	_settle(h)
+	var texts := _texts(f)
+	t.check(texts.has("2nd") and texts.has("of 6 · Pro field") and texts.has("You") and texts.has("Ada Brandt") and texts.has("2:31.450") and texts.has("+1.250") and texts.has("racing…") and texts.has("out"),
+		"the finish panel: 2nd of 6 · Pro field, every driver with the time and gap so far (racing… for the cars still on track, out for a car out)")
+	t.check(f.position.x + f.size.x > 1280.0 - 40.0 and f.position.x > 1280.0 * 0.3, "docked on the right (x %.0f, %.0f wide): the podium is on the left" % [f.position.x, f.size.x])
+	f.set_window_size(Vector2(800, 600))
+	_settle(h)
+	t.check(is_equal_approx(f.size.x, 800.0 - 24.0), "a narrow window keeps it full width")
+	h.free()
 
 
 func _texts(n: Node) -> PackedStringArray:

@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-05 (v6.12.0: round 2, item 3 of 3: sound and music: every car's engine synthesized live from the
+_Last updated: 2026-11-06 (v6.13.0: round 3, item 1: Race the field: you against five AI drivers on a two-wide starting
+grid with solid cars (deterministic capsule contacts, only in this mode), a light traffic layer and a watchdog for the
+AI, the place and standings on the HUD, the finishing order on the finish panel, a podium, pay by place; v6.12.0: round 2, item 3 of 3: sound and music: every car's engine synthesized live from the
 sim's rpm, throttle, load, gear and nitro (six characters), tyres, gravel, snow, wind, walls, landings, nitro, the
 race's cues, the menus' clicks and the shop's cash, four synthesized music loops, Master / Music / Effects / Engines
 volumes and a background mute in Settings; v6.11.0: round 2, item 2 of 3: car upgrades: engine, tyres, nitro and loose grip, three
@@ -18,8 +20,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.12.0, round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.13.0, round 3 item 1 done (Race the field); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
+Round 3, item 1: **Race the field (v6.13.0, done)**. See [Round 3](#round-3-race-the-field-v6130) and
+[How v6.13.0 was verified](#how-v6130-race-the-field-was-verified).
 Round 2 (asked on 2026-11-04, built one at a time in this order): 1. **dirt and snow polish (v6.10.0, done)**,
 2. **car upgrades (v6.11.0, done)**, 3. **sound and music (v6.12.0, done)**. See [Round 2](#round-2-the-owners-three-new-items).
 
@@ -417,6 +421,48 @@ script time a race frame at 60 fps with the sound) and `surfaces` 16 with `gfx=h
 Maker at 640 x 360 (see below); the FleetSim libraries were not touched; the Windows release export was made from a
 fresh import (no errors or warnings; the 4 music and 32 effect files and `audio/` are in the pack, 43.5 MB zipped)
 and zipped as `build/TrackRush-6.12.0-windows.zip` (not started: no Windows here).
+
+## How v6.13.0 (Race the field) was verified
+
+- **Contacts** (`tests/test_sim.gd`, `sim/car_contact.gd`): two cars 0.3 m into each other are pushed apart exactly,
+  shared by mass (Racer 0.171 m, Thunder 0.129 m), the closing speed mostly gone, no energy made; flat (no vertical
+  speed, no launch); no sticking once apart; a car 1.3 m higher flies over; `collide(a, b)` and `collide(b, a)` give
+  the same cars bit for bit (20 glancing hits) and the same again on a re-run; no tunnelling at 92 m/s (rear-end,
+  head-on, T-bone: each car ends on its own side; what the push's limit of 0.5 m a car leaves after a deep first step is
+  gone the step after); 30 random hits between all six cars: never more kinetic energy, finite, yaw kick ≤ 1.5 rad/s.
+- **The grid on every track** (15 tracks, 6 cars): the player on the usual start spot (right lane), the AI ahead
+  alternating sides 10 m apart, all on asphalt road with 1 m to spare beside the widest car, before the first
+  checkpoint, at least 2 m apart, on a stretch that turns at most 20°.
+- **Whole AI field races** (`tools/field.gd`, every car driven by its AI opponent network, the player's slot too at the
+  level's cap; the Racer; 5 tracks: Rookie Oval, Hairpin Valley, Forest Rally, Coastal GP, Summit Rush):
+  - 25 races (all five levels): every AI finished in every race (125 of 125), 0 stuck or wrong-way respawns, 62 new
+    AI-AI contacts a race (8.5 closing faster than 3 m/s), 30 with the player's car; the finishing order follows the
+    drivers' paces in 84 % of AI pairs (the whole order in 10 of 25 races); about 1.0 ms of script time a step for the
+    six cars on one thread.
+  - 15 races (Rookie, Pro, Elite, after the cap fix below, `--solo`): 75 of 75 finished, 0 respawns, 75.6 AI-AI
+    contacts a race (9.2 hard), 30.9 with the player; pace order in 83 % of pairs (5 of 15 races exactly); against each
+    AI's own race alone with the same cap the order is kept in 83 % of pairs and a field race is 1.1 % off the solo
+    time on average (the traffic costs little time).
+  - A contact is counted each time two cars start touching, so rubbing side by side counts many times; "hard" ones are
+    the real knocks.
+  - `tests/test_ai.gd` runs three of them (Pro oval, Elite Forest Rally, Elite Summit Rush: all finish) and one twice
+    (the same finish times bit for bit).
+- **The game** (`tests/test_game.gd`, through the app): the menu button (off with My AI, refused asking for a level,
+  a locked track refused, an unowned car offered), a Pro field on Rookie Oval driven by the medal autopilot: the grid,
+  the HUD's field block, the finish (place, the place rewards, money, the panel docked right), the medal, record and
+  Hairpin Valley opened as in Drive, the podium with every AI finished out of sight, R and Esc. `tests/test_ui.gd`: the
+  HUD's block (P3/6, ahead / behind, standings with +12.5 and "out") and the finish panel's rows ("racing…", gaps),
+  docked right at 1280 x 720 and full width in a narrow window. `tests/test_sim.gd`: lineup, cap_for, five identical
+  autopilots 0.25 s apart (gaps), standings with finished and out cars, the traffic layer braking and steering to the
+  free side, pay by place (paid once, a better place pays the difference, levels and tracks scale).
+- **E2E** (`scenario=field`, xvfb and llvmpipe, 1280 x 720, Elite field on Rookie Oval, the author run's medal
+  autopilot; one run at gfx=low, one at gfx=high, 10 of 10 checks): the grid during the countdown, a battle (P3/6
+  side by side with Nils Haugen, 0.01 s), a win in 2:02.733 paying $4,600 with the gold (five place rewards), the
+  podium (You, Nils Haugen, Kai Ostrom), R, Esc. Script time: the field's step 1.05-1.11 ms (six cars, the
+  autopilot's input included); the AI engines 1.04-1.18 µs a sample, 1.24-1.42 ms a frame at 60 fps for the 3 voices
+  heard (the two farthest are paused); with the player's car (0.75 ms in v6.12.0) and the rest a frame stays far under
+  16 ms. Not measured on a real graphics card. The e2e `menu`, `economy`, `upgrades` and `terminal` scenarios pass
+  unchanged.
 
 ## How v6.12.0 (sound and music) was verified
 
@@ -1054,6 +1100,9 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   stay off) and run `tests/test_ai.gd`, which compares them every step.
 - **`JsMath`** (`sim/js_math.gd`): `JsMath.same(a, b)` compares JSON values like JS `===` (Godot's `==` raises an
   error on String against int); `JsMath.round` / `roundi` / `hypot2` / `to_fixed` reproduce V8's results.
+- **Car-to-car contacts only in Race the field** (v6.13.0): `sim/car_contact.gd` is called by `sim/field_race.gd`
+  alone. Drive, Race the AI, ghosts, training, FleetSim, the medal sweep and the opponents' calibration never touch
+  it, so they stay bit for bit; keep it that way (or give FleetSim the same contacts first).
 - **Static types everywhere** (typed GDScript is much faster, and `:=` on an untyped value is a parse error here).
   Tabs, snake_case, PascalCase classes; `class_name` only for types other folders need. After adding a
   `class_name`, run `godot --headless --path . --import` once before running scripts.
@@ -1196,6 +1245,23 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   input or interface.
 
 ## Known limitations
+
+- **Race the field (v6.13.0)**:
+  - The AI drive their shipped opponent networks with a speed cap; the rule-based traffic layer only eases off
+    behind a car close ahead and nudges the steering to the freer side. They don't plan overtakes or defend, so
+    they rub and bump a lot (60-75 new touches a race between AI cars, about 9 of them faster than 3 m/s) and
+    finish in the order of their paces in about 83 % of pairs.
+  - A driver's pace is a speed cap interpolated between its car's measured levels; where the Elite level has no cap
+    (the network flat out) the cap is a power-law estimate, and some cars (the Vortex on Summit Rush) run faster
+    than their slot's pace, so the grid's slowest-to-fastest order is approximate.
+  - The grid is ahead of the usual start spot (you start on it, the AI 10-50 m further on), not behind the line, so
+    your time counts for medals; the AI's times are from their own grid slots.
+  - Contacts are capsule against capsule on the ground plane only (no roll, no pitch, no damage); a car squeezed
+    against a wall by another can be pushed into the wall for a step (the wall pushes it back).
+  - No terminal command for it (the terminal has no reference to the app; it would need a signal chain).
+  - The other drivers' names, paces and cars are data (`sim/field.gd` `DRIVERS`, `PACE`); there is no per-driver
+    personality (aggression, mistakes).
+  - Nobody has played it with a real graphics card or a gamepad in hand; the e2e run drives it with the autopilot.
 
 - **Sound and music (v6.12.0)**:
   - **No person has listened to it.** Every sound is synthesized and was checked by measurement only (levels, peaks,
@@ -1404,6 +1470,47 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
+
+## Round 3: Race the field (v6.13.0)
+
+Item 1 of round 3. The owner's pick: "Full race against an AI field: five solid AI cars on a starting grid instead of
+one see-through rival, with positions on the HUD, a podium, and pay by finishing place." **Done in v6.13.0.**
+
+How it is built:
+- `sim/car_contact.gd` (`CarContact`): car against car as two capsules on the ground plane (the car's core segment
+  and radius from its spec): pushed apart along the normal by the overlap, shared by mass, at most 0.5 m a car a step;
+  an impulse with restitution 0.2 and friction 0.25 on the closing speed, a small yaw kick (clamped to ±1.5 rad/s), a
+  speed scrub of up to 6 %; skipped when their heights differ by more than 1.2 m. Each pair is resolved in a canonical
+  order, so it is symmetric and deterministic bit for bit. Only `FieldRace` calls it: Drive, Race the AI, the ghosts,
+  training, FleetSim and the medal times are untouched (no native change, no medal or opponent re-run).
+- `sim/field.gd` (`Field`): the roster (`DRIVERS`: eight named drivers with a car and colour), `lineup()` (five of
+  them shuffled by a seeded FNV hash of track and level, pole first; slot k aims at `PACE[k]` × the level's time with
+  the player's car: 1.08 to 1.0; a car that can't reach it even at Elite is swapped for the player's car; the speed cap
+  from `cap_for()`, log-interpolated between the car's measured levels), `grid()` (the player on `start_idx` in the
+  right lane, the AI ahead 10 m apart alternating sides, ±3 m or 40 % of the half width).
+- `sim/field_race.gd` (`FieldRace`): steps every car (the AI's controls from their drivers plus `traffic()`: brake
+  when closing on a car ahead within 1.6 s, steer towards the freer side), resolves contacts, updates each race,
+  respawns an AI stuck (`PlayMode.is_stuck`) or facing the wrong way for 2.5 s (a ghost, not solid, for 1 s after),
+  counts contacts, marks every 5 samples for gaps, and gives `standings()`, `position()`, `gap()`, `board()` (the HUD)
+  and `results()` (the finish panel). An AI still racing 90 s after the player's finish is out (DNF).
+- `modes/field_mode.gd` (extends `play_mode.gd`, which gained small hooks: `_place_start`, `_race_step`,
+  `_render_others`, `_grime_ahead`, `_hud_extra`, `_render_hud`, `_finish_payout`, `uses_pb`): the five AI models and
+  positional engines (only the 3 nearest heard: `CarAudio.set_active`), contact sounds, the finish (the panel docked
+  right, the AI finished in the background within 6 ms of script time a frame), the podium (`world/podium.gd`) 1.8 s
+  after the finish with its own camera.
+- `sim/economy.gd`: `FIELD_PLACES` (5th to 1st: $60-450, 1-15 points) × `FIELD_LEVELS` (0.6 to 3.0) × the track's
+  scale; ids `field-<level>-<place>` in the existing paid list (no save version change); paid like medals (the places
+  below too, once each).
+- The menu: a **Race the field** button beside Train the AI (off with My AI or no AI; its tooltip says what a win
+  pays); `GameApp.play_field()` refuses locked tracks, unowned cars and My AI.
+
+Choices made where the owner gave none: the field's pace is the picked level's time with your car (the last AI on
+the grid is that level's AI opponent), the others 2-8 % slower; you start last on the usual start spot so the run
+counts for medals, records and unlocks; the best-run ghost does not race along; a place pays the places below it
+once, as medals do (a Pro win on Rookie Oval $1,520, an Elite win $3,000 there); the podium is a simple 3D podium on
+the start straight with a slow camera swing, the finish panel docked on the right; the AI still racing when you
+finish are fast-forwarded out of sight while the podium shows; 3 AI engine voices at once; no terminal command.
+**Open**: see Known limitations (no real overtaking AI, approximate pace order, rubbing counts, no terminal command).
 
 ## Round 2: the owner's three new items
 

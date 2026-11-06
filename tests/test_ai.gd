@@ -64,6 +64,7 @@ func run(checker: Variant) -> bool:
 	_train_screen()
 	_train_screen_cars()
 	_opponents()
+	_field_races()
 	return true
 
 
@@ -1237,3 +1238,33 @@ func _opponents() -> void:
 		held = held and b.throttle <= maxf(-1.0, (20.0 - c2.speed) * Sensors.CAP_GAIN) + 1e-9
 		c2.step(tr, b, 1.0 / 60.0)
 	t.check(same_ctrl and held and c1.speed > 30.0 and c2.speed < 20.5 and c2.speed > 18.0, "AIDriver: no cap drives exactly as the network; a 20 m/s cap holds the car at %.1f m/s (free: %.1f)" % [c2.speed, c1.speed])
+
+
+## v6.13.0: whole field races (sim/field_race.gd), every car driven by its AI opponent network
+## (tools/field.gd's race: the player's slot too, at the level's cap): every AI finishes, nobody is
+## left stuck, and the same race twice gives the same times.
+func _field_races() -> void:
+	t.section("Race the field: AI field races to the finish (v6.13.0)")
+	var FieldTool: GDScript = load("res://tools/field.gd")
+	var runs: Array = [["rookie-oval", "pro"], ["forest-rally", "elite"], ["summit-rush", "elite"]]
+	var lines: PackedStringArray = []
+	var all_ok := true
+	var last: Dictionary = {}
+	for rc: Array in runs:
+		var job: Dictionary = FieldTool.make_job(String(rc[0]), String(rc[1]), "racer")
+		if job.is_empty():
+			all_ok = false
+			lines.append("%s %s: no field" % [rc[0], rc[1]])
+			continue
+		var r: Dictionary = FieldTool.run_race(job)
+		last = {job = job, r = r}
+		var finite := true
+		for x: float in r.times:
+			finite = finite and is_finite(x) and x > 0.0
+		all_ok = all_ok and int(r.finished) == 5 and finite
+		lines.append("%s %s: %d/5, %d AI contacts, %d respawns, %s" % [rc[0], rc[1], int(r.finished), int(r.ai_contacts), int(r.respawns), Field.place_name(int(r.place))])
+	t.check(all_ok, "three field races (a Pro oval, an Elite dirt circuit, an Elite sprint): every AI car finishes (%s)" % "; ".join(lines))
+	if not last.is_empty():
+		var again: Dictionary = FieldTool.run_race(last.job)
+		t.check(again.times == last.r.times and int(again.ai_contacts) == int(last.r.ai_contacts),
+			"the same field race twice: the same finish times for all six cars, bit for bit, and the same contacts (%d)" % int(again.ai_contacts))

@@ -27,6 +27,13 @@ extends RefCounted
 ##       price, level (the part's level now), short (money missing)}  (v6.11.0, sim/upgrades.gd)
 ## Reward ids: the medal ids (Medals.ORDER: "bronze" ... "author") and "ai-" + an AI level id
 ## ("ai-rookie" ... "ai-elite").
+## v6.13.0, Race the field (sim/field.gd): a finishing place in a field of a level pays too, from
+## FIELD_PLACES × FIELD_LEVELS[level] (× the track's scale), and like a medal it pays the places below
+## it (2nd pays 5th, 4th, 3rd and 2nd; last pays nothing): once per track, car, field level and place,
+## so a better place later pays only the difference. Reward ids "field-" + level + "-" + place
+## ("field-pro-1"). The medal the run's time won is paid as in Drive.
+##   Economy.payout(track_id, medal, beaten, paid, field_level, place) / claim(..., field_level, place)
+##   Economy.field_ids(field_level, place) -> the place rewards a finish earns
 
 ## Every reward on the first track; track k pays × (1 + TRACK_STEP × k) (money rounded to 10,
 ## points to a whole number).
@@ -43,6 +50,17 @@ const REWARDS: Dictionary = {
 }
 const TRACK_STEP: float = 0.1
 const AI_PREFIX: String = "ai-"
+## (v6.13) Race the field: what each place adds on the first track at a level of × 1 (the worse places
+## first: a place pays its own and every worse one's), and each field level's factor.
+const FIELD_PLACES: Array[Dictionary] = [
+	{"place": 5, "money": 60, "points": 1},
+	{"place": 4, "money": 90, "points": 2},
+	{"place": 3, "money": 150, "points": 4},
+	{"place": 2, "money": 250, "points": 8},
+	{"place": 1, "money": 450, "points": 15},
+]
+const FIELD_LEVELS: Dictionary = {"rookie": 0.6, "amateur": 1.0, "pro": 1.5, "expert": 2.1, "elite": 3.0}
+const FIELD_PREFIX: String = "field-"
 ## The medals in the order they are earned (slowest first).
 const MEDALS_UP: PackedStringArray = ["bronze", "silver", "gold", "author"]
 
@@ -55,10 +73,40 @@ static func track_scale(track_id: String) -> float:
 ## One reward on a track: {money, points}, or {} for an unknown reward id.
 static func reward(track_id: String, id: String) -> Dictionary:
 	var r: Variant = REWARDS.get(id)
+	var s: float = track_scale(track_id)
+	if id.begins_with(FIELD_PREFIX):
+		var f: Dictionary = _field_reward(id)
+		if f.is_empty():
+			return {}
+		r = f
+		s *= float(f.scale)
 	if not (r is Dictionary):
 		return {}
-	var s: float = track_scale(track_id)
 	return {money = roundi(float(r.money) * s / 10.0) * 10, points = roundi(float(r.points) * s)}
+
+
+## A field reward id's {money, points (before any scale), scale (its level's), level, place}, or {}.
+static func _field_reward(id: String) -> Dictionary:
+	var parts: PackedStringArray = id.substr(FIELD_PREFIX.length()).split("-")
+	if parts.size() != 2 or not FIELD_LEVELS.has(parts[0]) or not parts[1].is_valid_int():
+		return {}
+	var place: int = parts[1].to_int()
+	for p: Dictionary in FIELD_PLACES:
+		if int(p.place) == place:
+			return {money = p.money, points = p.points, scale = FIELD_LEVELS[parts[0]], level = parts[0], place = place}
+	return {}
+
+
+## The place rewards a field finish earns: field level `field_level`, place `place` (1 = won) and every
+## worse place that pays (none for an unknown level or a place that pays nothing).
+static func field_ids(field_level: String, place: int) -> PackedStringArray:
+	var out: PackedStringArray = []
+	if not FIELD_LEVELS.has(field_level) or place < 1:
+		return out
+	for p: Dictionary in FIELD_PLACES:
+		if int(p.place) >= place:
+			out.append("%s%s-%d" % [FIELD_PREFIX, field_level, int(p.place)])
+	return out
 
 
 ## The reward ids a run earns: the medal `medal` and those below it, then the AI level `beaten`
@@ -77,25 +125,33 @@ static func earned_ids(medal: String, beaten: String) -> PackedStringArray:
 ## What a run on track `track_id` earns: the medal its time won (`medal`, "" none) and the AI
 ## level it beat (`beaten`, "" none), less what was paid before (`paid`: reward ids).
 ## {items: [{id, kind ("medal" | "ai"), label, money, points}], money, points, repeat: [ids]}.
-static func payout(track_id: String, medal: String, beaten: String, paid: PackedStringArray) -> Dictionary:
+## (v6.13) `field_level` and `place`: a field race's level and the player's place (1 = won; "" / 0: not a
+## field race); its place rewards follow the medal's (kind "field").
+static func payout(track_id: String, medal: String, beaten: String, paid: PackedStringArray, field_level: String = "", place: int = 0) -> Dictionary:
 	var items: Array = []
 	var repeat: PackedStringArray = []
 	var money: int = 0
 	var points: int = 0
-	for id: String in earned_ids(medal, beaten):
+	var ids: PackedStringArray = earned_ids(medal, beaten)
+	ids.append_array(field_ids(field_level, place))
+	for id: String in ids:
 		if paid.has(id):
 			repeat.append(id)
 			continue
 		var r: Dictionary = reward(track_id, id)
-		var ai: bool = id.begins_with(AI_PREFIX)
-		items.append({id = id, kind = "ai" if ai else "medal", label = label(id), money = r.money, points = r.points})
+		var kind: String = "ai" if id.begins_with(AI_PREFIX) else ("field" if id.begins_with(FIELD_PREFIX) else "medal")
+		items.append({id = id, kind = kind, label = label(id), money = r.money, points = r.points})
 		money += int(r.money)
 		points += int(r.points)
 	return {items = items, money = money, points = points, repeat = repeat}
 
 
-## A reward's name for the finish panel: "Gold medal", "Beat the Pro AI".
+## A reward's name for the finish panel: "Gold medal", "Beat the Pro AI", "Pro field: 2nd".
 static func label(id: String) -> String:
+	if id.begins_with(FIELD_PREFIX):
+		var f: Dictionary = _field_reward(id)
+		if not f.is_empty():
+			return "%s field: %s" % [Opponents.level_name(String(f.level)), Field.place_name(int(f.place))]
 	if id.begins_with(AI_PREFIX):
 		return "Beat the %s AI" % Opponents.level_name(id.substr(AI_PREFIX.length()))
 	return "%s medal" % String(Medals.NAMES.get(id, id.capitalize()))
@@ -103,8 +159,8 @@ static func label(id: String) -> String:
 
 ## payout() for a finished run, paid into the save file (once: the ids are remembered per track
 ## and car). Returns the payout, with `money_total` and `points_total` after it.
-static func claim(track_id: String, car_id: String, medal: String, beaten: String) -> Dictionary:
-	var p: Dictionary = payout(track_id, medal, beaten, SaveData.paid_rewards(track_id, car_id))
+static func claim(track_id: String, car_id: String, medal: String, beaten: String, field_level: String = "", place: int = 0) -> Dictionary:
+	var p: Dictionary = payout(track_id, medal, beaten, SaveData.paid_rewards(track_id, car_id), field_level, place)
 	var ids: PackedStringArray = []
 	for it: Dictionary in p.items:
 		ids.append(String(it.id))

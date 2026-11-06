@@ -367,6 +367,10 @@ func _app(t) -> void:
 	_app_unlock(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	if AiLink.ready():
+		_app_field(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	_app_audio(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
@@ -459,6 +463,105 @@ func _texts(n: Node) -> PackedStringArray:
 	for c in n.get_children():
 		out.append_array(_texts(c))
 	return out
+
+
+## v6.13.0: Race the field. The menu's button (off with My AI, a locked track's refused, an unowned
+## car offered), a Pro field on Rookie Oval through the app: five AI cars on the grid ahead of you, the
+## HUD's place and standings, the finish panel docked right with the field's rows and pay by place,
+## the podium, the medal and the track it opens counting as in Drive, R and Esc.
+func _app_field(t, app: GameApp) -> void:
+	t.section("the app: Race the field (v6.13.0)")
+	var path := "user://test_game_field.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var menu: Node = app.ui.menu
+	var msg: Label = app.message.get("_text")
+	var btn: Button = menu.get("_field_btn")
+	menu.select_car("racer")
+	menu.select(0)
+	menu.select_opponent(UiData.MY_AI)
+	var off_my := btn.disabled
+	app.play_field()
+	var refused_my := app.mode == app.menu_mode and app.message.visible and msg.text.contains("Pick their level")
+	app.message.close()
+	menu.select_opponent("pro")
+	var win_pay := UiData.field_pays(Tracks.ids()[0], "racer", "pro", 1)
+	t.check(off_my and refused_my and not btn.disabled and btn.text == "Race the field" and btn.tooltip_text.contains("+" + UiFormat.money(int(win_pay.money))),
+		"the menu: Race the field is off with My AI (and refused, asking for a level); with the Pro AI picked it is on, its tooltip saying a win pays %s" % UiFormat.money(int(win_pay.money)))
+	menu.select(1)
+	app.play_field()
+	t.check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("opens when you win"), "a locked track's field race is refused, saying what opens it")
+	app.message.close()
+	menu.select(0)
+	menu.select_car("kestrel")
+	app.play_field()
+	t.check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("costs"), "a car not owned: the shop's message, no race")
+	app.message.close()
+	menu.select_car("racer")
+	app.play_field()
+	var m: Node = app.mode
+	var fr: FieldRace = m.get("field") if m != app.menu_mode else null
+	t.check(fr != null and m.name == "FieldMode" and str(app.ui.hud.get("_mode").text).begins_with("PRO FIELD") and fr.racers.size() == 6 and (m.get("ai_models") as Array).size() == 5,
+		"Race the field: the field mode, the HUD says PRO FIELD, six cars (five AI models in the world)")
+	if fr == null:
+		return
+	var track: BuiltTrack = m.get("track")
+	var car: Car = m.get("car")
+	var ahead := true
+	for k in 5:
+		ahead = ahead and fr.racers[k].car.prog > car.prog and fr.racers[k].car != car
+	t.check(fr.racers[fr.player_index].car == car and absf(car.prog - float(track.start_idx)) < 0.05 and ahead and m.get("phase") == "countdown",
+		"the grid: your car last, on the usual start spot (sample %d), the five AI ahead of it" % track.start_idx)
+	var medals := Medals.medal_times(track, "racer")
+	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
+	_run_until(m, func() -> bool: return float((m.get("race") as RaceState).time) > 20.0, 40.0)
+	var ft: PackedStringArray = app.ui.hud.get("field_text")
+	var bd: Dictionary = m.get("board")
+	t.check(ft.size() == 9 and ft[0] == "P%d/6" % int(bd.pos) and int(bd.of) == 6 and (bd.rows as Array).size() == 6 and ft[3 + int(bd.pos) - 1].contains("YOU"),
+		"20 s in, the HUD's field block: %s, %s, %s and the standings" % [ft[0], ft[1], ft[2]])
+	var money0 := UiData.money()
+	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
+	_feed(app, null)
+	var place := fr.position(fr.player_index)
+	var fs: Dictionary = m.get("finish_state")
+	var pay: Dictionary = fs.get("payout", {})
+	var fids: PackedStringArray = []
+	for it: Dictionary in pay.get("items", []):
+		if String(it.kind) == "field":
+			fids.append(String(it.id))
+	var panel: FinishPanel = app.ui.hud.finish
+	var ptexts := _texts(panel)
+	var place_line := "%s of 6 · Pro field" % Field.place_name(place)
+	var has_line := ptexts.has(Field.place_name(place)) and ptexts.has("of 6 · Pro field")
+	t.check(m.get("phase") == "finished" and fids == Economy.field_ids("pro", place) and UiData.money() == money0 + int(pay.money) and int(pay.place) == place and
+		fs.get("dock") == "right" and has_line and ptexts.has("You"),
+		"the finish: %s, paid by place (%s: %s in all with the medal), the finish panel docked right with the field (\"%s\")" % [
+		Field.place_name(place), ", ".join(fids), UiFormat.money(int(pay.money)), place_line])
+	t.check(String(pay.get("medal", "")) != "" and float(SaveData.get_record(track.id, "racer").get("time", 0.0)) > 0.0 and UiData.track_open(1),
+		"the run counts as in Drive: its %s medal, the record (%s) and the track it opens (Hairpin Valley)" % [String(pay.get("medal", "")), UiFormat.time(float(SaveData.get_record(track.id, "racer").get("time", 0.0)))])
+	_run_until(m, func() -> bool: return m.get("podium_on") == true and fr.all_done(), 30.0)
+	var pod: Podium = m.get("podium")
+	var done := 0
+	for r: Dictionary in fr.results():
+		if is_finite(float(r.time)):
+			done += 1
+	var rows_now: Array = (m.get("finish_state") as Dictionary).get("field", {}).get("rows", [])
+	var timed := 0
+	for r: Dictionary in rows_now:
+		if is_finite(float(r.time)):
+			timed += 1
+	t.check(pod != null and pod.visible and pod.has(1) and pod.has(2) and pod.has(3) and pod.camera.current and done == 6 and timed == 6,
+		"the podium: the top three on their blocks, its camera on; every AI finished out of sight, the finish panel's times filled in (%d of 6)" % timed)
+	app.input.pressed["restart"] = true
+	m.update(1.0 / 60.0)
+	var fr2: FieldRace = m.get("field")
+	t.check(m.get("phase") == "countdown" and fr2 != fr and not pod.visible and m.get("podium_on") == false and not app.ui.hud.finish.visible,
+		"R: the same field on the grid again, the podium and the panel gone")
+	app.input.pressed["menu"] = true
+	m.update(1.0 / 60.0)
+	t.check(app.mode == app.menu_mode and app.ui.menu.visible, "Esc: back to the menu")
+	SaveData.use_file(SAVE)
 
 
 ## v6.8.0: the tracks open one at a time, on a new save file. Only Rookie Oval is open; the other

@@ -41,6 +41,9 @@ var positional := false
 var level := 1.0
 ## After silence(): nothing plays any more.
 var silenced := false
+## (v6.13) False while the car is not heard for now (set_active: a field race keeps the nearest few AI
+## engines on): nothing plays and update() does nothing.
+var active := true
 var engine: EngineVoice
 ## Script time spent in update() (µs, summed), how many updates and engine samples rendered.
 var usec := 0
@@ -129,10 +132,32 @@ func silence() -> void:
 		(_loops[n] as Node).call("stop")
 
 
+## (v6.13) Hear the car (on) or not for now (off: its engine and loops stop at once and update() skips
+## it; on: the engine starts again from the car's state). The field race (modes/field_mode.gd) turns
+## the farthest AI cars off to keep the sound's script time down.
+func set_active(on: bool) -> void:
+	if on == active or silenced:
+		return
+	active = on
+	if not on:
+		if _engine_player != null:
+			_engine_player.call("stop")
+		for n: String in _loops:
+			(_loops[n] as Node).call("stop")
+		levels.clear()
+		_quiet.clear()
+		return
+	if _engine_player != null and _engine_player.is_inside_tree():
+		_engine_player.call("play")
+		_gen = _engine_player.call("get_stream_playback") as AudioStreamGeneratorPlayback
+		_cap = _gen.get_frames_available() if _gen != null else 0
+	reset()
+
+
 ## One frame: `car` is the sim's car after the last physics step, `dt` the frame time. `rev` 0..1:
 ## the countdown's free rev (the throttle held before GO; -1 = none, the car drives).
 func update(car: Car, track: BuiltTrack, dt: float, rev: float = -1.0) -> void:
-	if silenced:
+	if silenced or not active:
 		return
 	var t0 := Time.get_ticks_usec()
 	dt = clampf(dt, 0.0, 0.1)

@@ -8,6 +8,7 @@ extends Node
 ##   menu       track select over a slow camera orbit of the selected track (modes/menu_mode.gd)
 ##   play       Drive / Race the AI ghost (modes/play_mode.gd)
 ##   watch      Watch the AI (modes/watch_mode.gd)
+##   field      Race the field (modes/field_mode.gd, v6.13.0)
 ##   train      the AI training screen (modes/train_mode.gd, ai/; its session is kept between visits)
 ## Every frame: the input polls the pads first (GameInput, process_priority -100), then
 ## _process hands the frame time (at most 0.1 s) to the active mode, which steps its physics
@@ -32,6 +33,9 @@ extends Node
 ## v6.7.0: the terminal (ui/terminal_screen.gd, opened from Settings or with ` on the menu) runs
 ## game/terminal.gd's commands (money, points, cars, unlock all ...) on the save file; the menu
 ## redraws after one changed the career.
+## v6.13.0: Race the field (modes/field_mode.gd, sim/field.gd): the menu's button races five AI drivers at
+## the menu's AI level on the selected track with the picked car (play_field), refused like Drive on a
+## locked track or with a car you don't own, and with My AI picked (a field needs a level).
 ## v6.12.0: sound (audio/): `audio` (GameAudio) makes the buses, applies the volume settings, mutes in
 ## the background, plays the effects and the music: the menu's loop on the menu and the training
 ## screen, each race mode its theme's (modes/play_mode.gd, which also gives each car its CarAudio);
@@ -45,6 +49,7 @@ const AiLink := preload("res://game/ai_link.gd")
 const MenuMode := preload("res://modes/menu_mode.gd")
 const PlayMode := preload("res://modes/play_mode.gd")
 const WatchMode := preload("res://modes/watch_mode.gd")
+const FieldMode := preload("res://modes/field_mode.gd")
 const MessageScreen := preload("res://game/message_screen.gd")
 const Terminal := preload("res://game/terminal.gd")
 const TRAIN_MODE_PATH := "res://modes/train_mode.gd"
@@ -148,6 +153,7 @@ func _ready() -> void:
 	ui.menu.race_ghost.connect(func() -> void: play("human", true))
 	ui.menu.watch_ai.connect(func() -> void: play("ai", false))
 	ui.menu.train_ai.connect(train)
+	ui.menu.race_field.connect(func() -> void: play_field())
 	ui.menu.load_network.connect(load_network_dialog)
 	ui.menu.upgrade.connect(func(part: String) -> void: offer_upgrade(UiData.picked_car(), part))
 	ui.menu.save_network.connect(save_network_dialog)
@@ -292,6 +298,48 @@ func play(driver: String, ghost: bool) -> void:
 			return
 	start_play({"track": tracks[selected_track], "driver": driver, "ghost": ghost, "ai_car": car,
 		"net": AiLink.clone_net(network.net) if not network.is_empty() else null})
+
+
+## (v6.13) Race the field on the selected track with the picked car: five AI drivers at field level
+## `level` (default the menu's AI level). Refused like Drive (a car you don't own is offered for sale, a
+## locked track says what opens it), and with My AI picked or no AI opponents here.
+func play_field(level: String = "") -> void:
+	var car := UiData.picked_car()
+	if not UiData.owns_car(car):
+		offer_car(car)
+		return
+	if not UiData.track_open(selected_track):
+		refuse("Track locked", locked_text(selected_track))
+		return
+	if not AiLink.ready():
+		refuse("AI not ready", AiLink.not_ready_text())
+		return
+	var lv := level if level != "" else UiData.opponent()
+	if Opponents.rank(lv) < 0:
+		refuse("Pick a field level", "Race the field puts five AI drivers on the grid with you. Pick their level first: Rookie, Amateur, Pro, Expert or Elite in the AI driver row (My AI races alone).")
+		return
+	var t := tracks[selected_track]
+	var lineup := Field.lineup(t.id, lv, car)
+	var nets: Array = []
+	for e: Dictionary in lineup:
+		var opp := AiLink.opponent(t.id, String(e.car))
+		if opp.has("error"):
+			lineup = []
+			break
+		nets.append(AiLink.clone_net(opp.net))
+	if lineup.is_empty():
+		refuse("No AI field", "There are no AI opponents for %s with the %s in this version of the game, so there is no field to race." % [t.name, Cars.get_car(car).name])
+		return
+	UiSound.play("ui_confirm")
+	start_field({"track": t, "field": lv, "lineup": lineup, "nets": nets})
+
+
+## Start Race the field (opts: see modes/field_mode.gd). Returns the mode.
+func start_field(opts: Dictionary) -> Node:
+	var m: Node = FieldMode.new()
+	m.setup(self, opts)
+	set_mode(m)
+	return m
 
 
 ## Why locked track `i` can't be driven, and what opens it (the menu's message).

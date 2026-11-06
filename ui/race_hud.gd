@@ -23,6 +23,10 @@ extends Control
 ##   countdown(text), split(label, time, delta), score_pops(events)   the same as events
 ##   show_panel(state) / hide_panel()   the finish panel (FinishPanel.update's state)
 ##   show_watch(on) / watch_net(net)   the AI's network, live (Watch the AI)
+## v6.13.0, Race the field: state.field {pos, of, rows: [{code, name, color, gap (s against you: - ahead,
+## + behind; null for you), me, finished, dnf}], ahead / behind: {code, gap} or {}} (FieldRace.board)
+## shows a block at the top right: your place (P3/6), the gaps to the cars ahead and behind, and the
+## standings (place, colour, code, gap; your row in the accent). Absent: the block hides.
 ## Score events: {kind, text, points, mult, combo_lost} (score.js events: "Clean checkpoint"
 ## +1,500 x3, "Drift" +820, "Wall" −200 · combo lost, "Drift lost" ...).
 
@@ -78,6 +82,18 @@ var _medal_check: Control
 var _medal_strike: Control
 var _ghost_plate: PanelContainer
 var _ghost_l: Label
+# (v6.13) Race the field
+var _field_plate: PanelContainer
+var _pos_val: Label
+var _pos_of: Label
+var _ahead_l: Label
+var _behind_l: Label
+var _ahead_cap: Label
+var _behind_cap: Label
+var _board: VBoxContainer
+var _board_rows: Array = []   # [{row, place, chip, code, gap}]
+## The field block's texts last shown (tests): "P3/6", the ahead / behind lines, one line per row.
+var field_text: PackedStringArray = []
 # bottom
 var _nitro: Control
 var _speed_row: Control
@@ -186,9 +202,10 @@ func _build() -> void:
 	var pm := UiStyle.margin([0, -UiStyle.S1, 0, 0])
 	pm.add_child(_pops_box)
 	_left.add_child(pm)
-	# right: best, the medal to aim for, ghost notes
+	# right: (the field race) your place and the standings, best, the medal to aim for, ghost notes
 	_right = UiStyle.vbox(UiStyle.S2)
 	add_child(_right)
+	_build_field()
 	_best_plate = _plate([UiStyle.S3, UiStyle.S1, UiStyle.S3, UiStyle.S1])
 	_best_plate.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_best_val = UiStyle.label("—", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.0, false, false, false, 26)
@@ -267,6 +284,107 @@ func _build() -> void:
 	add_child(finish)
 
 
+## (v6.13) The field block: P3/6 with the gaps to the cars ahead and behind, then the standings.
+func _build_field() -> void:
+	_field_plate = _plate([UiStyle.S3, UiStyle.S1, UiStyle.S3, UiStyle.S2])
+	_field_plate.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var col := UiStyle.vbox(UiStyle.S1)
+	var top := UiStyle.hbox(UiStyle.S4)
+	_pos_val = UiStyle.label("P1", "display_bold", UiStyle.FS_XL, UiStyle.ACCENT, 0.0, false, true, false, roundf(UiStyle.FS_XL * 1.1))
+	_pos_of = UiStyle.label("/6", "display_bold", UiStyle.FS_L, UiStyle.TEXT_2, 0.0, false, true, false, 26)
+	top.add_child(UiStyle.baseline_row([_pos_val, _pos_of], 1))
+	var gaps := GridContainer.new()
+	gaps.columns = 2
+	gaps.add_theme_constant_override("h_separation", UiStyle.S2)
+	gaps.add_theme_constant_override("v_separation", 0)
+	gaps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gaps.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ahead_cap = UiStyle.caption("Ahead", UiStyle.TEXT_3, 18)
+	_ahead_l = UiStyle.label("", "display", UiStyle.FS_S, UiStyle.TEXT, 0.0, false, true, false, 18)
+	_behind_cap = UiStyle.caption("Behind", UiStyle.TEXT_3, 18)
+	_behind_l = UiStyle.label("", "display", UiStyle.FS_S, UiStyle.TEXT, 0.0, false, true, false, 18)
+	for l in [_ahead_cap, _ahead_l, _behind_cap, _behind_l]:
+		gaps.add_child(l)
+	top.add_child(gaps)
+	col.add_child(top)
+	_board = UiStyle.vbox(0)
+	col.add_child(_board)
+	_field_plate.add_child(col)
+	_field_plate.visible = false
+	_right.add_child(_field_plate)
+
+
+func _field_row() -> Dictionary:
+	var row := UiStyle.hbox(UiStyle.S2)
+	var place := UiStyle.label("", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, true, false, 18)
+	place.custom_minimum_size.x = 12
+	place.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var chip := ColorRect.new()
+	chip.custom_minimum_size = Vector2(4, 12)
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var code := UiStyle.label("", "display_bold", UiStyle.FS_S, UiStyle.TEXT, 0.06, false, false, false, 18)
+	code.custom_minimum_size.x = 34
+	var gap := UiStyle.label("", "display", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, true, false, 18)
+	gap.custom_minimum_size.x = 52
+	gap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	for c in [place, chip, code, gap]:
+		row.add_child(c)
+	_board.add_child(row)
+	return {"row": row, "place": place, "chip": chip, "code": code, "gap": gap}
+
+
+## A gap for the field block: "+1.24" / "-0.85" (s), "+12.3" from ten seconds.
+static func field_gap(g: float) -> String:
+	var a := absf(g)
+	return ("+" if g >= 0.0 else "-") + (("%.1f" % a) if a >= 10.0 else ("%.2f" % a))
+
+
+func _update_field(f: Variant) -> void:
+	if not (f is Dictionary) or (f as Dictionary).is_empty():
+		_field_plate.visible = false
+		field_text = []
+		return
+	_field_plate.visible = true
+	var out := PackedStringArray()
+	var pos := "P%d" % int(f.get("pos", 1))
+	if _pos_val.text != pos:
+		_pos_val.text = pos
+	_pos_of.text = "/%d" % int(f.get("of", 1))
+	out.append(pos + _pos_of.text)
+	for side in [["ahead", _ahead_cap, _ahead_l], ["behind", _behind_cap, _behind_l]]:
+		var d: Dictionary = f.get(side[0], {})
+		var txt := "" if d.is_empty() else "%s %s" % [str(d.code), field_gap(float(d.gap)).substr(1)]
+		(side[2] as Label).text = txt
+		(side[1] as Control).visible = txt != ""
+		(side[2] as Control).visible = txt != ""
+		out.append("%s %s" % [side[0], txt])
+	var rows: Array = f.get("rows", [])
+	while _board_rows.size() < rows.size():
+		_board_rows.append(_field_row())
+	_board.visible = not _narrow
+	for k in _board_rows.size():
+		var r: Dictionary = _board_rows[k]
+		(r.row as Control).visible = k < rows.size()
+		if k >= rows.size():
+			continue
+		var d: Dictionary = rows[k]
+		var me := bool(d.get("me", false))
+		(r.place as Label).text = str(k + 1)
+		(r.chip as ColorRect).color = d.get("color", Color.WHITE)
+		(r.code as Label).text = str(d.get("code", ""))
+		(r.code as Label).add_theme_color_override("font_color", UiStyle.ACCENT if me else UiStyle.TEXT)
+		var g: Variant = d.get("gap")
+		var gt := ""
+		if bool(d.get("dnf", false)):
+			gt = "out"
+		elif g != null:
+			gt = field_gap(float(g))
+		(r.gap as Label).text = gt
+		out.append("%d %s %s" % [k + 1, str(d.get("code", "")), gt])
+	field_text = out
+
+
 # ================================================================= the race
 
 func show_hud(on: bool) -> void:
@@ -330,6 +448,7 @@ func update(s: Dictionary, dt: float) -> void:
 	_ghost_l.text = gt
 	_ghost_plate.visible = gt != ""
 	_update_medal(s.get("medal"), float(s.get("time", 0.0)), bool(s.get("finished", false)))
+	_update_field(s.get("field"))
 	if s.get("gear") == null or s.get("rpm") == null:
 		_rev.visible = false
 	else:

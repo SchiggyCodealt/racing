@@ -56,6 +56,12 @@ bang and scrape and landings thump; the countdown, checkpoints, laps, the finish
 opened track each have a sound; the menus click and the shop rings. Four music tracks play, one on the menus and three
 in the races (by scenery). Settings has volume sliders for Master, Music, Effects and Engines and mutes the game while
 its window is in the background (see [Sound and music](#sound-and-music)).
+Version 6.13.0 adds **Race the field**: a full race against five AI drivers instead of one see-through car. They line
+up ahead of you on a two-wide starting grid (you start last), each with a name, a car and colours of their own, and
+the cars are **solid**: they bump, lean on each other and get pushed off line. The HUD shows your place (P3/6), the
+gaps to the cars ahead and behind and the standings; at the finish the panel lists everyone's time and gap, the top
+three stand on a **podium**, and your place pays money and points, more for a harder field (see
+[Race the field](#race-the-field)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -148,7 +154,8 @@ selected track: its description, length and laps, then with the picked car your 
 score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive** (**BUY** or
 **LOCKED** when the picked car is not yours yet, **LOCKED** on a locked track), the **Race my best-run ghost** option and the **AI driver** block:
 the opponent (**Rookie** to **Elite**, or **My AI**, the picked car's own network), what it does on this track and
-what beating it pays, Race the AI, Watch the AI, Train the AI and Load / Save network. The header shows your money
+what beating it pays, Race the AI, Watch the AI, **Race the field** (v6.13.0: five AI drivers of the picked level on a
+grid with you), Train the AI and Load / Save network. The header shows your money
 and career points and a few key hints; the **Controls** button lists the rest, and the **Settings** button opens the
 settings.
 
@@ -365,6 +372,48 @@ track. **My AI** races and watches the picked car's own trained network as befor
 still pay). Watch the AI shows any opponent drive.
 
 ![Racing the Elite AI on Rookie Oval: its see-through purple car 7 m ahead, the HUD's "VS ELITE AI" line and the gap at the last checkpoint](docs/screenshots/race-ai.png)
+
+### Race the field
+
+(Version 6.13.0.) Pick a level in the AI driver block (**Rookie** to **Elite**; not My AI) and press **Race the
+field**: five AI drivers race you on the selected track, with solid cars. Locked tracks and cars you don't own are
+refused as for Drive.
+
+- **The drivers.** Eight drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
+  Nils Haugen and Lena Fox), each with a car and paint of their own; a race takes five of them, the same five every
+  time on the same track and level. Each drives the shipped AI opponent network of its car with a top speed of its
+  own: the last AI on the grid at the level's pace with **your** car (beating it is like beating that AI opponent),
+  the others 2, 4, 6 and 8 % slower, the slowest on pole. A driver whose car can't keep that pace on the track (a
+  Dune on a fast oval) drives your car instead.
+- **The grid.** Two wide and staggered, 10 m between cars, the AI ahead and you last, on the usual start spot, so the
+  race is the same distance as Drive: **your time counts for medals, records, your ghost and opening tracks** as in
+  Drive (your best-run ghost doesn't race along).
+- **Solid cars.** Cars push each other apart and lose a little speed when they touch; nothing launches or sticks, and
+  a car over a ramp flies over the others. The AI ease off behind a car close ahead and steer to the side with more
+  room, and an AI stuck or facing the wrong way for a few seconds is put back on the road (it can't be hit for a
+  second after). Contacts only exist in this mode: Drive, Race the AI, the ghosts, training and the medal times are
+  exactly as before.
+- **The HUD** shows your place (P3/6), the car ahead and behind with the gap in seconds, and the standings with
+  everyone's gap to you; mud and snow from any car close ahead reach your screen.
+- **The finish.** At your finish your place is final (everyone still racing is behind you). The finish panel moves
+  to the right with the finishing order, times and gaps (filled in as the others finish) and what the run paid; after
+  two seconds the top three stand on a podium on the start straight. **R** races again, **Esc** goes back.
+
+**Pay by place** (on Rookie Oval, a Pro field; Rookie fields pay 0.6 ×, Amateur 1 ×, Pro 1.5 ×, Expert 2.1 ×, Elite
+3 ×, and later tracks more, as for medals):
+
+| Place | 5th | 4th | 3rd | 2nd | 1st | 6th |
+| --- | --- | --- | --- | --- | --- | --- |
+| Money | $90 | $140 | $230 | $380 | $680 | nothing |
+| Points | 2 | 3 | 6 | 12 | 23 | |
+
+Like medals, a place pays the places below it too (a first 3rd pays 5th, 4th and 3rd) and each is paid once per
+track, car and field level: a better place later pays only the difference. The medal the run's time earns is paid as
+in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on top of the medal.
+
+| Mid-race (an Elite field on Rookie Oval) | The podium and the finish panel |
+| --- | --- |
+| ![Race the field on Rookie Oval: side by side with Nils Haugen's Kestrel for 2nd, Kai Ostrom's Vortex alongside; the HUD's P3/6, the gaps ahead (0.01 s) and behind (0.14 s) and the standings](docs/screenshots/field-race.png) | ![The podium on the start straight (You, Nils Haugen, Kai Ostrom) with the finish panel on the right: 1st of 6, the finishing order with times and gaps, the gold medal and the five place rewards, $4,600 and 160 points](docs/screenshots/field-podium.png) |
 
 **The car shop.** Pick a locked car and press Drive (BUY): it asks first, then the car is yours for good.
 
@@ -966,7 +1015,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop, Race the field) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels, whole AI field races). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
 | `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
@@ -976,6 +1025,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
 | `godot --headless --path . --script res://tools/upgrades.gd` | Measures what the upgrades do with the real physics: every car stock and with each part's levels (`tools/car_stats.gd`'s numbers), the grip on dirt and snow with loose grip, and prints the `MEASURED` lines for `sim/upgrades.gd` (about 8 minutes on 3 threads; `-- --check` only compares; `-- --laps` the medal autopilot's best lap times on four tracks stock and upgraded, `--quick` on 10 settings instead of 50, `--tracks=a,b --cars=a,b`) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
+| `godot --headless --path . --script res://tools/field.gd` | Measures Race the field without the game: whole field races with every car (yours too) driven by its AI on five tracks at every level; prints whether every AI finished, the contacts, the respawns, how often the finishing order follows the drivers' paces and the script time per step (`-- --tracks=a,b --levels=a,b --car=racer --threads=3`, `--solo` also races each AI alone to compare; about 4 minutes for 15 races on 3 threads with `--solo`) |
 | `python3 tools/gen_sounds.py` | Makes every sound effect (`assets/audio/sfx/`) and music track (`assets/audio/music/`) from code (needs Python 3 with numpy, and ffmpeg for the music; `--only sfx` or `music`, `--names a,b` for some; about a minute). The same run writes the same files |
 | `godot --headless --path . --script res://tools/engine_preview.gd -- cars=thunder out=/tmp/engines` | Renders each car's engine to WAV files (a rev sweep and a medal-autopilot lap with the sim's own revs and gears) and prints its levels, the firing frequency it carries and what it costs |
 | `tools/parity/` | The scripts that compared this version with the browser version number by number (they need Node.js and `web/`; each file says how to run it) |
@@ -1025,18 +1075,20 @@ main.tscn               the main scene: one node with game/app.gd
 game/                   the game shell: modes, threaded track loading, quality, settings, AI network files (app.gd),
                         keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages, the terminal's
                         commands (terminal.gd: one table of commands)
-modes/                  menu, play (Drive, Race the AI), watch (Watch the AI) and train (the training screen)
+modes/                  menu, play (Drive, Race the AI), field (Race the field), watch (Watch the AI) and train (the training screen)
 sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the six cars,
                         collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
                         points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd),
-                        car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs)
+                        car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs), Race the
+                        field (field.gd: the drivers, paces and grid; field_race.gd: the race; car_contact.gd: solid cars)
 ai/                     the AI: network, evolution, sensors and driver, trainer, an opponent's race (opponent_race.gd)
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
 world/                  3D: track mesh, terrain and scenery, sky and themes, car models (car_shapes.gd: the six
                         bodies; car_build.gd + car_kit.gd: one skinned mesh per car with its driver; car_model.gd:
                         the skeleton's animation and lights), effects (smoke, dust, snow spray, skids, sparks, nitro),
-                        chase camera, the AI fleet and sensor rays; shaders/ (road_surface: dirt and snow roads)
+                        chase camera, the AI fleet and sensor rays, the podium (podium.gd); shaders/ (road_surface: dirt
+                        and snow roads)
 ui/                     the interface, built in code: style, menu, Controls, Settings and terminal screens, HUD, finish panel,
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart, the car
                         picker's part chips (part_chip.gd), the volume bars (volume_bar.gd), ui_sound.gd (the
@@ -1048,7 +1100,7 @@ assets/audio/           the effects (sfx/, WAV) and music (music/, Ogg Vorbis) m
 assets/fonts/           Barlow and Barlow Condensed (SIL Open Font License, OFL.txt)
 data/                   tracks.json, medals.json and opponents/ (an AI opponent network per track and car, with its
                         levels; made by tools/)
-tools/                  track generator, turtle, medal times, AI opponents, car stats, upgrades' effects, headless
+tools/                  track generator, turtle, medal times, AI opponents, car stats, upgrades' effects, field races, headless
                         trainer, benchmark, parity checks, the sound generator (gen_sounds.py) and engine preview
 tests/                  run_tests.gd and test_*.gd (headless), e2e/ (the real game), visual/ (screenshots), fixtures/
 docs/screenshots/       the pictures in this file (Godot ignores docs/: it holds a .gdignore file)

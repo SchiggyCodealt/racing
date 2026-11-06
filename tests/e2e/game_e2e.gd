@@ -109,6 +109,15 @@ extends SceneTree
 ##             car3=thunder flat out into Rookie Oval's first barrier: the hit sound in the frame of
 ##             the contact, heard at once; Race the AI (the test network): its car is a quieter
 ##             3D sound at its place. Prints "AUDIO" lines with the measured levels.
+##   field     Race the field (v6.13.0) on track=<id> (default rookie-oval) at level=<id> (default
+##             elite) with the Racer: with My AI the menu's Race the field is off; the level's chip
+##             (clicked) turns it on, on screen at 1280 x 720; clicked: the grid (five AI cars ahead,
+##             two wide, you last on the start spot); the medal autopilot of the author run drives to
+##             the finish (a shot when an AI car is close ahead, the HUD's place and standings); the
+##             finish panel docks on the right with the field's order and the pay by place; the
+##             podium with the top three; R starts it again, Esc goes back. Prints PERF lines: the
+##             physics step of the six cars and the AI engines' script time per frame.
+##             Shots: field_menu, field_grid, field_battle, field_finish, field_podium.
 ##   Every other scenario starts by owning every car, every track open (the terminal's unlock
 ##   tracks) and picking My AI as the opponent (they were written before the career: they drive
 ##   every car on every track and race the car's own network).
@@ -118,6 +127,7 @@ extends SceneTree
 
 const AiLink := preload("res://game/ai_link.gd")
 const PlayMode := preload("res://modes/play_mode.gd")
+const FieldMode := preload("res://modes/field_mode.gd")
 
 var app: GameApp
 var opts := {}
@@ -179,6 +189,8 @@ func _main() -> void:
 			await upgrades()
 		"audio":
 			await audio_run()
+		"field":
+			await field_race()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -1100,6 +1112,115 @@ func perf() -> void:
 	first.queue_free()
 	last.queue_free()
 	stop_autopilot()
+
+
+# ---------------------------------------------------------------- Race the field (v6.13.0)
+
+func field_race() -> void:
+	var tid := str(opts.get("track", "rookie-oval"))
+	var lv := str(opts.get("level", "elite"))
+	var menu: MainMenu = app.ui.menu
+	var btns: Dictionary = menu.get("_opp_btns")
+	var fbtn: Button = menu.get("_field_btn")
+	await pick(tid, "racer")
+	check(UiData.opponent() == UiData.MY_AI and fbtn.disabled, "My AI picked: Race the field is off")
+	await click(btns[lv])
+	var r := fbtn.get_global_rect()
+	var win := Vector2(root.size)
+	check(UiData.opponent() == lv and not fbtn.disabled and fbtn.is_visible_in_tree() and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.end.x <= win.x + 0.5,
+		"the %s chip (clicked): Race the field is on, on screen at %dx%d (%s)" % [Opponents.level_name(lv), int(win.x), int(win.y), fbtn.tooltip_text])
+	await shot("field_menu")
+	await click(fbtn)
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and m.name == "FieldMode" and str(app.ui.hud.get("_mode").text).begins_with(Opponents.level_name(lv).to_upper() + " FIELD"),
+			"Race the field (clicked): %s" % app.ui.hud.get("_mode").text):
+		return
+	var fr: FieldRace = m.get("field")
+	var track: BuiltTrack = m.get("track")
+	var car: Car = m.get("car")
+	await frames(6) # (still in the countdown)
+	var ahead := 0
+	for k in 5:
+		if fr.racers[k].car.prog > car.prog and (m.get("ai_models") as Array)[k].visible:
+			ahead += 1
+	var names: PackedStringArray = []
+	for e: Dictionary in m.get("lineup"):
+		names.append("%s (%s)" % [e.name, Cars.get_car(String(e.car)).name])
+	check(m.get("phase") == "countdown" and ahead == 5 and absf(car.prog - float(track.start_idx)) < 0.05, "the grid: five AI cars ahead of you (%s), you last on the start spot" % ", ".join(names))
+	await shot("field_grid")
+	var run: Dictionary = Medals.medal_times(track, "racer").run
+	await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+	autopilot(float(run.aLat), float(run.lookK))
+	var steps0: int = m.get("steps_run")
+	var usec0: int = m.get("step_usec")
+	var near := func() -> bool:
+		var rt: float = (m.get("race") as RaceState).time
+		if rt >= 45.0:
+			return true
+		if rt < 8.0:
+			return false
+		for k in 5:
+			var c: Car = fr.racers[k].car
+			var d := Vector2(c.x - car.x, c.z - car.z)
+			var fwd := Vector2(sin(car.yaw), cos(car.yaw))
+			if d.dot(fwd) > 5.0 and d.dot(fwd) < 14.0 and absf(d.cross(fwd)) < 4.0:
+				return true
+		return false
+	fast(true)
+	await wait_until(near, 120.0)
+	fast(false)
+	await frames(30)
+	var ft: PackedStringArray = app.ui.hud.get("field_text")
+	var bd: Dictionary = m.get("board")
+	check(ft.size() == 9 and ft[0] == "P%d/6" % int(bd.pos) and (app.ui.hud.get("_field_plate") as Control).is_visible_in_tree(),
+		"mid-race (%.0f s): the HUD's field block %s, %s, %s" % [(m.get("race") as RaceState).time, ft[0], ft[1], ft[2]])
+	await shot("field_battle")
+	var vu0: int = m.get("voice_usec")
+	var vf0: int = m.get("voice_frames")
+	var vs0 := 0
+	for a: CarAudio in m.get("ai_audio"):
+		vs0 += a.samples
+	await frames(240)
+	var vu: int = int(m.get("voice_usec")) - vu0
+	var vf: int = int(m.get("voice_frames")) - vf0
+	var vs := -vs0
+	for a: CarAudio in m.get("ai_audio"):
+		vs += a.samples
+	var steps: int = int(m.get("steps_run")) - steps0
+	var step_ms: float = (int(m.get("step_usec")) - usec0) / 1000.0 / maxf(1, steps)
+	var us_sample: float = float(vu) / maxf(1, vs)
+	print("PERF field: physics step of the six cars (the AI networks, contacts, races; the autopilot's input included) %.3f ms each over %d steps" % [step_ms, steps])
+	print("PERF field: AI engines (%d voices at once) %.3f ms per frame here (%.0f samples a frame), %.2f us a sample: %.2f ms a frame at 60 fps (%d x 400 samples)" % [
+		FieldMode.VOICES, float(vu) / 1000.0 / maxf(1, vf), float(vs) / maxf(1, vf), us_sample, us_sample * 400.0 * FieldMode.VOICES / 1000.0, FieldMode.VOICES])
+	check(vf > 0 and step_ms < 6.0, "the field's step and the AI engines measured (%.2f ms a step)" % step_ms)
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+	fast(false)
+	stop_autopilot()
+	await frames(20)
+	var place := fr.position(fr.player_index)
+	var fs: Dictionary = m.get("finish_state")
+	var p: Dictionary = fs.get("payout", {})
+	var fids: Array = (p.get("items", []) as Array).filter(func(it: Dictionary) -> bool: return String(it.kind) == "field").map(func(it: Dictionary) -> String: return String(it.id))
+	var panel: FinishPanel = app.ui.hud.finish
+	var texts := _texts(panel)
+	check((m.get("race") as RaceState).finished and PackedStringArray(fids) == Economy.field_ids(lv, place) and texts.has(Field.place_name(place)) and
+		texts.has("of 6 · %s field" % Opponents.level_name(lv)) and panel.get_global_rect().position.x > win.x * 0.3,
+		"the finish: %s in %s, %s paid by place (%s), the panel on the right with the field's order" % [Field.place_name(place),
+		RaceState.format_time((m.get("race") as RaceState).finish_time), UiFormat.money(int(p.get("money", 0))), ", ".join(fids)])
+	await shot("field_finish")
+	await wait_until(func() -> bool: return m.get("podium_on") == true and fr.all_done(), 30.0)
+	await frames(90)
+	var pod: Podium = m.get("podium")
+	check(pod != null and pod.visible and pod.has(1) and pod.has(2) and pod.has(3) and pod.camera.current and fr.all_done(),
+		"the podium: the top three on their blocks (%s, %s, %s), every AI finished" % [fr.code_of(fr.standings()[0]), fr.code_of(fr.standings()[1]), fr.code_of(fr.standings()[2])])
+	await shot("field_podium")
+	await key(KEY_R)
+	await frames(10)
+	check(m.get("phase") == "countdown" and m.get("podium_on") == false and not panel.visible, "R: the field on the grid again")
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(app.mode == app.menu_mode, "Esc: back to the menu")
 
 
 # ---------------------------------------------------------------- money, points, the car shop (v6.5.0)

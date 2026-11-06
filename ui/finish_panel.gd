@@ -26,8 +26,14 @@ extends PanelContainer
 ##               medal (the run's medal, "" none), level (the AI level raced, "" none), won (beat it)}
 ##   score       {total, new_best: bool, prev: int (-1 none), car, rows: [{label, note, points}],
 ##               nitro_earned, nitro_lost} (absent: no score, e.g. the AI drove)
-##   laps        [lap times] (shown when there are two or more)
+##   laps        [lap times] (shown when there are two or more; not in a field race)
 ##   pad         true: name the gamepad buttons too
+##   field       (v6.13.0) Race the field: {place, of, level (its name), rows: [{place, name, code, car, color,
+##               time (INF: still racing), gap (s behind the winner, INF none), me, dnf}]}: your place
+##               ("2nd of 6 · Pro field") and the finishing order with times and gaps (your row in the
+##               accent); the score shows as one line then
+##   dock        (v6.13.0) "right": the panel sits at the right of the window (the podium is on the left);
+##               narrow windows keep it in the middle
 ## The panel adapts to the window: full width and a one-column breakdown in narrow windows,
 ## denser under 700 px of height and smallest under 520 px (set_window_size).
 
@@ -208,6 +214,8 @@ func _rebuild() -> void:
 			_delta(t - float(nx.time))], 2))
 	for line in s.get("lines", []):
 		_box.add_child(_line([[str(line), "text", small, UiStyle.TEXT]]))
+	if s.has("field"):
+		_box.add_child(_field(s.field))
 	# the track this run opened (v6.8.0)
 	if s.has("unlocked"):
 		var u: Dictionary = s.unlocked
@@ -220,10 +228,10 @@ func _rebuild() -> void:
 	if s.has("payout"):
 		_box.add_child(_payout(s.payout))
 	if s.has("score"):
-		_box.add_child(_score(s.score))
+		_box.add_child(_score(s.score, s.has("field")))
 	# lap times
 	var laps: Array = s.get("laps", [])
-	if laps.size() > 1:
+	if laps.size() > 1 and not s.has("field"):
 		var row := UiStyle.hbox(UiStyle.S4, BoxContainer.ALIGNMENT_CENTER)
 		for k in laps.size():
 			var r := UiStyle.baseline_row([
@@ -332,7 +340,7 @@ func _payout(p: Dictionary) -> Control:
 	gm.add_child(grid)
 	col.add_child(gm)
 	var rep: Array = Array(p.get("repeat", []))
-	if not rep.is_empty() and not _short:
+	if not rep.is_empty() and not _short and str(p.get("field", "")) == "":
 		col.add_child(_line([["Paid before: " + ", ".join(PackedStringArray(rep.map(func(id: Variant) -> String: return Economy.label(str(id))))),
 			"text", small, UiStyle.TEXT_3]], UiStyle.S1))
 	return outer
@@ -341,6 +349,10 @@ func _payout(p: Dictionary) -> Control:
 ## Why a run earned nothing: its medal and AI win were paid before, or it won neither.
 func _nothing_paid(p: Dictionary) -> String:
 	var rep: Array = Array(p.get("repeat", []))
+	if str(p.get("field", "")) != "":
+		if not rep.is_empty():
+			return "Nothing new: this place and medal were paid before. A better place, a better medal or a harder field pays more."
+		return "No medal and last place: beat the bronze time or one AI driver to earn money."
 	if not rep.is_empty():
 		return "Nothing new: %s paid before. A better medal or a harder AI pays more." % ", ".join(
 			PackedStringArray(rep.map(func(id: Variant) -> String: return Economy.label(str(id)))))
@@ -349,8 +361,57 @@ func _nothing_paid(p: Dictionary) -> String:
 	return "No medal: beat the bronze time (or an AI opponent) to earn money."
 
 
+## (v6.13) The field race: your place, then the finishing order with times and gaps.
+func _field(f: Dictionary) -> Control:
+	var small := _fs_small()
+	var lh := roundf(small * 1.4)
+	var outer := UiStyle.margin([0, UiStyle.S2 if _short else UiStyle.S3, 0, 0])
+	var col := UiStyle.vbox(UiStyle.S1)
+	outer.add_child(col)
+	var place := int(f.get("place", 0))
+	var big := UiStyle.FS_L if _tiny else (24 if _short else UiStyle.FS_XL)
+	col.add_child(_line([[Field.place_name(place), "display_bold", big, UiStyle.ACCENT if place <= 3 else UiStyle.TEXT, 0.02, false, big],
+		UiStyle.gap(UiStyle.S2), ["of %d · %s field" % [int(f.get("of", 0)), str(f.get("level", ""))], "text", _num_size(), UiStyle.TEXT_2]]))
+	var grid := GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", UiStyle.S3)
+	grid.add_theme_constant_override("v_separation", 0)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for r: Dictionary in f.get("rows", []):
+		var me := bool(r.get("me", false))
+		var c := UiStyle.ACCENT if me else UiStyle.TEXT
+		var p := UiStyle.label(str(int(r.get("place", 0))), "display_bold", small, UiStyle.TEXT_2, 0.0, false, true, false, lh)
+		p.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(p)
+		var chip := ColorRect.new()
+		chip.color = r.get("color", Color.WHITE)
+		chip.custom_minimum_size = Vector2(5, roundf(small * 1.0))
+		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		grid.add_child(chip)
+		grid.add_child(UiStyle.label(str(r.get("name", "")), "text_semi" if me else "text", small, c, 0.0, false, false, false, lh))
+		grid.add_child(UiStyle.label(str(r.get("car", "")), "text", small, UiStyle.TEXT_2, 0.0, false, false, false, lh))
+		var t := float(r.get("time", INF))
+		var tl := UiStyle.label(UiFormat.time(t) if is_finite(t) else ("out" if bool(r.get("dnf", false)) else "racing…"), "display", _num_size(), c if is_finite(t) else UiStyle.TEXT_3,
+			0.0, false, true, false, lh)
+		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(tl)
+		var g := float(r.get("gap", INF))
+		var gl := UiStyle.label("" if not is_finite(g) or int(r.get("place", 0)) == 1 else "+" + JsMath.to_fixed(g, 3), "display", small, UiStyle.TEXT_2,
+			0.0, false, true, false, lh)
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		gl.custom_minimum_size.x = 56
+		grid.add_child(gl)
+	var gm := UiStyle.margin([0, 0 if _short else UiStyle.S1, 0, 0])
+	gm.add_child(grid)
+	col.add_child(gm)
+	return outer
+
+
 ## The score block: total and best, the breakdown in two columns (one in very narrow windows), the nitro note.
-func _score(sc: Dictionary) -> Control:
+## (v6.13) `brief`: only the head line (the field race: the standings take the room).
+func _score(sc: Dictionary, brief: bool = false) -> Control:
 	var small := _fs_small()
 	var outer := UiStyle.margin([0, UiStyle.S2 if _short else UiStyle.S4, 0, 0])
 	var col := UiStyle.vbox(0)
@@ -382,6 +443,8 @@ func _score(sc: Dictionary) -> Control:
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head.add_child(b)
 	col.add_child(head)
+	if brief:
+		return outer
 	# the breakdown, row by row in two columns
 	var grid := GridContainer.new()
 	grid.columns = 1 if _one_col else 2
@@ -447,4 +510,6 @@ func _place() -> void:
 		w = max_w
 	size = Vector2(w, want.y)
 	position = ((_win - size) * 0.5).round()
+	if str(state.get("dock", "")) == "right" and not _narrow:
+		position.x = _win.x - size.x - UiStyle.S5
 	placed.emit()
