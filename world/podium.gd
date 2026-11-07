@@ -12,6 +12,8 @@ extends Node3D
 ##   var p := Podium.new(track, sample)        # world.add_child(p)
 ##   p.put(place, model, name, color)          # place 1..3: the car model and the name above it
 ##   p.has(place), p.clear()
+##   p.put_trophy(place)                       # (v6.14) the cup's trophy on block `place` (world/trophy.gd:
+##                                             # gold, silver, bronze), in front of its car
 ##   p.camera                                  # make_current() to look at it; update(dt) moves it
 ##   p.view_shift                              # 0..0.5 of the view's width the podium sits left of
 ##                                             # the middle (the finish panel docks on the right)
@@ -35,6 +37,13 @@ var _t := 0.0
 var _base: Transform3D
 var _names: Array[Label3D] = []
 var _filled := [false, false, false]
+var _trophies: Array = [null, null, null]
+var _xs: Array = []
+## (v6.14) the trophies' heights (1st, 2nd, 3rd) and where they stand on their block (m from its middle:
+## across, towards the outside; along, towards the camera)
+const TROPHY_H := [1.15, 1.0, 0.9]
+const TROPHY_X := [1.15, -1.05, 1.05]
+const TROPHY_Z := 2.35
 
 
 ## True when place `place` (1..3) has its car.
@@ -47,6 +56,27 @@ func clear() -> void:
 	_filled = [false, false, false]
 	for nm in _names:
 		nm.text = ""
+	for k in 3:
+		if _trophies[k] != null and is_instance_valid(_trophies[k]):
+			(_trophies[k] as Node).queue_free()
+		_trophies[k] = null
+
+
+## (v6.14) The cup's trophy on block `place` (1..3), in front of the car on it.
+func put_trophy(place: int) -> void:
+	if place < 1 or place > 3 or _trophies[place - 1] != null:
+		return
+	var k := place - 1
+	var t := Trophy.new(Cups.trophy(place), TROPHY_H[k])
+	t.position = Vector3(float(_xs[k]) + float(TROPHY_X[k]), 0.18 + float(HEIGHTS[k]), TROPHY_Z)
+	t.rotation.y = -0.25 * signf(float(TROPHY_X[k]))
+	add_child(t)
+	_trophies[k] = t
+
+
+## (v6.14) The trophy on block `place` (null none).
+func trophy(place: int) -> Trophy:
+	return _trophies[place - 1] if place >= 1 and place <= 3 else null
 
 
 func _init(track: BuiltTrack, sample: int) -> void:
@@ -65,6 +95,7 @@ func _init(track: BuiltTrack, sample: int) -> void:
 	add_child(plinth)
 	# the blocks: x across (+ = the camera's right): 2nd on the left, 1st in the middle, 3rd on the right
 	var xs := [0.0, -(BLOCK_W + GAP), BLOCK_W + GAP]
+	_xs = xs
 	for k in 3:
 		var h: float = HEIGHTS[k]
 		var b := _box(Vector3(BLOCK_W, h, BLOCK_D), COLORS[k], 0.35, 0.55)

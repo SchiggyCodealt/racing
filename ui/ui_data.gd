@@ -50,6 +50,13 @@ extends RefCounted
 ##                   sim/ Unlocks in the game, the store's career.tracks_open in tests (null: all open).
 ##                   mark_new_track(id) / is_new_track(id) / clear_new_tracks(): the menu's NEW mark on a
 ##                   track a finish just opened (this session only)
+##   championships (v6.14.0) cup_list() [{id, name, blurb, number ("1"), open, missing (the locked tracks'
+##                   names), difficulty (1-5), tracks [{id, name, number ("03"), open}], trophies {level: best
+##                   place}}], cup_trophies() {cup: {level: place}}, cup_pays(cup, level, place) {money, points}
+##                   (not paid yet), cup_view(run) (a CupRun for the standings: {cup, name, level, level_name,
+##                   car_name, done, count, finished, place, rows [{pos, id, name, color, places, points, me}],
+##                   races [{id, name, number}], next {id, name, number, slot}}; {} for null); sim/ Cups and
+##                   SaveData in the game, the store's career.cups {trophies, paid} in tests
 
 const FIXTURE_PATH := "res://ui/fixtures/web_v5.json"
 const TRACKS_JSON := "res://data/tracks.json"
@@ -525,6 +532,70 @@ static func field_pays(track: String, car: String, level: String, place: int) ->
 		PackedStringArray(store.career.paid.get("%s|%s" % [track, car], []))
 	var p := Economy.payout(track, "", "", paid, level, place)
 	return {"money": p.money, "points": p.points}
+
+
+# ---------------------------------------------------------------- championships (v6.14.0)
+
+## Every cup's best place per level: {cup id: {level id: place}}.
+static func cup_trophies() -> Dictionary:
+	if _save:
+		return SaveData.cup_trophies()
+	var c: Variant = store.career.get("cups", {})
+	return ((c as Dictionary).get("trophies", {}) as Dictionary).duplicate(true) if c is Dictionary else {}
+
+
+## The cups for the cup screen, easiest first (see the header).
+static func cup_list() -> Array:
+	var out: Array = []
+	var tro := cup_trophies()
+	for k in Cups.ids().size():
+		var id: String = Cups.ids()[k]
+		var trs: Array = []
+		var miss: PackedStringArray = []
+		var diff := 0.0
+		for tid: String in Cups.tracks_of(id):
+			var i := Tracks.index_of(tid)
+			var open := track_open(i)
+			trs.append({"id": tid, "name": String(Tracks.def(tid).get("name", tid)), "number": UiFormat.track_number(i), "open": open})
+			if not open:
+				miss.append(String(Tracks.def(tid).get("name", tid)))
+			diff += float(Tracks.def(tid).get("difficulty", 1))
+		out.append({"id": id, "name": Cups.name_of(id), "blurb": String(Cups.cup(id).get("blurb", "")), "number": str(k + 1), "open": miss.is_empty(),
+			"missing": ", ".join(miss), "difficulty": roundi(diff / maxf(1.0, trs.size())), "tracks": trs, "trophies": tro.get(id, {})})
+	return out
+
+
+## What `place` in cup `cup_id` at `level` would pay now (the cup rewards not paid yet): {money, points}.
+static func cup_pays(cup_id: String, level: String, place: int) -> Dictionary:
+	var paid: PackedStringArray = SaveData.cup_paid() if _save else PackedStringArray((store.career.get("cups", {}) as Dictionary).get("paid", []))
+	var p := Economy.cup_payout(cup_id, level, place, paid)
+	return {"money": p.money, "points": p.points}
+
+
+## The standings of cup run `run` for the cup screen (see the header); {} for null.
+static func cup_view(run: CupRun) -> Dictionary:
+	if run == null:
+		return {}
+	var rows: Array = []
+	for r: Dictionary in run.table():
+		var id := String(r.id)
+		var me := id == Cups.PLAYER
+		var d := Field.driver(id)
+		var col: Variant = Color(String(d.get("color", "#ffffff"))) if not me else car_info(run.car).get("color", UiStyle.ACCENT)
+		rows.append({"pos": int(r.pos), "id": id, "name": "You" if me else String(d.get("name", id)), "color": col if col is Color else Color(str(col)),
+			"places": Array(r.places), "points": int(r.points), "me": me})
+	var races: Array = []
+	for tid: String in Cups.tracks_of(run.cup):
+		var i := Tracks.index_of(tid)
+		races.append({"id": tid, "name": String(Tracks.def(tid).get("name", tid)), "number": UiFormat.track_number(i)})
+	var out := {"cup": run.cup, "name": Cups.name_of(run.cup), "level": run.level, "level_name": Opponents.level_name(run.level), "car": run.car,
+		"car_name": String(car_info(run.car).get("name", run.car)), "done": run.races_done(), "count": run.race_count(), "finished": run.finished(),
+		"place": run.place(), "rows": rows, "races": races, "next": {}}
+	if not run.finished():
+		var nt := run.next_track()
+		out.next = {"id": nt, "name": String(Tracks.def(nt).get("name", nt)), "number": UiFormat.track_number(Tracks.index_of(nt)),
+			"slot": run.grid().find(Cups.PLAYER) + 1}
+	return out
 
 
 # ---------------------------------------------------------------- locked tracks (v6.8.0)

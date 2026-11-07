@@ -34,6 +34,18 @@ extends RefCounted
 ## ("field-pro-1"). The medal the run's time won is paid as in Drive.
 ##   Economy.payout(track_id, medal, beaten, paid, field_level, place) / claim(..., field_level, place)
 ##   Economy.field_ids(field_level, place) -> the place rewards a finish earns
+## v6.14.0, championships (sim/cups.gd): the end of a cup pays by your place in its standings, from
+## CUP_PLACES × FIELD_LEVELS[level] × the cup's scale (1 + CUP_STEP × its index: later cups pay more),
+## and like a place in a field it pays the places below it (2nd pays 4th, 3rd and 2nd; 5th and 6th pay
+## nothing): once per cup, level and place (not per car or track), so a better place later pays only
+## the difference. Reward ids "cup-" + cup + "-" + level + "-" + place ("cup-rookie-pro-1"), kept in the
+## save file's career.cups.paid. Each race of a cup pays as a field race on top of it.
+##   Economy.cup_ids(cup_id, level, place) -> the cup rewards a final place earns
+##   Economy.cup_reward(id) -> {money, points} ({} unknown);  Economy.cup_scale(cup_id)
+##   Economy.cup_payout(cup_id, level, place, paid) -> {items [{id, kind "cup", label, money, points}],
+##       money, points, repeat}  (pure)
+##   Economy.claim_cup(cup_id, level, place) -> cup_payout(), paid into the save file with the trophy
+##       (SaveData.finish_cup), with money_total and points_total
 
 ## Every reward on the first track; track k pays × (1 + TRACK_STEP × k) (money rounded to 10,
 ## points to a whole number).
@@ -61,6 +73,16 @@ const FIELD_PLACES: Array[Dictionary] = [
 ]
 const FIELD_LEVELS: Dictionary = {"rookie": 0.6, "amateur": 1.0, "pro": 1.5, "expert": 2.1, "elite": 3.0}
 const FIELD_PREFIX: String = "field-"
+## (v6.14) The end of a cup: what each place in its standings adds in the first cup at a level of × 1
+## (the worse places first: a place pays its own and every worse one's), and the step per cup.
+const CUP_PLACES: Array[Dictionary] = [
+	{"place": 4, "money": 300, "points": 5},
+	{"place": 3, "money": 700, "points": 15},
+	{"place": 2, "money": 1200, "points": 30},
+	{"place": 1, "money": 2000, "points": 60},
+]
+const CUP_STEP: float = 0.25
+const CUP_PREFIX: String = "cup-"
 ## The medals in the order they are earned (slowest first).
 const MEDALS_UP: PackedStringArray = ["bronze", "silver", "gold", "author"]
 
@@ -146,8 +168,13 @@ static func payout(track_id: String, medal: String, beaten: String, paid: Packed
 	return {items = items, money = money, points = points, repeat = repeat}
 
 
-## A reward's name for the finish panel: "Gold medal", "Beat the Pro AI", "Pro field: 2nd".
+## A reward's name for the finish panel: "Gold medal", "Beat the Pro AI", "Pro field: 2nd",
+## (v6.14) "Rookie Cup (Pro): 1st".
 static func label(id: String) -> String:
+	if id.begins_with(CUP_PREFIX):
+		var c: Dictionary = _cup_reward(id)
+		if not c.is_empty():
+			return "%s (%s): %s" % [Cups.name_of(String(c.cup)), Opponents.level_name(String(c.level)), Field.place_name(int(c.place))]
 	if id.begins_with(FIELD_PREFIX):
 		var f: Dictionary = _field_reward(id)
 		if not f.is_empty():
@@ -166,6 +193,78 @@ static func claim(track_id: String, car_id: String, medal: String, beaten: Strin
 		ids.append(String(it.id))
 	if not ids.is_empty():
 		SaveData.pay_rewards(track_id, car_id, ids, int(p.money), int(p.points))
+	p.money_total = SaveData.get_money()
+	p.points_total = SaveData.get_points()
+	return p
+
+
+# ---------------------------------------------------------------- championships (v6.14.0)
+
+## How much cup `cup_id` pays: 1 + CUP_STEP × its index (sim/cups.gd order; unknown: 1).
+static func cup_scale(cup_id: String) -> float:
+	return 1.0 + CUP_STEP * maxi(0, Cups.index_of(cup_id))
+
+
+## A cup reward id's {cup, level, place, money, points (before any scale)}, or {} ("cup-<cup>-<level>-<place>";
+## cup ids may hold "-", so it is read from the end).
+static func _cup_reward(id: String) -> Dictionary:
+	if not id.begins_with(CUP_PREFIX):
+		return {}
+	var parts: PackedStringArray = id.substr(CUP_PREFIX.length()).rsplit("-", true, 2)
+	if parts.size() != 3 or Cups.cup(parts[0]).is_empty() or not FIELD_LEVELS.has(parts[1]) or not parts[2].is_valid_int():
+		return {}
+	var place: int = parts[2].to_int()
+	for p: Dictionary in CUP_PLACES:
+		if int(p.place) == place:
+			return {cup = parts[0], level = parts[1], place = place, money = p.money, points = p.points}
+	return {}
+
+
+## One cup reward: {money, points}, or {} for an unknown id.
+static func cup_reward(id: String) -> Dictionary:
+	var c: Dictionary = _cup_reward(id)
+	if c.is_empty():
+		return {}
+	var s: float = cup_scale(String(c.cup)) * float(FIELD_LEVELS[c.level])
+	return {money = roundi(float(c.money) * s / 10.0) * 10, points = roundi(float(c.points) * s)}
+
+
+## The cup rewards finishing a cup's standings in `place` earns (that place and every worse one that pays).
+static func cup_ids(cup_id: String, level: String, place: int) -> PackedStringArray:
+	var out: PackedStringArray = []
+	if Cups.cup(cup_id).is_empty() or not FIELD_LEVELS.has(level) or place < 1:
+		return out
+	for p: Dictionary in CUP_PLACES:
+		if int(p.place) >= place:
+			out.append("%s%s-%s-%d" % [CUP_PREFIX, cup_id, level, int(p.place)])
+	return out
+
+
+## What `place` in cup `cup_id`'s standings at `level` earns, less what was paid before (`paid`).
+static func cup_payout(cup_id: String, level: String, place: int, paid: PackedStringArray) -> Dictionary:
+	var items: Array = []
+	var repeat: PackedStringArray = []
+	var money: int = 0
+	var points: int = 0
+	for id: String in cup_ids(cup_id, level, place):
+		if paid.has(id):
+			repeat.append(id)
+			continue
+		var r: Dictionary = cup_reward(id)
+		items.append({id = id, kind = "cup", label = label(id), money = r.money, points = r.points})
+		money += int(r.money)
+		points += int(r.points)
+	return {items = items, money = money, points = points, repeat = repeat}
+
+
+## The end of a cup: cup_payout() paid into the save file, with the trophy (the best place in that cup
+## at that level is kept: SaveData.finish_cup). Returns the payout with money_total and points_total.
+static func claim_cup(cup_id: String, level: String, place: int) -> Dictionary:
+	var p: Dictionary = cup_payout(cup_id, level, place, SaveData.cup_paid())
+	var ids: PackedStringArray = []
+	for it: Dictionary in p.items:
+		ids.append(String(it.id))
+	SaveData.finish_cup(cup_id, level, place, ids, int(p.money), int(p.points))
 	p.money_total = SaveData.get_money()
 	p.points_total = SaveData.get_points()
 	return p

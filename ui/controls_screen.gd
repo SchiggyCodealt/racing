@@ -32,6 +32,7 @@ const MENU := ["Menu", true, [
 	["Drive", ["k:Enter"], ["k:A"]],
 	["Settings", ["k:O"], ["t:D-pad, then", "k:A"]],
 	["Terminal", ["k:`"], ["t:Settings, then", "k:A"]],
+	["Championships", ["k:T"], ["t:D-pad, then", "k:A"]],
 	["Other buttons", ["t:Mouse"], ["t:D-pad, then", "k:A"]],
 	["Back to the tracks", [], ["k:B"]],
 	["This screen", ["k:H", "k:?", "k:Esc"], ["k:View", "k:B"]],
@@ -40,7 +41,7 @@ const TIPS := [
 	"Drift: pull the handbrake into a corner, then countersteer and use the throttle to hold the slide.",
 	"Clean checkpoints build a combo up to x5; a wall or a respawn resets it. Points refill the nitro.",
 	"Any standard gamepad works. On a PlayStation pad A is Cross, B Circle, X Square and Y Triangle.",
-	"The terminal changes money, points and cars (type help). It doesn't open during a race.",
+	"The terminal (`, not in a race) changes money, points and cars: type help.",
 ]
 
 var _cols: BoxContainer

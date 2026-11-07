@@ -25,6 +25,10 @@ extends Control
 ##   own trained network, as before).
 ## - v6.13.0, Race the field: a button beside Train the AI races five AI drivers at the picked AI level
 ##   on a starting grid (off with My AI picked, or a car you don't own; its tooltip says what a win pays).
+## - v6.14.0, championships: on the right of the "3 Drive" heading, the Cups button (ui/cup_cabinet.gd),
+##   which is also the trophy cabinet (one trophy per cup in the colour of your best place, pips for the
+##   five levels); it, or T, opens the cup screen (ui/cup_screen.gd, `cups`) over the menu; the game opens
+##   it between the races of a cup too.
 ## - v6.11.0, car upgrades (sim/upgrades.gd): under the cards, the picked car's four parts (engine,
 ##   tyres, nitro, loose grip) as chips with their levels and the next level's price; a chip buys
 ##   that level (the game asks first: `upgrade`). A car you don't own shows them greyed out. The car
@@ -41,7 +45,7 @@ extends Control
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
 ## C / Shift+C (next / previous car),
-## Enter or Space drives, H or ? opens Controls, O opens Settings, ` opens the terminal.
+## Enter or Space drives, H or ? opens Controls, O opens Settings, ` opens the terminal, T the cups.
 ## Gamepad: a highlight moved with the d-pad / stick over the track tiles (moving onto one
 ## selects it), the car cards under them (moving onto one picks it) and the buttons; A drives
 ## or presses, B goes back to the tracks, LB / RB pick the car, View opens Controls.
@@ -98,6 +102,8 @@ var selected_track := 0
 var controls: ControlsScreen
 var settings: SettingsScreen
 var terminal: TerminalScreen
+## (v6.14) the cup screen (ui/cup_screen.gd)
+var cups: CupScreen
 
 # layout state
 var map_h := 56.0
@@ -152,6 +158,7 @@ var _ghost_btn: Button
 var _watch_btn: Button
 var _train_btn: Button
 var _field_btn: Button   # (v6.13) Race the field
+var _cups_btn: CupCabinet   # (v6.14) the Cups button and trophy cabinet
 ## The opponent buttons (v6.5.0): AI level id or UiData.MY_AI -> Button.
 var _opp_btns: Dictionary = {}
 var _opp_row: HBoxContainer
@@ -193,6 +200,8 @@ func _init() -> void:
 	add_child(controls)
 	settings = SettingsScreen.new()
 	add_child(settings)
+	cups = CupScreen.new()
+	add_child(cups)
 	terminal = TerminalScreen.new() # (over Settings when opened from it)
 	add_child(terminal)
 	settings.action.connect(func(key: String) -> void:
@@ -541,7 +550,21 @@ func _build_detail() -> void:
 
 
 func _build_go() -> void:
-	_side.add_child(_step("3", "Drive"))
+	var step := _step("3", "Drive")
+	_side.add_child(step)
+	# (v6.14) the Cups button with the trophy cabinet, on the right of the heading (it overlaps the
+	# heading's bottom margin, so the menu keeps its height)
+	var head_row: HBoxContainer = step.get_child(0)
+	var fill := Control.new()
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_row.add_child(fill)
+	_cups_btn = CupCabinet.new()
+	_cups_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_cups_btn.pressed.connect(func() -> void:
+		UiSound.play("ui_confirm")
+		show_cups(true))
+	head_row.add_child(_cups_btn)
 	var actions := UiStyle.hbox(UiStyle.S5)
 	_drive_btn = UiStyle.button("Drive", "PrimaryButton", 46)
 	_drive_btn.text = "DRIVE"
@@ -656,6 +679,7 @@ func refresh() -> void:
 	_render_detail()
 	_render_cars()
 	_render_wallet()
+	_cups_btn.refresh()
 	# the AI block is the picked car's: the opponent picked (an AI level, or its own network: that
 	# network's status, two lines at most (the whole text is in the tooltip), or that it has none yet)
 	var st := UiData.ai_status()
@@ -983,6 +1007,7 @@ func show_menu(on: bool) -> void:
 		show_controls(false)
 		show_settings(false)
 		show_terminal(false)
+		show_cups(false)
 
 
 func show_controls(on: bool) -> void:
@@ -999,6 +1024,15 @@ func show_settings(on: bool) -> void:
 		settings.open()
 	else:
 		settings.close()
+
+
+## (v6.14) The cup screen over the menu (the picker, or the standings of the cup in progress).
+func show_cups(on: bool) -> void:
+	if on:
+		_ring.set_target(null)
+		cups.open()
+	else:
+		cups.close()
 
 
 ## The terminal (over the menu, or over Settings when opened from there).
@@ -1041,6 +1075,10 @@ func handle_keys(inp: Object) -> void:
 		_terminal_was_open = terminal.visible
 		inp.clear_pressed()
 		return
+	if cups.visible:
+		cups.handle_keys(inp)
+		inp.clear_pressed()
+		return
 	if settings.visible:
 		if inp.consume(["Backquote"]):
 			UiSound.play("ui_confirm")
@@ -1064,6 +1102,11 @@ func handle_keys(inp: Object) -> void:
 	if inp.consume(["KeyO"]):
 		UiSound.play("ui_confirm")
 		show_settings(true)
+		inp.clear_pressed()
+		return
+	if inp.consume(["KeyT"]):
+		UiSound.play("ui_confirm")
+		show_cups(true)
 		inp.clear_pressed()
 		return
 	var n := _tiles.size()
@@ -1118,7 +1161,7 @@ func _fit_hint() -> void:
 ## The controls the pad highlight can go to (shown and enabled), in the web's order.
 func _pad_controls() -> Array:
 	var out: Array = []
-	var list: Array = [_controls_btn, _settings_btn, _drive_btn, _ghost_btn, _watch_btn, _field_btn, _train_btn, _ghost_check, _save_btn]
+	var list: Array = [_controls_btn, _settings_btn, _cups_btn, _drive_btn, _ghost_btn, _watch_btn, _field_btn, _train_btn, _ghost_check, _save_btn]
 	list.append_array(_opp_btns.values())
 	list.append_array(_part_chips)
 	for c in list:

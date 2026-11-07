@@ -20,12 +20,14 @@ extends RefCounted
 ##      (DNF).
 ## Deterministic: the same field, inputs and track give the same race.
 ##
-##   var f := FieldRace.new(track, lineup, drivers, player_car, player_race)   # places every car on the grid
+##   var f := FieldRace.new(track, lineup, drivers, player_car, player_race[, player_info, player_slot])
+##                                                # places every car on the grid
 ##   var events := f.step(dt, player_controls)    # the player's race events of this step
 ##   f.standings() -> racer indices, leader first;  f.position(i) -> 1-based
 ##   f.gap(ahead, behind) -> s;  f.board(i) -> the HUD's {pos, of, rows, ahead, behind}
 ##   f.results() -> the finish panel's rows;  f.respawned(i) after the mode put car i back (the player)
-## Racer indices: 0 .. AI_COUNT - 1 the AI in grid order (0 = pole), the player last (player_index).
+## Racer indices: 0 .. AI_COUNT - 1 the AI in lineup order, the player last (player_index); a racer's
+## grid slot is its `slot` (the same as its index unless the player starts further up: v6.14's cups).
 
 const PlayMode := preload("res://modes/play_mode.gd")
 
@@ -99,21 +101,24 @@ var _touching: Dictionary = {}
 
 ## `lineup`: sim/field.gd's entries (pole first); `drivers`: one driver object per entry; the player's
 ## car and race (made by the caller: its spec, nitro and recorder are the game's). Every car is placed
-## on its grid slot; the player's last.
-func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player_race: RaceState, player_info: Dictionary = {}) -> void:
+## on its grid slot; the player's last, or (v6.14, a cup's grid by the standings) slot `player_slot`
+## (0 = pole; the AI keep their lineup order around it). The player's slot is always on the usual
+## start spot (Field.grid's anchor), so its race is as long as in Drive.
+func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player_race: RaceState, player_info: Dictionary = {}, player_slot: int = -1) -> void:
 	track = t
+	var ps: int = lineup.size() if player_slot < 0 or player_slot > lineup.size() else player_slot
 	for k in lineup.size():
 		var r := Racer.new()
 		var e: Dictionary = lineup[k]
 		r.info = e
-		r.slot = k
+		r.slot = k if k < ps else k + 1
 		r.driver = drivers[k]
 		r.car = Car.new(t, t.start_idx, Cars.spec(String(e.car)))
 		r.race = RaceState.new(t)
 		racers.append(r)
 	var p := Racer.new()
 	p.player = true
-	p.slot = lineup.size()
+	p.slot = ps
 	p.car = player_car
 	p.race = player_race
 	p.info = player_info
@@ -128,12 +133,12 @@ func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player
 ## Every car on its grid slot, standing; the race starts over (the player's car and race are reset
 ## by the caller first: the car's place here, its race untouched).
 func place_on_grid() -> void:
-	var g: Array[Dictionary] = Field.grid(track, racers.size())
+	var g: Array[Dictionary] = Field.grid(track, racers.size(), racers[player_index].slot)
 	var size: int = int(ceil(float(track.N * (racers[0].race.laps + 1) + track.count) / MARK)) + 2
 	for k in racers.size():
 		var r := racers[k]
-		var s: Dictionary = g[k]
-		r.car.place(track, int(s.idx), {x = s.x, z = s.z, yaw = s.yaw, vx = 0.0, vz = 0.0, idx = s.idx, laps = 0})
+		var s: Dictionary = g[r.slot]
+		r.car.place(track, int(s.idx), {x = s.x, z = s.z, yaw = s.yaw, vx = 0.0, vz = 0.0, idx = s.idx, laps = int(s.laps)})
 		if not r.player:
 			r.race.reset()
 		r.watch = PlayMode._new_watch(r.car, 0.0)
@@ -393,8 +398,9 @@ func board(me: int) -> Dictionary:
 	return out
 
 
-## The finish panel's rows in race order: {place, i, name, code, car (name), color, time (s, INF not
-## finished), gap (s behind the winner; INF: not finished), me, dnf}.
+## The finish panel's rows in race order: {place, i, id (the driver's, sim/field.gd; the player's
+## info id), name, code, car (name), color, time (s, INF not finished), gap (s behind the winner; INF:
+## not finished), me, dnf}.
 func results() -> Array[Dictionary]:
 	var order := standings()
 	var out: Array[Dictionary] = []
@@ -403,7 +409,7 @@ func results() -> Array[Dictionary]:
 		var i: int = order[k]
 		var r := racers[i]
 		var t: float = r.race.finish_time
-		out.append({place = k + 1, i = i, name = name_of(i), code = code_of(i), car = String(Cars.get_car(String(r.car.spec.id)).name),
+		out.append({place = k + 1, i = i, id = String(r.info.get("id", "")), name = name_of(i), code = code_of(i), car = String(Cars.get_car(String(r.car.spec.id)).name),
 			color = color_of(i), time = t, gap = t - first if r.race.finished and is_finite(first) else INF, me = r.player, dnf = r.dnf})
 	return out
 

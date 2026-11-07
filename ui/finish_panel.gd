@@ -34,6 +34,12 @@ extends PanelContainer
 ##               accent); the score shows as one line then
 ##   dock        (v6.13.0) "right": the panel sits at the right of the window (the podium is on the left);
 ##               narrow windows keep it in the middle
+##   keys        (v6.14.0) the keys line instead of R race again / Esc back: [[key, pad button, what], ...]
+##   field.cup   (v6.14.0) a cup race: a line under your place ("Rookie Cup, race 1 of 3: +10 points")
+##   cup_final   (v6.14.0) the trophy moment at the end of a cup: {place, of, level (its name), trophy ("gold"
+##               | "silver" | "bronze" | ""), rows (ui/cup_table.gd's), races (track names)}: the panel shows
+##               the title (the cup's name), your place with the trophy, the final standings and the payout
+##               (the cup's: items of kind "cup") instead of the race
 ## The panel adapts to the window: full width and a one-column breakdown in narrow windows,
 ## denser under 700 px of height and smallest under 520 px (set_window_size).
 
@@ -42,6 +48,7 @@ signal placed
 
 const KeyCap := preload("res://ui/key_cap.gd")
 const MedalDot := preload("res://ui/medal_dot.gd")
+const W := preload("res://ui/widgets.gd")
 
 var state: Dictionary = {}
 var _box: VBoxContainer
@@ -157,6 +164,9 @@ func _rebuild() -> void:
 		c.queue_free()
 	_bd_rows = []
 	var s := state
+	if s.has("cup_final"):
+		_cup_final(s)
+		return
 	var small := _fs_small()
 	var lh := roundf(small * 1.4)
 	var t := float(s.get("time", 0.0))
@@ -241,10 +251,17 @@ func _rebuild() -> void:
 		var m := UiStyle.margin([0, UiStyle.S1 if _short else UiStyle.S3, 0, 0])
 		m.add_child(row)
 		_box.add_child(m)
-	# keys
+	_keys(s)
+	_place()
+
+
+## The keys line: R race again, Esc back, or (v6.14) state.keys.
+func _keys(s: Dictionary) -> void:
+	var small := _fs_small()
+	var lh := roundf(small * 1.4)
 	var keys := UiStyle.hbox(UiStyle.S5, BoxContainer.ALIGNMENT_CENTER)
 	var cap_h := 18.0 if _tiny else 22.0
-	for k in [["R", "View", "race again"], ["Esc", "Menu", "back"]]:
+	for k in s.get("keys", [["R", "View", "race again"], ["Esc", "Menu", "back"]]):
 		var item := UiStyle.hbox(UiStyle.S1)
 		item.add_child(KeyCap.make(k[0], cap_h, 12 if _tiny else UiStyle.FS_S))
 		if s.get("pad", false):
@@ -256,6 +273,43 @@ func _rebuild() -> void:
 	var km := UiStyle.margin([0, UiStyle.S1 if _tiny else (UiStyle.S2 if _short else UiStyle.S4), 0, 0])
 	km.add_child(keys)
 	_box.add_child(km)
+
+
+## (v6.14) The trophy moment: the cup's name, your place with its trophy, the final standings, the
+## cup's pay and the keys.
+func _cup_final(s: Dictionary) -> void:
+	var small := _fs_small()
+	var c: Dictionary = s.cup_final
+	var tag_row := UiStyle.hbox(0, BoxContainer.ALIGNMENT_CENTER)
+	tag_row.add_child(_tag(str(s.get("title", "Cup")), small if _tiny else UiStyle.FS_M, [UiStyle.S3, 3, UiStyle.S3, 3], 0.12))
+	_box.add_child(tag_row)
+	var place := int(c.get("place", 0))
+	var kind := str(c.get("trophy", ""))
+	var big := 30 if _tiny else (40 if _short or _narrow else 56)
+	var pieces: Array = []
+	if kind != "":
+		var cup := Control.new()
+		cup.custom_minimum_size = Vector2(roundf(big * 0.9), big)
+		cup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var col: Color = UiStyle.MEDAL_COLORS.get(kind, UiStyle.ACCENT)
+		cup.draw.connect(func() -> void: W.trophy(cup, cup.size.x * 0.5, 0.0, cup.size.y, col))
+		pieces.append(cup)
+		pieces.append(UiStyle.gap(UiStyle.S3))
+	pieces.append([Field.place_name(place), "display_bold", big, UiStyle.ACCENT if place <= 3 else UiStyle.TEXT, 0.0, false, big])
+	pieces.append(UiStyle.gap(UiStyle.S3))
+	pieces.append(["of %d · %s" % [int(c.get("of", 6)), str(c.get("level", ""))], "text", _num_size(), UiStyle.TEXT_2])
+	_box.add_child(_line(pieces, UiStyle.S1 if _short else UiStyle.S2))
+	var what := "Champion! The gold trophy is yours" if place == 1 else ("The %s trophy is yours" % kind if kind != "" else "No trophy this time: the top three take them")
+	_box.add_child(_line([[what, "display_bold", _num_size(), UiStyle.ACCENT if kind != "" else UiStyle.TEXT_2, 0.06, true, roundf(_num_size() * 1.4)]], UiStyle.S1))
+	var table := CupTable.new()
+	table.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	table.show_rows(c.get("rows", []), c.get("races", []), small)
+	var tm := UiStyle.margin([0, UiStyle.S2 if _short else UiStyle.S4, 0, 0])
+	tm.add_child(table)
+	_box.add_child(tm)
+	if s.has("payout"):
+		_box.add_child(_payout(s.payout))
+	_keys(s)
 	_place()
 
 
@@ -349,6 +403,10 @@ func _payout(p: Dictionary) -> Control:
 ## Why a run earned nothing: its medal and AI win were paid before, or it won neither.
 func _nothing_paid(p: Dictionary) -> String:
 	var rep: Array = Array(p.get("repeat", []))
+	if not rep.is_empty() and str(rep[0]).begins_with(Economy.CUP_PREFIX):
+		return "Nothing new: this place in this cup and level was paid before. A better place or a harder level pays more."
+	if p.has("items") and not p.has("medal") and not p.has("field"):
+		return "4th or better pays: this cup paid nothing."
 	if str(p.get("field", "")) != "":
 		if not rep.is_empty():
 			return "Nothing new: this place and medal were paid before. A better place, a better medal or a harder field pays more."
@@ -372,6 +430,8 @@ func _field(f: Dictionary) -> Control:
 	var big := UiStyle.FS_L if _tiny else (24 if _short else UiStyle.FS_XL)
 	col.add_child(_line([[Field.place_name(place), "display_bold", big, UiStyle.ACCENT if place <= 3 else UiStyle.TEXT, 0.02, false, big],
 		UiStyle.gap(UiStyle.S2), ["of %d · %s field" % [int(f.get("of", 0)), str(f.get("level", ""))], "text", _num_size(), UiStyle.TEXT_2]]))
+	if str(f.get("cup", "")) != "":
+		col.add_child(_line([[str(f.cup), "text_semi", small, UiStyle.ACCENT, 0.0, false, lh]]))
 	var grid := GridContainer.new()
 	grid.columns = 6
 	grid.add_theme_constant_override("h_separation", UiStyle.S3)

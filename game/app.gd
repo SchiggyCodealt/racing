@@ -8,7 +8,7 @@ extends Node
 ##   menu       track select over a slow camera orbit of the selected track (modes/menu_mode.gd)
 ##   play       Drive / Race the AI ghost (modes/play_mode.gd)
 ##   watch      Watch the AI (modes/watch_mode.gd)
-##   field      Race the field (modes/field_mode.gd, v6.13.0)
+##   field      Race the field (modes/field_mode.gd, v6.13.0), and each race of a cup (v6.14.0)
 ##   train      the AI training screen (modes/train_mode.gd, ai/; its session is kept between visits)
 ## Every frame: the input polls the pads first (GameInput, process_priority -100), then
 ## _process hands the frame time (at most 0.1 s) to the active mode, which steps its physics
@@ -36,6 +36,13 @@ extends Node
 ## v6.13.0: Race the field (modes/field_mode.gd, sim/field.gd): the menu's button races five AI drivers at
 ## the menu's AI level on the selected track with the picked car (play_field), refused like Drive on a
 ## locked track or with a car you don't own, and with My AI picked (a field needs a level).
+## v6.14.0: championships (sim/cups.gd, sim/cup_run.gd, ui/cup_screen.gd): the menu's Cups button (or
+## T) opens the cup screen: pick a cup and a field level, Start races its tracks one after the other as
+## field races (start_cup, cup_race) against the same five drivers with the picked car; between races the
+## standings (cup_standings: the menu with the cup screen over it, the next track behind it), Quit cup
+## (asking first) drops it and pays nothing for the cup; the last race ends in the trophy moment
+## (modes/field_mode.gd) and the cup's pay (cup_result). `cup` is the cup in progress, kept in the save
+## file after every race, so it carries on after a restart.
 ## v6.12.0: sound (audio/): `audio` (GameAudio) makes the buses, applies the volume settings, mutes in
 ## the background, plays the effects and the music: the menu's loop on the menu and the training
 ## screen, each race mode its theme's (modes/play_mode.gd, which also gives each car its CarAudio);
@@ -73,6 +80,8 @@ var mode: Node = null
 var menu_mode: Node
 var train_mode: Node = null       # the last training screen made (a new one each visit)
 var message: Control
+## (v6.14) The cup in progress (null: none), as the save file keeps it.
+var cup: CupRun = null
 var orbit_angle := 0.0
 ## Command-line options (see the header).
 var options: Dictionary = {}
@@ -154,6 +163,14 @@ func _ready() -> void:
 	ui.menu.watch_ai.connect(func() -> void: play("ai", false))
 	ui.menu.train_ai.connect(train)
 	ui.menu.race_field.connect(func() -> void: play_field())
+	# (v6.14) championships: the cup screen asks, the app races
+	cup = CupRun.from_dict(SaveData.get_cup_run())
+	if cup == null and not SaveData.get_cup_run().is_empty():
+		SaveData.clear_cup_run() # (a cup this version can't carry on)
+	ui.menu.cups.run_view = func() -> Dictionary: return UiData.cup_view(cup)
+	ui.menu.cups.start_cup.connect(func(id: String, lv: String) -> void: start_cup(id, lv))
+	ui.menu.cups.next_race.connect(func() -> void: cup_race())
+	ui.menu.cups.quit_cup.connect(ask_quit_cup)
 	ui.menu.load_network.connect(load_network_dialog)
 	ui.menu.upgrade.connect(func(part: String) -> void: offer_upgrade(UiData.picked_car(), part))
 	ui.menu.save_network.connect(save_network_dialog)
@@ -340,6 +357,119 @@ func start_field(opts: Dictionary) -> Node:
 	m.setup(self, opts)
 	set_mode(m)
 	return m
+
+
+# ---------------------------------------------------------------- championships (v6.14.0)
+
+## The cup screen over the menu: the picker, or the standings of the cup in progress.
+func show_cups() -> void:
+	if mode != menu_mode:
+		show_menu()
+	ui.menu.show_cups(true)
+
+
+## Start cup `cup_id` at field level `level` with the picked car (a cup in progress is dropped: the
+## screen asks first). Refused like Race the field: a cup not open yet, a car you don't own (offered for
+## sale), the AI not ready. Returns the first race's mode, or null.
+func start_cup(cup_id: String, level: String) -> Node:
+	var car := UiData.picked_car()
+	if not Cups.is_open(cup_id):
+		var miss := Cups.missing(cup_id)
+		refuse("Cup locked", "The %s opens when all its tracks are open: %s %s still locked." % [Cups.name_of(cup_id),
+			", ".join(Array(miss).map(func(id: String) -> String: return String(Tracks.def(id).get("name", id)))), "is" if miss.size() == 1 else "are"])
+		return null
+	if not UiData.owns_car(car):
+		ui.menu.show_cups(false)
+		offer_car(car)
+		return null
+	if not AiLink.ready():
+		refuse("AI not ready", AiLink.not_ready_text())
+		return null
+	var run := CupRun.start(cup_id, level, car)
+	if run == null:
+		return null
+	cup = run
+	SaveData.set_cup_run(cup.to_dict())
+	UiSound.play("ui_confirm")
+	return cup_race()
+
+
+## The next race of the cup in progress: its track, the five drivers on the grid the standings give,
+## you on your slot. Returns the mode (null when there is no cup or no field for the track and car).
+func cup_race() -> Node:
+	if cup == null or cup.finished():
+		return null
+	var tid := cup.next_track()
+	var i := Tracks.ids().find(tid)
+	var f := cup.field(tid)
+	var nets: Array = []
+	for e: Dictionary in f.lineup:
+		var opp := AiLink.opponent(tid, String(e.car))
+		if opp.has("error"):
+			nets = []
+			break
+		nets.append(AiLink.clone_net(opp.net))
+	if i < 0 or (f.lineup as Array).is_empty() or nets.size() != (f.lineup as Array).size():
+		refuse("No AI field", "There are no AI opponents for %s with the %s in this version of the game." % [String(Tracks.def(tid).get("name", tid)), Cars.get_car(cup.car).name])
+		return null
+	ui.menu.show_cups(false)
+	selected_track = i
+	return start_field({"track": tracks[i], "field": cup.level, "lineup": f.lineup, "nets": nets, "car": cup.car, "cup": cup,
+		"player_slot": int(f.player_slot), "return_to": cup_standings})
+
+
+## A cup race's results are in (modes/field_mode.gd: FieldRace.results() rows, frozen when you leave
+## the finish or the trophy moment comes): they go into the cup and the save file. After the last race
+## the cup pays by your place (Economy.claim_cup: once per cup, level and place) and the trophy is kept.
+## Returns {final: bool, place, table, payout (the last race only)}.
+func cup_result(rows: Array) -> Dictionary:
+	if cup == null or not cup.add(rows):
+		return {}
+	var out := {"final": cup.finished(), "place": cup.place(), "table": cup.table()}
+	if cup.finished():
+		out.payout = Economy.claim_cup(cup.cup, cup.level, cup.place())
+		audio.play("cash")
+	else:
+		SaveData.set_cup_run(cup.to_dict())
+	return out
+
+
+## Between races (and Esc in a cup race): the menu with the cup's standings over it, the next track
+## behind them. A finished cup goes back to the plain menu.
+func cup_standings() -> void:
+	if cup != null and cup.finished():
+		cup = null
+	show_menu()
+	if cup == null:
+		return
+	var i := Tracks.ids().find(cup.next_track())
+	if i >= 0:
+		ui.menu.select(i)
+	ui.menu.show_cups(true)
+
+
+## The trophy moment is over: the menu (its cabinet shows the new trophy).
+func end_cup() -> void:
+	cup = null
+	show_menu()
+
+
+## Quit cup (the cup screen's button): asks first; quitting pays nothing for the cup (the races run
+## keep what they paid).
+func ask_quit_cup() -> void:
+	if cup == null:
+		return
+	ui.menu.input = null
+	UiSound.play("ui_confirm")
+	message.ask("Quit the %s?" % Cups.name_of(cup.cup), "You are %s after %d of %d races. Quitting ends this cup: it pays nothing and gives no trophy (the races you ran keep their medals, records and race pay)." % [
+		Field.place_name(cup.place()), cup.races_done(), cup.race_count()], "Quit cup", quit_cup)
+
+
+## Drop the cup in progress now (no pay, no trophy).
+func quit_cup() -> void:
+	cup = null
+	SaveData.clear_cup_run()
+	ui.menu.cups.refresh()
 
 
 ## Why locked track `i` can't be driven, and what opens it (the menu's message).

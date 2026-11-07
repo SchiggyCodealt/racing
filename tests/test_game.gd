@@ -371,9 +371,15 @@ func _app(t) -> void:
 		_app_field(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	if AiLink.ready():
+		_app_cup(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	_app_audio(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	# (a track still being built on a worker thread runs an app method: wait for it before freeing the app)
+	app.show_track(app.world.track)
 	app.free()
 	UiData.reset()
 
@@ -561,6 +567,156 @@ func _app_field(t, app: GameApp) -> void:
 	app.input.pressed["menu"] = true
 	m.update(1.0 / 60.0)
 	t.check(app.mode == app.menu_mode and app.ui.menu.visible, "Esc: back to the menu")
+	SaveData.use_file(SAVE)
+
+
+## v6.14.0: championships through the app, on a new save file: the menu's Cups button (the empty
+## cabinet) and T open the cup screen; a locked cup is refused; with the tracks open a Pro Rookie Cup
+## starts its first race (the field's grid, you last); race 1 driven by the medal autopilot: the finish
+## panel's cup line and keys, R doesn't race it again, Enter goes to the standings (the menu with the cup
+## screen, the next track picked, the cup in the save file); race 2 from your slot by the standings, Esc
+## before the finish doesn't count it; race 2's results given, race 3 left at once: the trophy moment
+## (the top three of the standings with their trophies on the podium, the final standings and the cup's
+## pay on the panel, the trophy in the cabinet), Enter to the menu; the same cup again pays nothing new;
+## Quit cup asks, then drops the cup and pays nothing.
+func _app_cup(t, app: GameApp) -> void:
+	t.section("the app: championships (v6.14.0)")
+	var path := "user://test_game_cups.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	app.cup = null
+	var menu: MainMenu = app.ui.menu
+	var cups: CupScreen = menu.cups
+	var msg: Label = app.message.get("_text")
+	menu.select_car("racer")
+	menu.select(0)
+	menu.refresh()
+	var cab: CupCabinet = menu.get("_cups_btn")
+	var empty_cab := cab.cells.size() == Cups.ids().size()
+	for c: Dictionary in cab.cells:
+		empty_cab = empty_cab and String(c.trophy) == ""
+	app.input.press("KeyT")
+	menu.handle_keys(app.input)
+	var picker_ok := cups.visible and not cups.is_standings and cups.picked_cup == "rookie" and (cups.get("_start_btn") as Button).disabled
+	t.check(empty_cab and cab.text == "" and cab.tooltip_text.contains("0 of 25") and picker_ok,
+		"the menu's Cups button shows an empty cabinet (5 cups, 0 of 25 trophies); T opens the cup picker: the Rookie Cup picked but locked (START off) on a new career")
+	app.start_cup("rookie", "pro")
+	t.check(app.mode == app.menu_mode and app.cup == null and app.message.visible and msg.text.contains("Hairpin Valley"), "a locked cup is refused, naming the tracks still locked")
+	app.message.close()
+	SaveData.unlock_tracks(true)
+	cups.refresh()
+	cups.pick_level("pro")
+	var info: String = (cups.get("_info") as RichTextLabel).get_parsed_text()
+	var win := UiData.cup_pays("rookie", "pro", 1)
+	t.check(not (cups.get("_start_btn") as Button).disabled and info.contains("+" + UiFormat.money(int(win.money))) and info.contains("Racer"),
+		"with the tracks open START is on: \"%s\"" % info)
+	app.input.press("Enter")
+	menu.handle_keys(app.input)
+	var m: Node = app.mode
+	var fr: FieldRace = m.get("field") if m != app.menu_mode else null
+	t.check(fr != null and app.cup != null and m.get("cup") == app.cup and str(app.ui.hud.get("_mode").text).begins_with("ROOKIE CUP · RACE 1/3 · PRO") and not cups.visible and
+		fr.racers[fr.player_index].slot == 5 and SaveData.get_cup_run().get("cup") == "rookie",
+		"Enter starts it: race 1 of 3 on Rookie Oval (%s), you last on the grid, the cup in the save file" % str(app.ui.hud.get("_mode").text))
+	if fr == null:
+		return
+	var track: BuiltTrack = m.get("track")
+	var medals := Medals.medal_times(track, "racer")
+	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
+	var money0 := UiData.money()
+	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
+	_feed(app, null)
+	var place := fr.position(fr.player_index)
+	var fs: Dictionary = m.get("finish_state")
+	var texts := _texts(app.ui.hud.finish)
+	var cup_line := "Rookie Cup, race 1 of 3: +%d points" % Cups.points_for(place)
+	t.check(m.get("phase") == "finished" and texts.has(cup_line) and texts.has("standings") and not texts.has("race again") and
+		UiData.money() == money0 + int((fs.payout as Dictionary).money) and String((fs.payout as Dictionary).get("medal", "")) != "" and app.cup.races_done() == 0,
+		"race 1 driven to the finish: %s, paid as a field race (%s with the medal), the panel says \"%s\" and Enter: standings" % [
+		Field.place_name(place), UiFormat.money(int((fs.payout as Dictionary).money)), cup_line])
+	app.input.pressed["restart"] = true
+	m.update(1.0 / 60.0)
+	var still: bool = app.mode == m and m.get("phase") == "finished"
+	_run_until(m, func() -> bool: return m.get("podium_on") == true, 5.0)
+	app.input.pressed["respawn"] = true
+	m.update(1.0 / 60.0)
+	var after1: Array = app.cup.races[0].keys() if app.cup != null and app.cup.races.size() > 0 else []
+	t.check(still and app.mode == app.menu_mode and cups.visible and cups.is_standings and app.cup.races_done() == 1 and after1.size() == 6 and
+		int(app.cup.races[0]["you"].place) == place and menu.selected_track == 1 and CupRun.from_dict(SaveData.get_cup_run()).to_dict() == app.cup.to_dict() and
+		(cups.get("_table") as CupTable).get_child_count() == 7 * 7 and (cups.get("_race_btn") as Button).text == "RACE 2: HAIRPIN VALLEY",
+		"R after the finish doesn't race it again; Enter: the standings over the menu (six rows, you %s), Hairpin Valley picked behind them, the cup saved; RACE 2: HAIRPIN VALLEY" % Field.place_name(app.cup.place()))
+	# race 2: from your slot by the standings; Esc before the finish doesn't count it
+	app.input.press("Enter")
+	menu.handle_keys(app.input)
+	m = app.mode
+	fr = m.get("field") if m != app.menu_mode else null
+	var slot_ok := false
+	if fr != null:
+		var g := app.cup.grid()
+		var me: Car = m.get("car")
+		var tr2: BuiltTrack = m.get("track")
+		slot_ok = fr.racers[fr.player_index].slot == g.find(Cups.PLAYER) and absf(me.prog - float(tr2.start_idx)) < 0.05 and tr2.id == "hairpin-valley"
+		for k in Field.AI_COUNT:
+			var r: FieldRace.Racer = fr.racers[k]
+			slot_ok = slot_ok and String(r.info.id) == g[r.slot] and ((r.car.prog > me.prog) == (r.slot < fr.racers[fr.player_index].slot))
+	t.check(slot_ok and str(app.ui.hud.get("_mode").text).contains("RACE 2/3"),
+		"race 2 on Hairpin Valley: the grid in standings order (%s), you %s on the usual start spot, the cars ahead of you in the standings ahead of you" % [", ".join(app.cup.grid()), Field.place_name(app.cup.grid().find(Cups.PLAYER) + 1)])
+	_run_until(m, func() -> bool: return m.get("phase") == "race", 5.0)
+	app.input.pressed["menu"] = true
+	m.update(1.0 / 60.0)
+	t.check(app.mode == app.menu_mode and cups.is_standings and app.cup.races_done() == 1, "Esc during race 2: back to the standings, the race not counted (still 1 of 3 done)")
+	# race 2's results given (you win it), race 3 started and left at once: the trophy moment
+	var rows2: Array = [{"id": Cups.PLAYER, "place": 1}]
+	for k in Field.AI_COUNT:
+		rows2.append({"id": app.cup.drivers[k], "place": k + 2})
+	app.cup_result(rows2)
+	app.cup_standings()
+	cups.next_race.emit()
+	m = app.mode
+	fr = m.get("field") if m != app.menu_mode else null
+	if fr == null:
+		t.check(false, "race 3 starts")
+		return
+	var money1 := UiData.money()
+	m.set("phase", "finished")
+	app.input.pressed["respawn"] = true
+	m.update(1.0 / 60.0)
+	var cplace := app.cup.place() if app.cup != null else 0
+	var pod: Podium = m.get("podium")
+	var fs3: Dictionary = m.get("finish_state")
+	var pay: Dictionary = fs3.get("payout", {})
+	var cupids := Economy.cup_ids("rookie", "pro", cplace)
+	var pids: PackedStringArray = []
+	for it: Dictionary in pay.get("items", []):
+		pids.append(String(it.id))
+	var texts3 := _texts(app.ui.hud.finish)
+	var podium_ok := (pod != null and pod.visible and pod.has(1) and pod.has(2) and pod.has(3) and pod.trophy(1) != null and pod.trophy(1).kind == "gold" and
+		pod.trophy(3).kind == "bronze" and pod.camera.current)
+	t.check(m.get("trophy_on") == true and podium_ok and fs3.has("cup_final") and texts3.has("Rookie Cup") and texts3.has(Field.place_name(cplace)) and texts3.has("menu") and
+		pids == cupids and UiData.money() == money1 + int(pay.get("money", 0)) and SaveData.cup_place("rookie", "pro") == cplace and SaveData.get_cup_run().is_empty(),
+		"race 3 left at once: the trophy moment: the top three of the standings on the podium with gold, silver and bronze trophies, the panel with the final standings (you %s) and the cup's pay (%s: %s), the place in the cabinet, the cup gone from the save file" % [
+		Field.place_name(cplace), ", ".join(pids), UiFormat.money(int(pay.get("money", 0)))])
+	app.input.pressed["respawn"] = true
+	m.update(1.0 / 60.0)
+	var cell: Dictionary = cab.cells[0]
+	t.check(app.mode == app.menu_mode and app.cup == null and menu.visible and not cups.visible and String(cell.trophy) == Cups.trophy(cplace) and String((cell.levels as Array)[2]) == Cups.trophy(cplace),
+		"Enter: the menu; the cabinet shows the Rookie Cup's %s at Pro (%s)" % [Cups.trophy(cplace) if cplace <= 3 else "place", cab.tooltip_text.get_slice("\n", 2)])
+	# the same cup and place again pays nothing new
+	var again := Economy.cup_payout("rookie", "pro", cplace, SaveData.cup_paid())
+	# Quit cup: asks, then drops the cup without pay
+	app.start_cup("asphalt", "amateur")
+	var money2 := UiData.money()
+	app.cup_result(rows2.map(func(r: Dictionary) -> Dictionary: return {"id": String(r.id) if String(r.id) == Cups.PLAYER else app.cup.drivers[int(r.place) - 2], "place": r.place}))
+	app.cup_standings()
+	app.input.press("KeyQ")
+	menu.handle_keys(app.input)
+	var asked: bool = app.message.visible and app.message.asking and msg.text.contains("pays nothing")
+	app.message.confirm()
+	t.check(again.items.is_empty() and asked and app.cup == null and SaveData.get_cup_run().is_empty() and UiData.money() == money2 and cups.visible and not cups.is_standings,
+		"the same place in the same cup again pays nothing new; Q (Quit cup) asks first, then the cup is gone, nothing paid, the picker back")
+	cups.close()
+	# (a sound's minimum gap is real time: the next section's first Buy confirm isn't held back by Quit cup's)
+	(app.audio.get("_last") as Dictionary).clear()
 	SaveData.use_file(SAVE)
 
 
@@ -987,7 +1143,7 @@ func _terminal(t) -> void:
 	for c: Dictionary in Terminal.COMMANDS:
 		if str(c.get("help", "")) == "" or not term.has_method(str(c.run)) or not c.has("args"):
 			bad.append(c.name)
-	t.check(bad.is_empty() and term.names() == PackedStringArray(["help", "money", "points", "car", "buy", "upgrade", "unlock", "status", "reset", "clear", "exit"]),
+	t.check(bad.is_empty() and term.names() == PackedStringArray(["help", "money", "points", "car", "buy", "upgrade", "unlock", "cup", "status", "reset", "clear", "exit"]),
 		"one table: %d commands, each with its help, usage and method %s" % [Terminal.COMMANDS.size(), bad])
 	var r: Dictionary = term.run("")
 	t.check((r.lines as Array).is_empty() and not r.changed and (term.run("   \t ").lines as Array).is_empty(), "an empty line does nothing")
@@ -1094,6 +1250,21 @@ func _terminal(t) -> void:
 	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(6 of 6)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
 		st.contains("1 of 15 tracks") and st.contains("Tracks | all 15 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
 		"status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag (the gold opened Hairpin Valley for good, unannounced: it was open)")
+	# v6.14.0: cup (the trophy cabinet; a place set without racing, nothing paid)
+	var money_c := SaveData.get_money()
+	var rc1: Dictionary = term.run("cup rookie pro 1")
+	var rc2: Dictionary = term.run("Cup Finale elite 4")
+	var rc3: Dictionary = term.run("cup")
+	var rbad: Array = [term.run("cup nope pro 1"), term.run("cup rookie master 1"), term.run("cup rookie pro 9"), term.run("cup rookie")]
+	var bad_ok := rbad.all(func(x: Dictionary) -> bool: return kind_of.call(x) == "error" and not x.changed)
+	var cab_ok: bool = text_of.call(rc3).contains("Rookie Cup | Pro gold") and text_of.call(rc3).contains("Grand Finale | Elite 4th") and text_of.call(rc3).contains("Asphalt Cup | -")
+	st = text_of.call(term.run("status"))
+	t.check(rc1.changed and text_of.call(rc1).contains("a gold trophy") and rc2.changed and SaveData.cup_place("finale", "elite") == 4 and cab_ok and bad_ok and
+		st.contains("Cups | 1 of 25 trophies") and SaveData.get_money() == money_c and SaveData.cup_paid().is_empty(),
+		"cup rookie pro 1 records a gold, Cup Finale elite 4 a 4th (no trophy), cup lists the cabinet, status counts 1 of 25; bad cups, levels, places error; nothing paid")
+	term.run("cup rookie pro 0")
+	term.run("cup finale elite 0")
+	t.check(SaveData.cup_trophies().is_empty(), "cup <cup> <level> 0 takes a place away")
 	var mc: Dictionary = Terminal.medal_counts()
 	t.check(int(mc.gold) == 1 and int(mc.bronze) == 1 and int(mc.tracks) == 1, "medal_counts: the best medal of each track and car")
 
@@ -1119,7 +1290,7 @@ func _terminal(t) -> void:
 
 	# Tab
 	var tab_ok := true
-	var cases := [["", "", 11], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 2], ["car v", "car vortex ", 1], ["car ", "car ", 7], ["car D", "car D", 2],
+	var cases := [["", "", 12], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 3], ["car v", "car vortex ", 1], ["car ", "car ", 7], ["car D", "car D", 2],
 		["help m", "help money ", 1], ["unlock a", "unlock all ", 1], ["reset c", "reset career ", 1], ["zz", "zz", 0], ["money s", "money set ", 1],
 		["car all x", "car all x", 0], ["status x", "status x", 0], ["p", "points ", 1]]
 	var tab_bad := []

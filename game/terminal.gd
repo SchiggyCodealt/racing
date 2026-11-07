@@ -15,7 +15,7 @@ extends RefCounted
 ## command is one entry here and one method.
 ## Everything that changes the career goes through the save file's own functions, which write the
 ## file at once: SaveData.add_money / add_points (never below 0), give_car, unlock_tracks,
-## reset_career, set_upgrades (v6.11.0), and Economy.buy / buy_upgrade (the car picker's shop). `changed` then tells the screen to
+## reset_career, set_upgrades (v6.11.0), set_cup_place (v6.14.0: cup), and Economy.buy / buy_upgrade (the car picker's shop). `changed` then tells the screen to
 ## redraw the menu. Nothing a command is given can raise a script error: a bad command or
 ## argument prints a short message saying what to type instead.
 ##
@@ -58,6 +58,11 @@ const COMMANDS: Array[Dictionary] = [
 		more = ["unlock all: every car is yours and every track is open, for good (the save file keeps it).",
 			"unlock cars: only the cars; unlock tracks: only the tracks (without it, bronze on a track opens the next)."],
 		complete = ["all", "cars", "tracks"]},
+	{name = "cup", args = "[<cup> <level> <place>]", help = "show the trophy cabinet, or set a cup's place at a level", run = "_cup",
+		more = ["cup lists the championships and your best place in each at each level (the trophy cabinet).",
+			"cup rookie pro 1 records 1st (a gold trophy) in the Rookie Cup at Pro without racing it; 0 takes it away.",
+			"It pays nothing. Cups: rookie, asphalt, technical, dirt-snow, finale; levels: rookie, amateur, pro, expert, elite."],
+		complete = ["rookie", "asphalt", "technical", "dirt-snow", "finale"]},
 	{name = "status", args = "", help = "your money, points, cars, upgrades, medals and open tracks", run = "_status",
 		more = ["status shows your money, career points, the cars you own and their upgrades, the medals you hold and the tracks open."]},
 	{name = "reset", args = "career", help = "start the career over (asks first)", run = "_reset", wipes = true,
@@ -522,6 +527,7 @@ func _status(_args: PackedStringArray, out: Out) -> void:
 		parts.append("%d %s" % [int(m[k]), k])
 	out.row("Medals", "%s (the best of each track and car; %d of %d tracks have one)" % [", ".join(parts), int(m.tracks), Tracks.ids().size()])
 	out.row("Tracks", tracks_row())
+	out.row("Cups", cups_row())
 
 
 ## The status row of the upgrades: each upgraded car's levels ("Racer E3 T1 N0 L0") and what
@@ -574,6 +580,55 @@ static func medal_counts() -> Dictionary:
 		if any:
 			out.tracks = int(out.tracks) + 1
 	return out
+
+
+## v6.14.0: the trophy cabinet, or one cup's place at one level (no pay).
+func _cup(args: PackedStringArray, out: Out) -> void:
+	if args.is_empty():
+		var tro := SaveData.cup_trophies()
+		for id: String in Cups.ids():
+			var t: Dictionary = tro.get(id, {})
+			var parts: PackedStringArray = []
+			for lv: String in Opponents.ids():
+				var p := int(t.get(lv, 0))
+				if p > 0:
+					parts.append("%s %s" % [Opponents.level_name(lv), Cups.trophy(p) if Cups.trophy(p) != "" else Field.place_name(p)])
+			out.row(Cups.name_of(id), ", ".join(parts) if not parts.is_empty() else "-")
+		out.add("info", "cup <cup> <level> <place> sets a place (1-3 win trophies, 0 takes it away); it pays nothing.")
+		return
+	if args.size() != 3:
+		out.add("error", "cup: give a cup, a level and a place, e.g. cup rookie pro 1 (or cup on its own for the cabinet).")
+		return
+	var cid := args[0]
+	if Cups.cup(cid).is_empty():
+		out.add("error", "cup: there is no cup called %s. The cups: %s." % [_q(args[0]), ", ".join(Cups.ids())])
+		return
+	var lv := args[1]
+	if Opponents.rank(lv) < 0:
+		out.add("error", "cup: there is no level called %s. The levels: %s." % [_q(args[1]), ", ".join(Opponents.ids())])
+		return
+	var n: Variant = parse_amount(args[2])
+	if n == null or int(n) < 0 or int(n) > Field.AI_COUNT + 1:
+		out.add("error", "cup: the place is a whole number from 1 to %d (0 takes it away), not %s." % [Field.AI_COUNT + 1, _q(args[2])])
+		return
+	SaveData.set_cup_place(cid, lv, int(n))
+	if int(n) == 0:
+		out.add("ok", "%s at %s: no place now" % [Cups.name_of(cid), Opponents.level_name(lv)])
+	else:
+		var kind := Cups.trophy(int(n))
+		out.add("ok", "%s at %s: %s%s (nothing paid)" % [Cups.name_of(cid), Opponents.level_name(lv), Field.place_name(int(n)), (", a %s trophy" % kind) if kind != "" else ""])
+	out.changed = true
+
+
+## The status row of the cups: how many trophies of how many.
+static func cups_row() -> String:
+	var tro := SaveData.cup_trophies()
+	var won := 0
+	for id: String in Cups.ids():
+		for lv: String in Opponents.ids():
+			if Cups.trophy(int((tro.get(id, {}) as Dictionary).get(lv, 0))) != "":
+				won += 1
+	return "%d of %d trophies (%d cups at %d levels)" % [won, Cups.ids().size() * Opponents.ids().size(), Cups.ids().size(), Opponents.ids().size()]
 
 
 func _reset(args: PackedStringArray, out: Out) -> void:

@@ -36,6 +36,7 @@ func run(t) -> bool:
 	_upgrades(t)
 	_unlocks(t)
 	_field_ui(t)
+	_cup_ui(t)
 	_scale(t)
 	UiData.reset()
 	return true
@@ -1087,6 +1088,102 @@ func _field_ui(t) -> void:
 	_settle(h)
 	t.check(is_equal_approx(f.size.x, 800.0 - 24.0), "a narrow window keeps it full width")
 	h.free()
+
+
+## v6.14.0: the championship screens: the cup picker and the standings at 1280 x 720 (inside the
+## window, no scrolling), its keys, the menu's Cups button (the trophy cabinet) and the finish
+## panel's final standings (the trophy moment) at 1280 x 720 and 800 x 600.
+func _cup_ui(t) -> void:
+	t.section("championships: the cup screen, the cabinet and the final standings (v6.14.0)")
+	UiData.reset() # (every track open; the cabinet in the store)
+	UiData.store.career.cups = {"paid": [], "trophies": {"rookie": {"pro": 1, "elite": 3}, "asphalt": {"rookie": 2}}}
+	var h := _holder(t)
+	var cs := CupScreen.new()
+	h.add_child(cs)
+	CupScreen.picked_cup = ""
+	CupScreen.picked_level = "pro"
+	cs.open()
+	_settle(h)
+	# (the heights need real frames, the wrapped lines: the e2e cup scenario checks that both faces fit)
+	var rows: Array = cs.get("_rows")
+	var start: Button = cs.get("_start_btn")
+	var pr := cs.panel.get_global_rect()
+	t.check(rows.size() == 5 and pr.end.x <= 1280.5 and pr.position.x >= 0.0 and not start.disabled and cs.picked_cup == "rookie" and (cs.get("_level_btns") as Dictionary).size() == 5,
+		"the picker at 1280 x 720: five cup rows and five level chips across the window (%d px wide), START CUP on (every track open), the Rookie Cup picked" % roundi(pr.size.x))
+	var tracks0 := String(((rows[0] as Dictionary).tracks as Label).text)
+	t.check(tracks0.contains("Rookie Oval") and tracks0.contains("Hairpin Valley") and tracks0.contains("Ramp Rally"), "a cup row lists its three tracks: \"%s\"" % tracks0)
+	var inp := MenuInput.new()
+	cs.handle_keys(_press(inp, ["ArrowDown"]))
+	cs.handle_keys(_press(inp, ["ArrowRight"]))
+	var moved := cs.picked_cup == "asphalt" and cs.picked_level == "expert"
+	cs.handle_keys(_press(inp, ["ArrowUp"]))
+	cs.handle_keys(_press(inp, ["ArrowUp"]))
+	var wrapped := cs.picked_cup == "finale"
+	var got: Array = []
+	cs.start_cup.connect(func(c: String, l: String) -> void: got.append([c, l]))
+	cs.handle_keys(_press(inp, ["Enter"]))
+	t.check(moved and wrapped and got == [["finale", "expert"]], "keys: down / right pick the next cup and level, up wraps to the Grand Finale, Enter starts it (%s)" % str(got))
+	cs.handle_keys(_press(inp, ["Escape"]))
+	t.check(not cs.visible, "Esc closes it")
+	# the standings of a cup in progress
+	var run := CupRun.start("rookie", "pro", "racer")
+	var res: Array = [{"id": Cups.PLAYER, "place": 2}]
+	for k in Field.AI_COUNT:
+		res.append({"id": run.drivers[k], "place": 1 if k == 0 else k + 2})
+	run.add(res)
+	cs.run_view = func() -> Dictionary: return UiData.cup_view(run)
+	cs.open()
+	_settle(h)
+	pr = cs.panel.get_global_rect()
+	var tbl: CupTable = cs.get("_table")
+	var race_b: Button = cs.get("_race_btn")
+	var stexts := _texts(cs)
+	t.check(cs.is_standings and tbl.columns == 7 and tbl.get_child_count() == 49 and race_b.text == "RACE 2: HAIRPIN VALLEY" and
+		stexts.has("Pts") and stexts.has("Rookie") and stexts.has("You") and stexts.has("2") and stexts.has("8"),
+		"the standings: the table (pos, colour, driver, Rookie / Hairpin / Ramp, Pts) for six drivers (you 2nd with 8), RACE 2: HAIRPIN VALLEY")
+	var nexts: Array = []
+	var quits: Array = []
+	cs.next_race.connect(func() -> void: nexts.append(1))
+	cs.quit_cup.connect(func() -> void: quits.append(1))
+	cs.handle_keys(_press(inp, ["Enter"]))
+	cs.handle_keys(_press(inp, ["KeyQ"]))
+	t.check(nexts.size() == 1 and quits.size() == 1, "standings keys: Enter races the next one, Q asks to quit the cup")
+	h.free()
+	# the menu's Cups button: the cabinet
+	var cab := CupCabinet.new()
+	var c0: Dictionary = cab.cells[0]
+	var c1: Dictionary = cab.cells[1]
+	t.check(cab.cells.size() == 5 and String(c0.trophy) == "bronze" and c0.levels == ["", "", "gold", "", "bronze"] and String(c1.trophy) == "silver" and
+		cab.tooltip_text.contains("3 of 25") and cab.tooltip_text.contains("Rookie Cup: Pro gold, Elite bronze") and cab.custom_minimum_size.x < 240.0,
+		"the Cups button's cabinet: the Rookie Cup's trophy at its highest level (Elite bronze) with gold and bronze level pips, the Asphalt Cup's silver; tooltip \"3 of 25\" (%d px wide)" % roundi(cab.custom_minimum_size.x))
+	cab.free()
+	# the trophy moment's panel: the final standings
+	h = _holder(t)
+	var f := FinishPanel.new()
+	h.add_child(f)
+	f.set_window_size(Vector2(1280, 720))
+	run.add(res)
+	run.add(res)
+	var view := UiData.cup_view(run)
+	var st := Fx.panel_finish()
+	st.title = "Rookie Cup"
+	st.cup_final = {"place": int(view.place), "of": 6, "level": "Pro", "trophy": Cups.trophy(int(view.place)), "rows": view.rows,
+		"races": (view.races as Array).map(func(r: Dictionary) -> String: return String(r.name))}
+	st.dock = "right"
+	st.keys = [["Enter", "B", "menu"]]
+	st.payout = Economy.cup_payout("rookie", "pro", int(view.place), [])
+	f.update(st)
+	_settle(h)
+	var ft := _texts(f)
+	var fr := f.get_global_rect()
+	t.check(ft.has("2nd") and ft.has("Pts") and ft.has("menu") and fr.end.y <= 720.5 and fr.position.y >= -0.5 and fr.position.x > 1280.0 * 0.3,
+		"the trophy moment's panel at 1280 x 720: 2nd, the final standings and the cup's pay, docked right (x %d, %d..%d px)" % [roundi(fr.position.x), roundi(fr.position.y), roundi(fr.end.y)])
+	f.set_window_size(Vector2(800, 600))
+	_settle(h)
+	fr = f.get_global_rect()
+	t.check(fr.end.y <= 600.5 and fr.position.y >= -0.5, "800 x 600: it still fits (%d px high)" % roundi(fr.size.y))
+	h.free()
+	UiData.reset()
 
 
 func _texts(n: Node) -> PackedStringArray:

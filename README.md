@@ -62,6 +62,11 @@ the cars are **solid**: they bump, lean on each other and get pushed off line. T
 gaps to the cars ahead and behind and the standings; at the finish the panel lists everyone's time and gap, the top
 three stand on a **podium**, and your place pays money and points, more for a harder field (see
 [Race the field](#race-the-field)).
+Version 6.14.0 adds **championships**: five cups of three tracks each (the Rookie Cup to the Grand Finale), raced back
+to back against the same five AI drivers at a level you pick. Each race scores 10-8-6-5-4-3 points, the standings
+between the races set the next grid (the leader starts on pole), the top three of the final standings stand on the
+podium with **gold, silver and bronze trophies**, and the cup pays a big prize by your final place. The menu's **Cups**
+button (or **T**) opens them and shows your **trophy cabinet** (see [Championships](#championships)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -75,7 +80,7 @@ three stand on a **podium**, and your place pays money and points, more for a ha
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.10.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.14.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -136,6 +141,7 @@ On the menu:
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
 | `` ` `` (the key under Esc) | Settings, highlight **Terminal**, then A | The **terminal**: commands for money, points and cars (not during a race) |
+| T | highlight **Cups**, then A | The **championships**: pick a cup and a level, or the standings of the cup you are in (v6.14.0) |
 | Mouse | | Click a track tile or a car card to pick it, double-click to drive straight away |
 
 Each run starts with a 3-2-1-GO countdown. Circuits are 3 laps, and a lap only counts when you pass
@@ -155,7 +161,8 @@ score, whether a ghost is saved, the AI's best and the four medal times. Under i
 **LOCKED** when the picked car is not yours yet, **LOCKED** on a locked track), the **Race my best-run ghost** option and the **AI driver** block:
 the opponent (**Rookie** to **Elite**, or **My AI**, the picked car's own network), what it does on this track and
 what beating it pays, Race the AI, Watch the AI, **Race the field** (v6.13.0: five AI drivers of the picked level on a
-grid with you), Train the AI and Load / Save network. The header shows your money
+grid with you), Train the AI and Load / Save network. Next to the **3 Drive** heading the **Cups** button (v6.14.0)
+shows your trophy cabinet and opens the championships. The header shows your money
 and career points and a few key hints; the **Controls** button lists the rest, and the **Settings** button opens the
 settings.
 
@@ -424,6 +431,66 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
 $13,200 after three (a second car), and $102,000 after all 15, enough for all five cars ($94,000). Silver and the Pro
 everywhere buy the Kestrel after five tracks.
+
+### Championships
+
+(Version 6.14.0.) Press **Cups** (next to the **3 Drive** heading) or **T** on the menu. A championship is three
+races back to back against the same five AI drivers, with the car you picked: the standings after each race set the
+next grid, and the final standings give trophies and a big payout.
+
+| | Cup | Tracks | Opens with track |
+| --- | --- | --- | --- |
+| 1 | **Rookie Cup** | Rookie Oval, Hairpin Valley, Ramp Rally | 03 |
+| 2 | **Asphalt Cup** | Night Highway, Banked Speedway, Coastal GP | 10 |
+| 3 | **Technical Cup** | Lighthouse Bay, Technical Trial, Seaside Stunts | 12 |
+| 4 | **Dirt and Snow Cup** | Forest Rally, Mountain Pass, Canyon Run | 13 |
+| 5 | **Grand Finale** | Northern Lights, Grand Marathon, Summit Rush | 15 |
+
+Together they cover all 15 tracks, each cup harder than the one before. A cup opens when all three of its tracks are
+open (a locked cup can be picked: it says which tracks are still locked). Pick a cup with ↑ / ↓ and the field's level
+(**Rookie** to **Elite**) with ← / →, and press **START CUP** (Enter).
+
+- **The races.** Each race is a [field race](#race-the-field) on the cup's next track with its usual pay (medals,
+  records, your ghost and opening tracks count as in Drive), plus points for the championship: **10, 8, 6, 5, 4, 3**
+  for 1st to 6th (none for a car out of the race). The finish panel says what the race scored; **Enter** shows the
+  standings. The cup's five drivers are picked by the cup and level and stay the same in every race.
+- **The standings** come between the races, over the menu (with the next track picked behind them): each driver's
+  place in every race run so far and their points, the leader first. Equal points go to the better best place, then
+  to the better place in the latest race. **RACE 2** (Enter) starts the next one, **Quit cup** (Q) ends the cup
+  (it asks first; the cup pays nothing, the races you ran keep their pay), **Esc** closes them and keeps the cup.
+- **The grid** follows the standings: the leader on pole, the last last. Race 1 starts as a field race (you last);
+  later you start where the standings put you, still on the usual start spot (so the race stays as long as in Drive),
+  with the cars behind you in the standings lined up behind you.
+- **In a race** R restarts it before the finish; **Esc** goes back to the standings without counting it (race it
+  again). After your finish the cars still racing keep the order they had when you leave.
+- **The end.** After the last race, Enter: the **trophy moment**: the top three of the final standings on the podium
+  with gold, silver and bronze trophies and their points, the final standings and the cup's pay. Enter goes back to
+  the menu, whose cabinet shows your trophy.
+- **Saved as you go.** A cup in progress is kept in the save file after every race: close the game and the Cups button
+  opens its standings again.
+
+**The cup's pay** by your final place, on top of the three races' pay (the Rookie Cup at Pro; the levels pay 0.6 ×,
+1 ×, 1.5 ×, 2.1 × and 3 × as for field races, and each later cup a quarter more: an Elite win in the Grand Finale pays
+$25,200 and 660 points):
+
+| Final place | 4th | 3rd | 2nd | 1st | 5th, 6th |
+| --- | --- | --- | --- | --- | --- |
+| Money (in all) | $450 | $1,500 | $3,300 | $6,300 | nothing |
+| Points (in all) | 8 | 31 | 76 | 166 | |
+
+As for medals and field places, each place is paid once per cup and level (whatever car), and a better place later
+pays only the difference (a 3rd, then a win, pays $1,500, then $4,800).
+
+**The trophy cabinet.** The Cups button shows a trophy per cup in the colour of your best place at the highest level
+you have a trophy at, with five pips under it for Rookie to Elite; its tooltip and the cup picker spell it out (a gold,
+silver or bronze trophy per level). `reset career` keeps the trophies (it makes the cup payouts pay again and drops a
+cup in progress).
+
+| The cup picker (the cabinet per cup and level) | The standings between the races |
+| --- | --- |
+| ![The Championships screen over the menu: five cups with their tracks, difficulty bars and a trophy place per level, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1: you 1st with 10 points ahead of five AI drivers, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
+
+![The trophy moment after the Rookie Cup: the top three on the podium with gold, silver and bronze trophies, the final standings (you 1st with 30 points) and the cup's pay on the right](docs/screenshots/cup-trophy.png)
 
 ### Upgrades
 
@@ -928,7 +995,8 @@ behind it shows the new money, points and cars straight away.
 | `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car picker does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`) |
 | `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 3, without paying (`upgrade dune tyres 3`); `upgrade dune max` puts every part at 3, `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
-| `status` | Your money, points, the cars you own and their upgrades, how many medals you hold and how many tracks are open (and what opens the next one) |
+| `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
+| `status` | Your money, points, the cars you own and their upgrades, how many medals you hold, how many tracks are open (and what opens the next one) and how many cup trophies you have |
 | `reset career` | Starts the career over: $0, 0 points, only the Racer (stock), and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first: type `reset career confirm` to do it |
 | `clear` | Clears the terminal (Ctrl+L too) |
 | `exit` | Closes the terminal (Esc or `` ` `` too) |
@@ -953,7 +1021,8 @@ best time and splits, the ghost of that run and your best score for every track 
 also the volumes), the
 trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's),
 and the career: money, points, the cars you own and their upgrades, the rewards already paid, the tracks medals have
-opened and whether the terminal's `unlock all` opened every track. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+opened and whether the terminal's `unlock all` opened every track, and (6.14.0) the cup trophies, the cup payouts
+and a cup in progress. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -993,7 +1062,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.10.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.14.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 
@@ -1015,8 +1084,8 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop, Race the field) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels, whole AI field races). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades, the cups: points, standings, grids, payouts; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop, Race the field, championships) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels, whole AI field races). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `field` (Race the field: the grid, a race, the podium), `cup` (a championship: the cup picker, three races driven by the autopilot, the standings between them, the trophy moment and the cabinet; `races=1` drives only the first race), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 35 minutes on 3 cores for the six cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
@@ -1080,18 +1149,20 @@ sim/                    game logic without any graphics: tracks, road surfaces, 
                         collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
                         points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd),
                         car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs), Race the
-                        field (field.gd: the drivers, paces and grid; field_race.gd: the race; car_contact.gd: solid cars)
+                        field (field.gd: the drivers, paces and grid; field_race.gd: the race; car_contact.gd: solid cars),
+                        championships (cups.gd: the cups, points, standings and grids; cup_run.gd: a cup in progress)
 ai/                     the AI: network, evolution, sensors and driver, trainer, an opponent's race (opponent_race.gd)
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
 world/                  3D: track mesh, terrain and scenery, sky and themes, car models (car_shapes.gd: the six
                         bodies; car_build.gd + car_kit.gd: one skinned mesh per car with its driver; car_model.gd:
                         the skeleton's animation and lights), effects (smoke, dust, snow spray, skids, sparks, nitro),
-                        chase camera, the AI fleet and sensor rays, the podium (podium.gd); shaders/ (road_surface: dirt
+                        chase camera, the AI fleet and sensor rays, the podium (podium.gd) and its trophies (trophy.gd); shaders/ (road_surface: dirt
                         and snow roads)
 ui/                     the interface, built in code: style, menu, Controls, Settings and terminal screens, HUD, finish panel,
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart, the car
-                        picker's part chips (part_chip.gd), the volume bars (volume_bar.gd), ui_sound.gd (the
+                        picker's part chips (part_chip.gd), the volume bars (volume_bar.gd), the championships (cup_screen.gd,
+                        cup_table.gd, cup_cabinet.gd: the menu's Cups button), ui_sound.gd (the
                         interface's sounds, without depending on audio/)
 audio/                  sound (v6.12.0): the buses, volumes, pooled players and music (game_audio.gd), every sound
                         file as data (sound_bank.gd), the live engine synthesizer (engine_voice.gd) and a car's

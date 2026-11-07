@@ -52,6 +52,15 @@ extends RefCounted
 ##                                                    paid, the tracks flag off; the tracks opened by medals
 ##                                                    stay open (records, ghosts, scores, networks and
 ##                                                    settings stay too)
+## Championships (v6.14.0; sim/cups.gd, sim/cup_run.gd, sim/economy.gd claim_cup):
+##   SaveData.cup_paid() -> the cup reward ids paid (once per cup, level and place)
+##   SaveData.finish_cup(cup, level, place, ids, money, points)  the end of a cup, in one write: the
+##                                                    rewards paid, the trophy (the best place kept per
+##                                                    cup and level), the cup in progress gone
+##   SaveData.cup_trophies() -> {cup id: {level id: best place (1..6)}};  SaveData.cup_place(cup, level) -> 0 none
+##   SaveData.set_cup_place(cup, level, place)        set (or with 0 clear) a place without paying (the terminal)
+##   SaveData.clear_cup_trophies()                    every trophy gone (the terminal; rewards paid stay paid)
+##   SaveData.get_cup_run() -> the cup in progress (CupRun.to_dict(), {} none); set_cup_run(d); clear_cup_run()
 ## Unlocking tracks (v6.8.0; sim/unlocks.gd has the rule):
 ##   SaveData.opened_tracks() -> the tracks opened by medals (track ids; the first track is always open)
 ##   SaveData.open_track(id)                          open track `id` for good (true when it was not yet)
@@ -61,7 +70,10 @@ extends RefCounted
 ## settings: {...}, networks: {car: {slot: network file}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
-## tracks_open, upgrades: {car: [engine, tyres, nitro, loose]}}}.
+## tracks_open, upgrades: {car: [engine, tyres, nitro, loose]}, cups?: {paid: [cup reward ids], trophies: {cup:
+## {level: best place}}, run?: the cup in progress}}}.
+## (cups, v6.14.0: absent in older files = no trophies, nothing paid, no cup in progress; version 5 stays.
+## A reset career keeps the trophies (like the records) but not the cup payouts or the cup in progress.)
 ## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
 ## stays: older games keep the key as it is. tracks_open, v6.8.0: the tracks medals opened, for good;
 ## version 4 stays too: a career without it (a save from v6.7.0 or older, when every track was
@@ -296,6 +308,30 @@ static func _repair_career(d: Dictionary) -> void:
 		c.tracks_open = open
 	elif c.has("tracks_open"):
 		c.erase("tracks_open") # (not a list: worked out again from the best times, see _all)
+	# (v6.14) championships: the paid list of strings, the trophies {cup: {level: place 1..6}}, a run a Dictionary
+	if c.has("cups"):
+		var cu: Dictionary = c.cups if c.cups is Dictionary else {}
+		var paid: Array = []
+		if cu.get("paid") is Array:
+			for id: Variant in cu.paid:
+				if id is String and not paid.has(id):
+					paid.append(id)
+		var tro: Dictionary = {}
+		if cu.get("trophies") is Dictionary:
+			for cup: Variant in cu.trophies:
+				if not (cu.trophies[cup] is Dictionary):
+					continue
+				var lv: Dictionary = {}
+				for l: Variant in cu.trophies[cup]:
+					var pl: Variant = cu.trophies[cup][l]
+					if _is_num(pl) and int(pl) >= 1 and int(pl) <= 6:
+						lv[str(l)] = int(pl)
+				if not lv.is_empty():
+					tro[str(cup)] = lv
+		var fixed: Dictionary = {paid = paid, trophies = tro}
+		if cu.get("run") is Dictionary:
+			fixed.run = cu.run
+		c.cups = fixed
 	# (v6.11) upgrades: owned cars only, four levels 0..3 each, all-stock entries dropped
 	var up: Dictionary = {}
 	if c.get("upgrades") is Dictionary:
@@ -702,11 +738,15 @@ static func open_track(id: String) -> bool:
 ## Start the career over (the terminal's `reset career confirm`): $0, 0 points, only the starting
 ## cars, no rewards paid (so medals and AI wins pay again when they are next won), the tracks flag
 ## off. The tracks medals opened stay open (only those the flag opened lock again). Best times,
-## scores, ghosts, AI networks and settings are kept.
+## scores, ghosts, AI networks and settings are kept, and (v6.14) the cup trophies; the cup payouts
+## and a cup in progress go.
 static func reset_career() -> void:
 	_mutex.lock()
 	var open: Array = (_career().tracks_open as Array).duplicate()
+	var tro: Variant = _cups().get("trophies", {})
 	_all().career = {money = 0, points = 0, cars = Array(_starting_cars()), paid = {}, tracks_open = open, upgrades = {}}
+	if tro is Dictionary and not (tro as Dictionary).is_empty():
+		_all().career.cups = {paid = [], trophies = (tro as Dictionary).duplicate(true)}
 	_write()
 	_mutex.unlock()
 
@@ -770,3 +810,114 @@ static func set_upgrades(car_id: String, levels: PackedInt32Array) -> bool:
 		_write()
 	_mutex.unlock()
 	return ok
+
+
+# ---- championships (v6.14.0; sim/cups.gd, sim/cup_run.gd, sim/economy.gd claim_cup) ----------
+
+## The career's cups section ({paid, trophies, run?}), made when missing (not written until a change).
+static func _cups() -> Dictionary:
+	var c: Dictionary = _career()
+	if not (c.get("cups") is Dictionary):
+		c.cups = {paid = [], trophies = {}}
+	return c.cups
+
+
+## The cup reward ids paid (sim/economy.gd).
+static func cup_paid() -> PackedStringArray:
+	_mutex.lock()
+	var out := PackedStringArray(_cups().paid)
+	_mutex.unlock()
+	return out
+
+
+## The end of a cup (Economy.claim_cup), in one write: rewards `ids` paid with `money` and `points`, the
+## trophy (place `place` at `level` in cup `cup`, the best kept) and the cup in progress cleared.
+static func finish_cup(cup: String, level: String, place: int, ids: PackedStringArray, money: int, points: int) -> bool:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var cu: Dictionary = _cups()
+	for id: String in ids:
+		if not (cu.paid as Array).has(id):
+			(cu.paid as Array).append(id)
+	c.money = maxi(0, int(c.money) + money)
+	c.points = maxi(0, int(c.points) + points)
+	_keep_place(cu, cup, level, place)
+	cu.erase("run")
+	var ok: bool = _write()
+	_mutex.unlock()
+	return ok
+
+
+static func _keep_place(cu: Dictionary, cup: String, level: String, place: int) -> void:
+	if place < 1 or place > 6 or cup == "" or level == "":
+		return
+	if not (cu.trophies.get(cup) is Dictionary):
+		cu.trophies[cup] = {}
+	var was: int = int(cu.trophies[cup].get(level, 0))
+	if was == 0 or place < was:
+		cu.trophies[cup][level] = place
+
+
+## Every cup's best place per level: {cup id: {level id: place}} (a copy).
+static func cup_trophies() -> Dictionary:
+	_mutex.lock()
+	var out: Dictionary = (_cups().trophies as Dictionary).duplicate(true)
+	_mutex.unlock()
+	return out
+
+
+## The best place in cup `cup` at `level` (0: never finished it).
+static func cup_place(cup: String, level: String) -> int:
+	var t: Variant = cup_trophies().get(cup)
+	return int((t as Dictionary).get(level, 0)) if t is Dictionary else 0
+
+
+## Set the place of cup `cup` at `level` without paying (the terminal's `cup award`); 0 clears it.
+static func set_cup_place(cup: String, level: String, place: int) -> void:
+	_mutex.lock()
+	var cu: Dictionary = _cups()
+	if place <= 0:
+		if cu.trophies.get(cup) is Dictionary:
+			(cu.trophies[cup] as Dictionary).erase(level)
+			if (cu.trophies[cup] as Dictionary).is_empty():
+				(cu.trophies as Dictionary).erase(cup)
+	else:
+		if not (cu.trophies.get(cup) is Dictionary):
+			cu.trophies[cup] = {}
+		cu.trophies[cup][level] = clampi(place, 1, 6)
+	_write()
+	_mutex.unlock()
+
+
+## Every trophy gone (the terminal's `cup clear`); the cup rewards paid stay paid.
+static func clear_cup_trophies() -> void:
+	_mutex.lock()
+	_cups().trophies = {}
+	_write()
+	_mutex.unlock()
+
+
+## The cup in progress (CupRun.to_dict()), {} when none.
+static func get_cup_run() -> Dictionary:
+	_mutex.lock()
+	var r: Variant = _cups().get("run")
+	var out: Dictionary = (r as Dictionary).duplicate(true) if r is Dictionary else {}
+	_mutex.unlock()
+	return out
+
+
+static func set_cup_run(d: Dictionary) -> bool:
+	_mutex.lock()
+	_cups().run = d.duplicate(true)
+	var ok: bool = _write()
+	_mutex.unlock()
+	return ok
+
+
+static func clear_cup_run() -> void:
+	_mutex.lock()
+	var cu: Dictionary = _cups()
+	if cu.has("run"):
+		cu.erase("run")
+		_write()
+	_mutex.unlock()

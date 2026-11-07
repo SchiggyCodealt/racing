@@ -126,6 +126,7 @@ func run(checker: Variant) -> bool:
 	_faster_bronze()
 	_upgrades()
 	_field()
+	_cups()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
 		"format_time rounds correctly (119.9996 s -> 2:00.000; no time -> --:--.---)")
@@ -2958,3 +2959,293 @@ func _field() -> void:
 		Economy.reward(tid, "field-x-1").is_empty() and more and Economy.payout(Tracks.ids()[14], "", "", PackedStringArray(), "pro", 1).money > full.money and
 		SaveData.paid_rewards(tid, "kestrel").is_empty(),
 		"another level pays on its own (gold + Expert 2nd: the medal's 3 rewards and 4 places, labelled \"Expert field: 2nd\"); last place pays nothing; harder fields and later tracks pay more; another car has its own list")
+
+
+
+## v6.14.0: championships (sim/cups.gd, sim/cup_run.gd, sim/field.gd's grid by the standings,
+## sim/economy.gd's cup payouts, the save file's cups section).
+func _cups() -> void:
+	t.section("Championships: the cups (sim/cups.gd)")
+	var seen: Dictionary = {}
+	var data_ok := Cups.ids().size() >= 4
+	var means: PackedFloat64Array = []
+	var opens_at: PackedInt32Array = []
+	for id: String in Cups.ids():
+		var tr := Cups.tracks_of(id)
+		data_ok = data_ok and tr.size() >= 3 and tr.size() <= 4 and Cups.name_of(id) != id and String(Cups.cup(id).get("blurb", "")) != ""
+		var sum := 0.0
+		var last := -1
+		for tid: String in tr:
+			data_ok = data_ok and Tracks.index_of(tid) >= 0
+			seen[tid] = int(seen.get(tid, 0)) + 1
+			sum += float(Tracks.def(tid).get("difficulty", 0))
+			last = maxi(last, Tracks.index_of(tid))
+		means.append(sum / maxf(1.0, tr.size()))
+		opens_at.append(last + 1)
+	var once := seen.size() == Tracks.ids().size()
+	for tid: String in Tracks.ids():
+		once = once and int(seen.get(tid, 0)) == 1
+	var rising := true
+	for k in range(1, means.size()):
+		rising = rising and means[k] >= means[k - 1] and opens_at[k] >= opens_at[k - 1]
+	t.check(data_ok and once and rising and Cups.cup("nope").is_empty() and Cups.tracks_of("nope").is_empty(),
+		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup; rising in difficulty (mean %s) and opening in order (with track %s)" % [
+		Cups.ids().size(), ", ".join(Array(means).map(func(x: float) -> String: return "%.1f" % x)), ", ".join(Array(opens_at).map(func(x: int) -> String: return str(x)))])
+	var path := "user://test_sim_cups.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var none_open := true
+	for id: String in Cups.ids():
+		none_open = none_open and not Cups.is_open(id)
+	var miss := Cups.missing("rookie")
+	SaveData.open_track("hairpin-valley")
+	var one_short := not Cups.is_open("rookie")
+	SaveData.open_track("ramp-rally")
+	var rookie_open := Cups.is_open("rookie") and not Cups.is_open("asphalt") and Cups.missing("rookie").is_empty()
+	SaveData.unlock_tracks(true)
+	var all_open := true
+	for id: String in Cups.ids():
+		all_open = all_open and Cups.is_open(id)
+	SaveData.unlock_tracks(false)
+	t.check(none_open and miss == PackedStringArray(["hairpin-valley", "ramp-rally"]) and one_short and rookie_open and all_open and not Cups.is_open("asphalt") and not Cups.is_open("nope"),
+		"a new career: no cup open (the Rookie Cup misses Hairpin Valley and Ramp Rally); it opens when its last track opens, the Asphalt Cup not yet; `unlock tracks` opens every cup")
+
+	t.section("Championships: points and standings (sim/cups.gd)")
+	var pts_ok := Cups.points_for(1) == 10 and Cups.points_for(2) == 8 and Cups.points_for(3) == 6 and Cups.points_for(4) == 5 and Cups.points_for(5) == 4 and \
+		Cups.points_for(6) == 3 and Cups.points_for(7) == 0 and Cups.points_for(1, true) == 0 and Cups.points_for(0) == 0 and \
+		Cups.trophy(1) == "gold" and Cups.trophy(2) == "silver" and Cups.trophy(3) == "bronze" and Cups.trophy(4) == ""
+	var ent := PackedStringArray(["a", "b", "c", "d", "e", "you"])
+	var race := func(order: Array, out: Array = []) -> Dictionary:
+		var d: Dictionary = {}
+		for k in order.size():
+			d[order[k]] = {place = k + 1, dnf = out.has(order[k])}
+		return d
+	var races: Array = [race.call(["a", "b", "c", "d", "e", "you"]), race.call(["you", "c", "a", "b", "d", "e"]), race.call(["b", "you", "a", "c", "e", "d"], ["d"])]
+	var tb := Cups.table(ent, races)
+	var order: PackedStringArray = []
+	var pts: PackedInt32Array = []
+	for r: Dictionary in tb:
+		order.append(String(r.id))
+		pts.append(int(r.points))
+	# a 10+6+6 = 22, b 8+5+10 = 23, c 6+8+5 = 19, you 3+10+8 = 21, d 5+4+0 (out) = 9, e 4+3+4 = 11
+	t.check(pts_ok and order == PackedStringArray(["b", "a", "you", "c", "e", "d"]) and pts == PackedInt32Array([23, 22, 21, 19, 11, 9]) and int(tb[0].pos) == 1 and
+		int(tb[5].dnf) == 1 and PackedInt32Array(tb[2].places) == PackedInt32Array([6, 1, 2]) and int(tb[2].best) == 1 and int(tb[2].last) == 2,
+		"points 10-8-6-5-4-3 (none for 7th or an out car); three races: %s with %s points (d out in the last race scores 0 there)" % [", ".join(order), ", ".join(Array(pts).map(func(x: int) -> String: return str(x)))])
+	# ties: equal points, the better best place first; equal best places too, the better last race
+	var tie1 := Cups.table(PackedStringArray(["x", "y"]), [{x = {place = 1}, y = {place = 2}}, {x = {place = 6}, y = {place = 5}}, {x = {place = 6}, y = {place = 5}}])
+	var tie2 := Cups.table(PackedStringArray(["x", "y"]), [{x = {place = 1}, y = {place = 1}}, {x = {place = 5}, y = {place = 6}}, {x = {place = 6}, y = {place = 5}}])
+	var tie3 := Cups.table(PackedStringArray(["x", "y"]), [{x = {place = 3}, y = {place = 2}}, {x = {place = 2}, y = {place = 3}}])
+	var tie4 := Cups.table(PackedStringArray(["x", "y", "z"]), [{x = {place = 1}, y = {place = 2}, z = {place = 3}}, {x = {place = 5}, y = {place = 3}, z = {place = 1}}])
+	t.check(int(tie1[0].points) == 16 and int(tie1[1].points) == 16 and String(tie1[0].id) == "x" and int(tie2[0].points) == int(tie2[1].points) and String(tie2[0].id) == "y" and
+		String(tie3[0].id) == "x" and String(tie4[0].id) == "z" and String(tie4[1].id) == "x" and int(tie4[1].points) == int(tie4[2].points),
+		"ties: on equal points (16 each) the better best place leads (1st, 6th, 6th beats 2nd, 5th, 5th); with the same best place too, the better place in the last race (5th beats 6th; 2nd beats 3rd)")
+	t.check(Cups.grid_order(ent, []) == ent and Cups.grid_order(ent, races) == order and Cups.table(ent, []).size() == 6 and int(Cups.table(ent, [])[5].points) == 0 and
+		String(Cups.table(ent, [])[5].id) == "you",
+		"the grid: before the first race the entrants as given (the field's grid: you last), after it the standings, the leader on pole (%s)" % ", ".join(order))
+
+	t.section("Championships: a cup in progress (sim/cup_run.gd)")
+	var run := CupRun.start("rookie", "pro", "racer")
+	var drv := Field.cup_drivers("rookie", "pro")
+	var same_drivers := run.drivers == drv and drv.size() == Field.AI_COUNT and drv == Field.cup_drivers("rookie", "pro") and drv != Field.cup_drivers("rookie", "elite")
+	var f1: Dictionary = run.field("rookie-oval")
+	var lu1: Array = f1.lineup
+	var base := Opponents.time_of("rookie-oval", "racer", "pro")
+	var paced := lu1.size() == Field.AI_COUNT and int(f1.player_slot) == Field.AI_COUNT
+	for k in lu1.size():
+		paced = paced and String(lu1[k].id) == drv[k] and is_equal_approx(float(lu1[k].target), Field.PACE[k] * base)
+	t.check(run != null and same_drivers and paced and run.race_count() == 3 and run.next_track() == "rookie-oval" and run.entrants().size() == 6 and
+		CupRun.start("nope", "pro", "racer") == null and CupRun.start("rookie", "nope", "racer") == null and CupRun.start("rookie", "pro", "nope") == null,
+		"a Pro Rookie Cup: five drivers picked by the cup and level (%s), the same in every race; race 1 on Rookie Oval: the field's grid, the slowest at the front, you last" % ", ".join(drv))
+	# race 1: you win; the grid of race 2 follows the standings (you on pole), the drivers keep their pace
+	var rows1: Array = [{id = "you", place = 1}]
+	for k in Field.AI_COUNT:
+		rows1.append({id = drv[Field.AI_COUNT - 1 - k], place = k + 2})
+	var bad_rows: Array = rows1.slice(0, 5)
+	var added := run.add(rows1)
+	var f2: Dictionary = run.field("hairpin-valley")
+	var lu2: Array = f2.lineup
+	var base2 := Opponents.time_of("hairpin-valley", "racer", "pro")
+	var paced2 := lu2.size() == Field.AI_COUNT and int(f2.player_slot) == 0
+	for k in lu2.size():
+		var pace_rank := drv.find(String(lu2[k].id))
+		paced2 = paced2 and String(lu2[k].id) == drv[Field.AI_COUNT - 1 - k] and is_equal_approx(float(lu2[k].target), Field.PACE[pace_rank] * base2)
+	t.check(not CupRun.start("rookie", "pro", "racer").add(bad_rows) and added and run.races_done() == 1 and run.place() == 1 and run.next_track() == "hairpin-valley" and paced2 and
+		run.grid()[0] == "you",
+		"results that miss a driver are refused; after a win in race 1 you lead (10 points) and start race 2 on pole, the AI behind you in standings order, each keeping its own pace")
+	var d := run.to_dict()
+	var back := CupRun.from_dict(JSON.parse_string(JSON.stringify(d)))
+	var junk_ok := CupRun.from_dict({}) == null and CupRun.from_dict({cup = "rookie", level = "pro", car = "racer", drivers = ["fox"], races = []}) == null and \
+		CupRun.from_dict({cup = "rookie", level = "pro", car = "racer", races = [{}]}) == null and CupRun.from_dict("x") == null and \
+		CupRun.from_dict({cup = "rookie", level = "pro", car = "racer", races = [rows1, rows1, rows1, rows1]}) == null
+	t.check(back != null and back.to_dict() == run.to_dict() and back.place() == 1 and back.next_track() == "hairpin-valley" and junk_ok,
+		"a cup in progress round-trips through JSON (the save file); a damaged one (another roster, a result missing drivers, more races than tracks) is dropped")
+	var r2: Array = [{id = "you", place = 6}]
+	var r3: Array = [{id = "you", place = 6}]
+	for k in Field.AI_COUNT:
+		r2.append({id = drv[k], place = k + 1})
+		r3.append({id = drv[k], place = k + 1})
+	run.add(r2)
+	run.add(r3)
+	var fin_tb := run.table()
+	t.check(run.finished() and run.next_track() == "" and not run.add(r3) and run.place() == 4 and int(fin_tb[3].points) == 16 and int(fin_tb[4].points) == 16 and
+		String(fin_tb[0].id) == drv[0] and int(fin_tb[0].points) == 23,
+		"three races (you 1st, 6th, 6th: 16 points): the cup is over, %s leads with 23; you are 4th, ahead of two drivers on 16 points by your win" % String(fin_tb[0].id))
+
+	t.section("Championships: the grid by the standings on every track (sim/field.gd, sim/field_race.gd)")
+	var widest := 0.0
+	for id: String in Cars.ids():
+		widest = maxf(widest, Cars.spec(id).radius)
+	var bad: PackedStringArray = []
+	for id: String in Tracks.ids():
+		var tr: BuiltTrack = Tracks.build(id)
+		var first_cp: int = tr.cp_samples[0] if tr.cp_samples.size() > 0 else tr.finish_idx
+		for anchor in range(Field.AI_COUNT):
+			var g := Field.grid(tr, Field.AI_COUNT + 1, anchor)
+			var issues: PackedStringArray = []
+			var me: Dictionary = g[anchor]
+			if int(me.idx) != tr.start_idx or float(me.lat) >= 0.0 or int(me.laps) != 0:
+				issues.append("you are not on the start spot's right")
+			var cars: Array = []
+			var turn := 0.0
+			for k in g.size():
+				var s: Dictionary = g[k]
+				var i: int = s.idx
+				if absf(float(s.lat)) + widest + 1.0 > tr.hw[i]:
+					issues.append("slot %d is %.1f m from the wall" % [k + 1, tr.hw[i] - absf(float(s.lat)) - widest])
+				if k < anchor and i >= first_cp - 10:
+					issues.append("slot %d is at the first checkpoint" % (k + 1))
+				if not tr.surface.is_empty() and tr.surface[i] != Surfaces.ASPHALT:
+					issues.append("slot %d is not on asphalt" % (k + 1))
+				if k > 0 and signf(float(s.lat)) == signf(float(g[k - 1].lat)):
+					issues.append("slots %d and %d are on one side" % [k, k + 1])
+				if not tr.closed and i < Field.BACK_MIN:
+					issues.append("slot %d is off the road's start" % (k + 1))
+				turn = maxf(turn, absf(wrap_a(atan2(tr.tx[i], tr.tz[i]) - atan2(tr.tx[tr.start_idx], tr.tz[tr.start_idx]))))
+				var c := Car.new(tr, i, Cars.spec("thunder"))
+				c.place(tr, i, {x = s.x, z = s.z, yaw = s.yaw, vx = 0.0, vz = 0.0, idx = i, laps = int(s.laps)})
+				var p_want: float = float(tr.start_idx) + (float(i) - float(tr.start_idx)) if int(s.laps) == 0 else float(i - tr.N)
+				if absf(c.lat - float(s.lat)) > 0.05 or absf(c.prog - p_want) > 1.5:
+					issues.append("slot %d does not locate back to itself" % (k + 1))
+				if k > 0 and c.prog >= (cars[k - 1] as Car).prog:
+					issues.append("slot %d is not behind slot %d" % [k + 1, k])
+				cars.append(c)
+			for i in cars.size():
+				for j in range(i + 1, cars.size()):
+					if CarContact.overlap(cars[i], cars[j], 2.0) > 0.0:
+						issues.append("slots %d and %d are closer than 2 m" % [i + 1, j + 1])
+			if turn > deg_to_rad(20.0):
+				issues.append("the grid turns %.0f°" % rad_to_deg(turn))
+			if not issues.is_empty():
+				bad.append("%s (you %s): %s" % [id, Field.place_name(anchor + 1), ", ".join(issues)])
+	t.check(bad.is_empty(), "every track, you anywhere from pole to 5th: you on the usual start spot (right lane), the cars the standings put ahead of you ahead, the rest behind it (behind the line on a circuit, closer together on a sprint's short road), alternating sides, on asphalt with 1 m to spare, at least 2 m apart, on a straight%s" % [
+		"" if bad.is_empty() else ": " + "; ".join(bad)])
+	# a race from pole on Rookie Oval: five identical autopilots behind you, three of them behind the line
+	var oval: BuiltTrack = Tracks.build("rookie-oval")
+	var drivers: Array = []
+	var fake: Array = []
+	for k in Field.AI_COUNT:
+		drivers.append(PilotDriver.new(Autopilot.basic(oval, 11.0, 7.5, 40.0)))
+		fake.append({id = "c%d" % k, name = "Car %d" % k, code = "C%d" % k, car = "racer", color = "#ffffff", cap = INF, pace = 100.0, slot = k})
+	var pcar := Car.new(oval, oval.start_idx)
+	var prace := RaceState.new(oval)
+	var f := FieldRace.new(oval, fake, drivers, pcar, prace, {"id": "you", "name": "You", "code": "YOU"}, 0)
+	var behind_line := 0
+	for k in Field.AI_COUNT:
+		if f.racers[k].car.prog < 0.0:
+			behind_line += 1
+	var start_ok := absf(pcar.prog - oval.start_idx) < 0.05 and f.racers[f.player_index].slot == 0 and f.position(f.player_index) == 1 and f.racers[0].slot == 1
+	var stand := Car.Controls.new()
+	for k in 60 * 25:
+		f.step(DT, stand)
+	var no_lap := true
+	var gates_ok := true
+	for k in Field.AI_COUNT:
+		var rr: RaceState = f.racers[k].race
+		no_lap = no_lap and rr.lap_times.is_empty() and rr.lap() == 1
+		gates_ok = gates_ok and rr.next_gate >= 1
+	var res := f.results()
+	t.check(start_ok and behind_line >= 2 and no_lap and gates_ok and f.standings() == PackedInt32Array([0, 1, 2, 3, 4, 5]) and String(res[0].id) == "c0" and String(res[5].id) == "you",
+		"a race with you on pole (standing): the five AI start behind you, %d behind the start line on Rookie Oval; 25 s later they have crossed it without a lap counted, passed checkpoints, and lead in grid order; the results carry the drivers' ids" % behind_line)
+
+	t.section("Championships: the cup's pay, paid once (sim/economy.gd)")
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var third := Economy.claim_cup("rookie", "pro", 3)
+	var again := Economy.claim_cup("rookie", "pro", 3)
+	var won := Economy.claim_cup("rookie", "pro", 1)
+	var full := Economy.cup_payout("rookie", "pro", 1, PackedStringArray())
+	var ids3: PackedStringArray = []
+	for it: Dictionary in third.items:
+		ids3.append(String(it.id))
+	var ids1: PackedStringArray = []
+	for it: Dictionary in won.items:
+		ids1.append(String(it.id))
+	t.check(ids3 == PackedStringArray(["cup-rookie-pro-4", "cup-rookie-pro-3"]) and int(third.money) == 1500 and again.items.is_empty() and again.repeat.size() == 2 and
+		ids1 == PackedStringArray(["cup-rookie-pro-2", "cup-rookie-pro-1"]) and int(won.money) == 4800 and int(full.money) == 6300 and int(full.points) == 166 and
+		SaveData.get_money() == 6300 and SaveData.get_points() == 166 and String(third.items[0].kind) == "cup",
+		"3rd in a Pro Rookie Cup pays 4th and 3rd ($%d); the same again nothing; a win later only the difference (2nd and 1st, $%d): $%d and %d points in all, as a win straight away" % [
+		int(third.money), int(won.money), int(full.money), int(full.points)])
+	var lvls: PackedStringArray = Opponents.ids()
+	var more := true
+	for k in range(1, lvls.size()):
+		more = more and int(Economy.cup_payout("rookie", lvls[k], 1, PackedStringArray()).money) > int(Economy.cup_payout("rookie", lvls[k - 1], 1, PackedStringArray()).money)
+	for k in range(1, Cups.ids().size()):
+		more = more and int(Economy.cup_payout(Cups.ids()[k], "pro", 1, PackedStringArray()).money) > int(Economy.cup_payout(Cups.ids()[k - 1], "pro", 1, PackedStringArray()).money)
+	var fin := Economy.cup_payout("finale", "elite", 1, PackedStringArray())
+	var rk := Economy.cup_payout("rookie", "rookie", 1, PackedStringArray())
+	t.check(more and Economy.cup_payout("rookie", "pro", 5, PackedStringArray()).items.is_empty() and Economy.cup_ids("nope", "pro", 1).is_empty() and Economy.cup_ids("rookie", "x", 1).is_empty() and
+		Economy.cup_reward("cup-dirt-snow-elite-1") == {money = 10500, points = 315} and Economy.cup_reward("cup-rookie-pro-6").is_empty() and Economy.cup_reward("cup-nope-pro-1").is_empty() and
+		Economy.label("cup-dirt-snow-expert-2") == "Dirt and Snow Cup (Expert): 2nd" and Economy.cup_payout("asphalt", "pro", 1, SaveData.cup_paid()).items.size() == 4,
+		"harder levels and later cups pay more (a Rookie win in the Rookie Cup %s, an Elite win in the Grand Finale %s); 5th and 6th pay nothing; cup ids with a dash read back (\"Dirt and Snow Cup (Expert): 2nd\"); another cup has its own rewards" % [
+		UiFormat.money(int(rk.money)), UiFormat.money(int(fin.money))])
+
+	t.section("Championships: the trophy cabinet and quitting (sim/save.gd)")
+	var tro := SaveData.cup_trophies()
+	Economy.claim_cup("rookie", "pro", 2) # (worse than the win: the gold stays)
+	Economy.claim_cup("rookie", "elite", 3)
+	var tro2 := SaveData.cup_trophies()
+	t.check(tro == {"rookie": {"pro": 1}} and tro2 == {"rookie": {"pro": 1, "elite": 3}} and SaveData.cup_place("rookie", "elite") == 3 and SaveData.cup_place("asphalt", "pro") == 0,
+		"the cabinet keeps each cup's best place per level: the Pro win stays gold after a 2nd, an Elite 3rd adds a bronze (%s)" % JSON.stringify(tro2))
+	# a cup in progress: kept in the save file, read back after a restart; quitting drops it and pays nothing
+	var run2 := CupRun.start("asphalt", "rookie", "racer")
+	var rows_a: Array = [{id = "you", place = 1}]
+	for k in Field.AI_COUNT:
+		rows_a.append({id = run2.drivers[k], place = k + 2})
+	run2.add(rows_a)
+	SaveData.set_cup_run(run2.to_dict())
+	var money_q := SaveData.get_money()
+	var paid_q := SaveData.cup_paid()
+	SaveData.use_file(path) # (read the file again, as after a restart)
+	var kept := CupRun.from_dict(SaveData.get_cup_run())
+	SaveData.clear_cup_run()
+	SaveData.use_file(path)
+	t.check(kept != null and kept.cup == "asphalt" and kept.races_done() == 1 and kept.place() == 1 and SaveData.get_cup_run().is_empty() and SaveData.get_money() == money_q and
+		SaveData.cup_paid() == paid_q and SaveData.cup_trophies() == tro2,
+		"a cup in progress is in the save file after a restart (the Asphalt Cup after race 1); quitting it drops it, pays nothing and leaves the cabinet as it was")
+	# the end of a cup clears the cup in progress; the terminal's award and clear; reset; a damaged file
+	SaveData.set_cup_run(run2.to_dict())
+	Economy.claim_cup("asphalt", "rookie", 4)
+	var ended := SaveData.get_cup_run().is_empty() and SaveData.cup_place("asphalt", "rookie") == 4
+	SaveData.set_cup_place("finale", "elite", 1)
+	SaveData.set_cup_place("rookie", "elite", 0)
+	var award_ok := SaveData.cup_place("finale", "elite") == 1 and SaveData.cup_place("rookie", "elite") == 0 and SaveData.cup_place("rookie", "pro") == 1
+	SaveData.set_cup_run(run2.to_dict())
+	SaveData.reset_career()
+	var reset_ok := SaveData.cup_place("rookie", "pro") == 1 and SaveData.cup_paid().is_empty() and SaveData.get_cup_run().is_empty()
+	SaveData.clear_cup_trophies()
+	var cleared := SaveData.cup_trophies().is_empty()
+	var f2p := FileAccess.open(path, FileAccess.WRITE)
+	f2p.store_string(JSON.stringify({version = 5, career = {money = 5, points = 1, cars = ["racer"], paid = {}, tracks_open = [],
+		cups = {paid = ["cup-rookie-pro-4", 7, "cup-rookie-pro-4"], trophies = {rookie = {pro = 2, elite = "x", amateur = 9}, asphalt = "y"}, run = 3}}}))
+	f2p.close()
+	SaveData.use_file(path)
+	var repaired := SaveData.cup_paid() == PackedStringArray(["cup-rookie-pro-4"]) and SaveData.cup_trophies() == {"rookie": {"pro": 2}} and SaveData.get_cup_run().is_empty()
+	SaveData.use_file(path + ".none")
+	var fresh := SaveData.cup_trophies().is_empty() and SaveData.cup_paid().is_empty() and SaveData.get_cup_run().is_empty()
+	t.check(ended and award_ok and reset_ok and cleared and repaired and fresh,
+		"the end of a cup clears the cup in progress; places set and cleared without paying (the terminal); a reset career keeps the trophies but not the cup payouts or a cup in progress; clearing the trophies; a damaged cups section is cleaned up; an old save (no cups section) has none")
+	SaveData.use_file(path)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

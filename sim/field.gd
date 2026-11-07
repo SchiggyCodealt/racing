@@ -29,7 +29,12 @@ extends RefCounted
 ##       pace (expected finish time alone, s), target (the pace it aims at, s)}] (AI_COUNT, pole first;
 ##       [] when the track has no AI opponents for the player's car)
 ##   Field.cap_for(track_id, car_id, time) -> the speed cap for a finish time (INF: none; -1: no data)
-##   Field.grid(track, n) -> [{idx, lat, x, z, yaw}] for n cars, pole first (the last is the player's)
+##   Field.grid(track, n[, anchor]) -> [{idx, lat, x, z, yaw, laps}] for n cars, pole first (the last, or
+##       slot `anchor`, is the player's, on the usual start spot)
+## v6.14.0, championships (sim/cups.gd, sim/cup_run.gd): a cup races the same five drivers on every track:
+##   Field.cup_drivers(cup_id, level) -> their ids, slowest first;  Field.driver(id) -> the roster entry
+##   Field.lineup_of(track_id, level, player_car, driver_ids) -> lineup() for those drivers (driver k at
+##       PACE[k]); lineup() is lineup_of() with the drivers shuffled by track and level
 ##   Field.place_name(p) -> "1st", "2nd" ...
 
 const AI_COUNT: int = 5
@@ -55,6 +60,8 @@ const LANE_SHARE: float = 0.4
 const MIN_CAP: float = 8.0
 ## A level without a cap counts as this × the power law's cap for its time (cap_for).
 const FREE_CAP: float = 1.1
+## (v6.14) The first sample a car may start on behind a sprint's start spot (grid with an anchor).
+const BACK_MIN: int = 3
 
 
 ## A stable number from a text (the shuffle's seed: the same on every machine and Godot version).
@@ -67,20 +74,51 @@ static func _seed(text: String) -> int:
 
 ## The field of a race: AI_COUNT drivers, pole first (see the header).
 static func lineup(track_id: String, level: String, player_car: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var base: float = Opponents.time_of(track_id, player_car, level)
-	if base <= 0.0:
-		return out
+	return lineup_of(track_id, level, player_car, _drivers("%s|%s" % [track_id, level]))
+
+
+## (v6.14) The five drivers of a cup (sim/cups.gd) at a level: driver ids, the slowest first (the order
+## lineup_of gives them their PACE); the same in every race of the cup.
+static func cup_drivers(cup_id: String, level: String) -> PackedStringArray:
+	return _drivers("cup|%s|%s" % [cup_id, level])
+
+
+## The roster entry of driver `id` ({} unknown).
+static func driver(id: String) -> Dictionary:
+	for d: Dictionary in DRIVERS:
+		if String(d.id) == id:
+			return d
+	return {}
+
+
+## AI_COUNT driver ids from the roster, in an order shuffled by `seed_text` (Fisher-Yates with a
+## generator seeded by a stable hash).
+static func _drivers(seed_text: String) -> PackedStringArray:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = _seed("%s|%s" % [track_id, level])
+	rng.seed = _seed(seed_text)
 	var order: Array = range(DRIVERS.size())
-	for k in range(order.size() - 1, 0, -1): # (Fisher-Yates with the seeded generator)
+	for k in range(order.size() - 1, 0, -1):
 		var j: int = rng.randi_range(0, k)
 		var x: int = order[k]
 		order[k] = order[j]
 		order[j] = x
+	var out: PackedStringArray = []
 	for k in AI_COUNT:
-		var d: Dictionary = DRIVERS[order[k]]
+		out.append(String(DRIVERS[order[k]].id))
+	return out
+
+
+## The field of drivers `driver_ids` (AI_COUNT roster ids) on a track at a level: driver k aims at
+## PACE[k] × the level's time with the player's car, in that order (lineup()'s entries).
+static func lineup_of(track_id: String, level: String, player_car: String, driver_ids: PackedStringArray) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var base: float = Opponents.time_of(track_id, player_car, level)
+	if base <= 0.0 or driver_ids.size() != AI_COUNT:
+		return out
+	for k in AI_COUNT:
+		var d: Dictionary = driver(driver_ids[k])
+		if d.is_empty():
+			return []
 		var target: float = PACE[k] * base
 		var car: String = String(d.car)
 		var fastest: float = Opponents.time_of(track_id, car, "elite")
@@ -133,20 +171,33 @@ static func cap_for(track_id: String, car_id: String, time: float) -> float:
 
 
 ## The starting grid for n cars, pole first, the last on the usual start spot (see the header):
-## [{idx (sample), lat (m, + = left), x, z, yaw}].
-static func grid(t: BuiltTrack, n: int) -> Array[Dictionary]:
+## [{idx (sample), lat (m, + = left), x, z, yaw, laps}].
+## (v6.14) `anchor`: the slot on the usual start spot (default the last; a cup's grid puts you where the
+## standings say): the slots before it are ahead of it as usual, those after it behind it, SLOT_GAP m
+## apart; on a circuit behind the start line (laps -1: they cross it first), on a sprint closer
+## together when the road behind the start spot is short (the last at sample BACK_MIN). Sides keep
+## alternating, the anchor's on the right.
+static func grid(t: BuiltTrack, n: int, anchor: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	var at: int = n - 1 if anchor < 0 or anchor >= n else anchor
 	var step: int = maxi(1, roundi(SLOT_GAP / t.seg_len))
+	var behind: int = n - 1 - at
+	var back: int = step
+	if behind > 0 and not t.closed:
+		back = clampi((t.start_idx - BACK_MIN) / behind, 1, step)
 	for k in n:
-		var back: int = n - 1 - k # (slots from the last one)
-		var i: int = t.start_idx + back * step
+		var ahead: int = at - k # (slots ahead of the anchor; negative: behind it)
+		var i: int = t.start_idx + (ahead * step if ahead >= 0 else ahead * back)
+		var laps: int = 0
 		if t.closed:
+			if i < 0:
+				laps = -1
 			i = t.wrap(i)
 		else:
-			i = mini(i, t.count - 2)
-		var side: float = 1.0 if back % 2 == 1 else -1.0
+			i = clampi(i, 0, t.count - 2)
+		var side: float = 1.0 if posmod(ahead, 2) == 1 else -1.0
 		var lat: float = side * minf(LANE, LANE_SHARE * t.hw[i])
-		out.append({idx = i, lat = lat, x = t.px[i] + t.nx[i] * lat, z = t.pz[i] + t.nz[i] * lat, yaw = atan2(t.tx[i], t.tz[i])})
+		out.append({idx = i, lat = lat, x = t.px[i] + t.nx[i] * lat, z = t.pz[i] + t.nz[i] * lat, yaw = atan2(t.tx[i], t.tz[i]), laps = laps})
 	return out
 
 

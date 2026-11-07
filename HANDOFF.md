@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-06 (v6.13.0: round 3, item 1: Race the field: you against five AI drivers on a two-wide starting
+_Last updated: 2026-11-07 (v6.14.0: round 3, item 2: championships: five cups of three tracks raced back to back
+against the same five AI drivers at a picked level, 10-8-6-5-4-3 points, standings between the races that set the next
+grid, a trophy moment on the podium with gold, silver and bronze trophies, a cup payout by final place, a trophy cabinet
+on the menu's Cups button, a cup in progress kept in the save file; v6.13.0: round 3, item 1: Race the field: you against five AI drivers on a two-wide starting
 grid with solid cars (deterministic capsule contacts, only in this mode), a light traffic layer and a watchdog for the
 AI, the place and standings on the HUD, the finishing order on the finish panel, a podium, pay by place; v6.12.0: round 2, item 3 of 3: sound and music: every car's engine synthesized live from the
 sim's rpm, throttle, load, gear and nitro (six characters), tyres, gravel, snow, wind, walls, landings, nitro, the
@@ -20,8 +23,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.13.0, round 3 item 1 done (Race the field); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.14.0, round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
+Round 3, item 2: **Championships (v6.14.0, done)**. See [Round 3, item 2](#round-3-item-2-championships-v6140) and
+[How v6.14.0 was verified](#how-v6140-championships-was-verified).
 Round 3, item 1: **Race the field (v6.13.0, done)**. See [Round 3](#round-3-race-the-field-v6130) and
 [How v6.13.0 was verified](#how-v6130-race-the-field-was-verified).
 Round 2 (asked on 2026-11-04, built one at a time in this order): 1. **dirt and snow polish (v6.10.0, done)**,
@@ -421,6 +426,50 @@ script time a race frame at 60 fps with the sound) and `surfaces` 16 with `gfx=h
 Maker at 640 x 360 (see below); the FleetSim libraries were not touched; the Windows release export was made from a
 fresh import (no errors or warnings; the 4 music and 32 effect files and `audio/` are in the pack, 43.5 MB zipped)
 and zipped as `build/TrackRush-6.12.0-windows.zip` (not started: no Windows here).
+
+v6.14.0 (2026-11-07): the headless suite passes (1002 checks: sim 142, ui 239, world 199, game 258, ai 164; 413 s);
+the end-to-end scenarios pass at 1280 x 720 (cup 16 with `gfx=low` and `gfx=high`, menu 28, field 10, economy 21 with
+`gfx=low`); the FleetSim libraries were not touched (no physics change); the Windows release export was made from a fresh import
+(no errors or warnings; `sim/cups.gd`, `sim/cup_run.gd`, `ui/cup_*.gd` and `world/trophy.gd` are in the pack; the exe
+115,032,704 bytes) and zipped as `build/TrackRush-6.14.0-windows.zip` (43.6 MB; not started: no Windows here).
+
+## How v6.14.0 (championships) was verified
+
+- **The cups and the maths** (`tests/test_sim.gd` `_cups`, 16 checks): five cups of three tracks covering all 15
+  tracks once, rising difficulty (mean 2.0, 2.7, 3.7, 4.0, 4.7), each opening with its last track (3, 10, 12, 13, 15);
+  points 10-8-6-5-4-3 and 0 for a DNF; ties: equal points go to the better best place, then to the latest race
+  (four constructed ties); a cup run: the same five drivers in every race with their paces, the grid after race 1 in
+  standings order, a JSON round trip, damaged runs rejected, a whole cup's table (you 4th with 16 points, the leader
+  23).
+- **The grid with you anywhere** (`Field.grid` with an anchor): on all 15 tracks for your slot 0-4 (every car on
+  asphalt with 1 m to spare beside the widest car, at least 2 m apart, at most 20° of turn, alternating sides, located
+  back on the right sample); a race from pole on Rookie Oval: the four AI behind the line cross it without counting
+  an early lap. The v6.13 field grid (you last) is unchanged: the field tests in sim, game and ai pass as before.
+- **Pay and the cabinet**: a 3rd then a win in the Pro Rookie Cup pays $1,500, then $4,800 ($6,300 and 166 points in
+  all, as a win straight away); the same again pays nothing; 5th and 6th nothing; later cups and harder levels more
+  (a Rookie-level Rookie Cup win $2,520, an Elite Grand Finale win $25,200); the cabinet survives a restart, keeps the
+  best place, `reset career` keeps trophies and clears cup payouts and the run, a damaged `career.cups` is repaired,
+  an old save has none.
+- **The game** (`tests/test_game.gd` `_app_cup`, 11 checks, through the app): the empty cabinet, T opens the picker,
+  a locked cup refused naming its tracks, Enter starts race 1 (you last, the cup in the save file), race 1 driven by
+  the medal autopilot to the finish (paid as a field race, the panel's points line and "Enter: standings"), R ignored
+  after the finish, Enter: the standings (table, next track picked behind them, the save file), race 2 from your
+  standings slot on the usual start spot with the cars ahead of you in the standings ahead of you, Esc mid-race not
+  counted, the trophy moment (podium trophies gold / silver / bronze, `cup_final`, the cup's pay ids, the cabinet, the
+  run gone from the save), Enter: the menu with the trophy, the same place pays nothing again, Quit cup asks and pays
+  nothing. The terminal's `cup` (2 checks). `tests/test_ui.gd` `_cup_ui` (9 checks): the picker's rows and keys, the
+  standings table and keys, the cabinet button's cells and tooltip, the final-standings panel docked right at
+  1280 x 720 (131-590 px) and fitting 800 x 600.
+- **E2E** (`scenario=cup`, xvfb and llvmpipe, 1280 x 720, the Rookie Cup at Rookie with the Racer, every race driven
+  by the author run's medal autopilot; 16 of 16 checks at `gfx=low` in 155 s and at `gfx=high` in 1018 s): the menu
+  fits 1280 x 720 with the Cups button (content 720 of 720 px); the picker fits (panel 68-651 px, no scrolling); race 1
+  from last on the grid: 1st in 2:07.383; the standings fit (144-575 px); race 2 from pole: 1st in 3:56.850; race 3
+  from pole: 1st in 3:13.400; the trophy moment (gold, silver, bronze on the podium; you 1st with 30 points); the
+  menu's cabinet shows the Rookie Cup's gold. Money $0 to $9,780: $7,260 from the three races (medals and places),
+  $2,520 from the cup. The Controls screen (with the new row) fits 1280 x 720 at 714 px after a shorter terminal tip.
+  The e2e `menu` (28), `field` (10) and `economy` (21) scenarios pass unchanged at `gfx=low`.
+- Not verified: a cup at a level where you don't win (a grid with you in the middle in 3D: covered by the sim test on
+  every track only), a gamepad in hand, a real graphics card, Windows.
 
 ## How v6.13.0 (Race the field) was verified
 
@@ -1246,6 +1295,19 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
 
 ## Known limitations
 
+- **Championships (v6.14.0)**:
+  - Esc during a cup race goes back to the standings without counting it, so a race can be retried until it goes
+    well (the field race already allows R). Leaving after your finish freezes the AI still racing in their running
+    order then, so they never overtake you after your finish (the field race does the same at the finish).
+  - The grid behind you on a sprint is compressed into the run-up before the start (Summit Rush and the other sprints
+    have 18 samples there): the last cars start closer together than 10 m. Tested on every track for every slot (on
+    asphalt, 1 m spare, 2 m apart, no turns over 20°); not looked at on every track in 3D.
+  - The trophy cabinet button is small (a 16 px trophy per cup, 2 px level pips); the picker spells it out.
+  - Drivers keep their pace slot for the whole cup (the slowest of the five stays the slowest); the standings mostly
+    follow the paces, so the cup is about beating the fastest driver.
+  - Nobody has played a whole cup with a real graphics card or a gamepad in hand; the e2e run drives it with the
+    autopilot.
+
 - **Race the field (v6.13.0)**:
   - The AI drive their shipped opponent networks with a speed cap; the rule-based traffic layer only eases off
     behind a car close ahead and nudges the steering to the freer side. They don't plan overtakes or defend, so
@@ -1258,7 +1320,8 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
     your time counts for medals; the AI's times are from their own grid slots.
   - Contacts are capsule against capsule on the ground plane only (no roll, no pitch, no damage); a car squeezed
     against a wall by another can be pushed into the wall for a step (the wall pushes it back).
-  - No terminal command for it (the terminal has no reference to the app; it would need a signal chain).
+  - No terminal command for it (the terminal has no reference to the app; it would need a signal chain). (v6.14.0's
+    `cup` command only reads and writes the trophy cabinet in the save file.)
   - The other drivers' names, paces and cars are data (`sim/field.gd` `DRIVERS`, `PACE`); there is no per-driver
     personality (aggression, mistakes).
   - Nobody has played it with a real graphics card or a gamepad in hand; the e2e run drives it with the autopilot.
@@ -1470,6 +1533,54 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
+
+## Round 3, item 2: Championships (v6.14.0)
+
+The owner's pick: "Championships: cups of 3-4 tracks raced back to back against AI, with a points table, trophies and
+a big payout." **Done in v6.14.0.** Built on Race the field: every cup race is a `FieldRace` in `modes/field_mode.gd`.
+
+How it is built:
+- `sim/cups.gd` (`Cups`, data): `CUPS` (five cups of three tracks, easiest first: Rookie, Asphalt, Technical, Dirt and
+  Snow, Grand Finale; mean track difficulty 2.0, 2.7, 3.7, 4.0, 4.7; together all 15 tracks), `POINTS` (10, 8, 6, 5, 4,
+  3; a DNF 0), `is_open()` (every track open: `Unlocks.is_open`), `table(entrants, races)` (points, then the best
+  finishing place, then the places from the latest race back, then the entrant order) and `grid_order()` (the
+  standings, leader on pole; before race 1 the field's own order with you last).
+- `sim/cup_run.gd` (`CupRun`): a cup in progress (cup, level, car, the five drivers, each race's {id: {place, dnf}}),
+  `field(track)` (the AI lineup in grid order, each driver keeping its pace slot from `Field.cup_drivers`, and your grid
+  slot), `add(rows)` (validated), `to_dict()` / `from_dict()` (validated: a damaged run is dropped).
+- `sim/field.gd`: `cup_drivers(cup, level)` (five drivers for the whole cup, the same seeded shuffle as a field's
+  lineup), and `grid(t, n, anchor)`: the player's slot (`anchor`) is always on `start_idx`, so a cup race is as long as
+  Drive and counts for medals and records; cars ahead of you in the standings are ahead as before, cars behind you go
+  behind the start line (circuits: their race starts at lap -1, so crossing the line doesn't count a lap; sprints:
+  compressed into the run-up, at least 3 samples from the start of the road). `sim/field_race.gd` takes `player_slot`.
+- `sim/economy.gd`: `CUP_PLACES` (4th to 1st: $300-2,000, 5-60 points) × `FIELD_LEVELS` × `cup_scale` (1 + 0.25 × the
+  cup's index); ids `cup-<cup>-<level>-<place>` (read from the end: cup ids may hold a dash) in a new `career.cups.paid`
+  list; a place pays the places below it, once per cup and level (not per car). A Pro Rookie Cup win pays $6,300 and 166
+  points; an Elite Grand Finale win $25,200 and 660.
+- `sim/save.gd`: `career.cups` = {paid, trophies: {cup: {level: best place}}, run (the cup in progress)}; version 5
+  kept (absent = empty); `finish_cup()` pays and records the place in one write and drops the run; `reset_career`
+  keeps the trophies, clears the cup payouts and the run.
+- `game/app.gd`: `start_cup()` (refuses a locked cup naming its locked tracks, an unowned car, no AI), `cup_race()`,
+  `cup_result()` (the run saved after every race; the last one pays), `cup_standings()`, `end_cup()`, `ask_quit_cup()`.
+- `modes/field_mode.gd`: in a cup, R only before the finish; Enter after it records the race (the AI still racing
+  classified in their running order then) and shows the standings; Esc before the finish goes back without counting;
+  after the last race the trophy moment: the podium with the top three of the final standings (`world/trophy.gd`:
+  a cup from primitive meshes, gold, silver, bronze; `world/podium.gd` `put_trophy()`), the finish panel's
+  `cup_final` state (final standings, the cup's pay).
+- UI: `ui/cup_screen.gd` (the picker: cups with tracks, difficulty and a trophy place per level, the level chips, what
+  a win pays, START CUP; the standings: `ui/cup_table.gd`, RACE n, Quit cup), `ui/cup_cabinet.gd` (the menu's **Cups**
+  button on the 3 Drive heading row: a trophy per cup plus five level pips, a tooltip listing them; **T** opens it),
+  `ui/finish_panel.gd` (`keys` override, `field.cup` line, `cup_final`), `ui/ui_data.gd` (`cup_list`, `cup_pays`,
+  `cup_view`, `cup_trophies`). The terminal's `cup` lists the cabinet and sets a place without pay; `status` counts
+  the trophies.
+
+Choices made where the owner gave none: five cups of three tracks (the owner said 3-4: three keeps a cup about 8-12
+minutes and covers the 15 tracks exactly); points 10-8-6-5-4-3; ties by best place then the latest race; a cup race
+pays as a field race and counts for medals, records and unlocks as Drive does; the cup's pay is per cup and level, not
+per car; 5th and 6th pay nothing; Quit cup pays nothing for the cup (the races keep their pay); Esc mid-race doesn't
+count the race (it can be raced again, so a bad start can be retried); a cup in progress survives closing the game;
+the cabinet shows the place at the highest level with a trophy; `reset career` keeps the trophies.
+**Open**: see Known limitations.
 
 ## Round 3: Race the field (v6.13.0)
 

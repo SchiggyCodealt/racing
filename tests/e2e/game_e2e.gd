@@ -118,6 +118,19 @@ extends SceneTree
 ##             podium with the top three; R starts it again, Esc goes back. Prints PERF lines: the
 ##             physics step of the six cars and the AI engines' script time per frame.
 ##             Shots: field_menu, field_grid, field_battle, field_finish, field_podium.
+##   cup       a championship (v6.14.0): cup=<id> (default rookie) at level=<id> (default rookie)
+##             with the Racer: the menu's Cups button (an empty cabinet, on screen; the menu fits
+##             1280 x 720); T opens the cup picker (fits 1280 x 720, no scrolling), the arrow keys
+##             pick the level, Enter starts race 1 (you last on the grid); each race is driven to
+##             the finish by the medal autopilot of the author run (fast-forwarded); the finish
+##             panel says the points, Enter shows the standings over the menu (they fit 1280 x
+##             720; the next grid from them), Enter races the next one, from your slot in the
+##             standings. After the last race Enter: the trophy moment (the podium with gold,
+##             silver and bronze trophies, the final standings, the cup's pay); Enter: the menu,
+##             whose cabinet shows the trophy. races=<n> (default all) drives only the first n
+##             races; the rest end on the grid at once, in the grid's order (a shorter run).
+##             Shots: cup_menu, cup_picker, cup_race1_finish, cup_standings, cup_grid2, cup_trophy,
+##             cup_cabinet.
 ##   Every other scenario starts by owning every car, every track open (the terminal's unlock
 ##   tracks) and picking My AI as the opponent (they were written before the career: they drive
 ##   every car on every track and race the car's own network).
@@ -191,6 +204,8 @@ func _main() -> void:
 			await audio_run()
 		"field":
 			await field_race()
+		"cup":
+			await cup_run()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -1221,6 +1236,152 @@ func field_race() -> void:
 	await key(KEY_ESCAPE)
 	await frames(10)
 	check(app.mode == app.menu_mode, "Esc: back to the menu")
+
+
+# ---------------------------------------------------------------- championships (v6.14.0)
+
+## The menu fits the window: no scrolling, the main column inside it.
+func _menu_fits(menu: MainMenu) -> String:
+	var win := Vector2(root.size)
+	var bar := (menu.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	var main: Control = menu.get("_main")
+	if win == Vector2(1280, 720) and bar.max_value <= bar.page + 0.5 and main.get_global_rect().end.y <= win.y + 0.5:
+		return ""
+	return "content %.0f px, page %.0f, main ends at %.0f" % [bar.max_value, bar.page, main.get_global_rect().end.y]
+
+
+## The cup screen's panel inside the window, no scrolling.
+func _cups_fit(cs: CupScreen, last: Control) -> bool:
+	var win := Vector2(root.size)
+	var pr := cs.panel.get_global_rect()
+	var bar := (cs.get("_scroll") as ScrollContainer).get_v_scroll_bar()
+	print("cup screen panel %.0f..%.0f px, scroll content %.0f page %.0f, last control ends at %.0f" % [pr.position.y, pr.end.y, bar.max_value, bar.page, last.get_global_rect().end.y])
+	return pr.position.y >= -0.5 and pr.end.y <= win.y + 0.5 and pr.end.x <= win.x + 0.5 and bar.max_value <= bar.page + 0.5 and last.get_global_rect().end.y <= win.y + 0.5 and last.is_visible_in_tree()
+
+
+func cup_run() -> void:
+	var cid := str(opts.get("cup", "rookie"))
+	var lv := str(opts.get("level", "rookie"))
+	var menu: MainMenu = app.ui.menu
+	var cs: CupScreen = menu.cups
+	var cab: CupCabinet = menu.get("_cups_btn")
+	var tracks := Cups.tracks_of(cid)
+	var n_drive := mini(int(opts.get("races", str(tracks.size()))), tracks.size())
+	await pick(tracks[0], "racer")
+	var r := cab.get_global_rect()
+	var fit := _menu_fits(menu)
+	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 25") and fit == "",
+		"the menu: the Cups button with an empty cabinet on screen (%.0f,%.0f %.0fx%.0f); the menu fits 1280 x 720 %s" % [r.position.x, r.position.y, r.size.x, r.size.y, fit])
+	await shot("cup_menu")
+	await key(KEY_T)
+	await frames(4)
+	check(cs.visible and not cs.is_standings, "T opens the cup picker")
+	var tries := 0
+	while CupScreen.picked_cup != cid and tries < 6:
+		await key(KEY_DOWN)
+		tries += 1
+	tries = 0
+	while CupScreen.picked_level != lv and tries < 6:
+		await key(KEY_RIGHT)
+		tries += 1
+	await frames(4)
+	var start: Button = cs.get("_start_btn")
+	var info: String = (cs.get("_info") as RichTextLabel).get_parsed_text()
+	check(CupScreen.picked_cup == cid and CupScreen.picked_level == lv and not start.disabled and _cups_fit(cs, start),
+		"the picker: %s at %s picked with the arrow keys, START CUP on; it fits 1280 x 720 without scrolling (\"%s\")" % [Cups.name_of(cid), Opponents.level_name(lv), info])
+	await shot("cup_picker")
+	await key(KEY_ENTER)
+	await frames(6)
+	var money0 := UiData.money()
+	var race_pay := 0
+	for k in tracks.size():
+		var m: Node = app.mode
+		if not check(m != app.menu_mode and m.name == "FieldMode" and m.get("cup") == app.cup and (m.get("track") as BuiltTrack).id == tracks[k],
+				"race %d of %d: %s (%s)" % [k + 1, tracks.size(), tracks[k], app.ui.hud.get("_mode").text]):
+			return
+		var fr: FieldRace = m.get("field")
+		var track: BuiltTrack = m.get("track")
+		var car: Car = m.get("car")
+		var g := app.cup.grid()
+		var slot := fr.racers[fr.player_index].slot
+		var ahead := 0
+		for j in Field.AI_COUNT:
+			if fr.racers[j].car.prog > car.prog:
+				ahead += 1
+		check(slot == g.find(Cups.PLAYER) and ahead == slot and absf(car.prog - float(track.start_idx)) < 0.05,
+			"the grid by the standings (%s): you %s, %d AI cars ahead of you, on the usual start spot" % [", ".join(g), Field.place_name(slot + 1), ahead])
+		if k == 1:
+			await shot("cup_grid2")
+		if k >= n_drive:
+			# (a shorter run: the race ends on the grid, in the grid's order, and counts so)
+			await frames(30)
+			m.set("phase", "finished")
+			await key(KEY_ENTER)
+			await frames(8)
+			if k + 1 < tracks.size():
+				await key(KEY_ENTER)
+				await frames(6)
+				await wait_until(func() -> bool: return not app.building_track(), 60.0)
+			continue
+		var run: Dictionary = Medals.medal_times(track, "racer").run
+		await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+		autopilot(float(run.aLat), float(run.lookK))
+		fast(true)
+		await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+		fast(false)
+		stop_autopilot()
+		await frames(20)
+		var place := fr.position(fr.player_index)
+		var fs: Dictionary = m.get("finish_state")
+		race_pay += int((fs.get("payout", {}) as Dictionary).get("money", 0))
+		var texts := _texts(app.ui.hud.finish)
+		var line := "%s, race %d of %d: +%d points" % [Cups.name_of(cid), k + 1, tracks.size(), Cups.points_for(place)]
+		var last := k + 1 == tracks.size()
+		check(texts.has(line) and texts.has("the championship" if last else "standings"),
+			"race %d driven to the finish: %s in %s; the panel: \"%s\", Enter: %s" % [k + 1, Field.place_name(place), RaceState.format_time((m.get("race") as RaceState).finish_time), line, "the championship" if last else "standings"])
+		if k == 0:
+			await shot("cup_race1_finish")
+		await key(KEY_ENTER)
+		await frames(8)
+		if last:
+			break
+		var tbl: CupTable = cs.get("_table")
+		var race_b: Button = cs.get("_race_btn")
+		check(app.mode == app.menu_mode and cs.is_standings and app.cup.races_done() == k + 1 and tbl.get_child_count() == 7 * 7 and _cups_fit(cs, race_b),
+			"after race %d: the standings over the menu (you %s, %d points), %s; they fit 1280 x 720 without scrolling" % [k + 1, Field.place_name(app.cup.place()),
+			int(app.cup.table()[app.cup.table().map(func(x: Dictionary) -> String: return String(x.id)).find(Cups.PLAYER)].points), race_b.text])
+		if k == 0:
+			await shot("cup_standings")
+		await key(KEY_ENTER)
+		await frames(6)
+		await wait_until(func() -> bool: return not app.building_track(), 60.0)
+	# the trophy moment
+	var mt: Node = app.mode
+	await frames(120)
+	var cplace := int(((mt.get("finish_state") as Dictionary).get("cup_final", {}) as Dictionary).get("place", 0))
+	var pod: Podium = mt.get("podium")
+	var fs3: Dictionary = mt.get("finish_state")
+	var pay: Dictionary = fs3.get("payout", {})
+	var pids: PackedStringArray = []
+	for it: Dictionary in pay.get("items", []):
+		pids.append(String(it.id))
+	var panel: FinishPanel = app.ui.hud.finish
+	var pr := panel.get_global_rect()
+	check(mt.get("trophy_on") == true and pod != null and pod.visible and pod.camera.current and pod.trophy(1) != null and pod.trophy(1).kind == "gold" and
+		pod.trophy(2).kind == "silver" and pod.trophy(3).kind == "bronze" and pids == Economy.cup_ids(cid, lv, cplace) and pr.end.y <= 720.5 and pr.position.y >= 0.0 and
+		SaveData.get_cup_run().is_empty() and SaveData.cup_place(cid, lv) == cplace,
+		"the trophy moment: the top three with gold, silver and bronze trophies on the podium; you %s; the cup pays %s (%s); the panel fits (%.0f..%.0f px)" % [
+		Field.place_name(cplace), UiFormat.money(int(pay.get("money", 0))), ", ".join(pids), pr.position.y, pr.end.y])
+	print("CUP %s %s: you %s, races paid %s, the cup %s, money %s -> %s" % [cid, lv, Field.place_name(cplace), UiFormat.money(race_pay), UiFormat.money(int(pay.get("money", 0))),
+		UiFormat.money(money0), UiFormat.money(UiData.money())])
+	await shot("cup_trophy")
+	await key(KEY_ENTER)
+	await frames(10)
+	var cell: Dictionary = cab.cells[Cups.index_of(cid)]
+	fit = _menu_fits(menu)
+	check(app.mode == app.menu_mode and menu.visible and not cs.visible and String(cell.trophy) == Cups.trophy(cplace) and fit == "",
+		"Enter: the menu; the cabinet shows the %s (%s); the menu fits 1280 x 720 %s" % [Cups.name_of(cid), cab.tooltip_text.get_slice("\n", 2), fit])
+	await shot("cup_cabinet")
 
 
 # ---------------------------------------------------------------- money, points, the car shop (v6.5.0)

@@ -55,6 +55,23 @@ static func padlock(ci: CanvasItem, at: Vector2, col: Color, k: float = 1.0) -> 
 	ci.draw_rect(Rect2(at + Vector2(0, 5.0) * k, Vector2(9, 6.5) * k), col)
 
 
+## (v6.14) A cup trophy, `h` px tall (and about 0.9 h wide), centred on `cx` with its top at `top`:
+## a two-handled bowl on a stem and a base, filled with `col` (an empty place: a faint colour).
+static func trophy(ci: CanvasItem, cx: float, top: float, h: float, col: Color) -> void:
+	var rx := 0.3 * h
+	var bowl := PackedVector2Array([Vector2(cx - rx, top)])
+	for k in 9:
+		var a := PI * float(k) / 8.0
+		bowl.append(Vector2(cx - rx * cos(a), top + 0.48 * h * sin(a)))
+	ci.draw_colored_polygon(bowl, col)
+	for side in [-1.0, 1.0]:
+		ci.draw_arc(Vector2(cx + side * rx, top + 0.17 * h), 0.13 * h, -PI * 0.5 if side > 0.0 else PI * 0.5, PI * 0.5 if side > 0.0 else PI * 1.5,
+			8, col, maxf(1.0, 0.075 * h), true)
+	ci.draw_rect(Rect2(cx - 0.05 * h, top + 0.46 * h, 0.1 * h, 0.26 * h), col)
+	ci.draw_rect(Rect2(cx - 0.2 * h, top + 0.72 * h, 0.4 * h, 0.1 * h), col)
+	ci.draw_rect(Rect2(cx - 0.27 * h, top + 0.84 * h, 0.54 * h, 0.16 * h), col)
+
+
 ## The menu's side view of a car (menu.js silhouette): the profile's parts and wheels, the same
 ## scale for every car (5.6 m x 1.72 m shown) so their sizes compare, fitted to `r`. A part
 ## with a `color` (the driver's helmet, a roll cage) is drawn in it; `rim` colours the wheels.
