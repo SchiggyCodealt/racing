@@ -48,6 +48,8 @@ struct Spec {
 	double air_steer = 0.2, air_steer_tau = 0.2, air_yaw_damp = 0.6;
 	// nitro
 	double nitro_time = 5.0, nitro_force = 4500.0, nitro_power = 130000.0, nitro_top = 82.3, nitro_fade = 3.0;
+	// (v6.15) how much of the tank a refill puts in (CarSpec.nitro_refill: the nitro upgrade; the AI's refills)
+	double nitro_refill = 1.0;
 	// simulation
 	int substeps = 2;
 	double max_speed = 77.0;

@@ -41,16 +41,22 @@ class Best:
 
 var sizes: PackedInt32Array = PackedInt32Array()
 var mutation_rate: float = 0.1
+## (v6.15) output neurons that start silent in every new random network (NeuralNetwork.silence_output:
+## weights and bias 0); the trainer names the nitro output, so new drivers start without nitro and
+## mutation brings it in where it pays. Drawn after the random weights: the random sequence is the same.
+var silent_outputs: PackedInt32Array = PackedInt32Array()
 var genomes: Array[Genome] = []
 ## Best or null
 var best_ever: Best = null
 
 
 ## cfg: {size, sizes, mutation_rate, seed: NeuralNetwork (optional), seed_fitness: float
-## (optional: the seed's score, when it is comparable with this run's scores)}.
+## (optional: the seed's score, when it is comparable with this run's scores), silent_outputs
+## (optional, v6.15: see the variable)}.
 func _init(cfg: Dictionary = {}) -> void:
 	sizes = PackedInt32Array(cfg.get("sizes", []))
 	mutation_rate = float(cfg.get("mutation_rate", 0.1))
+	silent_outputs = PackedInt32Array(cfg.get("silent_outputs", []))
 	var size: int = int(cfg.get("size", 0))
 	var seed: NeuralNetwork = cfg.get("seed")
 	for k in size:
@@ -61,7 +67,7 @@ func _init(cfg: Dictionary = {}) -> void:
 			if k > 0:
 				net.mutate(mutation_rate if k < size * 0.5 else mutation_rate * 2.0)
 		else:
-			net = NeuralNetwork.new(sizes)
+			net = _random_net()
 		genomes.append(Genome.new(net))
 	# Without a comparable score the seed is not the best yet: the first generation decides.
 	var sf: Variant = cfg.get("seed_fitness")
@@ -73,9 +79,17 @@ func size() -> int:
 	return genomes.size()
 
 
+## A new random network (with the silent outputs silenced).
+func _random_net() -> NeuralNetwork:
+	var net := NeuralNetwork.new(sizes)
+	for o in silent_outputs:
+		net.silence_output(o)
+	return net
+
+
 ## A deep copy (every network cloned); draws no random numbers.
 func copy() -> Population:
-	var p := Population.new({sizes = sizes, mutation_rate = mutation_rate})
+	var p := Population.new({sizes = sizes, mutation_rate = mutation_rate, silent_outputs = silent_outputs})
 	for g in genomes:
 		p.genomes.append(Genome.new(g.net.clone(), g.fitness))
 	if best_ever != null:
@@ -104,7 +118,7 @@ func evolve() -> Dictionary:
 	for k in elite_count:
 		next.append(Genome.new(sorted[k].net.clone()))
 	for k in random_count:
-		next.append(Genome.new(NeuralNetwork.new(sizes)))
+		next.append(Genome.new(_random_net()))
 	while next.size() < n:
 		var a: Genome = _tournament(sorted)
 		var child: NeuralNetwork

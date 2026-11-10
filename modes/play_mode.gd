@@ -12,7 +12,13 @@ extends Node
 ## The player drives the car picked on the menu (the "car" setting); Shift / X / RB burns its
 ## nitro tank, full at every start and kept on respawn. The watched AI and the AI ghost drive
 ## the car their network belongs to (opts.ai_car: the menu's car, whose network it is, or the
-## training session's car), in that car's own colours, and never use nitro.
+## training session's car), in that car's own colours. v6.15: the watched AI uses nitro as it
+## learned to (a full tank at the start, refilled from clean gates: ai/sensors.gd NitroRefill;
+## the HUD shows its tank). In a race against the AI (`nitro_on` false: the AI ghost of any level
+## or My AI, the training screen's Race best; modes/field_mode.gd's field and cups) nobody has
+## nitro: every tank starts empty, the style points and the AI refill nothing, the HUD shows "No
+## nitro in AI races" where the gauge was and the key hints leave nitro out. The run still counts
+## as in Drive (record, ghost, medal).
 ##
 ## Best times, ghosts and medals are per track and car: the player's runs are recorded
 ## (sim/replay.gd); a new personal best with the car is saved (sim/save.gd) with its ghost.
@@ -87,6 +93,8 @@ var net: Object = null
 ## The car the AI network drives (Watch the AI: car_def is this car; the AI ghost).
 var ai_def: Dictionary = {}
 var with_ghost := false
+## (v6.15) Nitro in this race: off in races against the AI (the AI ghost, the field), for everyone.
+var nitro_on := true
 ## The AI opponent's level ("" : the player's own network, or no AI) and its speed cap (m/s).
 var level := ""
 var cap := INF
@@ -156,6 +164,7 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	driver = str(opts.get("driver", "human"))
 	net = opts.get("net")
 	with_ghost = bool(opts.get("ghost", false)) and net != null and driver == "human"
+	nitro_on = not with_ghost
 	level = str(opts.get("level", "")) if Opponents.rank(str(opts.get("level", ""))) >= 0 else ""
 	cap = float(opts.get("cap", INF)) if (opts.get("cap") is float or opts.get("cap") is int) and float(opts.get("cap")) > 0.0 else INF
 	# the player's car (opts.car or the one picked on the menu); the AI drives its network's car
@@ -212,7 +221,7 @@ func enter() -> void:
 	var cname: String = car_def.name
 	hud.set_mode(_mode_text(cname))
 	var keys: Array = []
-	if driver == "human":
+	if driver == "human" and nitro_on:
 		keys.append(["Shift", "nitro", "X / RB"])
 	keys.append(["R", "restart", "View"])
 	if driver == "human":
@@ -262,6 +271,8 @@ func _exit_view() -> void:
 
 func restart() -> void:
 	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
+	if not nitro_on:
+		car.nitro = 0.0 # (v6.15: no nitro in races against the AI)
 	race = RaceState.new(track)
 	_place_start()
 	record = SaveData.get_record(track.id, car_def.id) # your best with this car
@@ -274,14 +285,17 @@ func restart() -> void:
 	if rec != null:
 		rec.reset()
 		rec.add(0, car, true)
-	# the player's style score (its points refill the nitro tank); the AI scores nothing
-	score = ScoreState.new(track) if driver == "human" else null
+	# the player's style score (its points refill the nitro tank, not in a race against the AI); the AI
+	# scores nothing
+	score = ScoreState.new(track, nitro_on) if driver == "human" else null
 	score_events.clear()
 	best_score = SaveData.get_best_score(track.id, car_def.id) if score != null else {}
 	note = {}
 	if with_ghost:
 		ghost = {"car": Car.new(track, track.start_idx, ai_spec), "race": RaceState.new(track), "ai": AiLink.driver(net, cap)}
 		ghost.watch = _new_watch(ghost.car, 0.0)
+		(ghost.car as Car).nitro = 0.0 # (v6.15: no nitro in races against the AI, the AI's neither)
+		(ghost.ai as Object).set("refill", false)
 	watch = _new_watch(car, 0.0)
 	ai_note = 0.0
 	phase = "countdown"
@@ -563,6 +577,7 @@ func _score_state() -> Dictionary:
 	return {
 		"total": sc.total, "new_best": is_best, "prev": int(prev.score) if not prev.is_empty() else -1,
 		"car": car_def.name, "rows": rows, "nitro_earned": sc.nitro_earned, "nitro_lost": sc.nitro_earned - sc.nitro,
+		"nitro_off": not nitro_on,
 	}
 
 
@@ -755,7 +770,8 @@ func _render_hud(dt: float) -> void:
 		"gear": car.gear,
 		"rpm": car.rpm,
 		"spec": _rev_spec, # the rev bar's scale
-		"nitro": car.nitro if driver == "human" else null, # the AI never uses nitro: no gauge
+		"nitro": car.nitro if nitro_on else null, # (v6.15: the watched AI's tank too; none in an AI race)
+		"nitro_off": not nitro_on,
 		"boosting": car.boosting,
 		"score": sc, # none when watching the AI
 		"best": record.get("time"),

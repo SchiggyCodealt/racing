@@ -15,7 +15,8 @@ extends Control
 ##   set_keys(keys, pad)     [[key, what, pad button or ""], ...] bottom left
 ##   update(state, dt)       every frame; state (hud.js update's s, snake_case):
 ##       time, lap, laps, cp, cps, sprint, speed (m/s), gear, rpm, spec {idle_rpm, redline,
-##       upshift_rpm}, nitro (0..1 or null: no gauge), boosting, score {total, mult, live:
+##       upshift_rpm}, nitro (0..1 or null: no gauge), nitro_off (v6.15: true in a race against the
+##       AI: "No nitro in AI races" where the gauge was), boosting, score {total, mult, live:
 ##       {kind: "drift"|"air"|"wall", time, points} or null} or null (no score), best (s or
 ##       null), medal {medal, time, all?} or null, finished, ghost_text, pad
 ##     and, optionally, the events of this frame: countdown ("3" / "GO!" / "" off), split
@@ -40,6 +41,8 @@ const POP_FADE := 0.4
 const POP_MAX := 4       # popups shown at once; the oldest goes first
 const SPLIT_TIME := 2.2
 const LIVE_NAMES := {"drift": "DRIFT", "air": "AIR"}
+## (v6.15) the note where the nitro gauge is in a race against the AI
+const NITRO_OFF_TEXT := "No nitro in AI races"
 
 var panel_open := false
 var finish: FinishPanel
@@ -96,6 +99,8 @@ var _board_rows: Array = []   # [{row, place, chip, code, gap}]
 var field_text: PackedStringArray = []
 # bottom
 var _nitro: Control
+var _nitro_off: Label
+var _nitro_off_on := false
 var _speed_row: Control
 var _speed: Label
 var _rev: Control
@@ -249,6 +254,12 @@ func _build() -> void:
 	# bottom right: nitro, speed, gear and revs
 	_nitro = NitroGauge.new()
 	add_child(_nitro)
+	# (v6.15) in a race against the AI nobody has nitro: a short note where the gauge is
+	_nitro_off = UiStyle.label(NITRO_OFF_TEXT, "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.08, true, false, false, UiStyle.FS_S)
+	_nitro_off.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	UiStyle.add_shadow(_nitro_off, Color(0, 0, 0, 0.45), 1, 4)
+	_nitro_off.visible = false
+	add_child(_nitro_off)
 	_speed = UiStyle.label("0", "display_bold", UiStyle.FS_SPEED, UiStyle.TEXT, 0.0, false, false, false, UiStyle.FS_SPEED)
 	UiStyle.add_shadow(_speed, Color(0, 0, 0, 0.45), 2, 8)
 	var unit := UiStyle.caption("km/h", UiStyle.TEXT_2, UiStyle.FS_S)
@@ -459,6 +470,8 @@ func update(s: Dictionary, dt: float) -> void:
 	else:
 		_nitro.visible = not panel_open
 		_nitro.set_level(float(s.nitro), bool(s.get("boosting", false)))
+	_nitro_off_on = bool(s.get("nitro_off", false))
+	_nitro_off.visible = _nitro_off_on and not panel_open
 	_update_score(s.get("score"), dt)
 	if bool(s.get("pad", false)) != _pad and not _keys_data.is_empty():
 		set_keys(_keys_data, bool(s.get("pad", false)))
@@ -714,6 +727,7 @@ func _apply_panel_visibility() -> void:
 	if panel_open:
 		_rev.visible = false
 		_nitro.visible = false
+	_nitro_off.visible = _nitro_off_on and not panel_open
 	# the parts the panel would cover go (as the web does in narrow windows, and here also when a
 	# short window's panel reaches the score column or the best-time column): the panel shows them all
 	var fr := Rect2(finish.position, finish.size)
@@ -780,6 +794,7 @@ func _layout() -> void:
 	_pin(_right, 1, 0, x, UiStyle.S4 if not narrow else 76)
 	var nw := 240.0 if not narrow else 170.0
 	_pin(_nitro, 1, 1, x, 125 if not narrow else 89, Vector2(nw, 16))
+	_pin(_nitro_off, 1, 1, x, 125 if not narrow else 89, Vector2(nw, 16))
 	_pin(_speed_row, 1, 1, x, 54 if not narrow else 44)
 	_pin(_rev, 1, 1, x, UiStyle.S5 if not narrow else UiStyle.S3, Vector2(nw, 26))
 	_pin(_keys, 0, 1, x, UiStyle.S5 if not narrow else 64, Vector2(w * 0.45 if narrow else w - 2 * x - 260, 0))

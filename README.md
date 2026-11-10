@@ -67,6 +67,10 @@ to back against the same five AI drivers at a level you pick. Each race scores 1
 between the races set the next grid (the leader starts on pole), the top three of the final standings stand on the
 podium with **gold, silver and bronze trophies**, and the cup pays a big prize by your final place. The menu's **Cups**
 button (or **T**) opens them and shows your **trophy cabinet** (see [Championships](#championships)).
+Version 6.15.0 lets **the AI you train use nitro**: it sees its tank, learns where to fire it (out of the corners onto
+the straights) and refills it by driving cleanly, as you do; Watch the AI shows its tank. **Races against AI cars have
+no nitro** for anyone (Race the AI, Race the field, championships), and the HUD says so (see [Nitro](#nitro) and
+[Training the AI](#training-the-ai)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -80,7 +84,7 @@ button (or **T**) opens them and shows your **trophy cabinet** (see [Championshi
 
 ### The ready-made game (no installation)
 
-1. Get `TrackRush-6.14.0-windows.zip`. It is made with the export steps in
+1. Get `TrackRush-6.15.0-windows.zip`. It is made with the export steps in
    [Making the game files](#making-the-game-files-export); it is not stored in the repository
    itself (it is about 40 MB), so it is shared separately, for example attached to a release on
    the repository's GitHub **Releases** page.
@@ -249,6 +253,12 @@ a clean lap refills about half a tank to a full one, depending on the track, and
 Penalties take nothing out of the tank, and points banked at the finish refill nothing (the race is over).
 The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#upgrades)).
 
+**No nitro in AI races** (version 6.15.0). In every race against AI cars (Race the AI at any level and against My
+AI, Race the field and championships) nobody has nitro: every car starts with an empty tank and nothing refills
+it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's 3 Drive
+heading says the same. Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
+the AI and training keep nitro.
+
 ### Points for clean driving
 
 Each run in Drive and Race the AI ghost scores style points:
@@ -395,6 +405,7 @@ refused as for Drive.
 - **The grid.** Two wide and staggered, 10 m between cars, the AI ahead and you last, on the usual start spot, so the
   race is the same distance as Drive: **your time counts for medals, records, your ghost and opening tracks** as in
   Drive (your best-run ghost doesn't race along).
+- **No nitro** (version 6.15.0): nobody in the field has nitro, you included (see [Nitro](#nitro)).
 - **Solid cars.** Cars push each other apart and lose a little speed when they touch; nothing launches or sticks, and
   a car over a ramp flies over the others. The AI ease off behind a car close ahead and steer to the side with more
   room, and an AI stuck or facing the wrong way for a few seconds is put back on the road (it can't be hit for a
@@ -815,7 +826,20 @@ corners reworked in 6.6.0; the browser version has no dirt or snow, and not trac
    doesn't load, training runs in GDScript instead, at only about real time with 80 cars, and the screen says so.
    **Pause**, another speed, **Watch best** or **Race best** take the session back from the thread exactly where it was.
 
-The AI never uses nitro and scores no points.
+**Nitro** (version 6.15.0). The AI has a nitro button and sees how full its tank is, and it learns when to fire it
+like everything else: a network that burns it where it gains time finishes faster and scores better. Its tank
+refills by the same rule as yours, from the points a clean run would bank: 500 × the combo (x1 to x5) for each
+clean checkpoint and 2,000 for a clean lap, 16,000 to a full tank (× the nitro upgrade's refill); a wall contact
+spoils the checkpoint and the lap as it does for you (drifts and jumps refill nothing for the AI, and it scores no
+points). Training, Watch the AI and the AI's best lap on the training screen all use nitro; races against the AI
+don't (see [Nitro](#nitro)). New networks start with the nitro output switched off (its weights at zero) and evolve
+it from there, so a population of random drivers doesn't burn nitro into the walls.
+Measured with 80 cars, seed 1 and 150 generations at Max: on Rookie Oval the AI learned to fire nitro coming out of
+the corners onto the straights (in a 3-lap race 13 burns, 9 % of the race, 86 % of it with a straight road ahead,
+using its whole tank and the 1.2 tanks its clean checkpoints refilled); its race takes 2:02.817 with nitro and
+2:04.533 with an empty tank. On Night Highway: 21 burns, 3:12.483 against 3:14.217. The same training run without
+nitro (`--no-nitro`) ended with a best lap of 43.150 against 42.383 with nitro (Night Highway 1:07.500 against
+1:05.550).
 
 **Cars.** Every car has its own AI network: training with the Thunder autosaves the Thunder's network and leaves the
 Racer's alone. A training session belongs to its car (the title says which, e.g. **AI TRAINING · THUNDER**, and so do
@@ -847,15 +871,16 @@ finish in generation 0 against 44); the simulation here is the same, so expect t
 ### How the AI works
 
 - **Network** (`ai/network.gd`): a small fully connected network with tanh activations.
-  - 18 inputs (`ai/sensors.gd`): 9 distance rays fanning out from the nose (-90° to +90°, 100 m range),
+  - 19 inputs (`ai/sensors.gd`): 9 distance rays fanning out from the nose (-90° to +90°, 100 m range),
     speed, side slip, yaw rate, two "aim" angles to points on the road ahead (further ahead at higher speed),
-    how much the road turns 25-60 m ahead, and three **corner margins**: how much faster than its current
-    speed the car could take the tightest corner 0-50 m, 50-110 m and 110-200 m ahead. The corner margins
-    are what teach it to brake before hairpins.
+    how much the road turns 25-60 m ahead, three **corner margins**: how much faster than its current
+    speed the car could take the tightest corner 0-50 m, 50-110 m and 110-200 m ahead, and (version 6.15.0)
+    the **nitro tank** (0 empty to 1 full). The corner margins are what teach it to brake before hairpins.
   - Speed and corner margins are measured against the car's own top speed, so "1" means flat out for every
     car and a corner the car can take flat out reads the same in each. For the Racer the inputs are exactly those of earlier versions, so Racer
     networks from version 6.0-6.1 and from the browser drive exactly as before.
-  - 2 outputs: steering (left/right) and throttle (positive = accelerate, negative = brake/reverse).
+  - 3 outputs: steering (left/right), throttle (positive = accelerate, negative = brake/reverse) and (version
+    6.15.0) **nitro** (above 0 burns nitro, as much as the output says; at 0 or below it doesn't).
   - The network is also run on the mirror image of its inputs and the two answers are combined, so it
     drives left and right corners the same way.
 - **Evolution** (`ai/genetic.gd`): the top 5 % survive unchanged, parents are picked by tournament
@@ -877,8 +902,11 @@ finish in generation 0 against 44); the simulation here is the same, so expect t
   copies). A network trained with another car loads too, with a note saying which car it learned; it then drives
   the picked car, so expect it to brake too early or too late until it has been trained with that car.
 
-The files are the same format as the browser version's, both ways: a network trained in the browser loads here,
-and one trained here loads in the browser. The file contains the weights, the layer sizes, the sensor version,
+The files are the same format as the browser version's: a network trained in the browser loads here. Since
+version 6.15.0 a saved network has 19 inputs and 3 outputs (`"sensorVersion": 3`), which the browser version
+can't read (it calls it a version 1 network); files from the browser and from versions 6.0-6.14 (18 inputs, 2
+outputs) load here and drive exactly as they did, with the nitro input and output added at zero weight, so they
+never fire nitro until they are trained further. The file contains the weights, the layer sizes, the sensor version,
 the car it was trained with (`"car": "thunder"`; a file without it, like every browser file and those of versions
 6.0-6.1, is a Racer network), the generation count, the fitness history, the tracks and wall rule it was trained
 with and the AI's best times. Networks from version 1 of the game (11 inputs) can't be used with these sensors
@@ -910,10 +938,12 @@ godot --headless --path . --script res://tools/headless_train.gd -- hairpin-vall
 # continue later from that file:
 godot --headless --path . --script res://tools/headless_train.gd -- hairpin-valley,technical-trial 100 my-driver-2.json my-driver.json
 # options: --pop 80  --hidden 16,8  --mutation 0.1  --laps 1  --walls ride|crash  --stop-after 10  --quiet
-#          --threads 4  --seed 1  --car racer|kestrel|thunder|drifter|dune|vortex  --gdscript
+#          --threads 4  --seed 1  --car racer|kestrel|thunder|drifter|dune|vortex  --gdscript  --no-nitro
 ```
 
-`--car` picks the car to train (default the Racer); the file records it. To use the network in the game, pick
+`--car` picks the car to train (default the Racer); the file records it. `--no-nitro` trains with empty tanks (the
+way the shipped AI opponents were trained, since they race without nitro); such a network never saw a full tank
+and may drive worse with one (Watch the AI gives it one: on Rookie Oval 2:17.083 instead of 2:02.800). To use the network in the game, pick
 that car on the menu and **Load network…**. The physics is deterministic, so a network trained from the command
 line drives exactly the same in the game.
 
@@ -1062,7 +1092,7 @@ In the Godot editor:
 2. **Project → Export…**, pick **Windows Desktop**, click **Export Project…**, untick **Export With Debug**,
    and save as `build/windows/TrackRush.exe`.
 3. For a zip to share: put `TrackRush.exe` and `libtrackrush.windows.template_release.x86_64.dll` (plus a short
-   README) in a zip, like `TrackRush-6.14.0-windows.zip`.
+   README) in a zip, like `TrackRush-6.15.0-windows.zip`.
 
 From the command line (the same presets; delete the `.godot` folder first for a clean build):
 

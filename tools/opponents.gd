@@ -157,7 +157,7 @@ static func seed_of(car_id: String, track_id: String) -> int:
 static func train_one(t: BuiltTrack, car_id: String, gens: int, every: int, max_gens: int, threads: int) -> Dictionary:
 	var seed: int = seed_of(car_id, t.id)
 	NeuralNetwork.rng.seed = seed
-	var trainer := Trainer.new({tracks = [t], population_size = 80, mutation_rate = 0.1, hidden = [12], laps = 1, walls = "ride",
+	var trainer := Trainer.new({tracks = [t], population_size = 80, mutation_rate = 0.1, hidden = [12], laps = 1, walls = "ride", nitro = false,
 		car_id = car_id, native = true, threads = threads})
 	var medals: Dictionary = Medals.medal_times(t, car_id)
 	var gold: float = float(medals.get("gold", INF))

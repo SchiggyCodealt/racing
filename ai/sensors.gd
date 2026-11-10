@@ -3,7 +3,7 @@ extends RefCounted
 ## sensors.gd: a port of web/src/ai/sensors.js.
 ## ------------------------------------------------------------------
 ## What the AI "sees", and the glue that turns network outputs into car
-## controls. v2 inputs (18, all within -1..1):
+## controls. v3 inputs (19, all within -1..1; v2 had the first 18):
 ##
 ##   0-8   distance rays fanning out from the car's nose (-90°..+90°),
 ##         distance / SENSOR_RANGE (1 = no wall within 100 m)
@@ -21,6 +21,21 @@ extends RefCounted
 ##         corner speed is sqrt(CORNER_GRIP × radius) (~55 km/h for a 16 m
 ##         hairpin), at most the car's top speed. Negative = faster than that
 ##         corner allows.
+##   18    nitro tank (v6.15, SENSOR_VERSION 3): the car's tank, 0 (empty) .. 1 (full)
+##
+## Outputs (3): steer, throttle and (v6.15) nitro: the nitro output burns that much of the
+## tank's flow when it is above 0 (Car.Controls.nitro 0..1), nothing at 0 or below.
+##
+## Nitro (v6.15): an AI car starts with a full tank, like the player's, and refills it the way the
+## player's clean driving does (NitroRefill below: sim/score.gd's clean checkpoint, with its combo,
+## and clean lap points through pointsPerTank, × the car's nitro_refill; a wall contact spoils the
+## section and the lap; drifts, jumps and close calls are not counted for the AI). Races against
+## the AI have no nitro for anyone: the play modes empty every tank and turn the refills off
+## (AIDriver.refill = false), so the AI there sees an empty tank and its nitro output does nothing.
+## Networks of SENSOR_VERSION 2 (18 inputs, 2 outputs: older saves and files, the browser's, the
+## shipped AI opponents) are widened when they are loaded (Trainer.parse_network_file,
+## NeuralNetwork.grown): the new input's weights and the nitro output's weights and bias are 0, so
+## such a network steers and brakes bit for bit as before and its nitro output is always 0.
 ##
 ## Other cars (v6.2): the speed input and the corner speed cap use the driven
 ## car's own top speed (CarSpec.max_speed), so a network sees the same range
@@ -85,13 +100,20 @@ const INPUT_LABELS: PackedStringArray = [
 	"ray left 90°", "ray left 60°", "ray left 35°", "ray left 15°", "ray front",
 	"ray right 15°", "ray right 35°", "ray right 60°", "ray right 90°",
 	"speed", "side slip", "yaw rate", "aim near", "aim far", "road turn 25-60 m",
-	"corner margin 0-50 m", "corner margin 50-110 m", "corner margin 110-200 m",
+	"corner margin 0-50 m", "corner margin 50-110 m", "corner margin 110-200 m", "nitro tank",
 ]
-const OUTPUT_LABELS: PackedStringArray = ["steer", "throttle"]
-const INPUT_COUNT: int = 18
-const OUTPUT_COUNT: int = 2
-## Bumped whenever the inputs change meaning, so old network files are rejected clearly.
-const SENSOR_VERSION: int = 2
+const OUTPUT_LABELS: PackedStringArray = ["steer", "throttle", "nitro"]
+const INPUT_COUNT: int = 19
+const OUTPUT_COUNT: int = 3
+## Bumped whenever the inputs change meaning, so old network files are rejected clearly (or, from
+## 2 to 3, widened: see the header).
+const SENSOR_VERSION: int = 3
+## The inputs and outputs of SENSOR_VERSION 2 networks (v6.14 and older), widened when loaded.
+const V2_INPUTS: int = 18
+const V2_OUTPUTS: int = 2
+## The nitro tank's input and the nitro output.
+const NITRO_INPUT: int = 18
+const NITRO_OUTPUT: int = 2
 ## Inputs that change sign in a mirror image (left <-> right); the rays swap order.
 const MIRROR_NEGATE: PackedInt32Array = [NR + 1, NR + 2, NR + 3, NR + 4, NR + 5]
 
@@ -298,6 +320,7 @@ static func sense(track: BuiltTrack, car: Car, inputs: PackedFloat32Array, rays:
 		if vc > top:
 			vc = top
 		inputs[NR + 6 + w] = clamp1((vc - u) / MARGIN_SCALE)
+	inputs[NITRO_INPUT] = car.nitro # (v6.15: the tank, 0..1)
 	return inputs
 
 
@@ -323,7 +346,8 @@ static func mirror_inputs(src: PackedFloat32Array, dst: PackedFloat32Array) -> P
 
 ## Run a driver network and fill the car controls (JS driveNetwork). The network is
 ## evaluated on the inputs and on their mirror image, and the two answers are combined so
-## the driver is exactly left/right symmetric: steer = (s - s') / 2, throttle = (t + t') / 2.
+## the driver is exactly left/right symmetric: steer = (s - s') / 2, throttle = (t + t') / 2,
+## (v6.15) nitro = (n + n') / 2, used when above 0.
 ## The real (unmirrored) pass runs last, so net.acts holds its activations for the network
 ## diagram, with the combined controls written into the output layer (as 32-bit floats).
 static func drive_network(net: NeuralNetwork, inputs: PackedFloat32Array, mirrored: PackedFloat32Array, ctrl: Car.Controls) -> Car.Controls:
@@ -331,16 +355,65 @@ static func drive_network(net: NeuralNetwork, inputs: PackedFloat32Array, mirror
 	var m: PackedFloat32Array = net.forward(mirrored)
 	var ms: float = m[0]
 	var mt: float = m[1]
+	var mn: float = m[2]
 	var out: PackedFloat32Array = net.forward(inputs)
 	out[0] = 0.5 * (out[0] - ms)
 	out[1] = 0.5 * (out[1] + mt)
+	out[2] = 0.5 * (out[2] + mn)
 	net.acts[net.acts.size() - 1] = out
-	# outputsToControls: steer, throttle, no handbrake, no nitro (the AI never uses it)
+	# outputsToControls: steer, throttle, no handbrake, nitro (v6.15) when its output is above 0
 	ctrl.steer = out[0]
 	ctrl.throttle = out[1]
 	ctrl.handbrake = false
-	ctrl.nitro = 0.0
+	ctrl.nitro = out[2] if out[2] > 0.0 else 0.0
 	return ctrl
+
+
+## How an AI car's nitro tank refills (v6.15; see the header): sim/score.gd's clean checkpoint
+## points (cpPoints × the combo multiplier, x1 .. x comboMax) and clean lap points, through
+## pointsPerTank, × the car's nitro_refill (the nitro upgrade; 1 stock). A wall contact (car.hit_wall
+## in a step) ends the combo and spoils the section and the lap; a car touching the wall as it takes
+## a gate spoils the next section too. The finish refills nothing (the race is over).
+## native/src/fleet_sim.cpp mirrors it (Agent: combo, section, lap). Call update() once a step after
+## car.step() and race.update() (or, as the AIDriver does, before the next drive(): the same moment
+## for the sensors and the physics).
+class NitroRefill:
+	var combo: int = 0
+	var section: bool = true
+	var lap: bool = true
+	## the race's gates already counted
+	var gate: int = 0
+
+	func reset() -> void:
+		combo = 0
+		section = true
+		lap = true
+		gate = 0
+
+	func update(car: Car, race: RaceState, closed: bool) -> void:
+		if car.hit_wall:
+			combo = 0
+			section = false
+			lap = false
+		while gate < race.next_gate:
+			var kind: String = race.gates[gate].kind
+			gate += 1
+			if kind == "finish":
+				continue
+			on_gate(car, kind == "lap" and closed)
+
+	## One gate (a checkpoint, or with `lap_gate` a lap line of a circuit) taken this step.
+	func on_gate(car: Car, lap_gate: bool) -> void:
+		var S: Dictionary = ScoreState.SCORE
+		if section:
+			var mult: int = mini(int(S.comboMax), combo + 1)
+			combo += 1
+			car.add_nitro(float(int(S.cpPoints) * mult) / float(S.pointsPerTank) * car.spec.nitro_refill)
+		section = not car.hit_wall
+		if lap_gate:
+			if lap:
+				car.add_nitro(float(S.cleanLap) / float(S.pointsPerTank) * car.spec.nitro_refill)
+			lap = not car.hit_wall
 
 
 ## The speed governor of a slowed-down AI opponent (v6.5: the levels below Elite, see
@@ -362,6 +435,11 @@ class AIDriver:
 	## Top speed (m/s) the driver keeps to (INF: none, the network as it is). Training never
 	## sets it: only the AI opponents' skill levels (sim/opponents.gd) do.
 	var speed_cap: float = INF
+	## (v6.15) Refill the car's nitro tank from clean gates (NitroRefill), as in training. Off in races
+	## against the AI (no nitro for anyone there: the mode empties the tank too).
+	var refill: bool = true
+	var refills := NitroRefill.new()
+	var _car: Car = null
 
 	func _init(p_net: NeuralNetwork, p_speed_cap: float = INF) -> void:
 		net = p_net
@@ -370,7 +448,13 @@ class AIDriver:
 		mirrored.resize(INPUT_COUNT)
 		rays.resize(NR)
 
-	func drive(track: BuiltTrack, car: Car, _race: Variant = null) -> Car.Controls:
+	## `race` (a RaceState): the car's race, whose gates refill the tank; null: no refills.
+	func drive(track: BuiltTrack, car: Car, race: Variant = null) -> Car.Controls:
+		if car != _car:
+			_car = car
+			refills.reset() # (a new car: a restart)
+		if refill and race is RaceState:
+			refills.update(car, race, track.closed) # (the last step's wall contact and gates)
 		Sensors.sense(track, car, inputs, rays)
 		Sensors.drive_network(net, inputs, mirrored, ctrl)
 		if speed_cap < INF:

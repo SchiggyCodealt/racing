@@ -6,7 +6,9 @@ extends RefCounted
 ## its AI ghost): a standing start at GO, 60 Hz steps of the network driver (ai/sensors.gd
 ## AIDriver, with the level's speed cap), car.step, race.update; walls are ridden (the
 ## opponent never collides with you and is never put out by a wall), and when it makes no
-## progress for PlayMode.STUCK_TIME seconds it is put back at its last checkpoint, standing.
+## progress for PlayMode.STUCK_TIME seconds it is put back at its last checkpoint, standing. No
+## nitro (v6.15): an empty tank and no refills, as in every race against the AI (the shipped
+## networks have no nitro anyway: their nitro output is widened in as 0, ai/sensors.gd).
 ## The opponent's race does not depend on yours, and the physics is deterministic, so its finish
 ## time is known before the race: tools/opponents.gd measures every level on every track with
 ## every car this way and stores the times in data/opponents/<car>.json (sim/opponents.gd), and
@@ -26,8 +28,10 @@ const MAX_TIME: float = 1500.0
 static func run(net: NeuralNetwork, track: BuiltTrack, car_id: String, cap: float = INF, max_time: float = MAX_TIME,
 		trace: bool = false) -> Dictionary:
 	var car := Car.new(track, track.start_idx, Cars.spec(car_id))
+	car.nitro = 0.0 # (v6.15: no nitro in races against the AI, as in the game)
 	var race := RaceState.new(track)
 	var driver := Sensors.AIDriver.new(net, cap)
+	driver.refill = false
 	var watch: Dictionary = PlayMode._new_watch(car, 0.0)
 	var respawns: int = 0
 	var wall_steps: int = 0

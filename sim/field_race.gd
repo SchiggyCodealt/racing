@@ -19,6 +19,8 @@ extends RefCounted
 ##      respawn would; after the player's finish an AI that hasn't finished within FINISH_WAIT s is out
 ##      (DNF).
 ## Deterministic: the same field, inputs and track give the same race.
+## No nitro (v6.15: no nitro for anyone in races against the AI): every car, the player's too, starts
+## with an empty tank, and the AI drivers' refills are off (AIDriver.refill), so nothing ever fills it.
 ##
 ##   var f := FieldRace.new(track, lineup, drivers, player_car, player_race[, player_info, player_slot])
 ##                                                # places every car on the grid
@@ -139,6 +141,9 @@ func place_on_grid() -> void:
 		var r := racers[k]
 		var s: Dictionary = g[r.slot]
 		r.car.place(track, int(s.idx), {x = s.x, z = s.z, yaw = s.yaw, vx = 0.0, vz = 0.0, idx = s.idx, laps = int(s.laps)})
+		r.car.nitro = 0.0 # (no nitro in races against the AI)
+		if r.driver != null and "refill" in r.driver:
+			r.driver.set("refill", false)
 		if not r.player:
 			r.race.reset()
 		r.watch = PlayMode._new_watch(r.car, 0.0)

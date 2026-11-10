@@ -3,8 +3,8 @@
 // FleetSim: the native fast path of AI training (a GDExtension class).
 // One call steps a whole population of AI cars for one track run:
 // sensors (ai/sensors.gd) + network forward with the mirrored pass
-// (ai/network.gd, Sensors.drive_network) + car physics (sim/car.gd) +
-// race gates (sim/race.gd) + fitness and elimination rules (ai/trainer.gd
+// (ai/network.gd, Sensors.drive_network: steer, throttle and, v6.15, nitro) + car physics (sim/car.gd) +
+// race gates (sim/race.gd) + the nitro tank's refills (Sensors.NitroRefill, v6.15) + fitness and elimination rules (ai/trainer.gd
 // Trainer.step), optionally on several native threads.
 //
 // The GDScript Trainer (ai/trainer.gd) drives it: it hands over the car spec (any car of
@@ -39,6 +39,7 @@ struct Rules {
 	double finish_cutoff = 1.25, finish_slack = 5.0, ref_speed = 50.0;
 	bool walls_crash = false;
 	int laps = 1;
+	bool nitro = true; // (v6.15) false: empty tanks, no refills (Trainer cfg.nitro)
 };
 
 // One car of the run (Trainer.Agent with its RaceState).
@@ -54,8 +55,11 @@ struct Agent {
 	int reason = 0; // Trainer.REASONS index (0 = still driving)
 	double fitness = 0.0, start_prog = 0.0, max_prog = 0.0, last_improve = 0.0, gate_deadline = 0.0;
 	double prev_x = 0.0, prev_y = 0.0, prev_z = 0.0, prev_yaw = 0.0;
-	float inputs[18] = {};
-	float mirrored[18] = {};
+	// (v6.15) the nitro tank's refills from clean gates (Sensors.NitroRefill)
+	int combo = 0;
+	bool section = true, lap = true;
+	float inputs[19] = {};
+	float mirrored[19] = {};
 	float rays[9] = {};
 	std::vector<float> acts; // every layer's activations after the last forward
 };
@@ -100,6 +104,7 @@ class FleetSim : public godot::RefCounted {
 	void forward(const float *p, float *acts, const float *inputs) const;
 	void drive(int k, Agent &a) const;
 	double gate_deadline_for(const Agent &a, double from_prog, double now) const;
+	void refill_gate(Agent &a, bool lap_gate) const;
 	double score(const Agent &a, double now) const;
 	void step_agent(Agent &a, int k, double dt, double now, double cutoff, ThreadStats &st) const;
 	void run_cars(int first, int stride, int n_steps, double dt, double start_time, ThreadStats &st);

@@ -75,6 +75,7 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	lineup = opts.get("lineup", [])
 	nets = opts.get("nets", [])
 	uses_pb = false
+	nitro_on = false # (v6.15: no nitro in races against the AI; FieldRace empties every tank)
 	cup = opts.get("cup") if opts.get("cup") is CupRun else null
 	player_slot = int(opts.get("player_slot", -1))
 
@@ -115,7 +116,7 @@ func _mode_text(cname: String) -> String:
 func enter() -> void:
 	_enter_field()
 	if cup != null:
-		app.ui.hud.set_keys([["Shift", "nitro", "X / RB"], ["R", "restart", "View"], ["Enter", "respawn", "B"], ["Esc", "standings", "Menu"]], app.input.pad_active)
+		app.ui.hud.set_keys([["R", "restart", "View"], ["Enter", "respawn", "B"], ["Esc", "standings", "Menu"]], app.input.pad_active)
 
 
 ## The field's drivers and every car on its grid slot (your car on the last one).

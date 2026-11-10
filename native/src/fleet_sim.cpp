@@ -30,7 +30,12 @@ namespace {
 constexpr double PI = 3.14159265358979323846;
 // ai/sensors.gd constants
 constexpr int NR = 9;
-constexpr int INPUT_COUNT = 18;
+constexpr int INPUT_COUNT = 19; // (v6.15: 18 = the nitro tank)
+constexpr int NITRO_INPUT = 18;
+constexpr int OUTPUT_COUNT = 3; // steer, throttle, nitro (v6.15)
+// ScoreState.SCORE (sim/score.gd): the points that refill an AI car's nitro tank (Sensors.NitroRefill)
+constexpr int CP_POINTS = 500, COMBO_MAX = 5;
+constexpr double CLEAN_LAP = 2000.0, POINTS_PER_TANK = 16000.0;
 constexpr double SENSOR_ANGLES[NR] = { 90, 60, 35, 15, 0, -15, -35, -60, -90 };
 constexpr double SENSOR_RANGE = 100.0;
 constexpr double AIM_BASE = 10.0, AIM_TIME = 0.6, AIM_FAR = 2.5;
@@ -43,7 +48,7 @@ constexpr int CHUNK = 60;
 // fewer car-steps than this in a chunk: one thread (starting threads costs more)
 constexpr int MIN_PARALLEL = 400;
 // get_view_states(): numbers per car
-constexpr int VIEW_STRIDE = 35;
+constexpr int VIEW_STRIDE = 37;
 
 const char *REASON_NAMES[8] = { "", "finished", "wall", "backwards", "stalled", "too slow", "cut off", "time" };
 
@@ -223,7 +228,7 @@ FleetSim::FleetSim() {
 	X(gravity, "gravity") X(lift_separation, "liftSeparation") X(min_flight, "minFlight") X(hard_landing, "hardLanding") \
 	X(landing_loss, "landingLoss") X(air_steer, "airSteer") X(air_steer_tau, "airSteerTau") X(air_yaw_damp, "airYawDamp") \
 	X(nitro_time, "nitroTime") X(nitro_force, "nitroForce") X(nitro_power, "nitroPower") X(nitro_top, "nitroTop") \
-	X(nitro_fade, "nitroFade") X(max_speed, "maxSpeed") \
+	X(nitro_fade, "nitroFade") X(nitro_refill, "nitroRefill") X(max_speed, "maxSpeed") \
 	X(wheelbase, "wheelbase") X(core, "core") X(peak_slip, "peakSlip") X(pac_slope0, "pacSlope0") \
 	X(peak_steer, "peakSteer")
 
@@ -361,6 +366,7 @@ void FleetSim::set_rules(const Dictionary &d) {
 	r.ref_speed = num(d, "ref_speed", r.ref_speed);
 	r.walls_crash = (bool)d.get("walls_crash", false);
 	r.laps = (int)(int64_t)d.get("laps", 1);
+	r.nitro = (bool)d.get("nitro", true);
 }
 
 // The networks of the population: layer sizes and every network's weights and biases,
@@ -375,7 +381,7 @@ void FleetSim::set_networks(const PackedInt32Array &p_sizes, const PackedFloat32
 			per_net += sizes[l] * sizes[l + 1] + sizes[l + 1];
 		}
 	}
-	bool ok = sizes.size() >= 2 && sizes[0] == INPUT_COUNT && sizes.back() == 2 && count >= 0 &&
+	bool ok = sizes.size() >= 2 && sizes[0] == INPUT_COUNT && sizes.back() == OUTPUT_COUNT && count >= 0 &&
 			(int64_t)per_net * count == p_params.size();
 	if (!ok) {
 		ERR_PRINT("FleetSim.set_networks: sizes or parameter count do not match");
@@ -425,6 +431,9 @@ void FleetSim::begin_run() {
 	for (int k = 0; k < net_count; k++) {
 		Agent &a = agents[k];
 		car_init(a.car, spec, track, track.start_idx);
+		if (!rules.nitro) {
+			a.car.nitro = 0.0; // (a run without nitro)
+		}
 		a.prev_x = a.car.x;
 		a.prev_y = a.car.y;
 		a.prev_z = a.car.z;
@@ -498,6 +507,7 @@ void FleetSim::sense(Agent &a) const {
 		}
 		inputs[NR + 6 + w] = (float)clamp1((vc - u) / MARGIN_SCALE);
 	}
+	inputs[NITRO_INPUT] = (float)car.nitro; // (v6.15: the tank, 0..1)
 }
 
 // NeuralNetwork.forward(): float32 weights and activations, double sums, tanh.
@@ -528,7 +538,8 @@ void FleetSim::forward(const float *p, float *acts, const float *inputs) const {
 }
 
 // Sensors.drive_network(): the network on the mirrored inputs, then on the real ones;
-// steer = (s - s') / 2, throttle = (t + t') / 2, stored as 32-bit floats in the output layer.
+// steer = (s - s') / 2, throttle = (t + t') / 2, nitro = (n + n') / 2 (used above 0), stored as
+// 32-bit floats in the output layer.
 void FleetSim::drive(int k, Agent &a) const {
 	const float *src = a.inputs;
 	float *dst = a.mirrored;
@@ -543,17 +554,44 @@ void FleetSim::drive(int k, Agent &a) const {
 	}
 	const float *p = params.data() + (size_t)k * per_net;
 	float *acts = a.acts.data();
-	float *out = acts + (act_count - 2);
+	float *out = acts + (act_count - OUTPUT_COUNT);
 	forward(p, acts, a.mirrored);
 	double ms = out[0];
 	double mt = out[1];
+	double mn = out[2];
 	forward(p, acts, a.inputs);
 	out[0] = (float)(0.5 * ((double)out[0] - ms));
 	out[1] = (float)(0.5 * ((double)out[1] + mt));
+	out[2] = (float)(0.5 * ((double)out[2] + mn));
 	a.ctrl.steer = out[0];
 	a.ctrl.throttle = out[1];
 	a.ctrl.handbrake = false;
-	a.ctrl.nitro = 0.0;
+	a.ctrl.nitro = out[2] > 0.0f ? (double)out[2] : 0.0;
+}
+
+// Car.add_nitro(): a share of a tank, clamped to 0..1.
+inline void add_nitro(CarState &c, double amount) {
+	double n = c.nitro + (std::isnan(amount) ? 0.0 : amount);
+	c.nitro = n < 0.0 ? 0.0 : (n > 1.0 ? 1.0 : n);
+}
+
+// Sensors.NitroRefill.on_gate(): a gate taken (lap_gate: a lap line of a circuit) refills the tank
+// when the section since the gate before was clean (a combo like the player's clean checkpoints)
+// and, at a lap line, when the lap was clean.
+void FleetSim::refill_gate(Agent &a, bool lap_gate) const {
+	CarState &car = a.car;
+	if (a.section) {
+		int mult = std::min(COMBO_MAX, a.combo + 1);
+		a.combo += 1;
+		add_nitro(car, (double)(CP_POINTS * mult) / POINTS_PER_TANK * spec.nitro_refill);
+	}
+	a.section = !car.hit_wall;
+	if (lap_gate) {
+		if (a.lap) {
+			add_nitro(car, CLEAN_LAP / POINTS_PER_TANK * spec.nitro_refill);
+		}
+		a.lap = !car.hit_wall;
+	}
 }
 
 // One car through one step: the body of the loop in Trainer.step().
@@ -568,6 +606,7 @@ void FleetSim::step_agent(Agent &a, int k, double dt, double now, double cutoff,
 	car_step(car, spec, track, a.ctrl, dt);
 	// RaceState.update(): timer, gates in order, lap and finish times
 	bool events = false;
+	const int gate0 = a.next_gate;
 	if (!a.race_finished) {
 		a.race_time += dt;
 		const int n_gates = (int)track.gate_prog.size();
@@ -590,6 +629,21 @@ void FleetSim::step_agent(Agent &a, int k, double dt, double now, double cutoff,
 			a.next_gate += 1;
 			events = true;
 			st.any_gate = true; // (Trainer.record_time makes the track's entry on any event)
+		}
+	}
+	// Sensors.NitroRefill.update(): a wall contact spoils the combo, the section and the lap; each
+	// checkpoint or lap line taken may refill the tank (the finish refills nothing)
+	if (rules.nitro) {
+		if (car.hit_wall) {
+			a.combo = 0;
+			a.section = false;
+			a.lap = false;
+		}
+		for (int g = gate0; g < a.next_gate; g++) {
+			const int kind = track.gate_kind[g];
+			if (kind != 2) {
+				refill_gate(a, kind == 1 && track.closed);
+			}
 		}
 	}
 	if (events && !a.race_finished) {
@@ -819,7 +873,7 @@ PackedFloat64Array FleetSim::get_view_states() const {
 			c.speed, c.forward_speed, c.side_speed, c.steer, c.throttle, c.slip,
 			c.grounded ? 1.0 : 0.0, c.drifting ? 1.0 : 0.0, c.braking ? 1.0 : 0.0, c.hit_wall ? 1.0 : 0.0,
 			(double)c.wall_hits, c.wall_impact, c.wall_scrape, c.wall_x, c.wall_y, c.wall_z, c.wall_nx, c.wall_nz,
-			(double)c.idx, c.prog, c.yaw_rate, a.prev_x, a.prev_y, a.prev_z, a.prev_yaw,
+			(double)c.idx, c.prog, c.yaw_rate, a.prev_x, a.prev_y, a.prev_z, a.prev_yaw, c.nitro, c.boost,
 		};
 		std::copy(v, v + VIEW_STRIDE, o);
 		o += VIEW_STRIDE;
@@ -909,6 +963,9 @@ Dictionary FleetSim::get_agent(int k) const {
 	d["race_time"] = a.race_time;
 	d["finish_time"] = a.finish_time;
 	d["race_finished"] = a.race_finished;
+	d["combo"] = a.combo;
+	d["section"] = a.section;
+	d["lap"] = a.lap;
 	return d;
 }
 
@@ -950,7 +1007,7 @@ PackedFloat64Array FleetSim::debug_drive(int start_idx, const PackedFloat64Array
 }
 
 String FleetSim::version() const {
-	return "trackrush-native 4";
+	return "trackrush-native 5";
 }
 
 void FleetSim::_bind_methods() {

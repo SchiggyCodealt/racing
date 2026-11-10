@@ -25,7 +25,8 @@ extends PanelContainer
 ##               points}], money, points, money_total, points_total, repeat: [reward ids paid before],
 ##               medal (the run's medal, "" none), level (the AI level raced, "" none), won (beat it)}
 ##   score       {total, new_best: bool, prev: int (-1 none), car, rows: [{label, note, points}],
-##               nitro_earned, nitro_lost} (absent: no score, e.g. the AI drove)
+##               nitro_earned, nitro_lost, nitro_off (v6.15: a race against the AI, no nitro)} (absent:
+##               no score, e.g. the AI drove)
 ##   laps        [lap times] (shown when there are two or more; not in a field race)
 ##   pad         true: name the gamepad buttons too
 ##   field       (v6.13.0) Race the field: {place, of, level (its name), rows: [{place, name, code, car, color,
@@ -540,7 +541,9 @@ func _score(sc: Dictionary, brief: bool = false) -> Control:
 	var earned := float(sc.get("nitro_earned", 0.0))
 	var lost := float(sc.get("nitro_lost", 0.0))
 	var note := "Nitro earned: none"
-	if earned >= 0.05:
+	if bool(sc.get("nitro_off", false)):
+		note = "No nitro in AI races" # (v6.15)
+	elif earned >= 0.05:
 		var e := "%.1f" % earned
 		note = "Nitro earned: %s %s" % [e, "tank" if e == "1.0" else "tanks"]
 		if lost >= 0.05:

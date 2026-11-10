@@ -218,7 +218,8 @@ func _save_wiring(t) -> void:
 	UiData.set_ai_status({"generation": 8, "fitness": 1500.0, "sizes": [18, 12, 2], "trained_on": ["rookie-oval"], "walls": "ride", "best_times": {"rookie-oval": {"lap": 47.0, "finish": 47.0}}})
 	t.check(UiData.ai_status().ready and UiData.ai_best(0) == 47.0, "the AI status and its best lap reach the menu")
 	var labels := UiData.network_labels()
-	t.check((labels.inputs as Array).size() == 18 and labels.outputs == ["steer", "throttle"], "network labels from ai/sensors.gd")
+	t.check((labels.inputs as Array).size() == 19 and labels.inputs[18] == "nitro tank" and labels.outputs == ["steer", "throttle", "nitro"],
+		"network labels from ai/sensors.gd (v6.15: the nitro tank input and the nitro output)")
 	UiData.reset()
 	t.check(UiData.record("rookie-oval", "racer") == null and UiData.get_setting("quality") == "high", "reset(): back to the in-memory store (tests)")
 	UiData.use_tracks([])
@@ -354,6 +355,10 @@ func _app(t) -> void:
 		_app_cars(t, app, fixture)
 	if app.mode != app.menu_mode:
 		app.show_menu()
+	if AiLink.ready() and FileAccess.file_exists(fixture):
+		_app_nitro(t, app, fixture)
+	if app.mode != app.menu_mode:
+		app.show_menu()
 	if AiLink.ready():
 		_app_career(t, app)
 	if app.mode != app.menu_mode:
@@ -429,6 +434,80 @@ func _app_cars(t, app: GameApp, fixture: String) -> void:
 	t.check(app.network.is_empty() and SaveData.network_cars() == PackedStringArray(["racer", "dune"]), "the Kestrel has none; the save file holds the Racer's and the Dune's")
 	menu.select_car("racer")
 
+
+
+## v6.15: the AI uses nitro in Watch the AI (its tank on the HUD); races against the AI (the AI ghost of
+## My AI or a level, the training screen's Race best) have no nitro for anyone; Drive keeps it.
+func _app_nitro(t, app: GameApp, fixture: String) -> void:
+	t.section("the app: AI nitro, and no nitro in races against the AI (v6.15)")
+	var menu: Node = app.ui.menu
+	var hud: Node = app.ui.hud
+	menu.select_car("racer")
+	menu.select(0)
+	var note: Label = menu.get("nitro_note")
+	t.check(note != null and note.text == "No nitro in AI races" and note.is_visible_in_tree(), "the menu says: No nitro in AI races")
+	# a network that leans on nitro: the test file's network with its nitro output's bias raised
+	var parsed := AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(fixture)))
+	var net: NeuralNetwork = (parsed.net as NeuralNetwork).clone()
+	net.biases[net.biases.size() - 1][Sensors.NITRO_OUTPUT] = 3.0
+	app.adopt_network({"net": net, "meta": parsed.meta}, {}, "racer")
+	menu.select_opponent(UiData.MY_AI)
+	app.play("ai", false)
+	var m: Node = app.mode
+	var car: Car = m.get("car")
+	var boosted := false
+	var refilled := false
+	var low := 1.0
+	var gauge_shown := false
+	for i in 60 * 30:
+		var before := car.nitro
+		m.update(1.0 / 60.0)
+		boosted = boosted or car.boosting
+		low = minf(low, car.nitro)
+		refilled = refilled or (car.nitro > before + 1e-9 and m.get("phase") == "race")
+		gauge_shown = gauge_shown or (hud.get("_nitro") as Control).visible
+	t.check(m.get("driver") == "ai" and m.get("nitro_on") == true and boosted and low < 0.5 and gauge_shown and not (hud.get("_nitro_off") as Control).visible,
+		"Watch the AI: the AI burns its nitro (the tank down to %d %%) and the HUD shows its tank" % roundi(low * 100.0))
+	t.check(refilled, "and its tank refills at clean checkpoints, as in training")
+	app.show_menu()
+	# Race my AI: nobody has nitro
+	app.play("human", true)
+	m = app.mode
+	car = m.get("car")
+	var gh: Dictionary = m.get("ghost")
+	var gcar: Car = gh.car
+	var keys := PackedStringArray()
+	for k: Array in hud.get("_keys_data"):
+		keys.append(str(k[1]))
+	t.check(m.get("with_ghost") == true and m.get("nitro_on") == false and car.nitro == 0.0 and gcar.nitro == 0.0 and (gh.ai as Object).get("refill") == false
+		and not keys.has("nitro") and not (m.get("score") as ScoreState).refill, "Race my AI: both tanks empty, no refills (the style points' nor the AI's), no nitro key hint")
+	app.input.held = {"accelerate": true, "nitro": true}
+	var top_off := false
+	for i in 60 * 12:
+		m.update(1.0 / 60.0)
+		top_off = top_off or car.boosting or gcar.boosting or car.nitro > 0.0 or gcar.nitro > 0.0
+	app.input.held = {}
+	t.check(not top_off and m.get("phase") == "race", "12 s with the nitro key held: no nitro burns and no tank fills (the AI's neither)")
+	t.check(not (hud.get("_nitro") as Control).visible and (hud.get("_nitro_off") as Label).visible and (hud.get("_nitro_off") as Label).text == "No nitro in AI races",
+		"the HUD hides the nitro gauge and says: No nitro in AI races")
+	app.show_menu()
+	# an AI level: the same
+	menu.select_opponent("rookie")
+	app.play("human", true)
+	m = app.mode
+	t.check(m.get("level") == "rookie" and m.get("nitro_on") == false and (m.get("car") as Car).nitro == 0.0 and ((m.get("ghost") as Dictionary).car as Car).nitro == 0.0,
+		"Race the Rookie AI: no nitro either")
+	app.show_menu()
+	# Drive keeps it
+	m = app.start_play({"track": app.tracks[0], "driver": "human"})
+	keys = PackedStringArray()
+	for k: Array in hud.get("_keys_data"):
+		keys.append(str(k[1]))
+	m.update(1.0 / 60.0)
+	t.check(m.get("nitro_on") == true and (m.get("car") as Car).nitro == 1.0 and keys.has("nitro") and (hud.get("_nitro") as Control).visible
+		and not (hud.get("_nitro_off") as Control).visible, "Drive: a full tank, the gauge and the nitro key as before")
+	app.show_menu()
+	menu.select_opponent(UiData.MY_AI)
 
 
 ## Feed the race in progress with `pilot` (the e2e tests' way: the input layer's stick and
@@ -519,6 +598,10 @@ func _app_field(t, app: GameApp) -> void:
 		ahead = ahead and fr.racers[k].car.prog > car.prog and fr.racers[k].car != car
 	t.check(fr.racers[fr.player_index].car == car and absf(car.prog - float(track.start_idx)) < 0.05 and ahead and m.get("phase") == "countdown",
 		"the grid: your car last, on the usual start spot (sample %d), the five AI ahead of it" % track.start_idx)
+	var empty := true
+	for r: FieldRace.Racer in fr.racers:
+		empty = empty and r.car.nitro == 0.0 and (r.player or r.driver.get("refill") == false)
+	t.check(empty and m.get("nitro_on") == false and not (m.get("score") as ScoreState).refill, "no nitro in the field (v6.15): every tank empty, no refills")
 	var medals := Medals.medal_times(track, "racer")
 	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
 	_run_until(m, func() -> bool: return float((m.get("race") as RaceState).time) > 20.0, 40.0)
@@ -900,16 +983,23 @@ func _app_career(t, app: GameApp) -> void:
 	var fs: Dictionary = m.get("finish_state")
 	var p: Dictionary = fs.get("payout", {})
 	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
-	var want := ["bronze", "silver", "gold", "author", "ai-rookie"]
+	# (v6.15: no nitro in races against the AI, so the author run's autopilot is slower here than the
+	# author time; the medal it earns still counts and pays)
+	var got := Medals.medal_for(medals, race.finish_time)
+	var want: Array = []
+	for k in range(Medals.ORDER.size() - 1, Medals.ORDER.find(got) - 1, -1):
+		want.append(Medals.ORDER[k])
+	want.append("ai-rookie")
 	var w_money := 0
 	var w_points := 0
 	for id: String in want:
 		w_money += int(Economy.reward(tid, id).money)
 		w_points += int(Economy.reward(tid, id).points)
-	t.check(race.finished and absf(race.finish_time - float(medals.author)) < 0.0005 and ids == want and int(p.money) == w_money and int(p.points) == w_points and
+	t.check(race.finished and race.finish_time > float(medals.author) and got != "" and ids == want and int(p.money) == w_money and int(p.points) == w_points and
 		p.get("won") == true and p.get("level") == "rookie" and str(fs.get("lines", [""])[0]).contains("Rookie AI hasn't finished: you win!") and
 		UiData.money() == money0 + w_money and UiData.points() == points0 + w_points and app.ui.hud.panel_open,
-		"the author time beats the Rookie AI: paid bronze, silver, gold, author and the Rookie win, %s and %d pts (the finish panel's payout)" % [UiFormat.money(w_money), w_points])
+		"the author run without nitro (%s, author %s) beats the Rookie AI: paid %s and the Rookie win, %s and %d pts (the finish panel's payout)" % [
+		RaceState.format_time(race.finish_time), RaceState.format_time(float(medals.author)), ", ".join(PackedStringArray(want.slice(0, want.size() - 1))), UiFormat.money(w_money), w_points])
 	var u: Dictionary = fs.get("unlocked", {})
 	t.check(u.get("id") == "forest-rally" and u.get("number") == "13" and SaveData.opened_tracks().has("forest-rally") and UiData.is_new_track("forest-rally") and
 		_texts(app.ui.hud.finish).has("Forest Rally unlocked"), "and it opens the next track: the finish panel says Forest Rally unlocked (track 13)")

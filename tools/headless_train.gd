@@ -15,14 +15,16 @@ extends SceneTree
 ##   --threads N      native threads (default: one per core, at most 8)
 ##   --gdscript       simulate in GDScript instead of the native FleetSim (much slower)
 ##   --seed N         seed the AI's random numbers (repeatable runs with the same options)
+##   --no-nitro       (v6.15) train without nitro: every car runs with an empty tank and no refills
+##                    (the networks still have the nitro output; it does nothing)
 ##   --car ID         the car the AI drives and learns: racer (default), kestrel, thunder, drifter,
 ##                    dune or vortex (sim/cars.gd); the file records it, and the game files it as
 ##                    that car's network. With a seed file trained with another car, training
 ##                    starts a new history for this car (generation 0) from that network.
 ##
-## The output file is the same format as "Save best network" in the game and in the browser
-## version, so it loads in either to watch it drive or keep training (the browser version only
-## has the Racer: it drives any network with the Racer). It is written whenever
+## The output file is the same format as "Save best network" in the game, so it loads there to
+## watch it drive or keep training (since v6.15 it has 19 inputs and 3 outputs, which the frozen
+## browser version can't read; browser files load here). It is written whenever
 ## the best network improves, so the run can be stopped at any time. Relative file paths are
 ## taken from the current directory. Every line ends with the speed: simulated seconds per real
 ## second ("x real time") and car steps per second.
@@ -38,7 +40,7 @@ func _initialize() -> void:
 		var a: String = args[k]
 		if a.begins_with("--"):
 			var key: String = a.substr(2)
-			if key == "quiet" or key == "gdscript":
+			if key == "quiet" or key == "gdscript" or key == "no-nitro":
 				_opt[key] = true
 			elif k + 1 < args.size():
 				k += 1
@@ -107,6 +109,7 @@ func _run(pos: PackedStringArray) -> int:
 		seed_meta = seed_meta,
 		native = native,
 		threads = int(_opt.get("threads", 0)),
+		nitro = not _opt.has("no-nitro"),
 	}
 	var trainer := Trainer.new(cfg)
 	var lens: PackedStringArray = []
@@ -114,9 +117,9 @@ func _run(pos: PackedStringArray) -> int:
 		lens.append("%s (%.2f km%s)" % [t.id, TrackBuilder.race_length(t, 1) / 1000.0, "/lap" if t.closed else ""])
 	var sim: String = "native FleetSim, %d thread(s)" % int(trainer.fleet.call("get_threads")) if trainer.is_native() else "GDScript"
 	var car: Dictionary = Cars.get_car(trainer.cfg.car_id)
-	print("training a %s network, population %d, mutation %s, %d lap(s) per circuit, walls: %s, car: %s (%s, speed input / %.1f m/s), on %s [%s]" % [
+	print("training a %s network, population %d, mutation %s, %d lap(s) per circuit, walls: %s, nitro: %s, car: %s (%s, speed input / %.1f m/s), on %s [%s]" % [
 		"-".join(Array(trainer.sizes).map(func(v: int) -> String: return str(v))), cfg.population_size, str(cfg.mutation_rate),
-		cfg.laps, trainer.cfg.walls, trainer.cfg.car_id, car.name, Sensors.speed_scale(trainer.spec), ", ".join(lens), sim])
+		cfg.laps, trainer.cfg.walls, "on" if trainer.cfg.nitro else "off", trainer.cfg.car_id, car.name, Sensors.speed_scale(trainer.spec), ", ".join(lens), sim])
 	if trainer.native_note != "" and native:
 		print("note: ", trainer.native_note)
 	if seed != null and Trainer.network_car(seed_meta) != trainer.cfg.car_id:

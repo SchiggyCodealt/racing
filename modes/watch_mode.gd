@@ -3,7 +3,8 @@ extends "res://modes/play_mode.gd"
 ## ------------------------------------------------------------------
 ## Watch the AI: the AI drives a full race on the selected track in its network's car
 ## (opts.ai_car, in that car's colours), with its sensor rays drawn in the 3D view and its
-## network drawn live in the HUD's Watch panel. It scores nothing and never uses nitro. If it
+## network drawn live in the HUD's Watch panel. It scores nothing; (v6.15) it uses nitro when its
+## network says so, refilling its tank from clean gates as in training, and the HUD shows the tank. If it
 ## makes no progress for STUCK_TIME seconds (nose against a wall: walls don't bounce cars
 ## back), it is put back at its last checkpoint, standing, like a player pressing Enter, and
 ## the HUD says so. The finish panel compares its time with your best with that car.

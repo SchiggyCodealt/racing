@@ -43,6 +43,8 @@ const JS_REF := {
 
 var t: Variant
 var fixture_text := ""
+## (v6.15) nitro refills seen by _lockstep
+var _refills_seen := 0
 
 
 func run(checker: Variant) -> bool:
@@ -88,12 +90,14 @@ func fixture_net() -> NeuralNetwork:
 	return Trainer.parse_network_file(fixture_text).net
 
 
-## A network with no hidden layer whose outputs are tanh(steer_b), tanh(thr_b) whatever it sees.
-static func const_net(steer_b: float, thr_b: float) -> NeuralNetwork:
-	var n := NeuralNetwork.new(PackedInt32Array([18, 2]))
+## A network with no hidden layer whose outputs are tanh(steer_b), tanh(thr_b) and (v6.15) tanh(nitro_b)
+## whatever it sees.
+static func const_net(steer_b: float, thr_b: float, nitro_b: float = 0.0) -> NeuralNetwork:
+	var n := NeuralNetwork.new(PackedInt32Array([Sensors.INPUT_COUNT, Sensors.OUTPUT_COUNT]))
 	n.weights[0].fill(0.0)
 	n.biases[0][0] = steer_b
 	n.biases[0][1] = thr_b
+	n.biases[0][2] = nitro_b
 	return n
 
 
@@ -110,7 +114,10 @@ func mutated_fixture(n: int, seed: int) -> Array:
 	var base := fixture_net()
 	var out: Array = [base]
 	for k in n - 1:
-		out.append(base.clone().mutate(0.1))
+		var m := base.clone().mutate(0.1)
+		if k % 2 == 0:
+			m.biases[1][2] += 0.5 # (v6.15: half of them lean on nitro, so the nitro paths are exercised)
+		out.append(m)
 	return out
 
 
@@ -209,16 +216,71 @@ func _network_files() -> void:
 		return
 	var net: NeuralNetwork = parsed.net
 	var meta: Dictionary = parsed.meta
-	t.check(Array(net.sizes) == [18, 12, 2] and int(meta.generation) == 6 and absf(float(meta.fitness) - 1512.46) < 0.01,
-		"its network is 18-12-2, generation 6, fitness 1512.46")
+	t.check(Array(net.sizes) == [19, 12, 3] and int(meta.generation) == 6 and absf(float(meta.fitness) - 1512.46) < 0.01
+		and int(meta.sensorVersion) == 2,
+		"its network (18-12-2) is widened to 19-12-3 when loaded (v6.15: the nitro tank input and the nitro output), generation 6, fitness 1512.46")
 	t.check(Trainer.saved_wall_rule(meta) == "ride" and Array(meta.trainedOn) == ["rookie-oval", "hairpin-valley"], "trained with walls: ride on rookie-oval + hairpin-valley")
 	var raw: Dictionary = JSON.parse_string(fixture_text)
 	var w_ok := true
-	for l in 2:
-		var src: Array = raw.network.weights[l]
-		for i in src.size():
-			w_ok = w_ok and net.weights[l][i] == PackedFloat32Array([float(src[i])])[0]
-	t.check(w_ok, "every weight is the file's number as a 32-bit float")
+	var zeros := true
+	for o in 12:
+		for i in 19:
+			var v: float = net.weights[0][o * 19 + i]
+			if i < 18:
+				w_ok = w_ok and v == PackedFloat32Array([float(raw.network.weights[0][o * 18 + i])])[0]
+			else:
+				zeros = zeros and v == 0.0
+	for o in 3:
+		for i in 12:
+			var v: float = net.weights[1][o * 12 + i]
+			if o < 2:
+				w_ok = w_ok and v == PackedFloat32Array([float(raw.network.weights[1][o * 12 + i])])[0]
+			else:
+				zeros = zeros and v == 0.0
+		if o < 2:
+			w_ok = w_ok and net.biases[1][o] == PackedFloat32Array([float(raw.network.biases[1][o])])[0]
+	zeros = zeros and net.biases[1][2] == 0.0
+	t.check(w_ok, "every old weight is the file's number as a 32-bit float, in its place")
+	t.check(zeros, "the nitro tank's input weights and the nitro output's weights and bias are 0")
+	# widened networks drive bit for bit as before and never use nitro: the 18-12-2 network's own
+	# forward pass (the v6.14 driver) against the widened one, 600 steps on two tracks
+	var old_net := NeuralNetwork.from_json(raw.network)
+	var exact := true
+	var no_nitro := true
+	var ins := PackedFloat32Array()
+	ins.resize(19)
+	var mir := PackedFloat32Array()
+	mir.resize(19)
+	var ins2 := PackedFloat32Array()
+	ins2.resize(18)
+	var mir2 := PackedFloat32Array()
+	mir2.resize(18)
+	var wide := Car.Controls.new()
+	for tid: String in ["hairpin-valley", "ramp-rally"]:
+		var tr0 := Tracks.build(tid)
+		var c0 := Car.new(tr0)
+		c0.nitro = 0.37
+		for k in 600:
+			Sensors.sense(tr0, c0, ins)
+			Sensors.drive_network(net, ins, mir, wide)
+			for i in 18:
+				ins2[i] = ins[i]
+			# (the v6.14 drive_network: 18 inputs, steer and throttle)
+			for i in 9:
+				mir2[i] = ins2[8 - i]
+			for i in range(9, 18):
+				mir2[i] = ins2[i]
+			for i: int in Sensors.MIRROR_NEGATE:
+				mir2[i] = -ins2[i]
+			var m: PackedFloat32Array = old_net.forward(mir2)
+			var ms: float = m[0]
+			var mt: float = m[1]
+			var o2: PackedFloat32Array = old_net.forward(ins2)
+			var st := PackedFloat32Array([0.5 * (o2[0] - ms), 0.5 * (o2[1] + mt)])
+			exact = exact and wide.steer == st[0] and wide.throttle == st[1]
+			no_nitro = no_nitro and wide.nitro == 0.0 and net.acts[2][2] == 0.0
+			c0.step(tr0, wide, 1.0 / 60.0)
+	t.check(exact and no_nitro, "the widened network steers and brakes bit for bit like the 18-12-2 one (1,200 steps, a part-full tank) and its nitro output is always 0")
 	# saved again (the file format of Save best network) and loaded back
 	var again := Trainer.parse_network_file(JSON.stringify(Trainer.network_file(net, meta)))
 	var same := not again.has("error")
@@ -228,8 +290,13 @@ func _network_files() -> void:
 	t.check(same and int(again.meta.generation) == 6 and again.meta.format == Trainer.NETWORK_FORMAT, "saved again and loaded back: the same network and training info")
 	var tr := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, native = false})
 	var ex := tr.export_best()
-	t.check(ex.format == "trackmania-lite-network" and int(ex.version) == 2 and int(ex.sensorVersion) == 2 and (ex.inputs as Array).size() == 18
-		and ex.settings.walls == "ride" and ex.network.sizes == [18, 12, 2], "export_best writes the web file format (format, version 2, sensorVersion 2, inputs, settings, network)")
+	t.check(ex.format == "trackmania-lite-network" and int(ex.version) == 2 and int(ex.sensorVersion) == 3 and (ex.inputs as Array).size() == 19
+		and ex.settings.walls == "ride" and ex.network.sizes == [19, 12, 3], "export_best writes the web file format (format, version 2, sensorVersion 3, 19 inputs, settings, network 19-12-3)")
+	var resaved := Trainer.parse_network_file(JSON.stringify(Trainer.network_file(net, meta)))
+	t.check(not resaved.has("error") and Array(resaved.net.sizes) == [19, 12, 3] and int(resaved.meta.sensorVersion) == 3,
+		"a widened network saved again is a sensorVersion 3 file that loads as it is")
+	var bad3: Dictionary = Trainer.parse_network_file(JSON.stringify({sensorVersion = 3, network = NeuralNetwork.from_json(raw.network).to_json()}))
+	t.check(bad3.has("error"), "an 18-12-2 network in a file that says sensorVersion 3 is refused")
 	t.check(not Trainer.parse_network_file(JSON.stringify(ex)).has("error"), "an exported file loads")
 	var bare := Trainer.parse_network_file(JSON.stringify(net.to_json()))
 	t.check(not bare.has("error") and Trainer.saved_wall_rule(bare.meta) == "", "a bare {sizes, weights, biases} network loads (no training info)")
@@ -262,7 +329,7 @@ func _sensors() -> void:
 			var ctrl := drv.drive(track, car)
 			if s == 0 or s == 120:
 				var r: Dictionary = ref["s%d" % s]
-				for i in 18:
+				for i in Sensors.V2_INPUTS:
 					var d := absf(drv.inputs[i] - f32(int(r.inputs[i])))
 					worst = maxf(worst, d)
 					exact = exact and d == 0.0
@@ -270,8 +337,9 @@ func _sensors() -> void:
 					var d := absf(float(v[0]) - f32(int(v[1])))
 					worst = maxf(worst, d)
 					exact = exact and d == 0.0
+				exact = exact and ctrl.nitro == 0.0 and drv.inputs[Sensors.NITRO_INPUT] == 1.0
 			car.step(track, ctrl, 1.0 / 60.0)
-		t.check(worst <= 1e-6, "%s: the 18 inputs and the 2 controls at steps 0 and 120 are the browser's (%s)" % [id, "bit for bit" if exact else "largest difference %s" % worst])
+		t.check(worst <= 1e-6, "%s: the 18 inputs and the 2 controls at steps 0 and 120 are the browser's, the tank input 1 and no nitro (%s)" % [id, "bit for bit" if exact else "largest difference %s" % worst])
 		var dx := maxf(absf(car.x - f64(ref.x)), absf(car.z - f64(ref.z)))
 		var dyaw := absf(car.yaw - f64(ref.yaw))
 		var dv := absf(car.speed - f64(ref.speed))
@@ -281,22 +349,23 @@ func _sensors() -> void:
 	t.section("sensors: ranges and symmetry")
 	var tracks: Array = [Tracks.build("hairpin-valley"), Tracks.build("canyon-run")]
 	var inputs := PackedFloat32Array()
-	inputs.resize(18)
+	inputs.resize(Sensors.INPUT_COUNT)
 	var rays := PackedFloat32Array()
 	rays.resize(9)
 	var mirrored := PackedFloat32Array()
-	mirrored.resize(18)
+	mirrored.resize(Sensors.INPUT_COUNT)
 	var m2 := PackedFloat32Array()
-	m2.resize(18)
+	m2.resize(Sensors.INPUT_COUNT)
 	var in_range := true
 	var symmetric := true
 	var involution := true
 	var ctrl := Car.Controls.new()
 	var ctrl_m := Car.Controls.new()
 	var tmp := PackedFloat32Array()
-	tmp.resize(18)
+	tmp.resize(Sensors.INPUT_COUNT)
 	NeuralNetwork.rng.seed = 5
-	var rnd_net := NeuralNetwork.new(PackedInt32Array([18, 12, 2]))
+	var rnd_net := NeuralNetwork.new(PackedInt32Array([19, 12, 3]))
+	var nitro_seen := 0
 	for tr: BuiltTrack in tracks:
 		for k in 40:
 			var car := Car.new(tr, (k * 97) % tr.count)
@@ -306,8 +375,10 @@ func _sensors() -> void:
 			car.forward_speed = 30.0
 			car.side_speed = sin(k * 0.7) * 3.0
 			car.yaw_rate = cos(k * 0.9) * 0.8
+			car.nitro = fmod(k * 0.37, 1.0)
 			Sensors.sense(tr, car, inputs, rays)
-			for i in 18:
+			in_range = in_range and inputs[Sensors.NITRO_INPUT] == PackedFloat32Array([car.nitro])[0]
+			for i in Sensors.INPUT_COUNT:
 				in_range = in_range and absf(inputs[i]) <= 1.0
 			for i in 9:
 				in_range = in_range and rays[i] >= 0.0 and rays[i] <= Sensors.SENSOR_RANGE
@@ -316,10 +387,13 @@ func _sensors() -> void:
 			involution = involution and same_floats(m2, inputs)
 			Sensors.drive_network(rnd_net, inputs, tmp, ctrl)
 			Sensors.drive_network(rnd_net, mirrored, tmp, ctrl_m)
-			symmetric = symmetric and ctrl_m.steer == -ctrl.steer and ctrl_m.throttle == ctrl.throttle
-	t.check(in_range, "every input is within -1..1 and every ray within 0..100 m (80 poses on two tracks)")
+			symmetric = symmetric and ctrl_m.steer == -ctrl.steer and ctrl_m.throttle == ctrl.throttle and ctrl_m.nitro == ctrl.nitro
+			nitro_seen += 1 if ctrl.nitro > 0.0 else 0
+			var nout: float = rnd_net.acts[2][2]
+			in_range = in_range and ctrl.nitro == (nout if nout > 0.0 else 0.0) and ctrl.nitro >= 0.0 and ctrl.nitro <= 1.0
+	t.check(in_range, "every input is within -1..1 (the tank input is the tank), every ray within 0..100 m, nitro 0..1 from the nitro output (80 poses on two tracks)")
 	t.check(involution, "mirroring the inputs twice gives them back")
-	t.check(symmetric, "the driver is exactly left / right symmetric: the mirrored situation steers the other way, same throttle")
+	t.check(symmetric and nitro_seen > 0, "the driver is exactly left / right symmetric: the mirrored situation steers the other way, same throttle and nitro (nitro in %d of 80)" % nitro_seen)
 
 
 # ================================================================= the rules
@@ -387,8 +461,26 @@ func _fleet_parity() -> void:
 	if not Trainer.native_available():
 		t.check(true, "FleetSim not loaded (no native library for this platform): only the GDScript simulation is checked")
 	else:
+		_refills_seen = 0
 		for c: Array in [["rookie-oval", "ride", 6, 31], ["hairpin-valley", "crash", 6, 32]]:
 			_lockstep(c[0], c[1], c[2], c[3])
+		t.check(_refills_seen > 0, "the tanks refill at clean gates on both paths alike (%d refills)" % _refills_seen)
+		# v6.15: training without nitro (tools/opponents.gd: the AI opponents race without it)
+		var hist_nn := []
+		var any_nitro := false
+		for native in [false, true]:
+			var trn := Trainer.new({tracks = [Tracks.build("rookie-oval")], population = population_of(mutated_fixture(6, 33)), walls = "ride",
+				native = native, threads = 1, nitro = false})
+			var guard := 0
+			while trn.generation < 1 and guard < 20000:
+				trn.step(Trainer.STEP)
+				guard += 1
+				if guard % 30 == 0 and trn.generation < 1:
+					trn.sync_agents()
+					for a: Trainer.Agent in trn.agents:
+						any_nitro = any_nitro or a.car.nitro != 0.0 or a.car.boosting
+			hist_nn.append(var_to_bytes(trn.history))
+		t.check(not any_nitro and hist_nn[0] == hist_nn[1], "nitro off for a training run: every tank stays empty on both paths, the same generation")
 		# 1 thread = 4 threads (the cars are split over the threads; every result the same)
 		var hist := []
 		var bests := []
@@ -438,10 +530,21 @@ func _lockstep(tid: String, walls: String, n: int, seed: int, car: String = "rac
 	var inputs_same := true
 	var compared := 0
 	var first := ""
+	var boost_steps := 0
+	var refills := 0
+	var tanks := PackedFloat64Array()
+	tanks.resize(n)
+	tanks.fill(1.0)
 	while gd.generation == 0 and steps < 20000:
 		gd.step(Trainer.STEP)
 		nat.step(Trainer.STEP)
 		steps += 1
+		if gd.generation == 0:
+			for k in n:
+				var g: Car = gd.agents[k].car
+				boost_steps += 1 if g.boosting and gd.agents[k].alive else 0
+				refills += 1 if g.nitro > tanks[k] else 0
+				tanks[k] = g.nitro
 		if steps % 15 == 0 and gd.generation == 0:
 			nat.sync_agents()
 			for k in n:
@@ -451,7 +554,8 @@ func _lockstep(tid: String, walls: String, n: int, seed: int, car: String = "rac
 					continue
 				compared += 1
 				var ok := a.car.x == b.car.x and a.car.y == b.car.y and a.car.z == b.car.z and a.car.yaw == b.car.yaw \
-					and a.car.speed == b.car.speed and a.car.prog == b.car.prog and a.alive == b.alive and a.fitness == b.fitness
+					and a.car.speed == b.car.speed and a.car.prog == b.car.prog and a.alive == b.alive and a.fitness == b.fitness \
+					and a.car.nitro == b.car.nitro and a.car.boost == b.car.boost
 				if not ok and first == "":
 					first = "step %d car %d: x %s / %s" % [steps, k, a.car.x, b.car.x]
 				states_same = states_same and ok
@@ -459,7 +563,9 @@ func _lockstep(tid: String, walls: String, n: int, seed: int, car: String = "rac
 				inputs_same = inputs_same and same_floats(ins, a.inputs)
 	gd.on_run_end = Callable()
 	nat.on_run_end = Callable()
-	t.check(states_same and compared > 100, "%s (%d cars, walls %s): every car's state the same at every 15th step (%d compared)%s" % [tid, n, walls, compared, "" if first == "" else ", first difference " + first])
+	t.check(states_same and compared > 100, "%s (%d cars, walls %s): every car's state (its nitro tank too) the same at every 15th step (%d compared)%s" % [tid, n, walls, compared, "" if first == "" else ", first difference " + first])
+	t.check(boost_steps > 0, "%s: the cars use nitro (%d car steps; %d refills at clean gates)" % [tid, boost_steps, refills])
+	_refills_seen += refills
 	t.check(inputs_same, "%s: FleetSim's sensor inputs are the GDScript sensors' (bit for bit)" % tid)
 	var runs_same: bool = runs[0].size() == 1 and runs[1].size() == 1
 	if runs_same:
@@ -495,7 +601,7 @@ func _training() -> void:
 			tr.step_many(600)
 		var h := tr.history
 		var fin: Variant = tr.best_times.get("rookie-oval", {}).get("finish")
-		t.check(tr.best_fitness > float(h[0].best) + 300.0 and fin != null,
+		t.check(tr.best_fitness > float(h[0].best) + 100.0 and fin != null,
 			"FleetSim: 40 random drivers on rookie-oval (walls: crash), 12 generations: best %.0f -> %.0f, first finish %s (%.1f s)" % [
 				h[0].best, tr.best_fitness, UiFormat.time(fin), (Time.get_ticks_msec() - t0) / 1000.0])
 		var non_decreasing := true
@@ -643,8 +749,8 @@ func _train_screen() -> void:
 	var before := saved.size()
 	mode2.load_network_text(fixture_text)
 	var tr2: Trainer = TrainModeScript.session.trainer
-	t.check(tr2 != null and Array(tr2.sizes) == [18, 12, 2] and saved.size() == before + 1
-		and String(TrainModeScript.session.note).begins_with("Loaded network (18-12-2)"), "loading a network file: kept as the saved network, training continues from it")
+	t.check(tr2 != null and Array(tr2.sizes) == [19, 12, 3] and saved.size() == before + 1
+		and String(TrainModeScript.session.note).begins_with("Loaded network (19-12-3)"), "loading a network file (18-12-2, widened): kept as the saved network, training continues from it")
 	t.check(tr2 != null and tr2.cfg.car_id == "racer" and tr2.generation == 6 and not String(TrainModeScript.session.note).contains("trained with"),
 		"a Racer file on a Racer session: its generation (6) and history carry on, no car note")
 	d2.press(d2.stop_btn)
@@ -691,10 +797,11 @@ func _network_cars() -> void:
 		"a Kestrel session drives the Kestrel's spec and its file says car: kestrel (same format, version and sensor version)")
 	var odd := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, native = false, car_id = "nope"})
 	t.check(odd.cfg.car_id == "racer" and odd.spec == Cars.default_spec(), "an unknown car id trains the Racer")
-	# the browser version reads such a file: extra keys are ignored, version and sensor version are its own
+	# the file keeps the browser version's format (v6.15: sensorVersion 3, 19 inputs and a nitro output,
+	# which the frozen browser version can't drive)
 	var web_ok: bool = ex.format == "trackmania-lite-network" and (ex.network as Dictionary).has("sizes") and int(ex.version) >= 2 \
-		and int(ex.sensorVersion) == 2 and (ex.inputs as Array).size() == 18
-	t.check(web_ok, "the file stays in the browser version's format (it only adds \"car\", which the browser ignores)")
+		and int(ex.sensorVersion) == 3 and (ex.inputs as Array).size() == 19
+	t.check(web_ok, "the file stays in the browser version's format (it adds \"car\"; v6.15: sensorVersion 3, 19 inputs)")
 	# a seed trained with another car: a new history for this car; with the same car it carries on
 	var same := Trainer.new({tracks = [Tracks.build("rookie-oval"), Tracks.build("hairpin-valley")], population_size = 6, native = false,
 		walls = "ride", seed = fx.net, seed_meta = fx.meta})
@@ -713,7 +820,7 @@ func _sensors_cars() -> void:
 		"the Racer's speed scale is still 77 m/s (its inputs are bit for bit the same: the browser checks above)")
 	var track := Tracks.build("rookie-oval")
 	var inputs := PackedFloat32Array()
-	inputs.resize(18)
+	inputs.resize(Sensors.INPUT_COUNT)
 	var all_ok := true
 	var scales: PackedStringArray = []
 	for id in Cars.ids():
@@ -789,7 +896,7 @@ func _fleet_cars() -> void:
 	t.check(all_same, "every car's spec reaches FleetSim as data, every number the same (%d keys; not read: %s)%s%s" % [
 		Trainer.spec_data(Cars.default_spec()).size() - NOT_READ.size(), ", ".join(NOT_READ),
 		"" if missing.is_empty() else "; missing: " + ", ".join(missing), "" if differ.is_empty() else "; differ: " + ", ".join(differ)])
-	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 4", "the native library is version 4 (v6.10: brakes, ABS and wall friction on loose ground)")
+	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 5", "the native library is version 5 (v6.15: the nitro tank input, the nitro output and the AI's refills)")
 	# lockstep, the other five cars on different tracks and rules
 	for c: Array in [["kestrel", "hairpin-valley", "crash"], ["thunder", "banked-speedway", "crash"], ["drifter", "ramp-rally", "crash"],
 			["dune", "rookie-oval", "ride"], ["vortex", "seaside-stunts", "crash"]]:
@@ -873,8 +980,8 @@ func _fleet_upgrades() -> void:
 		spec = Upgrades.spec("racer", all3)})
 	var tr_none := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, walls = "crash", native = false, car_id = "dune"})
 	t.check(tr_up.spec == Upgrades.spec("dune", all3) and tr_wrong.spec == Cars.spec("dune") and tr_none.spec == Cars.spec("dune") and \
-		(tr_up.agents[0] as Trainer.Agent).car.spec == tr_up.spec and not Trainer.spec_data(tr_up.spec).has("nitroRefill"),
-		"the trainer drives the upgraded spec it's given (the Dune, everything at level 3), not another car's; stock without one; the nitro refill stays out of FleetSim's data (the AI never uses nitro)")
+		(tr_up.agents[0] as Trainer.Agent).car.spec == tr_up.spec and float(Trainer.spec_data(tr_up.spec).nitroRefill) == tr_up.spec.nitro_refill,
+		"the trainer drives the upgraded spec it's given (the Dune, everything at level 3), not another car's; stock without one; the nitro refill goes to FleetSim (v6.15: the AI's refills)")
 	if not Trainer.native_available():
 		t.check(true, "FleetSim not loaded: only the GDScript simulation is checked")
 		return

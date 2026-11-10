@@ -144,6 +144,54 @@ static func crossover(a: NeuralNetwork, b: NeuralNetwork) -> NeuralNetwork:
 	return child
 
 
+## A copy with `n_in` inputs and `n_out` outputs (at least the network's own): the new inputs come
+## after the old ones with weights of 0, and the new output neurons after the old ones with weights and
+## biases of 0 (v6.15: SENSOR_VERSION 2 networks get the nitro tank input and the nitro output this
+## way). Every old output stays the same bit for bit (each sum only gains terms 0 × input, added
+## last) and every new output is tanh(0) = 0.
+func grown(n_in: int, n_out: int) -> NeuralNetwork:
+	var s: PackedInt32Array = sizes.duplicate()
+	var last: int = s.size() - 1
+	var old_in: int = s[0]
+	var old_out: int = s[last]
+	s[0] = maxi(old_in, n_in)
+	s[last] = maxi(old_out, n_out)
+	var w: Array = []
+	var b: Array = []
+	for l in weights.size():
+		var src_in: int = sizes[l]
+		var src_out: int = sizes[l + 1]
+		var dst_in: int = s[l]
+		var dst_out: int = s[l + 1]
+		var nw := PackedFloat32Array()
+		nw.resize(dst_in * dst_out) # (zeros)
+		var nb := PackedFloat32Array()
+		nb.resize(dst_out)
+		var sw: PackedFloat32Array = weights[l]
+		var sb: PackedFloat32Array = biases[l]
+		for o in src_out:
+			for i in src_in:
+				nw[o * dst_in + i] = sw[o * src_in + i]
+			nb[o] = sb[o]
+		w.append(nw)
+		b.append(nb)
+	return NeuralNetwork.new(s, {weights = w, biases = b})
+
+
+## Output neuron `o` of the last layer silent: its weights and bias 0, so it always gives tanh(0) = 0
+## (v6.15: a new random driver starts with its nitro output silent; mutation wakes it up).
+func silence_output(o: int) -> NeuralNetwork:
+	var l: int = weights.size() - 1
+	var n_in: int = sizes[l]
+	if o < 0 or o >= sizes[l + 1]:
+		return self
+	var w: PackedFloat32Array = weights[l]
+	for i in n_in:
+		w[o * n_in + i] = 0.0
+	biases[l][o] = 0.0
+	return self
+
+
 func same_shape(other: NeuralNetwork) -> bool:
 	return other != null and other.sizes == sizes
 

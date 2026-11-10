@@ -159,6 +159,9 @@ var _watch_btn: Button
 var _train_btn: Button
 var _field_btn: Button   # (v6.13) Race the field
 var _cups_btn: CupCabinet   # (v6.14) the Cups button and trophy cabinet
+## (v6.15) the note beside it: no nitro in races against the AI
+var nitro_note: Label
+const NITRO_NOTE := "No nitro in AI races"
 ## The opponent buttons (v6.5.0): AI level id or UiData.MY_AI -> Button.
 var _opp_btns: Dictionary = {}
 var _opp_row: HBoxContainer
@@ -559,6 +562,17 @@ func _build_go() -> void:
 	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	head_row.add_child(fill)
+	# (v6.15) races against the AI (Race the AI, Race the field, the cups) have no nitro for anyone
+	nitro_note = UiStyle.label(NITRO_NOTE, "text", UiStyle.FS_S, UiStyle.TEXT_3)
+	nitro_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nitro_note.tooltip_text = "Race the AI, Race the field and the cups have no nitro for anyone (you or the AI). Drive and Watch the AI keep it."
+	nitro_note.mouse_filter = Control.MOUSE_FILTER_PASS
+	nitro_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS # (never wider than the room left)
+	nitro_note.custom_minimum_size.x = 1
+	nitro_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nitro_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	fill.size_flags_horizontal = Control.SIZE_FILL # (the note takes the room and pushes Cups right)
+	head_row.add_child(nitro_note)
 	_cups_btn = CupCabinet.new()
 	_cups_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_cups_btn.pressed.connect(func() -> void:

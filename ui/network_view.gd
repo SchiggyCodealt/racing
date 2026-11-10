@@ -95,6 +95,8 @@ func _draw() -> void:
 				var hint := ""
 				if i == 0:
 					hint = " left" if a > 0.05 else " right" if a < -0.05 else ""
+				elif i == 2: # (v6.15: the nitro output, above 0 burns)
+					hint = " burn" if a > 0.0 else " off"
 				else:
 					hint = " brake" if a < 0 else " gas"
 				draw_string(f, Vector2(p.x + r + 5, p.y - 7 + 4), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UiStyle.TEXT)

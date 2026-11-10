@@ -20,7 +20,10 @@ extends SceneTree
 ##             then Esc: the menu's tile and panel show the record, score and ghost.
 ##   modes     loads an AI network file (Load network's code path), Race the AI ghost and Watch the
 ##             AI by clicking their buttons, respawn (Enter) and restart (R) in Drive, pad buttons
-##             in a race (joypad events through the InputMap actions), G toggles the ghost.
+##             in a race (joypad events through the InputMap actions), G toggles the ghost. v6.15:
+##             no nitro in the AI ghost race (both tanks empty, no gauge, the HUD's note; shot
+##             race_ai_no_nitro), the watched AI's gauge shows; with net=<file> (a network that
+##             fires nitro) a shot of its first burn off the line (watch_ai_nitro).
 ##   cars      the AI network of each car (start from an empty save file): car=<id> (default dune)
 ##             has none yet (the menu's AI block says so, Watch / Race the AI off), the training
 ##             screen starts with it (the form's car tiles), trains it at Max until it autosaves,
@@ -51,10 +54,11 @@ extends SceneTree
 ##             spray, grey-blue marks and snow and frost on the screen.
 ##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow, surfaces_after.
 ##   economy   money, points and the car shop (v6.5.0) from a new career: $0 and only the Racer;
-##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting a
-##             second late: the AI car leads, then loses; v6.8.0: the gold opens Hairpin Valley) and,
-##             with tracks 3-12 opened by the scenario (as bronzes on each would), the Expert AI on
-##             Seaside Stunts (the author run: it opens Forest Rally): the finish panel's payout, the
+##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting
+##             a third of a second late, without nitro (v6.15: none in AI races): the AI car leads, then
+##             loses; v6.8.0: the gold opens Hairpin Valley) and, with tracks 3-12 opened by the
+##             scenario (as bronzes on each would), the Expert AI on Seaside Stunts (the author run
+##             without nitro, a gold: it opens Forest Rally): the finish panel's payout, the
 ##             money and points on the menu (Forest Rally NEW, the last two tracks locked); the
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
@@ -495,19 +499,29 @@ func modes() -> void:
 		var g: Dictionary = m.get("ghost")
 		check((g.race as RaceState).next_gate > 0 or (g.car as Car).prog > 50.0, "the AI ghost drives (progress %.0f samples)" % (g.car as Car).prog)
 		check(str(m.get("ghost_text")).begins_with("AI ghost"), "the HUD compares with the AI ghost: %s" % m.get("ghost_text"))
+		var hud: Node = app.ui.hud
+		check(not hud.get("_nitro").visible and hud.get("_nitro_off").visible and (m.get("car") as Car).nitro == 0.0 and (g.car as Car).nitro == 0.0,
+			"v6.15: no nitro in a race against the AI: both tanks empty, no gauge, the HUD says \"%s\"" % hud.get("_nitro_off").text)
+		await shot("race_ai_no_nitro")
 		stop_autopilot()
 		await key(KEY_ESCAPE)
 	# Watch the AI
 	await click(app.ui.menu.get("_watch_btn"))
 	m = app.mode
 	if check(m != app.menu_mode and m.get("driver") == "ai", "Watch the AI (clicked)"):
+		if opts.has("net"): # (a trained network: a shot of its first burn, which comes off the line with a full tank)
+			var wc: Car = m.get("car")
+			var burning := await wait_until(func() -> bool: return m.get("phase") == "race" and ((m.get("race") as RaceState).time >= 1.2 and wc.boosting or (m.get("race") as RaceState).time >= 8.0), 120.0)
+			print("  (the AI %s nitro for the shot, tank %.0f %%)" % ["burns" if burning and wc.boosting else "is not burning", wc.nitro * 100.0])
+			await shot("watch_ai_nitro")
 		fast(true)
 		await wait_until(func() -> bool: return (m.get("race") as RaceState).time > 20.0, 120.0)
 		fast(false)
 		await frames(2)
 		check((m.get("car") as Car).prog > 100.0, "the AI drives: %.0f samples in 20 s" % (m.get("car") as Car).prog)
 		check(m.get("rays").visible and app.ui.hud.watch_panel.visible, "sensor rays and the network panel show")
-		check(app.ui.hud.get("_nitro").visible == false, "no nitro gauge for the AI")
+		var mc: Car = m.get("car")
+		check(app.ui.hud.get("_nitro").visible and not app.ui.hud.get("_nitro_off").visible, "v6.15: the watched AI's nitro gauge shows (tank %.0f %%)" % (mc.nitro * 100.0))
 		await shot("watch_ai")
 		await key(KEY_ESCAPE)
 	# Drive: respawn, restart, the gamepad's race buttons and stick, the ghost toggle
@@ -1406,7 +1420,8 @@ func economy() -> void:
 		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
 	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5, "1280 x 720: the money, the points, the opponent chips and the race buttons on screen, no scrolling")
 
-	# race the Elite AI on Rookie Oval: start a second late, so its car leads for the shot
+	# race the Elite AI on Rookie Oval: start a third of a second late, so its car leads for the shot (v6.15: no
+	# nitro in races against the AI, so the author run's autopilot is 2:04.083 here, the Elite AI 2:05.217)
 	var money0 := UiData.money()
 	await click(menu.get("_ghost_btn"))
 	var m: Node = app.mode
@@ -1415,9 +1430,12 @@ func economy() -> void:
 		return
 	var track: BuiltTrack = m.get("track")
 	var run: Dictionary = Medals.medal_times(track, "racer").run
-	fast(true)
-	await wait_until(func() -> bool: return m.get("phase") == "race" and (m.get("race") as RaceState).time >= 1.0, 60.0)
+	# (at normal speed: a fast-forwarded frame can be up to a second of race time, which made the late start
+	# anything from 0.5 to 1.5 s)
+	await wait_until(func() -> bool: return m.get("phase") == "race" and (m.get("race") as RaceState).time >= 0.3, 60.0)
 	autopilot(float(run.aLat), float(run.lookK))
+	print("  (the autopilot starts %.3f s late)" % (m.get("race") as RaceState).time)
+	fast(true)
 	var gcar: Car = m.get("ghost").car
 	var c: Car = m.get("car")
 	# (the shot when the player has closed in on it: under 22 m behind, from 15 s)
@@ -1472,10 +1490,10 @@ func economy() -> void:
 	stop_autopilot()
 	await frames(10)
 	p = (m.get("finish_state") as Dictionary).get("payout", {})
-	want = ["bronze", "silver", "gold", "author", "ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
+	want = ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
 	w = _sum("seaside-stunts", want)
 	ids = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
-	check(ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x, "the author time beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [UiFormat.money(w.x), w.y])
+	check(ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x, "the author run without nitro (gold) beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [UiFormat.money(w.x), w.y])
 	check(Dictionary((m.get("finish_state") as Dictionary).get("unlocked", {})).get("id") == "forest-rally", "and opens Forest Rally")
 	await key(KEY_ESCAPE)
 	await frames(30)

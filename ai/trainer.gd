@@ -56,6 +56,9 @@ extends RefCounted
 ## v6.11: opts.spec, that car with the player's upgrades (Upgrades.player_spec; the training
 ## screen passes it): the population drives the upgraded car on both paths; the sensors' speed
 ## scale is still the stock max_speed (upgrades never change it).
+## v6.15: the networks have a nitro output and see their nitro tank (ai/sensors.gd): every car
+## starts a run with a full tank and refills it from clean gates (Sensors.NitroRefill, each
+## Agent's `refills`; FleetSim the same), so training learns when nitro pays.
 
 const STEP: float = 1.0 / 60.0
 
@@ -66,6 +69,7 @@ const DEFAULT_TRAINING: Dictionary = {
 	laps = 1,
 	walls = "ride", # "ride" = cars keep going after a wall hit, "crash" = a wall hit puts the car out
 	car_id = "racer",
+	nitro = true, # (v6.15) false: every car runs with an empty tank and no refills (the AI opponents' races have no nitro)
 }
 
 ## Training wall rules (see the header): value -> label in the training form's Walls menu.
@@ -110,6 +114,8 @@ class Agent:
 	var rays := PackedFloat32Array()
 	var death_reason: String = ""
 	var touched_wall: bool = false
+	## (v6.15) the nitro tank's refills from clean gates (Sensors.NitroRefill)
+	var refills := Sensors.NitroRefill.new()
 
 
 var cfg: Dictionary = {}
@@ -165,7 +171,8 @@ var _mirrored := PackedFloat32Array()
 ## native (true = use FleetSim when it is available (default), false = GDScript),
 ## threads (FleetSim threads, default 1; 0 = one per core, at most 8),
 ## native_class (tests: the class to use instead of "FleetSim"; a missing one = the fallback),
-## spec (v6.11: the CarSpec to drive, car_id's with upgrades, Upgrades.spec(); default the stock car).
+## spec (v6.11: the CarSpec to drive, car_id's with upgrades, Upgrades.spec(); default the stock car),
+## nitro (v6.15: false = no nitro, every tank empty and no refills; default true).
 func _init(opts: Dictionary) -> void:
 	for k: String in DEFAULT_TRAINING:
 		cfg[k] = opts.get(k, DEFAULT_TRAINING[k])
@@ -176,6 +183,7 @@ func _init(opts: Dictionary) -> void:
 	cfg.population_size = int(cfg.population_size)
 	cfg.mutation_rate = float(cfg.mutation_rate)
 	cfg.car_id = String(cfg.car_id)
+	cfg.nitro = bool(cfg.nitro)
 	if not Cars.has_car(cfg.car_id):
 		cfg.car_id = Cars.DEFAULT_CAR
 	for t: Variant in opts.tracks:
@@ -218,7 +226,7 @@ func _init(opts: Dictionary) -> void:
 		cfg.population_size = population.size()
 	else:
 		population = Population.new({size = cfg.population_size, sizes = sizes, mutation_rate = cfg.mutation_rate,
-			seed = seed, seed_fitness = seed_fitness})
+			seed = seed, seed_fitness = seed_fitness, silent_outputs = PackedInt32Array([Sensors.NITRO_OUTPUT])})
 	if meta is Dictionary and same_car:
 		generation = int(meta.get("generation", 0)) if _is_num(meta.get("generation")) else 0
 		if meta.get("history") is Array:
@@ -284,6 +292,7 @@ func rules_data() -> Dictionary:
 	var d: Dictionary = RULES.duplicate()
 	d.walls_crash = cfg.walls == "crash"
 	d.laps = cfg.laps
+	d.nitro = cfg.nitro
 	return d
 
 
@@ -293,7 +302,7 @@ static func spec_data(s: CarSpec) -> Dictionary:
 	var d: Dictionary = s.to_dict()
 	d.erase("torque")
 	d.erase("id")
-	d.erase("nitroRefill") # (v6.11: the style score's refills; FleetSim scores nothing and the AI never uses nitro)
+	# (v6.15: nitroRefill goes too: the AI's tank refills from clean gates × it, Sensors.NitroRefill)
 	d.gears = PackedFloat64Array(s.gears)
 	d.wheelbase = s.wheelbase
 	d.core = s.core
@@ -409,6 +418,8 @@ func use_track(t: BuiltTrack) -> BuiltTrack:
 func new_agent(g: Population.Genome, i: int) -> Agent:
 	var a := Agent.new()
 	var car := Car.new(track, -1, spec)
+	if not cfg.nitro:
+		car.nitro = 0.0 # (v6.15: a run without nitro)
 	a.index = i
 	a.net = g.net
 	a.car = car
@@ -475,6 +486,8 @@ func step(dt: float) -> void:
 		Sensors.drive_network(a.net, a.inputs, _mirrored, _ctrl)
 		car.step(t, _ctrl, dt)
 		var events: Array[Dictionary] = a.race.update(car, dt)
+		if cfg.nitro:
+			a.refills.update(car, a.race, t.closed) # (v6.15: the nitro tank refills from clean gates)
 		if not events.is_empty():
 			for ev in events:
 				record_time(t, ev)
@@ -661,6 +674,9 @@ func sync_agents(cars: bool = true) -> void:
 		p.y = st[o + 32]
 		p.z = st[o + 33]
 		p.yaw = st[o + 34]
+		c.nitro = st[o + 35] # (v6.15: the tank and the nitro burning, for the view)
+		c.boost = st[o + 36]
+		c.boosting = c.boost > 0.0
 
 
 ## The shown car's sensor rays (m) and its network's activations of the last step, into
@@ -789,11 +805,18 @@ static func network_file(net: NeuralNetwork, meta: Dictionary = {}) -> Dictionar
 	}
 	d.merge(meta, true)
 	d.network = net.to_json()
+	# (v6.15: the network in memory is always a current one, whatever the meta's file was)
+	d.sensorVersion = Sensors.SENSOR_VERSION
+	d.inputs = Array(Sensors.INPUT_LABELS)
 	return d
 
 
 ## Parse a saved network file (as made by export_best(), or a bare {sizes, weights, biases}
 ## network): JSON text or parsed data. Returns {net, meta} or {error: message for the player}.
+## (v6.15) A SENSOR_VERSION 2 network (18 inputs, 2 outputs: v6.14 and older, the browser
+## version's, the shipped AI opponents) is widened to 19 inputs and 3 outputs with zeros
+## (NeuralNetwork.grown: it drives exactly as before and never uses nitro); its meta is the file
+## as it was (saving that file again keeps it as it is, and it is widened again when read).
 static func parse_network_file(json: Variant) -> Dictionary:
 	var obj: Variant = json
 	if json is String:
@@ -811,10 +834,15 @@ static func parse_network_file(json: Variant) -> Dictionary:
 	var n_out: int = net.sizes[net.sizes.size() - 1]
 	var version: Variant = d.get("version")
 	var sv: Variant = d.get("sensorVersion")
-	var old_file: bool = (_is_num(version) and float(version) < NETWORK_FILE_VERSION) or \
-		(_is_num(sv) and float(sv) != Sensors.SENSOR_VERSION)
+	var v1_file: bool = _is_num(version) and float(version) < NETWORK_FILE_VERSION
+	var v2: bool = n_in == Sensors.V2_INPUTS and n_out == Sensors.V2_OUTPUTS and not v1_file and \
+		(sv == null or (_is_num(sv) and float(sv) == 2.0))
+	if v2:
+		return {net = net.grown(Sensors.INPUT_COUNT, Sensors.OUTPUT_COUNT), meta = d}
+	var old_file: bool = v1_file or (_is_num(sv) and float(sv) != Sensors.SENSOR_VERSION)
 	if n_in != Sensors.INPUT_COUNT or n_out != Sensors.OUTPUT_COUNT or old_file:
-		if old_file or n_in == 11:
+		if v1_file or n_in == 11 or (_is_num(sv) and float(sv) < 2.0):
 			return {error = "This network was trained for Track Rush v1 (%d inputs). v2 has new car physics and %d inputs, so v1 networks can't drive it. Train a new one on the training screen." % [n_in, Sensors.INPUT_COUNT]}
-		return {error = "This network has %d inputs and %d outputs; Track Rush v2 needs %d inputs and %d outputs." % [n_in, n_out, Sensors.INPUT_COUNT, Sensors.OUTPUT_COUNT]}
+		return {error = "This network has %d inputs and %d outputs; Track Rush needs %d inputs and %d outputs (or %d and %d from before v6.15)." % [
+			n_in, n_out, Sensors.INPUT_COUNT, Sensors.OUTPUT_COUNT, Sensors.V2_INPUTS, Sensors.V2_OUTPUTS]}
 	return {net = net, meta = d}

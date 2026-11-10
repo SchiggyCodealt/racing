@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-07 (v6.14.0: round 3, item 2: championships: five cups of three tracks raced back to back
+_Last updated: 2026-11-10 (v6.15.0: round 4, item A: the trained AI uses nitro (a tank input and a nitro output,
+sensor version 3, FleetSim "trackrush-native 5", the tank refilled by clean checkpoints and laps), older networks widened
+with zero weights; no nitro for anyone in races against AI cars (Race the AI, Race the field, cups), the HUD and menu say
+so; v6.14.0: round 3, item 2: championships: five cups of three tracks raced back to back
 against the same five AI drivers at a picked level, 10-8-6-5-4-3 points, standings between the races that set the next
 grid, a trophy moment on the podium with gold, silver and bronze trophies, a cup payout by final place, a trophy cabinet
 on the menu's Cups button, a cup in progress kept in the save file; v6.13.0: round 3, item 1: Race the field: you against five AI drivers on a two-wide starting
@@ -23,8 +26,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.14.0, round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.15.0, round 4 item A done (AI nitro; items B and C next); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
+Round 4 (asked on 2026-11-10): A. **the AI uses nitro, none in races against the AI (v6.15.0, done)**, B. upgrades
+to level 10 (v6.16.0), C. a `reset everything` command (v6.17.0). See [Round 4](#round-4-ai-nitro-upgrades-to-level-10-reset-everything-v6150-v6170).
 Round 3, item 2: **Championships (v6.14.0, done)**. See [Round 3, item 2](#round-3-item-2-championships-v6140) and
 [How v6.14.0 was verified](#how-v6140-championships-was-verified).
 Round 3, item 1: **Race the field (v6.13.0, done)**. See [Round 3](#round-3-race-the-field-v6130) and
@@ -202,7 +207,7 @@ three levels each, so money is still useful once all six cars are bought." What 
   player's own network's car too (My AI: Watch the AI, Race my AI, the training screen's Watch / Race best); an AI
   opponent (`level` set) always drives the stock car, so its stored race is the one `tools/opponents.gd` measured.
   `modes/train_mode.gd` gives the trainer `opts.spec` (the upgraded car; `Trainer` takes it only for its own car id), so
-  FleetSim gets the upgraded spec as data (`Trainer.spec_data` leaves out `nitroRefill`: the AI never uses nitro). No
+  FleetSim gets the upgraded spec as data (v6.15.0: `nitroRefill` included, the AI's tank refills with it). No
   native change. Medal times (`tools/medals.gd`) and opponents (`ai/opponent_race.gd`) use `Cars.spec`: stock.
 - **The car picker** (`ui/main_menu.gd`, `ui/part_chip.gd`, `ui/car_card.gd`): a row under the cards with an
   "Upgrades" caption and four chips (name, three level pips, the next price in the accent / grey, MAX), which emit
@@ -432,6 +437,14 @@ the end-to-end scenarios pass at 1280 x 720 (cup 16 with `gfx=low` and `gfx=high
 `gfx=low`); the FleetSim libraries were not touched (no physics change); the Windows release export was made from a fresh import
 (no errors or warnings; `sim/cups.gd`, `sim/cup_run.gd`, `ui/cup_*.gd` and `world/trophy.gd` are in the pack; the exe
 115,032,704 bytes) and zipped as `build/TrackRush-6.14.0-windows.zip` (43.6 MB; not started: no Windows here).
+
+v6.15.0 (2026-11-10): the headless suite passes (1026 checks: sim 142, ui 239, world 199, game 267, ai 179); the
+end-to-end scenarios pass at 1280 x 720 (modes 30 with `gfx=high` and a trained network that fires nitro, economy 21,
+field 10, cup 13 with `races=1`, menu 28 with `gfx=low`); `tools/opponents.gd --check` reproduces all 450 stored
+opponent races; all four FleetSim libraries were rebuilt ("trackrush-native 5") and match GDScript step for step
+(the lockstep tests now also check that nitro is used and refilled); the Windows release export was made from a
+fresh import (no errors or warnings; the exe 115,032,352 bytes) and zipped as `build/TrackRush-6.15.0-windows.zip`
+(43.8 MB; not started: no Windows here).
 
 ## How v6.14.0 (championships) was verified
 
@@ -1209,10 +1222,12 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   look at it with `tests/visual/car_studio.gd`.
 - **Version tags** decide what old saved data still counts: `Car.PHYSICS_VERSION` (3: best times, ghosts, medals;
   unchanged by the surfaces, which only change tracks that have them), `ScoreState.SCORE_RULES` (1: best scores,
-  medals), `Sensors.SENSOR_VERSION` (2: network files), `SaveData.VERSION` (3: track signatures on records and
+  medals), `Sensors.SENSOR_VERSION` (3 since v6.15.0: the nitro tank input and the nitro output; files of version 2 /
+  none with 18 inputs and 2 outputs are widened with zero weights on load, `Trainer.parse_network_file`), `SaveData.VERSION` (3: track signatures on records and
   scores, the archive; `_migrate` upgrades versions 1 and 2; 4 (v6.5.0): the `career` section, started once from the
   medals held when it is missing; 5 (v6.11.0): `career.upgrades`, empty for older files), ghost format 3, the track signatures above, FleetSim's
-  `version()` ("trackrush-native 4": v6.10.0's brakes, anti-lock limit and wall friction on loose ground; 3: road
+  `version()` ("trackrush-native 5": v6.15.0's nitro for the AI (19 inputs, 3 outputs, the refill rule,
+  `rules.nitro`); 4: v6.10.0's brakes, anti-lock limit and wall friction on loose ground; 3: road
   surfaces; 2 scaled the sensors by the spec's `max_speed`). Bump the right one when old data should stop counting; re-run `tools/medals.gd` after any
   change to the physics, a car, the points, a track or its laps, and `tools/car_stats.gd` after changing a car.
 - **AI networks belong to a car.** `SaveData.load_network(car, slot)` / `save_network(data, car, slot)` keep one
@@ -1236,8 +1251,8 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   (`Upgrades.player_spec(car)` reads the save file); anything that must stay comparable (medal times, the AI opponents,
   their stored races, the medal sweep, `tools/car_stats.gd`) keeps `Cars.spec`. A new part is a `PARTS` entry and a
   branch in `changes()`; if it touches a key FleetSim reads, nothing else is needed (the spec goes over as data); if it
-  needs a new `CarSpec` field, add it to `KEYS` and either to FleetSim or to `Trainer.spec_data`'s erase list (as
-  `nitroRefill`: the AI never uses nitro). Run `tools/upgrades.gd` and paste its `MEASURED` lines after changing a car
+  needs a new `CarSpec` field, add it to `KEYS` and either to FleetSim or to `Trainer.spec_data`'s erase list (since
+  v6.15.0 FleetSim reads `nitroRefill`). Run `tools/upgrades.gd` and paste its `MEASURED` lines after changing a car
   or a step.
 - **The terminal** (v6.7.0): `ui/terminal_screen.gd` is only the console (it takes any object with `run(line)` and
   `complete(line)`; the app gives it `game/terminal.gd`), so ui/ doesn't depend on game/. A command method gets the
@@ -1425,7 +1440,8 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   (`tests/test_sim.gd` "career", a v6.5 save). The menu shows no medal on a reworked track until a new time is set.
   To pay again per version, key `paid` by signature in `SaveData` (and migrate the existing lists).
 - **The AI opponents are a single network per track and car held to a lower top speed**, not different drivers: the
-  slow levels take every corner at the same capped speed (the Rookie is very steady), they never use nitro, and with
+  slow levels take every corner at the same capped speed (the Rookie is very steady), they never use nitro (v6.15.0:
+  nobody does in a race against them; their networks were trained without it and have zero nitro weights), and with
   walls ride they lean on walls in tight corners like the trained networks do. Elite is the network flat out where
   that is about the author time, else capped to it (on about half the track-and-car pairs; the networks are up to
   17 % faster than the author time on Hairpin Valley, where they ride the walls). The opponents' cars don't collide
@@ -1471,7 +1487,8 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   never-braking autopilot is only 0.55 s a lap slower than the best clean-ish one (4.6 s on the asphalt version),
   because the brakes lose grip on snow and the wall model does not. Walls still cost time on every track (a test), and
   the score punishes them; a wall-friction factor per surface would be the fix if players abuse it.
-- **The AI does not see the surface**: its 18 inputs are unchanged (`SENSOR_VERSION` 2); a network learns where the
+- **The AI does not see the surface**: its inputs are the rays, speed, slip, yaw, aims, corners and (v6.15.0) the
+  nitro tank (`SENSOR_VERSION` 3), nothing about the ground; a network learns where the
   dirt is on the tracks it trains on. A Racer network trained on an all-asphalt track brakes too late on snow.
 - **Surfaces were only seen through software rendering** (llvmpipe): the dirt and snow colours, the border noise,
   the dust and spray density were tuned on its screenshots. The snow spray (v6.4.0: blue-grey `spray` colour in the
@@ -1514,7 +1531,9 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   in the ghost material (on Low about 6,700); it is 2 draw calls instead of 38.
 - **The Linux training library needs glibc 2.38** (Ubuntu 24.04 or newer); on older Linux the game falls back to
   GDScript training. The Windows DLL needs only `KERNEL32.dll` and `msvcrt.dll`.
-- The AI never uses nitro. Its speed input is scaled by each car's `CarSpec.max_speed`, a round figure near the
+- The AI's nitro refills by a simpler rule than the player's (`Sensors.NitroRefill`: the clean-checkpoint combo and
+  the clean lap of `sim/score.gd`, no drift, jump or air points, which would need the score's whole state in
+  FleetSim); a player who drifts refills faster. Its speed input is scaled by each car's `CarSpec.max_speed`, a round figure near the
   measured top speed (the Dune's 61 m/s against 61.8 measured, so its speed input can reach 1.01; the Vortex's 91
   against 89.3). Changing a car's `max_speed` changes what its networks see: treat it like a sensor change.
 - Networks trained with `tools/headless_train.gd --car` before v6.2.0 have no `"car"` field and read as Racer
@@ -1524,7 +1543,8 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   not stop it, and it usually drives worse than the car's own network (see the v6.2.0 verification).
 - There is no "reduce motion" option (the browser followed the system setting): the camera shake on wall hits and
   the nitro kick are always on (`ChaseCamera.reduce_motion` exists, nothing sets it).
-- Browser saves (localStorage) can't be carried over; AI network files can, both ways.
+- Browser saves (localStorage) can't be carried over. Browser network files load here (widened to 19 inputs and 3
+  outputs); files saved since v6.15.0 don't load in the frozen browser version (it calls them version 1 networks).
 - No track overview map is generated (`web/docs/tracks-overview.svg` still shows the same tracks).
 - The file dialogs for networks are the system's native ones and were only exercised through code, not clicked.
 - `TrackBuilder.get_gates()` caches gates for unusual lap counts lazily and is not thread-safe for those (the game
@@ -1533,6 +1553,55 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
+
+## Round 4: AI nitro, upgrades to level 10, reset everything (v6.15.0-v6.17.0)
+
+Asked on 2026-11-10: "make the trained ais be able to use nitro / take out the nitro from races vs the ai / add 7
+upgrades to all the cars so the max level is 10 / add a command so i can reset everything to baseline even the
+medals". Built in three steps, each pushed when done.
+
+### Item A: the AI uses nitro, no nitro in races against the AI (v6.15.0, done)
+
+How it is built:
+- `ai/sensors.gd`: `INPUT_COUNT` 19 (input 18 = `car.nitro`, the tank 0..1), `OUTPUT_COUNT` 3 (output 2 = nitro: the
+  mean of the straight and the mirrored answer, as the throttle; above 0 it is `controls.nitro`, that much),
+  `SENSOR_VERSION` 3. `Sensors.NitroRefill` is the AI's tank refill: `sim/score.gd`'s clean checkpoint (500 × the
+  combo x1..x5, the lap line counts, the finish doesn't) and clean lap (2,000) points / 16,000 a tank ×
+  `spec.nitro_refill`, a wall contact (`car.hit_wall`) spoiling the checkpoint, the combo and the lap. `AIDriver`
+  runs it (`refill`, on by default) when it gets the race; `Trainer` runs one per agent (GDScript path).
+- `native/` (FleetSim, "trackrush-native 5"): the same input, output and refill (`refill_gate`, per gate passed in a
+  step, after the gates), `Spec.nitro_refill` (`"nitroRefill"`), `Rules.nitro` (false: empty tanks, no refills),
+  view states 37 floats (+ tank, boost). Bit for bit with GDScript (the lockstep parity tests on every track and car
+  now check that the nitro is used and refilled).
+- `ai/network.gd` `grown(n_in, n_out)` widens a network with zero weights; `Trainer.parse_network_file` widens files
+  with 18 inputs and 2 outputs (sensor version 2 or none: the browser's, v6.0-6.14) and returns the file's own meta;
+  `network_file()` writes sensor version 3. A widened network's steering and throttle are bit for bit what they were
+  and its nitro output is exactly 0 (never fires). `ai/genetic.gd` `silent_outputs`: new random networks start with
+  the nitro output's weights and bias at 0 (random drivers burning nitro into the walls stopped the v6.4 "80 random
+  drivers finish" test); mutation evolves them from there.
+- No nitro in races against AI cars: `PlayMode.nitro_on` (false with the AI ghost: Race the AI at any level and My
+  AI; `FieldMode` sets it false for Race the field and cups) empties the player's tank, keeps the nitro key out of the
+  controls, turns the score's refill off and hides the gauge; the HUD's `_nitro_off` label ("No nitro in AI races")
+  takes its place, the finish panel says it, and the menu's 3 Drive heading row has the same note. The AI ghost and
+  the field's AI cars run with empty tanks and `refill` off (`sim/field_race.gd`, `ai/opponent_race.gd`), so the
+  shipped opponents' stored races are unchanged. Medals, records and unlocks from those races count as before
+  (measured on the medal autopilot without nitro: Rookie Oval 2:04.083 instead of 2:01.867, still gold; Seaside
+  Stunts 1:09.767 instead of 1:08.233, gold).
+- `tools/opponents.gd` trains with `nitro = false` (the opponents race without it); `tools/headless_train.gd
+  --no-nitro` does the same.
+
+Choices made where the owner gave none: the AI's refill follows the clean-driving part of the player's points only;
+watching the AI (Watch the AI, Watch best) and the AI's best lap use nitro, every race with AI cars in it doesn't
+(also My AI's ghost); the shipped opponents were left as they are (see the check below).
+**Measured** (`tools/headless_train.gd`, 80 cars, seed 1, 150 generations, then a 3-lap race as Watch the AI drives
+it, with and without a tank): Rookie Oval 13 burns, 9.2 % of the race, 86 % of the burning with the road straight
+25-60 m ahead (57 % of the race), at 153 km/h on average (race 190: out of the corners), 1.19 tanks refilled, race
+2:02.817 with nitro and 2:04.533 with an empty tank; Night Highway 21 burns, 5.5 %, 93 % straight, 3:12.483 against
+3:14.217. The same seed trained without nitro: best lap 43.150 against 42.383 (Night Highway 1:07.500 against
+1:05.550); generation 0 is the same in both (the nitro output starts silent). `tools/opponents.gd --check`: all 450
+stored opponent races reproduce with the widened networks (534 s), so the opponents were left alone. A network
+trained with `--no-nitro` reads a full tank in Watch the AI, which it never saw (its tank input's weights drifted
+unused): the Rookie Oval one drove 2:17.083 with a full tank against 2:02.800 empty (the opponents always race empty).
 
 ## Round 3, item 2: Championships (v6.14.0)
 
