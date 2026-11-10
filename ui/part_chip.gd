@@ -2,7 +2,8 @@ extends Button
 ## part_chip.gd (v6.11.0)
 ## ------------------------------------------------------------------
 ## One part of the picked car's upgrades on the menu's car picker, as a chip that buys its next
-## level: the part's name, a pip for each level (green: bought) and the next level's price (in
+## level: the part's name, a pip for each level (green: bought; v6.16: ten narrower pips when a part
+## has more than five levels, the last three in a brighter green) and the next level's price (in
 ## the accent when the money is there, grey when not), MAX when every level is bought. Pressing it
 ## emits `pressed` (the menu asks the game to buy it, which asks first). A car you don't own
 ## shows its parts greyed out (disabled): buy the car first. Drawn by hand over the ChipButton plate.
@@ -10,7 +11,7 @@ extends Button
 var part_id := ""
 var part_name := ""
 var level := 0
-var max_level := 3
+var max_level := 10
 var price := 0
 var affordable := false
 var locked := false
@@ -43,9 +44,13 @@ func is_max() -> bool:
 	return level >= max_level
 
 
-## The price text: "$1,500", "MAX".
+## The price text: "$1,500", "MAX"; from $100,000 shortened to "$105k" (v6.16; the tooltip has it in full).
 func price_text() -> String:
-	return "MAX" if is_max() else UiFormat.money(price)
+	if is_max():
+		return "MAX"
+	if price >= 100000:
+		return "$%sk" % String.num(price / 1000.0, 1).trim_suffix(".0")
+	return UiFormat.money(price)
 
 
 func _draw() -> void:
@@ -59,8 +64,9 @@ func _draw() -> void:
 	var pw := font.get_string_size(pt, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x
 	var px := size.x - pad - pw
 	draw_string(font, Vector2(px, base), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S, pcol)
-	var pip_w := 7.0
-	var pip_gap := 3.0
+	var many := max_level > 5 # (v6.16: ten levels: narrower pips)
+	var pip_w := 3.5 if many else 7.0
+	var pip_gap := 1.5 if many else 3.0
 	var pips_w := max_level * pip_w + (max_level - 1) * pip_gap
 	var pips_x := px - UiStyle.S2 - pips_w
 	var pip_h := 10.0
@@ -69,6 +75,8 @@ func _draw() -> void:
 		var r := Rect2(pips_x + k * (pip_w + pip_gap), pip_y, pip_w, pip_h)
 		var on := k < level
 		var col := UiStyle.GOOD if on else UiStyle.BG_4
+		if on and many and k >= max_level - 3: # (levels 8-10: the late-career ones)
+			col = UiStyle.GOOD.lightened(0.35)
 		if locked:
 			col = UiStyle.BG_3.lightened(0.05)
 		_skewed(r, col)
@@ -76,6 +84,8 @@ func _draw() -> void:
 	var ncol := UiStyle.TEXT_3 if locked else (UiStyle.TEXT if hover else UiStyle.TEXT_2)
 	var room := pips_x - UiStyle.S2 - pad
 	var nm := part_name
+	if nf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x > room and nm.contains(" "):
+		nm = nm.get_slice(" ", 0) # ("Loose grip" -> "Loose" when narrow)
 	if nf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x > room:
 		while nm.length() > 1 and nf.get_string_size(nm + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x > room:
 			nm = nm.left(nm.length() - 1)

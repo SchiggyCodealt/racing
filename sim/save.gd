@@ -38,7 +38,7 @@ extends RefCounted
 ##   SaveData.take_welcome()                          -> {money, points, medals} paid by the upgrade to
 ##                                                    version 4 for the medals already held, once ({} after)
 ## Car upgrades (v6.11.0; sim/upgrades.gd has the parts and prices, sim/economy.gd buy_upgrade):
-##   SaveData.get_upgrades(car_id) -> PackedInt32Array [engine, tyres, nitro, loose], each 0..3
+##   SaveData.get_upgrades(car_id) -> PackedInt32Array [engine, tyres, nitro, loose], each 0..10
 ##                                                    (all 0 for a car not owned, or never upgraded)
 ##   SaveData.purchase_upgrade(car_id, part, level, price) -> "" (bought), "locked" (car not owned),
 ##                                                    "order" (not the next level), "max", "money", "unknown"
@@ -100,7 +100,7 @@ extends RefCounted
 ## 4 (v6.5-6.10) had no upgrades: version 5 (v6.11.0) adds career.upgrades, {} for an older file
 ## (every part of every car at level 0, the stock cars). Records may carry `up` (the levels of the
 ## run; absent: stock) and ghosts too (sim/replay.gd); older ones are stock runs. Levels are kept
-## only for owned cars (a hand-edited file's others are dropped) and clamped to 0..3. An older
+## only for owned cars (a hand-edited file's others are dropped) and clamped to 0..10 (v6.16; 0..3 before). An older
 ## game that rewrites a version 5 file keeps the career as it is (it reads what it knows).
 ## Times are written with 17 significant digits; Godot's JSON reader may return a
 ## stored time one unit in the last place (~1e-14 s) off, which no screen shows.
@@ -332,7 +332,7 @@ static func _repair_career(d: Dictionary) -> void:
 		if cu.get("run") is Dictionary:
 			fixed.run = cu.run
 		c.cups = fixed
-	# (v6.11) upgrades: owned cars only, four levels 0..3 each, all-stock entries dropped
+	# (v6.11) upgrades: owned cars only, four levels 0..Upgrades.MAX_LEVEL each, all-stock entries dropped
 	var up: Dictionary = {}
 	if c.get("upgrades") is Dictionary:
 		for car: Variant in c.upgrades:

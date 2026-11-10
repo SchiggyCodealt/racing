@@ -1,13 +1,15 @@
 class_name Upgrades
 extends RefCounted
-## upgrades.gd: car upgrades (v6.11.0): four parts per car, three levels each, bought in order
-## with the career's money on the car picker (or with the terminal's `upgrade`).
+## upgrades.gd: car upgrades (v6.11.0; v6.16.0: ten levels): four parts per car, ten levels each,
+## bought in order with the career's money on the car picker (or with the terminal's `upgrade`).
 ## ------------------------------------------------------------------
 ## An upgraded car is its stock spec (sim/cars.gd) with a few numbers scaled, so everything that
 ## takes a CarSpec (sim/car.gd, the autopilots, FleetSim through Trainer.spec_data) drives it with
-## no change of its own. Each level adds `step` × the stock value to what the part changes:
+## no change of its own. Levels 1-3 add `step` × the stock value each to what the part changes
+## (as in v6.11-6.15, bit for bit); levels 4-10 add less and less (LEVEL_GAIN: 0.8, 0.7 ... 0.2 ×
+## step), so level 10 is 6.5 × step over stock:
 ##   engine  the torque curve (+5 % a level: more power everywhere, so quicker acceleration and,
-##           where drag holds the car back, a little more top speed)
+##           where drag holds the car back, a little more top speed; level 10 +32.5 %)
 ##   tyres   the asphalt grip (mu, +4 % a level); the grip on dirt and snow stays where it was (the
 ##           car's shares are divided by the same factor), so each part does one thing
 ##   nitro   a bigger tank (nitro_time, +10 % a level: the push is the same, it lasts longer) and a
@@ -24,7 +26,9 @@ extends RefCounted
 ##
 ## Prices: level k of a part costs the car's base price × LEVEL_SHARE[k - 1] × the part's `cost`,
 ## rounded to $50 (the base price is the car's shop price; a car that costs nothing, the Racer,
-## counts as FREE_CAR_BASE). Every part of every car costs total_all() (see the README).
+## counts as FREE_CAR_BASE). Levels 1-3 cost what they did; from level 4 the price climbs steeply
+## (levels 8-10 of a part cost about 11 × levels 1-3 together: a late-career goal). Every part of
+## every car costs total_all() (see the README).
 ## Data-driven: PARTS and LEVEL_SHARE are the whole table; MEASURED is what tools/upgrades.gd
 ## measured with the real physics for the car picker's bars (`tools/upgrades.gd --check` measures
 ## again and compares; the tests check each level's gain is in range).
@@ -33,20 +37,25 @@ extends RefCounted
 ##   Upgrades.index_of(id) -> 0..3 (-1 unknown);  Upgrades.part_id(word) -> id for a part name
 ##       or alias ("tires", "grip", "dirt" ...), "" unknown
 ##   Upgrades.stock() -> PackedInt32Array [0, 0, 0, 0];  Upgrades.is_stock(levels)
-##   Upgrades.clean(v) -> PackedInt32Array of 4 levels 0..MAX_LEVEL from anything (junk: 0)
+##   Upgrades.clean(v) -> PackedInt32Array of 4 levels 0..MAX_LEVEL from anything (junk: 0; over
+##       the top: MAX_LEVEL)
 ##   Upgrades.changes(car_id, levels) -> the CarSpec fields that differ (JS names)
 ##   Upgrades.spec(car_id, levels) -> CarSpec (cached; stock levels: Cars.spec(car_id))
 ##   Upgrades.player_spec(car_id) -> the car with the levels the save file holds
-##   Upgrades.price(car_id, part, level) -> $ for that level (1..3), 0 otherwise
+##   Upgrades.price(car_id, part, level) -> $ for that level (1..MAX_LEVEL), 0 otherwise
 ##   Upgrades.car_total(car_id) / total_all() -> $ for every level of every part
 ##   Upgrades.code(levels) -> "E2 T1 N0 L3";  Upgrades.text(levels) -> "engine 2, tyres 1, ..."
 ##   Upgrades.stats(car_id, levels) -> the car's stats (sim/cars.gd) with the measured upgrades
 ##   Upgrades.bars(car_id, levels) -> Cars.stat_bars of those stats (the car picker)
 ##   Upgrades.effect(part, level) -> "+10 % power" (the picker's and the terminal's words)
 
-const MAX_LEVEL: int = 3
-## Price of level k (1..3) as a share of the car's base price, × the part's cost.
-const LEVEL_SHARE: Array[float] = [0.1, 0.2, 0.35]
+const MAX_LEVEL: int = 10
+## What a part adds at level k (index 0..10), in units of its `step` over stock: one step each for
+## levels 1-3 (as before v6.16), then less and less (+0.8, +0.7, +0.6, +0.5, +0.4, +0.3, +0.2).
+const LEVEL_GAIN: Array[float] = [0.0, 1.0, 2.0, 3.0, 3.8, 4.5, 5.1, 5.6, 6.0, 6.3, 6.5]
+## Price of level k (1..10) as a share of the car's base price, × the part's cost (1-3 as before v6.16).
+## From level 3 each level's price rises by 0.05 × the base more than the one before.
+const LEVEL_SHARE: Array[float] = [0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8]
 ## The base price of a car that costs nothing in the shop (the Racer: between the Kestrel and the Drifter).
 const FREE_CAR_BASE: int = 12000
 ## Prices are rounded to this many dollars.
@@ -67,32 +76,32 @@ const PARTS: Array[Dictionary] = [
 ]
 
 ## Measured with the real physics by tools/upgrades.gd (tools/car_stats.gd's measurements of the
-## upgraded specs): per car, the engine's levels 1-3 {top, accel100, accel200} and the tyres'
-## levels 1-3 {grip, gripFast}; the car picker's bars use them. Filled by the tool; tests check it.
+## upgraded specs): per car, the engine's levels 1-10 {top, accel100, accel200} and the tyres'
+## levels 1-10 {grip, gripFast}; the car picker's bars use them. Filled by the tool; tests check it.
 const MEASURED: Dictionary = {
 	racer = {
-		engine = [{top = 282.7, accel100 = 2.57, accel200 = 9.23}, {top = 286.2, accel100 = 2.47, accel200 = 8.77}, {top = 289.5, accel100 = 2.37, accel200 = 8.33}],
-		tyres = [{grip = 1.75, gripFast = 1.64}, {grip = 1.82, gripFast = 1.7}, {grip = 1.89, gripFast = 1.73}],
+		engine = [{top = 282.7, accel100 = 2.57, accel200 = 9.23}, {top = 286.2, accel100 = 2.47, accel200 = 8.77}, {top = 289.5, accel100 = 2.37, accel200 = 8.33}, {top = 292, accel100 = 2.28, accel200 = 8.03}, {top = 294.2, accel100 = 2.25, accel200 = 7.8}, {top = 295.9, accel100 = 2.22, accel200 = 7.6}, {top = 297.2, accel100 = 2.18, accel200 = 7.45}, {top = 297.2, accel100 = 2.17, accel200 = 7.35}, {top = 297.2, accel100 = 2.15, accel200 = 7.27}, {top = 297.2, accel100 = 2.13, accel200 = 7.22}],
+		tyres = [{grip = 1.75, gripFast = 1.64}, {grip = 1.82, gripFast = 1.7}, {grip = 1.89, gripFast = 1.73}, {grip = 1.97, gripFast = 1.79}, {grip = 2.01, gripFast = 1.83}, {grip = 2.05, gripFast = 1.83}, {grip = 2.09, gripFast = 1.83}, {grip = 2.09, gripFast = 1.83}, {grip = 2.13, gripFast = 1.83}, {grip = 2.13, gripFast = 1.83}],
 	},
 	kestrel = {
-		engine = [{top = 233, accel100 = 2.35, accel200 = 10.52}, {top = 235.6, accel100 = 2.27, accel200 = 9.87}, {top = 237.7, accel100 = 2.2, accel200 = 9.3}],
-		tyres = [{grip = 1.85, gripFast = 1.65}, {grip = 1.93, gripFast = 1.68}, {grip = 2, gripFast = 1.71}],
+		engine = [{top = 233, accel100 = 2.35, accel200 = 10.52}, {top = 235.6, accel100 = 2.27, accel200 = 9.87}, {top = 237.7, accel100 = 2.2, accel200 = 9.3}, {top = 239.4, accel100 = 2.15, accel200 = 8.9}, {top = 240.8, accel100 = 2.12, accel200 = 8.58}, {top = 241.9, accel100 = 2.08, accel200 = 8.33}, {top = 242.9, accel100 = 2.07, accel200 = 8.15}, {top = 243.6, accel100 = 2.05, accel200 = 8.02}, {top = 244.2, accel100 = 2.03, accel200 = 7.9}, {top = 244.5, accel100 = 2.03, accel200 = 7.83}],
+		tyres = [{grip = 1.85, gripFast = 1.65}, {grip = 1.93, gripFast = 1.68}, {grip = 2, gripFast = 1.71}, {grip = 2.04, gripFast = 1.72}, {grip = 2.09, gripFast = 1.72}, {grip = 2.13, gripFast = 1.72}, {grip = 2.17, gripFast = 1.72}, {grip = 2.21, gripFast = 1.72}, {grip = 2.21, gripFast = 1.72}, {grip = 2.25, gripFast = 1.72}],
 	},
 	thunder = {
-		engine = [{top = 318.7, accel100 = 2.58, accel200 = 7.8}, {top = 323.8, accel100 = 2.52, accel200 = 7.48}, {top = 327.9, accel100 = 2.47, accel200 = 7.18}],
-		tyres = [{grip = 1.53, gripFast = 1.62}, {grip = 1.62, gripFast = 1.68}, {grip = 1.69, gripFast = 1.74}],
+		engine = [{top = 318.7, accel100 = 2.58, accel200 = 7.8}, {top = 323.8, accel100 = 2.52, accel200 = 7.48}, {top = 327.9, accel100 = 2.47, accel200 = 7.18}, {top = 331.1, accel100 = 2.43, accel200 = 6.98}, {top = 333.8, accel100 = 2.42, accel200 = 6.82}, {top = 334.9, accel100 = 2.38, accel200 = 6.67}, {top = 334.9, accel100 = 2.37, accel200 = 6.57}, {top = 334.9, accel100 = 2.35, accel200 = 6.48}, {top = 334.9, accel100 = 2.35, accel200 = 6.42}, {top = 334.9, accel100 = 2.33, accel200 = 6.38}],
+		tyres = [{grip = 1.53, gripFast = 1.62}, {grip = 1.62, gripFast = 1.68}, {grip = 1.69, gripFast = 1.74}, {grip = 1.72, gripFast = 1.77}, {grip = 1.76, gripFast = 1.84}, {grip = 1.83, gripFast = 1.87}, {grip = 1.83, gripFast = 1.9}, {grip = 1.86, gripFast = 1.9}, {grip = 1.9, gripFast = 1.9}, {grip = 1.9, gripFast = 1.9}],
 	},
 	drifter = {
-		engine = [{top = 268.5, accel100 = 2.45, accel200 = 8.77}, {top = 272.3, accel100 = 2.38, accel200 = 8.35}, {top = 275.7, accel100 = 2.35, accel200 = 7.98}],
-		tyres = [{grip = 1.68, gripFast = 1.58}, {grip = 1.75, gripFast = 1.61}, {grip = 1.82, gripFast = 1.67}],
+		engine = [{top = 268.5, accel100 = 2.45, accel200 = 8.77}, {top = 272.3, accel100 = 2.38, accel200 = 8.35}, {top = 275.7, accel100 = 2.35, accel200 = 7.98}, {top = 278.3, accel100 = 2.32, accel200 = 7.73}, {top = 280.5, accel100 = 2.28, accel200 = 7.52}, {top = 282.3, accel100 = 2.27, accel200 = 7.35}, {top = 283.8, accel100 = 2.25, accel200 = 7.22}, {top = 285, accel100 = 2.23, accel200 = 7.12}, {top = 285.5, accel100 = 2.22, accel200 = 7.05}, {top = 285.5, accel100 = 2.22, accel200 = 7}],
+		tyres = [{grip = 1.68, gripFast = 1.58}, {grip = 1.75, gripFast = 1.61}, {grip = 1.82, gripFast = 1.67}, {grip = 1.86, gripFast = 1.7}, {grip = 1.93, gripFast = 1.76}, {grip = 1.97, gripFast = 1.76}, {grip = 2.01, gripFast = 1.79}, {grip = 2.01, gripFast = 1.82}, {grip = 2.05, gripFast = 1.82}, {grip = 2.05, gripFast = 1.82}],
 	},
 	dune = {
-		engine = [{top = 225.8, accel100 = 2.78, accel200 = 11.73}, {top = 228.9, accel100 = 2.72, accel200 = 10.95}, {top = 231.6, accel100 = 2.67, accel200 = 10.28}],
-		tyres = [{grip = 1.78, gripFast = 1.48}, {grip = 1.85, gripFast = 1.56}, {grip = 1.92, gripFast = 1.58}],
+		engine = [{top = 225.8, accel100 = 2.78, accel200 = 11.73}, {top = 228.9, accel100 = 2.72, accel200 = 10.95}, {top = 231.6, accel100 = 2.67, accel200 = 10.28}, {top = 233.7, accel100 = 2.62, accel200 = 9.83}, {top = 235.4, accel100 = 2.58, accel200 = 9.47}, {top = 236.9, accel100 = 2.55, accel200 = 9.18}, {top = 238.1, accel100 = 2.52, accel200 = 8.97}, {top = 238.5, accel100 = 2.5, accel200 = 8.8}, {top = 238.5, accel100 = 2.48, accel200 = 8.68}, {top = 238.5, accel100 = 2.48, accel200 = 8.62}],
+		tyres = [{grip = 1.78, gripFast = 1.48}, {grip = 1.85, gripFast = 1.56}, {grip = 1.92, gripFast = 1.58}, {grip = 1.96, gripFast = 1.58}, {grip = 2, gripFast = 1.58}, {grip = 2.08, gripFast = 1.59}, {grip = 2.08, gripFast = 1.61}, {grip = 2.12, gripFast = 1.61}, {grip = 2.16, gripFast = 1.61}, {grip = 2.16, gripFast = 1.61}],
 	},
 	vortex = {
-		engine = [{top = 328.5, accel100 = 2.45, accel200 = 5.92}, {top = 335.3, accel100 = 2.33, accel200 = 5.63}, {top = 342, accel100 = 2.25, accel200 = 5.4}],
-		tyres = [{grip = 1.75, gripFast = 1.85}, {grip = 1.82, gripFast = 1.92}, {grip = 1.9, gripFast = 1.98}],
+		engine = [{top = 328.5, accel100 = 2.45, accel200 = 5.92}, {top = 335.3, accel100 = 2.33, accel200 = 5.63}, {top = 342, accel100 = 2.25, accel200 = 5.4}, {top = 347.1, accel100 = 2.22, accel200 = 5.27}, {top = 350.8, accel100 = 2.2, accel200 = 5.17}, {top = 353.9, accel100 = 2.18, accel200 = 5.08}, {top = 356.4, accel100 = 2.17, accel200 = 5.02}, {top = 358.4, accel100 = 2.15, accel200 = 4.97}, {top = 359.9, accel100 = 2.15, accel200 = 4.93}, {top = 360.9, accel100 = 2.13, accel200 = 4.92}],
+		tyres = [{grip = 1.75, gripFast = 1.85}, {grip = 1.82, gripFast = 1.92}, {grip = 1.9, gripFast = 1.98}, {grip = 1.98, gripFast = 2.02}, {grip = 2.02, gripFast = 2.02}, {grip = 2.06, gripFast = 2.02}, {grip = 2.1, gripFast = 2.02}, {grip = 2.14, gripFast = 2.02}, {grip = 2.14, gripFast = 2.02}, {grip = 2.18, gripFast = 2.02}],
 	},
 }
 
@@ -147,6 +156,7 @@ static func is_stock(levels: PackedInt32Array) -> bool:
 
 
 ## Four levels 0..MAX_LEVEL from an array (a save file's list: numbers; anything else reads as 0).
+## (Files from v6.11-6.15 hold 0..3, which read the same.)
 static func clean(v: Variant) -> PackedInt32Array:
 	var out: PackedInt32Array = stock()
 	if v is Array or v is PackedInt32Array or v is PackedFloat64Array or v is PackedInt64Array:
@@ -158,9 +168,10 @@ static func clean(v: Variant) -> PackedInt32Array:
 	return out
 
 
-## The share of the stock value part `i` adds at `level` (0.15 for the engine at level 3).
+## The share of the stock value part `i` adds at `level` (0.15 for the engine at level 3, 0.325
+## at level 10). Levels 1-3 are step × 1, 2, 3 exactly, as before v6.16.
 static func gain(i: int, level: int) -> float:
-	return float(PARTS[i].step) * clampi(level, 0, MAX_LEVEL)
+	return float(PARTS[i].step) * LEVEL_GAIN[clampi(level, 0, MAX_LEVEL)]
 
 
 ## The CarSpec fields an upgraded car changes, with the JS names (CarSpec.make() takes them).

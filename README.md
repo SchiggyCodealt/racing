@@ -45,7 +45,7 @@ opponents of the seven dirt and snow tracks are new; the other eight tracks are 
 [Road surfaces](#road-surfaces)).
 Version 6.11.0 adds **car upgrades**, so money stays useful once all six cars are bought: every car has four parts,
 the **engine** (power), the **tyres** (grip on asphalt), the **nitro** tank (bigger, refills faster) and **loose grip**
-(grip on dirt and snow), three levels each, bought on the car picker. The stat bars show what they add, the car shows
+(grip on dirt and snow), three levels each (ten since 6.16.0), bought on the car picker. The stat bars show what they add, the car shows
 them too (bigger exhausts, yellow tyre rings, blue nitro bands, mud flaps), and the medal times and AI opponents stay
 as they are, so upgrades make medals and wins easier (see [Upgrades](#upgrades)).
 Version 6.12.0 adds **sound and music**. Every car's engine is synthesized live from its revs, throttle and gears,
@@ -71,6 +71,9 @@ Version 6.15.0 lets **the AI you train use nitro**: it sees its tank, learns whe
 the straights) and refills it by driving cleanly, as you do; Watch the AI shows its tank. **Races against AI cars have
 no nitro** for anyone (Race the AI, Race the field, championships), and the HUD says so (see [Nitro](#nitro) and
 [Training the AI](#training-the-ai)).
+Version 6.16.0 takes **upgrades to level 10**: every part of every car now has seven more levels, each adding a
+little less than the one before and costing a lot more, so a fully upgraded car is a late-career goal (see
+[Upgrades](#upgrades)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -256,7 +259,7 @@ The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#
 **No nitro in AI races** (version 6.15.0). In every race against AI cars (Race the AI at any level and against My
 AI, Race the field and championships) nobody has nitro: every car starts with an empty tank and nothing refills
 it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's 3 Drive
-heading says the same. Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
+heading says "No nitro vs AI". Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
 the AI and training keep nitro.
 
 ### Points for clean driving
@@ -505,43 +508,56 @@ cup in progress).
 
 ### Upgrades
 
-Money also buys **upgrades** for the cars you own: four parts per car, three levels each, bought one level at a time
-and in order. They are on the car picker: the picked car shows a row of four chips under the cards, each with the
-part's name, a pip per level (green: bought) and the next level's price (yellow when you can afford it, grey when not,
-MAX when all three are bought). Click a chip (or highlight it with the gamepad: down from the car, then A) to buy the
-next level: it asks first and says what the level does and what is left. A car you don't own shows its parts greyed
-out: buy the car first. The car's stat bars then show the stock car in white (yellow when picked) and what the
-upgrades add in green; its top speed turns green when it is higher. The `upgrade` and `buy <car> <part>` commands of
+Money also buys **upgrades** for the cars you own: four parts per car, ten levels each (version 6.16.0; three before),
+bought one level at a time and in order. They are on the car picker: the picked car shows a row of four chips under the
+cards, each with the part's name, a pip per level (green: bought; levels 8-10 in a lighter green) and the next level's
+price (yellow when you can afford it, grey when not, MAX when all ten are bought; from $100,000 it is shortened, like
+$105k). Click a chip (or highlight it with the gamepad: down from the car, then A) to buy the next level: it asks
+first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
+first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
+its top speed turns green when it is higher. The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
-| Part | What a level does | Everything at level 3, the Racer (stock → upgraded) |
+Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
+0.7, 0.6, 0.5, 0.4, 0.3 and 0.2 of a step), so level 10 is 6.5 steps over the stock car.
+
+| Part | What a level does (1-3; 4-10 less) | The Racer: stock → everything at 3 → everything at 10 |
 | --- | --- | --- |
-| **Engine** | +5 % power: about 4-8 % quicker to 200 km/h and 1-2 % more top speed per level | 0-200 km/h 9.78 → 8.33 s, top speed 277.7 → 289.5 km/h |
-| **Tyres** | +4 % grip on asphalt: about 3-5 % more cornering grip per level, slightly shorter stops (the grip on dirt and snow is the loose grip part's) | 1.68 / 1.58 g → 1.89 / 1.73 g on the 30 m / 120 m circles, 100-0 km/h 30.7 → 30.3 m |
-| **Nitro** | +10 % on the tank's length and +10 % refill from points per level | 5.0 → 6.5 s of nitro, 145 → 223 m covered on one tank |
-| **Loose grip** | +5 % grip on dirt and snow per level, never above the car's grip on asphalt | about +15 % on dirt and snow (1.15 → 1.32 g on dirt); the Dune, which already keeps 97 % of its grip on dirt, gains 2 % there and 15 % on snow |
+| **Engine** | +5 % power: about 4-8 % quicker to 200 km/h and 1-2 % more top speed per level; level 10 +32.5 % | 0-200 km/h 9.78 → 8.33 → 7.22 s, top speed 277.7 → 289.5 → 297.2 km/h |
+| **Tyres** | +4 % grip on asphalt: about 3-5 % more cornering grip per level, slightly shorter stops (the grip on dirt and snow is the loose grip part's); level 10 +26 % | 1.68 / 1.58 g → 1.89 / 1.73 g → 2.13 / 1.83 g on the 30 m / 120 m circles |
+| **Nitro** | +10 % on the tank's length and +10 % refill from points per level; level 10 +65 % | 5.0 → 6.5 → 8.25 s of nitro, 145 → 223 → 326 m covered on one tank |
+| **Loose grip** | +5 % grip on dirt and snow per level, never above the car's grip on asphalt; level 10 +32.5 % | about +15 % and +33 % on dirt and snow (1.15 → 1.32 → 1.52 g on dirt); the Dune, which already keeps 97 % of its grip on dirt, gains 2 % there at any level and 15 % / 33 % on snow |
 
 The numbers are measured with the game's own physics (`tools/upgrades.gd`, see [Tests and tools](#tests-and-tools)).
 Everything at level 3 takes 4-8 % off a race for every car on Rookie Oval, Technical Trial, Ramp Rally and Hairpin
 Valley (the medal autopilot's best of 10 settings; the Racer on Rookie Oval 2:11.4 → 2:03.1, on Ramp Rally 3:09.2 →
-2:53.9). One part at level 3: the tyres 3-5 % on asphalt tracks, the engine 1-2 %, loose grip 1-4 % on dirt and
-snow tracks, the nitro under 1 %. Each car keeps its character: no car spins or bounces
-more when fully upgraded (tested on jumps, braking in a curve on asphalt, dirt and snow, and holding a lane with the
-keyboard). Every part works on every car by the same share, so with the same upgrades the Kestrel is still
-the nimble one, the Thunder the brute and the Dune the dirt specialist.
+2:53.9). Everything at level 10 takes 8-15 % off (4-8 % more than level 3; the Racer on Rookie Oval 1:55.0, on Ramp
+Rally 2:42.0): about 1-5 % from the engine at 10, 2-11 % from the tyres, up to 6 % from loose grip on dirt and snow and
+up to 1.4 % from the nitro.
+One part at level 3: the tyres 3-5 % on asphalt tracks, the engine 1-2 %, loose grip 1-4 % on dirt and snow tracks,
+the nitro under 1 %. Each car keeps its character: no car spins or bounces more when fully upgraded (tested at level
+10 on jumps, braking in a curve on asphalt, dirt and snow, and holding a lane with the keyboard), though a car at
+level 10 drifts a little less readily (more grip: the Racer holds a keyboard drift 0.67 s instead of 0.83 s). Every
+part works on every car by the same share, so with the same upgrades the Kestrel is still the nimble one, the Thunder
+the brute and the Dune the dirt specialist. The top speed stops growing around engine level 7 on most cars (the gears
+run out), so the last engine levels mostly add acceleration.
 
-| Car | Engine (levels 1 / 2 / 3) | Tyres | Nitro | Loose grip | Every level |
-| --- | --- | --- | --- | --- | --- |
-| Racer | $1,500 / $3,000 / $5,250 | $1,200 / $2,400 / $4,200 | $700 / $1,450 / $2,500 | $900 / $1,800 / $3,150 | $28,050 |
-| Kestrel | $1,250 / $2,500 / $4,400 | $1,000 / $2,000 / $3,500 | $600 / $1,200 / $2,100 | $750 / $1,500 / $2,650 | $23,450 |
-| Thunder | $2,750 / $5,500 / $9,600 | $2,200 / $4,400 / $7,700 | $1,300 / $2,650 / $4,600 | $1,650 / $3,300 / $5,750 | $51,400 |
-| Drifter | $1,750 / $3,500 / $6,150 | $1,400 / $2,800 / $4,900 | $850 / $1,700 / $2,950 | $1,050 / $2,100 / $3,700 | $32,850 |
-| Dune | $2,250 / $4,500 / $7,900 | $1,800 / $3,600 / $6,300 | $1,100 / $2,150 / $3,800 | $1,350 / $2,700 / $4,750 | $42,200 |
-| Vortex | $3,750 / $7,500 / $13,150 | $3,000 / $6,000 / $10,500 | $1,800 / $3,600 / $6,300 | $2,250 / $4,500 / $7,900 | $70,250 |
+| Car | Engine (levels 1 / 2 / 3 ... 8 / 9 / 10) | Tyres | Nitro | Loose grip | Levels 1-7 | Levels 8-10 | Every level |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Racer | $1,500 / $3,000 / $5,250 ... $27,750 / $34,500 / $42,000 | $1,200 ... $33,600 | $700 ... $20,150 | $900 ... $25,200 | $196,500 | $300,200 | $496,700 |
+| Kestrel | $1,250 / $2,500 / $4,400 ... $23,150 / $28,750 / $35,000 | $1,000 ... $28,000 | $600 ... $16,800 | $750 ... $21,000 | $163,950 | $250,250 | $414,200 |
+| Thunder | $2,750 / $5,500 / $9,600 ... $50,900 / $63,250 / $77,000 | $2,200 ... $61,600 | $1,300 ... $36,950 | $1,650 ... $46,200 | $360,350 | $550,450 | $910,800 |
+| Drifter | $1,750 / $3,500 / $6,150 ... $32,400 / $40,250 / $49,000 | $1,400 ... $39,200 | $850 ... $23,500 | $1,050 ... $29,400 | $229,500 | $350,300 | $579,800 |
+| Dune | $2,250 / $4,500 / $7,900 ... $41,650 / $51,750 / $63,000 | $1,800 ... $50,400 | $1,100 ... $30,250 | $1,350 ... $37,800 | $295,050 | $450,450 | $745,500 |
+| Vortex | $3,750 / $7,500 / $13,150 ... $69,400 / $86,250 / $105,000 | $3,000 ... $84,000 | $1,800 ... $50,400 | $2,250 ... $63,000 | $491,550 | $750,650 | $1,242,200 |
 
-Prices follow the car's price (the Racer counts as a $12,000 car) and rise with every level. Every part of every car
-costs $248,200 in all, against $94,000 for the five cars: a player who wins gold and beats the Expert on every track
-earns $102,000 per car driven, so the cars and all their upgrades take about three and a half such careers.
+Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 cost what they did before version
+6.16.0 ($248,200 for every part of every car); from there each level's price rises by more than the one before
+(level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
+wins gold and beats the Expert on every track earns $102,000 per car driven (author and the Elite everywhere
+$173,400): the Racer at level 7 everywhere costs about one author-and-Elite career with it ($196,500), and its levels
+8-10 another $300,200, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
+counts too). Every level of every part of every car costs $4,389,200.
 
 - **Medal times and AI opponents stay stock.** The medal times were set by the stock cars and the AI opponents always
   drive stock cars, so an upgraded car makes medals and wins easier. Each reward is still paid only once.
@@ -556,7 +572,7 @@ earns $102,000 per car driven, so the cars and all their upgrades take about thr
 
 | The car picker, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The menu with the Racer fully upgraded: its card's stat bars with green on top of the stock values, 290 km/h in green, and the Upgrades row under the cards with Engine, Tyres, Nitro and Loose grip all at MAX](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The menu with the Racer fully upgraded (version 6.16.0, level 10): its card's stat bars with green on top of the stock values, 297 km/h in green, and the Upgrades row under the cards with Engine, Tyres, Nitro and Loose grip all at MAX with ten pips each](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 
@@ -1023,7 +1039,7 @@ behind it shows the new money, points and cars straight away.
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
 | `buy <name>` | Buys a car with your money, as BUY on the car picker does (`buy kestrel`) |
 | `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car picker does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`) |
-| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 3, without paying (`upgrade dune tyres 3`); `upgrade dune max` puts every part at 3, `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
+| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10, without paying (`upgrade dune tyres 7`); `upgrade dune max` puts every part at 10, `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
 | `status` | Your money, points, the cars you own and their upgrades, how many medals you hold, how many tracks are open (and what opens the next one) and how many cup trophies you have |

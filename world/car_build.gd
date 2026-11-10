@@ -65,11 +65,14 @@ static func build(id: String, detail := 1) -> Dictionary:
 
 
 ## v6.11.0: what the car's upgrades (sim/upgrades.gd: engine, tyres, nitro, loose grip levels
-## 0..3) look like, as one more skinned kit drawn with the car's material (an empty kit when all
-## are 0; cached per car, levels and detail):
+## 0..10 since v6.16) look like, as one more skinned kit drawn with the car's material (an empty kit
+## when all are 0; cached per car, levels and detail). Levels 1-3 look as in v6.11; levels 4-10
+## grow the same parts in smaller steps (a level-10 part is not much bigger than a level-3 one:
+## the tips stay on the car, the rings on the tyre):
 ##   - engine: bigger polished exhaust tips, a size up and a little further out each level
 ##   - tyres: a yellow ring on every tyre's sidewall, wider each level
-##   - nitro: blue anodised bands round the tail pipes, one per level
+##   - nitro: blue anodised bands round the tail pipes, one per level up to 4, then thicker until
+##     they meet as one blue sleeve at level 10
 ##   - loose grip: mud flaps behind the rear wheels with an accent strip (cars with wheel arches
 ##     and without their own: not the Drifter, which has them, nor the open-wheeled Dune)
 static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
@@ -88,14 +91,15 @@ static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
 	for nz: Array in Shapes.nozzles(s):
 		var ep: Vector3 = nz[0]
 		var r: float = nz[1]
-		var tip_r := r * (1.12 + 0.1 * e) if e > 0 else r
-		var back := 0.03 * e # (the tip sticks out further back)
+		var tip_r := r * (1.12 + 0.1 * mini(e, 3) + 0.03 * maxi(e - 3, 0)) if e > 0 else r
+		var back := 0.03 * mini(e, 3) + 0.005 * maxi(e - 3, 0) # (the tip sticks out further back)
 		if e > 0:
 			kit.add(Geo.cylinder(tip_r, tip_r * 1.04, 0.16, seg, 1, true).rotate_x(PI / 2.0).translate(ep.x, ep.y, ep.z + 0.08 - back), Kit.METAL, B, lin(0xd9dde4))
 			kit.add(Geo.cylinder(tip_r * 0.8, tip_r * 0.8, 0.15, seg, 1, false).rotate_x(PI / 2.0).translate(ep.x, ep.y, ep.z + 0.085 - back), Kit.CARBON, B, lin(0x050506))
 			kit.add(Geo.ring(tip_r * 0.8, tip_r, seg).rotate_y(PI).translate(ep.x, ep.y, ep.z - back), Kit.METAL, B, lin(0xeef1f5))
-		for k in n:
-			kit.add(Geo.torus(tip_r + 0.006, 0.009, 6 if detail else 4, seg).translate(ep.x, ep.y, ep.z - back + 0.025 + 0.035 * k), Kit.GLOSS, B, lin(0x2f8cff))
+		var band := 0.009 + 0.0013 * maxi(n - 4, 0) # (v6.16: thicker from level 5, a sleeve at 10)
+		for k in mini(n, 4):
+			kit.add(Geo.torus(tip_r + 0.006 + band - 0.009, band, 6 if detail else 4, seg).translate(ep.x, ep.y, ep.z - back + 0.025 + 0.035 * k), Kit.GLOSS, B, lin(0x2f8cff))
 	if t > 0:
 		for i in rg["wheels"].size():
 			var wd: Dictionary = rg["wheels"][i]
@@ -104,7 +108,7 @@ static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
 			var W: float = wd["w"]
 			var xf := Transform3D(Basis(Vector3.UP, 0.0 if c.x > 0.0 else PI), c)
 			var r0 := R * 0.745
-			kit.add(Geo.ring(r0, r0 + 0.012 + 0.008 * t, 28 if detail else 16).rotate_y(PI / 2.0).translate(W / 2.0 + 0.004, 0, 0).xform(xf), Kit.GLOSS, Kit.SPIN0 + i, lin(0xffc83d))
+			kit.add(Geo.ring(r0, r0 + 0.012 + 0.008 * mini(t, 3) + 0.003 * maxi(t - 3, 0), 28 if detail else 16).rotate_y(PI / 2.0).translate(W / 2.0 + 0.004, 0, 0).xform(xf), Kit.GLOSS, Kit.SPIN0 + i, lin(0xffc83d))
 	if l > 0 and s["fenders"] and not s["mudflaps"]:
 		for wd: Dictionary in rg["wheels"]:
 			if wd["front"]:

@@ -39,7 +39,7 @@ extends RefCounted
 ##   opponents       opponent() (the picked opponent: an AI level id or "mine", the player's own
 ##                   network), opponent_levels(t, c) [{id, name, blurb, time (s or -1), pays {money,
 ##                   points} (what beating it would pay now; 0 when paid), paid (bool)}]
-##   car upgrades (v6.11.0) upgrade_parts() [{id, name, what}], upgrade_levels(car) [4 ints 0..3],
+##   car upgrades (v6.11.0) upgrade_parts() [{id, name, what}], upgrade_levels(car) [4 ints 0..10],
 ##                   upgrade_price(car, part) (the next level's, 0 at the top), upgrade_cost(car, part,
 ##                   level), buy_upgrade(car, part) -> {ok, error, price, level, short}, car_bars(car)
 ##                   (the stat bars with the levels bought), car_stats(car) ({top, ...} with them);

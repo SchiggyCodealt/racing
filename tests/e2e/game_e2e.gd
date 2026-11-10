@@ -82,11 +82,11 @@ extends SceneTree
 ##             opens it from the Terminal row (A) and closes it (B); exit + Enter closes it without
 ##             driving; in a race (Drive with the Dune) ` does nothing. Shots: terminal_menu,
 ##             terminal_settings, terminal_over_settings.
-##   upgrades  car upgrades (v6.11.0) from a new career: the Racer's four part chips on the car
+##   upgrades  car upgrades (v6.11.0; v6.16.0: ten levels) from a new career: the Racer's four part chips on the car
 ##             picker (level 0, the next price, greyed while the money is short, a locked car's off);
 ##             the stock Racer drives Rookie Oval with the medal autopilot of the author run (the
 ##             author time); then money (the terminal's money) buys every level of every part by
-##             clicking the chips (each asks first: Buy for $...), the bars show what they add in
+##             clicking the chips (40 clicks: each asks first: Buy for $...), the bars show what they add in
 ##             green; Drive again with the same autopilot (the author run's settings): faster than
 ##             the author time (the medal times stay stock), the record and ghost keep the levels, R: the ghost replays the
 ##             upgraded run within 3 cm; the menu fits 1280 x 720. Shots: upgrades_menu,
@@ -1620,7 +1620,7 @@ func terminal() -> void:
 		await key(KEY_BACKSPACE)
 	await type_text("c", false)
 	await key(KEY_TAB)
-	check(term.line.text == "c" and term.log_text().contains("Tab: car, clear"), "Tab with two matches lists them (car, clear)")
+	check(term.line.text == "c" and term.log_text().contains("Tab: car, cup, clear"), "Tab with several matches lists them (car, cup, clear)")
 	await key(KEY_BACKSPACE)
 	await key(KEY_QUOTELEFT)
 	check(not term.visible and app.mode == app.menu_mode and not menu.settings.visible, "` closes it")
@@ -1890,7 +1890,7 @@ func upgrades() -> void:
 	var money0 := UiData.money()
 	await click(chips[0])
 	await frames(6)
-	check(app.message.asking and msg.text.contains("Level 1 of 3") and msg.text.contains("Medal times and the AI opponents stay"), "the Engine chip (clicked) asks first: %s" % msg.text.left(90))
+	check(app.message.asking and msg.text.contains("Level 1 of 10") and msg.text.contains("Medal times and the AI opponents stay"), "the Engine chip (clicked) asks first: %s" % msg.text.left(90))
 	await shot("upgrades_ask")
 	await click(app.message.get("_yes"))
 	await frames(4)
@@ -1898,7 +1898,7 @@ func upgrades() -> void:
 		not app.message.visible, "Buy (clicked): the engine at level 1, %s left" % money_l.text)
 	var asked := 1
 	for k in 4:
-		while int(chips[k].get("level")) < 3 and asked < 20:
+		while int(chips[k].get("level")) < Upgrades.MAX_LEVEL and asked < 50:
 			await click(chips[k])
 			await frames(3)
 			asked += 1
@@ -1909,8 +1909,8 @@ func upgrades() -> void:
 	var maxed := true
 	for c: Button in chips:
 		maxed = maxed and c.disabled and c.call("price_text") == "MAX"
-	check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 3, 3, 3]) and maxed and UiData.money() == 5000 and asked == 12,
-		"12 clicks (each asked and bought): every part at level 3, the chips read MAX, %s spent, $5,000 left" % UiFormat.money(need))
+	check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10]) and maxed and UiData.money() == 5000 and asked == 40,
+		"40 clicks (each asked and bought): every part at level 10, the chips read MAX, %s spent, $5,000 left" % UiFormat.money(need))
 	var card: Control = menu.car_card()
 	var b0: Dictionary = UiData.car_info("racer").bars
 	var bu: Dictionary = card.get("bars_up")
@@ -1921,7 +1921,7 @@ func upgrades() -> void:
 	# the upgraded Racer, the same autopilot: faster than the author time
 	await key(KEY_ENTER)
 	m = app.mode
-	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([3, 3, 3, 3])), "Enter drives the upgraded Racer"):
+	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10])), "Enter drives the upgraded Racer"):
 		return
 	autopilot(float(run.aLat), float(run.lookK))
 	fast(true)
@@ -1940,7 +1940,7 @@ func upgrades() -> void:
 	# (the autopilot keeps the stock car's author settings: its corner speeds don't use the extra grip, and the
 	# quicker car arrives at the corners faster, so it gains less than a sweep tuned for it would)
 	var w3: int = int((m.get("score") as ScoreState).counts.wall_hits)
-	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([3, 3, 3, 3]),
+	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([10, 10, 10, 10]),
 		"the upgraded Racer, the same autopilot (the author run's settings): %s against %s stock (%.1f %% quicker; the author time stays %s); the record keeps the levels; wall contacts %d (stock %d)" % [
 		RaceState.format_time(t3), RaceState.format_time(t0), (1.0 - t3 / t0) * 100.0, RaceState.format_time(float(medals.author)), w3, w0])
 	await shot("upgrades_finish")

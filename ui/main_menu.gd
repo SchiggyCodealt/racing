@@ -161,7 +161,7 @@ var _field_btn: Button   # (v6.13) Race the field
 var _cups_btn: CupCabinet   # (v6.14) the Cups button and trophy cabinet
 ## (v6.15) the note beside it: no nitro in races against the AI
 var nitro_note: Label
-const NITRO_NOTE := "No nitro in AI races"
+const NITRO_NOTE := "No nitro vs AI" # (v6.16: shorter, it fits beside Cups at 1280 x 720)
 ## The opponent buttons (v6.5.0): AI level id or UiData.MY_AI -> Button.
 var _opp_btns: Dictionary = {}
 var _opp_row: HBoxContainer
@@ -384,7 +384,7 @@ func _build_cars() -> void:
 	_parts_cap = UiStyle.label("Upgrades", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
 	_parts_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_parts_cap.mouse_filter = Control.MOUSE_FILTER_PASS
-	_parts_cap.tooltip_text = "Upgrade the picked car: engine (power), tyres (grip on asphalt), nitro (a bigger tank that refills faster) and loose grip (grip on dirt and snow), three levels each, bought in order with your money. Medal times and the AI opponents stay as they are (stock cars), so upgrades make medals and wins easier."
+	_parts_cap.tooltip_text = "Upgrade the picked car: engine (power), tyres (grip on asphalt), nitro (a bigger tank that refills faster) and loose grip (grip on dirt and snow), ten levels each (the last ones dear), bought in order with your money. Medal times and the AI opponents stay as they are (stock cars), so upgrades make medals and wins easier."
 	var cm := UiStyle.margin([0, 0, UiStyle.S2, 0])
 	cm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cm.mouse_filter = Control.MOUSE_FILTER_PASS

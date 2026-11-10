@@ -168,16 +168,27 @@ func _car_upgrades(t) -> void:
 	ghost.free()
 	var lines: PackedStringArray = []
 	var ok := true
+	var grow_max := 0.0
 	for id: String in Cars.ids():
 		var tri := {}
-		for lv: Array in [[1, 0, 0, 0], [3, 0, 0, 0], [0, 1, 0, 0], [0, 3, 0, 0], [0, 0, 1, 0], [0, 0, 3, 0], [0, 0, 0, 3], [3, 3, 3, 3]]:
+		for lv: Array in [[1, 0, 0, 0], [3, 0, 0, 0], [0, 1, 0, 0], [0, 3, 0, 0], [0, 0, 1, 0], [0, 0, 3, 0], [0, 0, 0, 3], [3, 3, 3, 3],
+				[10, 0, 0, 0], [0, 10, 0, 0], [0, 0, 10, 0], [0, 0, 0, 10], [10, 10, 10, 10]]:
 			var kit = CarBuild.upgrades(id, PackedInt32Array(lv), 1)
 			tri[",".join(lv.map(func(x: int) -> String: return str(x)))] = kit.triangles()
 		var flaps: bool = tri["0,0,0,3"] > 0
 		var want_flaps: bool = not (id in ["drifter", "dune"])
 		# (each part adds its own pieces: everything at 3 is the sum of the parts at 3)
 		ok = ok and tri["1,0,0,0"] > 0 and tri["3,0,0,0"] >= tri["1,0,0,0"] and tri["0,1,0,0"] > 0 and tri["0,0,3,0"] > tri["0,0,1,0"] and flaps == want_flaps and \
-			tri["3,3,3,3"] == tri["3,0,0,0"] + tri["0,3,0,0"] + tri["0,0,3,0"] + tri["0,0,0,3"]
+			tri["3,3,3,3"] == tri["3,0,0,0"] + tri["0,3,0,0"] + tri["0,0,3,0"] + tri["0,0,0,3"] and \
+			tri["10,10,10,10"] == tri["10,0,0,0"] + tri["0,10,0,0"] + tri["0,0,10,0"] + tri["0,0,0,10"] and tri["0,0,10,0"] > tri["0,0,3,0"] and tri["10,10,10,10"] < 6000
+		# (v6.16: level 10 grows the parts only a little past level 3: the box round them at most 6 cm bigger each way)
+		var b3: AABB = _kit_box(CarBuild.upgrades(id, PackedInt32Array([3, 3, 3, 3]), 1))
+		var b10: AABB = _kit_box(CarBuild.upgrades(id, PackedInt32Array([10, 10, 10, 10]), 1))
+		var d0: Vector3 = (b3.position - b10.position).abs()
+		var d1: Vector3 = (b10.end - b3.end).abs()
+		var grow: float = maxf(maxf(d0.x, maxf(d0.y, d0.z)), maxf(d1.x, maxf(d1.y, d1.z)))
+		ok = ok and grow < 0.06
+		grow_max = maxf(grow_max, grow)
 		var car := CarModel.new(id, {"levels": [3, 3, 3, 3]})
 		t.tree.root.add_child(car)
 		ok = ok and car.upgrade_mesh != null and car.upgrade_mesh.material_override == car.materials[0] and car.upgrade_mesh.skin == car.opaque_mesh.skin and \
@@ -188,7 +199,15 @@ func _car_upgrades(t) -> void:
 	ok = ok and low.upgrade_mesh != null and CarBuild.upgrades("thunder", PackedInt32Array([3, 3, 3, 3]), 0).triangles() < CarBuild.upgrades("thunder", PackedInt32Array([3, 3, 3, 3]), 1).triangles()
 	low.free()
 	none.free()
-	t.check(ok, "the upgrades on the model (one skinned mesh with the car's material, triangles with everything at 3: %s): bigger exhaust tips, tyre rings, nitro bands (more at each level), mud flaps where the car has none and has wheel arches; fewer on low detail" % ", ".join(lines))
+	t.check(ok, "the upgrades on the model (one skinned mesh with the car's material, triangles with everything at 3: %s): bigger exhaust tips, tyre rings, nitro bands (more at each level), mud flaps where the car has none and has wheel arches; fewer on low detail; v6.16: everything at 10 is the sum of the parts at 10, at most %.1f cm bigger round than at 3" % [", ".join(lines), grow_max * 100.0])
+
+
+static func _kit_box(kit: RefCounted) -> AABB:
+	var pos: PackedVector3Array = kit.get("pos")
+	var box := AABB(pos[0], Vector3.ZERO)
+	for p: Vector3 in pos:
+		box = box.expand(p)
+	return box
 
 
 ## Drives a car through `frames` frames of a motion (`f` changes the state each frame); returns the last state.

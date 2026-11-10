@@ -886,9 +886,19 @@ func _upgrades(t) -> void:
 	var r4 := UiData.buy_upgrade("racer", "tyres")
 	t.check(not r4.ok and r4.error == "money" and int(r4.short) == Upgrades.price("racer", "tyres", 1) - 10 and not bool(chips[1].get("affordable")) and
 		(chips[1] as Control).tooltip_text.contains("more to go"), "$10: the chips' prices are grey, the store says how much is missing")
-	# everything at level 3: MAX, off; the card's bars and top speed with the upgrades
+	# everything at level 3: the chips offer level 4 (v6.16); the card's bars at 3
 	UiData.store.career.upgrades = {"racer": [3, 3, 3, 3]}
 	UiData.store.career.money = 100000
+	menu.refresh()
+	var at3 := true
+	for k in chips.size():
+		at3 = at3 and not (chips[k] as Button).disabled and int(chips[k].get("level")) == 3 and int(chips[k].get("max_level")) == 10 and \
+			int(chips[k].get("price")) == Upgrades.price("racer", UiData.upgrade_parts()[k].id, 4)
+	var b3: Dictionary = (menu.car_card().get("bars_up") as Dictionary).duplicate()
+	var top3: float = float(menu.car_card().get("top_up"))
+	t.check(at3, "v6.16: everything at level 3 is not the top: each chip offers level 4 of 10 (the engine's %s)" % UiFormat.money(Upgrades.price("racer", "engine", 4)))
+	# everything at level 10: MAX, off; the card's bars and top speed with the upgrades
+	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10]}
 	menu.refresh()
 	var maxed := true
 	for c: Button in chips:
@@ -897,10 +907,14 @@ func _upgrades(t) -> void:
 	var card: Control = menu.car_card()
 	var b0: Dictionary = UiData.car_info("racer").bars
 	var bu: Dictionary = card.get("bars_up")
+	var grew := true
+	for k: String in ["speed", "acceleration", "grip", "nitro"]:
+		grew = grew and float(bu[k]) >= float(b3[k]) and (float(bu[k]) > float(b3[k]) or float(b3[k]) >= 1.0)
 	t.check(maxed and r5.error == "max" and float(bu.speed) > float(b0.speed) and float(bu.acceleration) > float(b0.acceleration) and float(bu.grip) > float(b0.grip) and
-		float(bu.nitro) > float(b0.nitro) and float(card.get("top_up")) > float(UiData.car_info("racer").top) and card.tooltip_text.contains("Upgrades: engine 3, tyres 3, nitro 3, loose grip 3"),
-		"every level bought: the chips read MAX (off); the Racer's card shows the bars with the upgrades (speed %.2f -> %.2f, grip %.2f -> %.2f) and %d km/h" % [
-		float(b0.speed), float(bu.speed), float(b0.grip), float(bu.grip), roundi(float(card.get("top_up")))])
+		float(bu.nitro) > float(b0.nitro) and grew and float(card.get("top_up")) > top3 and top3 > float(UiData.car_info("racer").top) and
+		card.tooltip_text.contains("Upgrades: engine 10, tyres 10, nitro 10, loose grip 10"),
+		"every level bought (10): the chips read MAX (off); the Racer's card shows the bars with the upgrades (speed %.2f -> %.2f -> %.2f, grip %.2f -> %.2f -> %.2f, stock -> 3 -> 10) and %d -> %d km/h" % [
+		float(b0.speed), float(b3.speed), float(bu.speed), float(b0.grip), float(b3.grip), float(bu.grip), roundi(top3), roundi(float(card.get("top_up")))])
 	# a locked car: its description in a short window, its chips off
 	UiData.set_setting("car", "vortex")
 	menu.refresh()

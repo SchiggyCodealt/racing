@@ -126,6 +126,19 @@ func _menu_screens() -> void:
 		menu.handle_keys(_pad_press("PadB"))
 		UiData.set_setting("car", "racer")
 		menu.refresh()
+	if _want("menu-upgrades"):
+		# (v6.16) ten levels: the Vortex owned with a part at 10 (MAX), others part way, the dearest next price ($105,000)
+		UiData.store.career.cars = ["racer", "vortex"]
+		UiData.store.career.upgrades = {"vortex": [9, 6, 10, 0]}
+		UiData.store.career.money = 60000
+		UiData.set_setting("car", "vortex")
+		menu.refresh()
+		await process_frame
+		await _shot("menu-upgrades")
+		_check_menu(menu, "menu-upgrades")
+		UiData.store.career.upgrades = {}
+		UiData.set_setting("car", "racer")
+		menu.refresh()
 	if _want("controls"):
 		menu.show_controls(true)
 		await _shot("controls")

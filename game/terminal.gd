@@ -50,8 +50,8 @@ const COMMANDS: Array[Dictionary] = [
 			"buy kestrel engine pays for the Kestrel's next engine level, like its chip on the car picker",
 			"(parts: engine, tyres, nitro, loose)."], complete = ["@cars"]},
 	{name = "upgrade", args = "<car> <part> <level> | <car> max | all max", help = "set a car's upgrades without paying", run = "_upgrade",
-		more = ["upgrade dune engine 3 sets the Dune's engine to level 3 (0 to 3, free; parts: engine, tyres, nitro, loose).",
-			"upgrade dune max: every part of the Dune at level 3; upgrade dune stock: every part back to 0.",
+		more = ["upgrade dune engine 7 sets the Dune's engine to level 7 (0 to 10, free; parts: engine, tyres, nitro, loose).",
+			"upgrade dune max: every part of the Dune at level 10; upgrade dune stock: every part back to 0.",
 			"upgrade all max / upgrade all stock: every car you own. upgrade dune shows its levels; upgrade alone, every car's.",
 			"Only cars you own (car <name> gives you one). buy <car> <part> pays for a level instead."], complete = ["all", "@cars"]},
 	{name = "unlock", args = "all | cars | tracks", help = "own every car and open every track", run = "_unlock",
@@ -421,7 +421,7 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 	if args.is_empty():
 		for id: String in Cars.ids():
 			out.row(_car_name(id), _levels_text(SaveData.get_upgrades(id)) if SaveData.owns_car(id) else "not yours")
-		out.add("info", "upgrade <car> <part> <level> sets one (0 to 3), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays.")
+		out.add("info", "upgrade <car> <part> <level> sets one (0 to %d), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays." % Upgrades.MAX_LEVEL)
 		return
 	var all := args[0] == "all"
 	var id := "" if all else car_id(args[0])

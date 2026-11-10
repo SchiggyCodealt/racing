@@ -4,7 +4,8 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-10 (v6.15.0: round 4, item A: the trained AI uses nitro (a tank input and a nitro output,
+_Last updated: 2026-11-10 (v6.16.0: round 4, item B: upgrades to level 10: seven more levels per part, each adding
+less (level 10 = 6.5 steps) and costing more (levels 8-10 a late-career goal), ten pips on the car picker; v6.15.0: round 4, item A: the trained AI uses nitro (a tank input and a nitro output,
 sensor version 3, FleetSim "trackrush-native 5", the tank refilled by clean checkpoints and laps), older networks widened
 with zero weights; no nitro for anyone in races against AI cars (Race the AI, Race the field, cups), the HUD and menu say
 so; v6.14.0: round 3, item 2: championships: five cups of three tracks raced back to back
@@ -26,10 +27,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.15.0, round 4 item A done (AI nitro; items B and C next); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.16.0, round 4 items A-B done (AI nitro, upgrades to 10; item C next); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
-Round 4 (asked on 2026-11-10): A. **the AI uses nitro, none in races against the AI (v6.15.0, done)**, B. upgrades
-to level 10 (v6.16.0), C. a `reset everything` command (v6.17.0). See [Round 4](#round-4-ai-nitro-upgrades-to-level-10-reset-everything-v6150-v6170).
+Round 4 (asked on 2026-11-10): A. **the AI uses nitro, none in races against the AI (v6.15.0, done)**, B. **upgrades
+to level 10 (v6.16.0, done)**, C. a `reset everything` command (v6.17.0). See [Round 4](#round-4-ai-nitro-upgrades-to-level-10-reset-everything-v6150-v6170).
 Round 3, item 2: **Championships (v6.14.0, done)**. See [Round 3, item 2](#round-3-item-2-championships-v6140) and
 [How v6.14.0 was verified](#how-v6140-championships-was-verified).
 Round 3, item 1: **Race the field (v6.13.0, done)**. See [Round 3](#round-3-race-the-field-v6130) and
@@ -445,6 +446,15 @@ opponent races; all four FleetSim libraries were rebuilt ("trackrush-native 5") 
 (the lockstep tests now also check that nitro is used and refilled); the Windows release export was made from a
 fresh import (no errors or warnings; the exe 115,032,352 bytes) and zipped as `build/TrackRush-6.15.0-windows.zip`
 (43.8 MB; not started: no Windows here).
+
+v6.16.0 (2026-11-10): the headless suite passes (1029 checks: sim 142, ui 240, world 199, game 269, ai 179); the
+end-to-end scenarios pass at 1280 x 720 (upgrades 15 with `gfx=low`: 40 clicks buy every level, the same autopilot 2.9 %
+quicker, the ghost replays the level-10 run within 0.7 cm; with `gfx=high` it took the screenshot but ran past the
+25-minute limit after 12 checks; menu 28, terminal 34 with `gfx=low`, its Tab test fixed: `cup` (v6.14) made it list
+car, cup, clear); `tools/upgrades.gd` measured the new levels (stats 1,759 s, `--quick`
+laps 1,227 s); the FleetSim libraries were not touched (upgrades are spec data); the Windows release export was made
+from a fresh import (no errors or warnings; the exe 115,033,984 bytes) and zipped as
+`build/TrackRush-6.16.0-windows.zip` (43.8 MB; not started: no Windows here).
 
 ## How v6.14.0 (championships) was verified
 
@@ -1582,7 +1592,8 @@ How it is built:
 - No nitro in races against AI cars: `PlayMode.nitro_on` (false with the AI ghost: Race the AI at any level and My
   AI; `FieldMode` sets it false for Race the field and cups) empties the player's tank, keeps the nitro key out of the
   controls, turns the score's refill off and hides the gauge; the HUD's `_nitro_off` label ("No nitro in AI races")
-  takes its place, the finish panel says it, and the menu's 3 Drive heading row has the same note. The AI ghost and
+  takes its place, the finish panel says it, and the menu's 3 Drive heading row says "No nitro vs AI" (v6.16.0: shorter, so
+  it fits beside the Cups button at 1280 x 720; the tooltip says the rest). The AI ghost and
   the field's AI cars run with empty tanks and `refill` off (`sim/field_race.gd`, `ai/opponent_race.gd`), so the
   shipped opponents' stored races are unchanged. Medals, records and unlocks from those races count as before
   (measured on the medal autopilot without nitro: Rookie Oval 2:04.083 instead of 2:01.867, still gold; Seaside
@@ -1602,6 +1613,45 @@ it, with and without a tank): Rookie Oval 13 burns, 9.2 % of the race, 86 % of t
 stored opponent races reproduce with the widened networks (534 s), so the opponents were left alone. A network
 trained with `--no-nitro` reads a full tank in Watch the AI, which it never saw (its tank input's weights drifted
 unused): the Rookie Oval one drove 2:17.083 with a full tank against 2:02.800 empty (the opponents always race empty).
+
+### Item B: upgrades to level 10 (v6.16.0, done)
+
+How it is built:
+- `sim/upgrades.gd`: `MAX_LEVEL` 10; `LEVEL_GAIN` (what a part adds at level k in steps over stock: 1, 2, 3 exactly
+  as before, then 3.8, 4.5, 5.1, 5.6, 6.0, 6.3, 6.5: each level less than the one before); `gain()` reads it, so
+  levels 1-3 are bit for bit the v6.11-6.15 specs (a test compares every field). `LEVEL_SHARE` 0.1, 0.2, 0.35 (as
+  before), 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 (each rise 0.05 bigger than the last). `MEASURED` holds levels 1-10
+  of the engine and the tyres per car (`tools/upgrades.gd`, now 25 specs a car, 1,759 s on 4 threads; levels 1-3
+  came out identical to the old table). `clean()` clamps to 0..10, so saves holding 0-3 read the same and need no
+  migration (the save file stays version 5; an older game reading a level above 3 clamps it to 3).
+- `ui/part_chip.gd`: more than five levels draw ten narrower pips (3.5 px, 1.5 px apart; levels 8-10 a lighter
+  green), prices from $100,000 shortened ("$105k"; the tooltip has the full price), a name that doesn't fit is cut to
+  its first word ("Loose") before an ellipsis. Fits 1280 x 720 with the dearest price (`ui_preview` `menu-upgrades`).
+- `world/car_build.gd`: levels 4-10 grow the same parts in small steps (exhaust tips +3 % a level instead of +10 %,
+  tyre rings +3 mm, a fourth nitro band at 4, thicker bands from 5 to a sleeve at 10); level 10's parts sit within
+  3.5 cm of level 3's (a test; the exhaust tips stick out 0.5 cm further a level instead of 3).
+- The terminal's texts say 0 to 10 (`upgrade`), the menu's caption tooltip ten levels; nothing else needed a change
+  (the picker, the app's buy flow, `Economy.buy_upgrade`, records and ghosts all read `MAX_LEVEL` or `clean()`).
+
+Choices made where the owner gave none: the seven new levels add 0.8 to 0.2 of a step (level 10 = 6.5 steps: engine
++32.5 % torque, tyres +26 % grip, nitro +65 % tank and refill, loose grip +32.5 %); prices rise so that the Racer at
+level 7 everywhere costs about one author-and-Elite career with it and levels 8-10 another 1.7 such careers; the
+medal times, AI opponents and their stored races stay stock as before.
+**Measured** (`tools/upgrades.gd --quick`: the medal autopilot's best of 10 settings, 4 tracks × 6 cars, 1,227 s):
+everything at level 10 is 8.4-14.8 % quicker than stock and 4.4-8.2 % quicker than everything at 3 (the Racer on
+Rookie Oval 2:11.417 → 2:03.133 → 1:54.950, on Ramp Rally 3:09.200 → 2:53.933 → 2:41.983); one part at 10: engine
+1.0-4.5 %, tyres 1.9-11.2 %, nitro 0-1.4 %, loose grip 0 on asphalt and up to 6.2 % on dirt and snow. Stability: no
+best run spins (largest body slip 38° at level 3, 71° at level 10: the Drifter on Ramp Rally, a 1.75 s slide on dirt
+at about 105 km/h on lap 2, no wall, with the autopilot's setting of 26 m/s², which won its sweep; level 3's best run, at
+22 m/s², never passes 40°); the stability tests run at level 10 (`tests/test_sim.gd`: jumps,
+holding a lane, braking in a curve on asphalt, dirt and snow, every car; in the keyboard lane test a car at 10
+  weaves up to 0.7° more than stock (the Drifter 5.0° against 4.3°: the tyres answer the keys more sharply) while it
+  slides less, so that test allows 1° above level 3 instead of 0.5°). Stats at 10 (the Racer): 0-200 km/h 9.78 →
+7.22 s, top speed 277.7 → 297.2 km/h (the top speed stops at engine level 7 on most cars: the gears run out), grip
+1.68 / 1.58 → 2.13 / 1.83 g, tank 5.0 → 8.25 s, dirt grip 1.15 → 1.52 g; a level-10 car drifts less readily (the
+Racer holds a keyboard drift 0.67 s against 0.83). Prices: every level of every part of every car $4,389,200 (levels
+1-3 $248,200 as before); the Racer $196,500 for levels 1-7 and $300,200 for 8-10, against $102,000 for a gold +
+Expert career with one car and $173,400 for author + Elite.
 
 ## Round 3, item 2: Championships (v6.14.0)
 

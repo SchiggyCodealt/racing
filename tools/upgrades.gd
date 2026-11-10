@@ -1,5 +1,6 @@
 extends SceneTree
-## upgrades.gd (v6.11.0): measures what the car upgrades (sim/upgrades.gd) do, with the real physics.
+## upgrades.gd (v6.11.0; v6.16.0: ten levels): measures what the car upgrades (sim/upgrades.gd) do,
+## with the real physics.
 ## ------------------------------------------------------------------
 ##   godot --headless --path <copy> --script res://tools/upgrades.gd [-- options]
 ##     (no option)   stats: every car stock and with each part's levels (tools/car_stats.gd's
@@ -9,24 +10,34 @@ extends SceneTree
 ##                   when one is off by more than car_stats.gd's tolerance)
 ##     --laps        lap times: the medal autopilot's best race (the author time's sweep, 50
 ##                   settings) on --tracks=a,b (default rookie-oval, technical-trial, ramp-rally,
-##                   hairpin-valley) with every car (--cars=a,b), stock, each part at level 3 and
-##                   everything at level 3, with the wall contact and the largest body slip of
-##                   that best run
+##                   hairpin-valley) with every car (--cars=a,b), stock, everything at level 3,
+##                   each part at level 10 and everything at level 10, with the wall contact and
+##                   the largest body slip of the level 3 and 10 runs
 ##     --quick       --laps on a 10-setting grid (lookK 0.75 only) instead of 50
 ##     --jobs=N      threads (default: one per core, at most 4); the same numbers whatever N is
-## About 15 s per measured spec on one core; --laps about 1-3 s per race.
+## About 15 s per measured spec on one core (stats: 25 specs a car); --laps about 1-3 s per race.
 
 const CarStats = preload("res://tools/car_stats.gd")
 
-## The level sets the stats measure: the MEASURED table needs E1-E3 and T1-T3.
-const STAT_SETS: Array = [
-	["stock", [0, 0, 0, 0]], ["E1", [1, 0, 0, 0]], ["E2", [2, 0, 0, 0]], ["E3", [3, 0, 0, 0]],
-	["T1", [0, 1, 0, 0]], ["T2", [0, 2, 0, 0]], ["T3", [0, 3, 0, 0]], ["N3", [0, 0, 3, 0]], ["all3", [3, 3, 3, 3]],
-]
-const LOOSE_SETS: Array = [["stock", [0, 0, 0, 0]], ["L3", [0, 0, 0, 3]], ["T3", [0, 3, 0, 0]], ["all3", [3, 3, 3, 3]]]
+## The level sets the stats measure: the MEASURED table needs E1-E10 and T1-T10 (STAT_SETS[1..20]).
+static var STAT_SETS: Array = _stat_sets()
+const LOOSE_SETS: Array = [["stock", [0, 0, 0, 0]], ["L3", [0, 0, 0, 3]], ["L10", [0, 0, 0, 10]], ["T10", [0, 10, 0, 0]],
+	["all3", [3, 3, 3, 3]], ["all10", [10, 10, 10, 10]]]
 const LAP_SETS: Array = [
-	["stock", [0, 0, 0, 0]], ["E3", [3, 0, 0, 0]], ["T3", [0, 3, 0, 0]], ["N3", [0, 0, 3, 0]], ["L3", [0, 0, 0, 3]], ["all3", [3, 3, 3, 3]],
+	["stock", [0, 0, 0, 0]], ["all3", [3, 3, 3, 3]], ["E10", [10, 0, 0, 0]], ["T10", [0, 10, 0, 0]], ["N10", [0, 0, 10, 0]],
+	["L10", [0, 0, 0, 10]], ["all10", [10, 10, 10, 10]],
 ]
+const SLIP_SETS: Array = ["all3", "all10"]
+
+
+static func _stat_sets() -> Array:
+	var out: Array = [["stock", [0, 0, 0, 0]]]
+	for k in range(1, Upgrades.MAX_LEVEL + 1):
+		out.append(["E%d" % k, [k, 0, 0, 0]])
+	for k in range(1, Upgrades.MAX_LEVEL + 1):
+		out.append(["T%d" % k, [0, k, 0, 0]])
+	out.append_array([["N3", [0, 0, 3, 0]], ["N10", [0, 0, 10, 0]], ["all3", [3, 3, 3, 3]], ["all10", [10, 10, 10, 10]]])
+	return out
 
 var _jobs: Array[Dictionary] = []
 var _next: int = 0
@@ -105,28 +116,29 @@ func _stats(cars: PackedStringArray) -> void:
 			jobs.append({key = "%s|%s" % [id, set[0]], fn = CarStats.measure_car.bind(spec)})
 	_run_jobs(jobs)
 	var asphalt: Dictionary = _results.duplicate()
-	print("on asphalt: every car stock, the engine and the tyres at levels 1-3, nitro 3, everything 3")
+	print("on asphalt: every car stock, the engine and the tyres at levels 1-10, nitro 3 and 10, everything 3 and 10")
 	print("car/set     kg    0-100  0-200   top    0-200N  topN    tank       100-0   grip  fast  drift")
 	for id: String in cars:
 		for set: Array in STAT_SETS:
 			print(CarStats.table_row("%s %s" % [id.left(4), set[0]], asphalt["%s|%s" % [id, set[0]]]))
 		print("")
 	# the share each level adds over stock (the "3-5 % a level" check)
-	print("gain over stock (%): top / 0-100 / 0-200 (time, - = quicker) for E1-E3; grip / fast for T1-T3; tank for N3; all3")
+	print("gain over stock (%): top / 0-100 / 0-200 (time, - = quicker) for E1-E10; grip / fast for T1-T10; tank for N3, N10; all3, all10")
 	for id: String in cars:
 		var s: Dictionary = asphalt["%s|stock" % id]
 		var parts: PackedStringArray = []
-		for k in range(1, 4):
+		for k in range(1, Upgrades.MAX_LEVEL + 1):
 			var m: Dictionary = asphalt["%s|E%d" % [id, k]]
 			parts.append("E%d %+.1f/%+.1f/%+.1f" % [k, _pc(m.top, s.top), _pc(m.accel100, s.accel100), _pc(m.accel200, s.accel200)])
-		for k in range(1, 4):
+		for k in range(1, Upgrades.MAX_LEVEL + 1):
 			var m: Dictionary = asphalt["%s|T%d" % [id, k]]
 			parts.append("T%d %+.1f/%+.1f" % [k, _pc(m.grip, s.grip), _pc(m.gripFast, s.gripFast)])
-		var n3: Dictionary = asphalt["%s|N3" % id]
-		parts.append("N3 tank %+.1f" % _pc(n3.tankTime, s.tankTime))
-		var a3: Dictionary = asphalt["%s|all3" % id]
-		parts.append("all3 top %+.1f 0-200 %+.1f grip %+.1f/%+.1f brake %+.1f drift %.2f->%.2f s" % [_pc(a3.top, s.top), _pc(a3.accel200, s.accel200),
-			_pc(a3.grip, s.grip), _pc(a3.gripFast, s.gripFast), _pc(a3.brake100, s.brake100), float(s.drift), float(a3.drift)])
+		for n: String in ["N3", "N10"]:
+			parts.append("%s tank %+.1f" % [n, _pc(asphalt["%s|%s" % [id, n]].tankTime, s.tankTime)])
+		for a: String in ["all3", "all10"]:
+			var a3: Dictionary = asphalt["%s|%s" % [id, a]]
+			parts.append("%s top %+.1f 0-200 %+.1f grip %+.1f/%+.1f brake %+.1f drift %.2f->%.2f s" % [a, _pc(a3.top, s.top), _pc(a3.accel200, s.accel200),
+				_pc(a3.grip, s.grip), _pc(a3.gripFast, s.gripFast), _pc(a3.brake100, s.brake100), float(s.drift), float(a3.drift)])
 		print("%-8s %s" % [id, ", ".join(parts)])
 	# dirt and snow: the skidpads with the loose grip part (and the tyres, which must not change them)
 	for surface: String in ["dirt", "snow"]:
@@ -140,7 +152,7 @@ func _stats(cars: PackedStringArray) -> void:
 					return {grip = CarStats.r2(CarStats.skidpad(spec, 30.0)), gripFast = CarStats.r2(CarStats.skidpad(spec, 120.0)),
 						brake100 = CarStats.r1(CarStats.brake100(spec))}})
 		_run_jobs(sj)
-		print("\non %s: skidpad grip 30 m / 120 m (g) and 100-0 (m): stock, loose 3, tyres 3, everything 3" % surface)
+		print("\non %s: skidpad grip 30 m / 120 m (g) and 100-0 (m): stock, loose 3 and 10, tyres 10, everything 3 and 10" % surface)
 		for id: String in cars:
 			var row: PackedStringArray = []
 			var st: Dictionary = _results["%s|stock" % id]
@@ -163,7 +175,7 @@ static func _measured_text(cars: PackedStringArray, m: Dictionary) -> String:
 	for id: String in cars:
 		var e: PackedStringArray = []
 		var t: PackedStringArray = []
-		for k in range(1, 4):
+		for k in range(1, Upgrades.MAX_LEVEL + 1):
 			var me: Dictionary = m["%s|E%d" % [id, k]]
 			e.append("{top = %s, accel100 = %s, accel200 = %s}" % [JsMath.num_to_js(float(me.top)), JsMath.num_to_js(float(me.accel100)), JsMath.num_to_js(float(me.accel200))])
 			var mt: Dictionary = m["%s|T%d" % [id, k]]
@@ -177,14 +189,14 @@ func _check(cars: PackedStringArray) -> int:
 	CarStats.prepare()
 	var jobs: Array[Dictionary] = []
 	for id: String in cars:
-		for set: Array in STAT_SETS.slice(1, 7):
+		for set: Array in STAT_SETS.slice(1, 1 + 2 * Upgrades.MAX_LEVEL):
 			var spec: CarSpec = Upgrades.spec(id, _lv(set[1]))
 			jobs.append({key = "%s|%s" % [id, set[0]], fn = CarStats.measure_car.bind(spec)})
 	_run_jobs(jobs)
 	var off: PackedStringArray = []
 	for id: String in cars:
 		var stored: Dictionary = Upgrades.MEASURED.get(id, {})
-		for k in range(1, 4):
+		for k in range(1, Upgrades.MAX_LEVEL + 1):
 			for part: String in ["engine", "tyres"]:
 				var tag: String = "%s%d" % ["E" if part == "engine" else "T", k]
 				var m: Dictionary = _results["%s|%s" % [id, tag]]
@@ -244,7 +256,7 @@ func _laps(tracks: PackedStringArray, cars: PackedStringArray, quick: bool) -> v
 				var spec: CarSpec = Upgrades.spec(id, _lv(set[1]))
 				jobs.append({key = "%s|%s|%s" % [tid, id, set[0]], fn = best_race.bind(built[tid], id, spec, quick)})
 	_run_jobs(jobs)
-	print("the medal autopilot's best race (%s), with nitro and the style score's refills: stock and level 3" % ("10 settings" if quick else "50 settings, as the author time"))
+	print("the medal autopilot's best race (%s), with nitro and the style score's refills: stock, level 3 and level 10" % ("10 settings" if quick else "50 settings, as the author time"))
 	for tid: String in tracks:
 		var t: BuiltTrack = built[tid]
 		print("\n%s (%s, %s)" % [t.name, "%d laps" % t.laps if t.closed else "sprint", Surfaces.summary(t)])
@@ -256,6 +268,6 @@ func _laps(tracks: PackedStringArray, cars: PackedStringArray, quick: bool) -> v
 				if set[0] == "stock":
 					row.append("stock %s (wall %d, slip %.0f°)" % [RaceState.format_time(float(r.time)), int(r.get("wall", 0)), float(r.get("slip", 0.0))])
 				else:
-					row.append("%s %+.2f%%" % [set[0], _pc(r.time, st.time)] + (" (wall %d, slip %.0f°)" % [int(r.get("wall", 0)), float(r.get("slip", 0.0))] if set[0] == "all3" else ""))
+					row.append("%s %+.2f%%" % [set[0], _pc(r.time, st.time)] + (" %s (wall %d, slip %.0f°)" % [RaceState.format_time(float(r.time)), int(r.get("wall", 0)), float(r.get("slip", 0.0))] if SLIP_SETS.has(set[0]) else ""))
 			var author: Dictionary = Medals.medal_times(t, id)
 			print("  %-8s %s%s" % [id, ", ".join(row), "  [author %s]" % RaceState.format_time(float(author.author)) if author.has("author") else ""])
