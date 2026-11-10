@@ -74,6 +74,10 @@ no nitro** for anyone (Race the AI, Race the field, championships), and the HUD 
 Version 6.16.0 takes **upgrades to level 10**: every part of every car now has seven more levels, each adding a
 little less than the one before and costing a lot more, so a fully upgraded car is a late-career goal (see
 [Upgrades](#upgrades)).
+Version 6.17.0 adds the terminal command **`reset everything`**: it puts the game back to a fresh install (money,
+points, cars, upgrades, opened tracks, trophies, best times, medals, ghosts and your trained AI networks) and keeps
+your settings. It asks first, and it writes a backup of the old save next to it, so it can be undone (see
+[The terminal](#the-terminal) and [Saved data](#saved-data)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -1044,6 +1048,7 @@ behind it shows the new money, points and cars straight away.
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
 | `status` | Your money, points, the cars you own and their upgrades, how many medals you hold, how many tracks are open (and what opens the next one) and how many cup trophies you have |
 | `reset career` | Starts the career over: $0, 0 points, only the Racer (stock), and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first: type `reset career confirm` to do it |
+| `reset everything` | Puts the game back to a fresh install: $0, 0 points, only the Racer (stock), only Rookie Oval open, and no paid rewards, trophies, cup in progress, best times, medals, ghosts, scores, archived records or trained AI networks. Your settings (graphics, sound, display) stay. First it writes a backup of the save next to it, `trackrush_save.backup.json`, and prints where it is (see [Saved data](#saved-data) to undo it). It asks first: type `reset everything confirm` to do it |
 | `clear` | Clears the terminal (Ctrl+L too) |
 | `exit` | Closes the terminal (Esc or `` ` `` too) |
 
@@ -1072,8 +1077,13 @@ and a cup in progress. Next to it are `networks\` (the copies **Save best networ
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
-it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, close the game
-and delete the file. Best times and ghosts made with another version of the physics are not used. Best times, best
+it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, type
+`reset everything confirm` in the terminal (or close the game and delete the file).
+
+`reset everything` first copies the save to `trackrush_save.backup.json` in the same folder (an older backup there is
+kept, renamed with its date: `trackrush_save.backup-2026-11-10-16-27-56.json`). To undo the reset, close the game,
+then rename the backup to `trackrush_save.json`, replacing the new one. If the backup can't be written, nothing is
+reset. The networks the **Save best network** button wrote to `networks\` are files of their own and stay. Best times and ghosts made with another version of the physics are not used. Best times, best
 scores and ghosts also remember the version of the track they were set on: when a track changes (as four did in
 6.3.0, when they got dirt and snow, and five in 6.6.0, when their tight corners were opened up), the old ones stop
 counting and are moved to an `"archive"` section of the file (the next time the game saves anything), where they are

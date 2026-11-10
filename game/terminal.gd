@@ -29,6 +29,9 @@ extends RefCounted
 ##       completed as far as they agree, and all of them in options)
 ##   term.names()            -> every command name, in table order
 
+## v6.17.0: `reset everything` wiped the save file (the app drops its copies of networks and the cup).
+signal wiped
+
 ## The largest amount one command adds, takes or sets.
 const MAX_AMOUNT: int = 1_000_000_000
 
@@ -65,10 +68,14 @@ const COMMANDS: Array[Dictionary] = [
 		complete = ["rookie", "asphalt", "technical", "dirt-snow", "finale"]},
 	{name = "status", args = "", help = "your money, points, cars, upgrades, medals and open tracks", run = "_status",
 		more = ["status shows your money, career points, the cars you own and their upgrades, the medals you hold and the tracks open."]},
-	{name = "reset", args = "career", help = "start the career over (asks first)", run = "_reset", wipes = true,
+	{name = "reset", args = "career | everything", help = "start the career over, or everything back to a fresh install (asks first)", run = "_reset", wipes = true,
 		more = ["reset career sets money and points to 0, keeps only the Racer (stock) and makes every medal and AI win pay again.",
 			"Tracks opened by medals stay open (those only unlock tracks opened lock again). Best times, ghosts, AI networks",
-			"and settings stay. It asks first: type reset career confirm to do it."], complete = ["career"]},
+			"and settings stay. It asks first: type reset career confirm to do it.",
+			"reset everything puts the game back as it was when first installed: money, points, cars, upgrades, opened tracks,",
+			"paid rewards, trophies, the cup in progress, best times, medals, ghosts, scores, archived records and your AI",
+			"networks all go; your settings stay. A backup of the save file is written next to it first.",
+			"It asks first: type reset everything confirm to do it."], complete = ["career", "everything"]},
 	{name = "clear", args = "", help = "clear the terminal", run = "_clear", more = ["clear empties the terminal (Ctrl+L too)."]},
 	{name = "exit", args = "", help = "close the terminal (Esc or ` too)", run = "_exit", more = ["exit closes the terminal, as Esc and ` do."]},
 ]
@@ -632,8 +639,11 @@ static func cups_row() -> String:
 
 
 func _reset(args: PackedStringArray, out: Out) -> void:
+	if args.size() == 1 and args[0] == "everything":
+		_reset_everything(out)
+		return
 	if args.size() != 1 or args[0] != "career":
-		out.add("error", "reset: try reset career (start the career over; it asks first).")
+		out.add("error", "reset: try reset career (start the career over) or reset everything (back to a fresh install); both ask first.")
 		return
 	if not out.confirm("This starts the career over: money and points back to 0, only the Racer, and every medal and AI win pays again. Tracks opened by medals stay open; those only unlock tracks opened lock again. Best times, ghosts, AI networks and settings stay."):
 		return
@@ -644,6 +654,26 @@ func _reset(args: PackedStringArray, out: Out) -> void:
 	out.add("loss", "The career starts over: %s, %s pts, the %s." % [UiFormat.money(SaveData.get_money()), UiFormat.points(SaveData.get_points()),
 		", ".join(own)])
 	out.changed = true
+
+
+## v6.17.0: reset everything (SaveData.reset_everything: a backup first, then a fresh install, the
+## settings kept); `wiped` tells the app to drop what it holds from the old save.
+func _reset_everything(out: Out) -> void:
+	if not out.confirm("This puts the game back to a fresh install: money, points, cars (only the Racer, stock), upgrades, opened tracks (only Rookie Oval), paid rewards, trophies, the cup in progress, best times, medals, ghosts, scores, archived records and every AI network you trained all go. Your settings stay. A backup of the save file is written first."):
+		return
+	var r: Dictionary = SaveData.reset_everything()
+	if not bool(r.ok):
+		out.add("error", "reset everything: the backup could not be written (%s), so nothing was reset." % String(r.backup))
+		return
+	out.add("loss", "Everything is back to a fresh install: %s, %s pts, the Racer (stock), Rookie Oval open; no best times, medals, ghosts, scores, trophies or AI networks." % [
+		UiFormat.money(SaveData.get_money()), UiFormat.points(SaveData.get_points())])
+	out.add("info", "Kept: your settings (graphics, sound, display).")
+	out.add("ok", "Backup of the old save: %s" % String(r.backup))
+	if String(r.kept) != "":
+		out.add("info", "The backup from before is kept as %s" % String(r.kept))
+	out.add("info", "To undo it: close the game, then rename the backup to %s (replacing the new one)." % SaveData.path.get_file())
+	out.changed = true
+	wiped.emit()
 
 
 func _clear(_args: PackedStringArray, out: Out) -> void:

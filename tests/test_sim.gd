@@ -127,6 +127,7 @@ func run(checker: Variant) -> bool:
 	_upgrades()
 	_field()
 	_cups()
+	_reset_everything()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
 		"format_time rounds correctly (119.9996 s -> 2:00.000; no time -> --:--.---)")
@@ -2733,6 +2734,76 @@ func _upgrades() -> void:
 		not g_old.has("up") and Replay.unpack_ghost(g_old, rr, race.laps, "racer").up == stock
 	t.check(ok, "an upgraded run (the Racer at E10 T7 N4 L10, Ramp Rally: %s against %s stock) is saved with its levels (record and ghost: [10, 7, 4, 10]); its ghost replays it within %.1f cm at every physics step after the car went back to stock; stock runs and older ones carry no levels and read as stock" % [
 		RaceState.format_time(race.finish_time), RaceState.format_time(float(stock_run.time)), worst * 100.0])
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	clean_up.call()
+
+
+# ---- reset everything (v6.17.0) ------------------------------------------------------------
+
+## SaveData.reset_everything(): a backup of the save next to it (an older backup kept, renamed), then
+## a fresh install with the settings kept (not the picked car and opponent); an unwritable backup
+## wipes nothing.
+func _reset_everything() -> void:
+	t.section("reset everything (v6.17.0): a backup, then a fresh install, the settings kept")
+	var path := "user://test_reset_all.json"
+	var clean_up := func() -> void:
+		var dir := DirAccess.open("user://")
+		for f: String in dir.get_files():
+			if f.begins_with("test_reset_all"):
+				dir.remove(f)
+	clean_up.call()
+	SaveData.use_file(path)
+	SaveData.add_money(12345)
+	SaveData.add_points(678)
+	SaveData.give_car("vortex")
+	SaveData.set_upgrades("vortex", PackedInt32Array([10, 7, 3, 1]))
+	SaveData.submit_record("rookie-oval", "racer", 125.0, [40.0, 82.0])
+	SaveData.submit_score("rookie-oval", "racer", 40000)
+	SaveData.save_ghost("rookie-oval", "racer", {format = 3, test = true})
+	SaveData.save_network({sizes = [19, 12, 3], test = true}, "vortex")
+	SaveData.open_track("hairpin-valley")
+	SaveData.unlock_tracks(true)
+	SaveData.pay_rewards("rookie-oval", "racer", PackedStringArray(["gold"]), 0, 0)
+	SaveData.set_cup_place("rookie", "pro", 2)
+	SaveData.set_cup_run({cup = "rookie"})
+	SaveData.set_setting("quality", "low")
+	SaveData.set_setting("vol_music", 0.25)
+	SaveData.set_setting("car", "vortex")
+	SaveData.set_setting("opponent", "elite")
+	(SaveData._all().archive as Dictionary)["records"] = {"ramp-rally": {"racer": {"old": {time = 200.0}}}}
+	var r: Dictionary = SaveData.reset_everything()
+	var bk: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.backup_path()))
+	var fresh_ok: bool = SaveData.get_money() == 0 and SaveData.get_points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and \
+		Upgrades.is_stock(SaveData.get_upgrades("vortex")) and SaveData.get_record("rookie-oval", "racer").is_empty() and \
+		SaveData.get_best_score("rookie-oval", "racer").is_empty() and SaveData.load_ghost("rookie-oval", "racer") == null and \
+		SaveData.network_cars().is_empty() and not SaveData.tracks_unlocked() and not SaveData.opened_tracks().has("hairpin-valley") and \
+		SaveData.paid_rewards("rookie-oval", "racer").is_empty() and SaveData.cup_trophies().is_empty() and SaveData.get_cup_run().is_empty() and \
+		SaveData.cup_paid().is_empty() and (SaveData._all().archive as Dictionary).is_empty() and \
+		SaveData.get_setting("quality") == "low" and is_equal_approx(float(SaveData.get_setting("vol_music")), 0.25) and \
+		SaveData.get_setting("car") == "racer" and SaveData.get_setting("opponent") == SaveData.SETTINGS.opponent and Unlocks.is_open("rookie-oval") and \
+		not Unlocks.is_open("hairpin-valley")
+	SaveData.use_file(path) # (read back from the file)
+	var disk_ok: bool = SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and SaveData.get_record("rookie-oval", "racer").is_empty() and \
+		SaveData.get_setting("quality") == "low" and SaveData.take_welcome().is_empty()
+	var bk_ok: bool = bool(r.ok) and String(r.backup) == ProjectSettings.globalize_path("user://test_reset_all.backup.json") and String(r.kept) == "" and \
+		bk is Dictionary and int(bk.career.money) == 12345 and (bk.career.cars as Array).has("vortex") and (bk.records as Dictionary).has("rookie-oval") and \
+		(bk.networks as Dictionary).has("vortex") and (bk.archive.records as Dictionary).has("ramp-rally") and bk.settings.quality == "low"
+	t.check(bk_ok and fresh_ok and disk_ok, "the backup holds the old save ($12,345, the Vortex at E10 T7 N3 L1, a record, score, ghost and network, a trophy, the cup in progress, the archive); then $0, 0 points, the Racer stock, no records, scores, ghosts, networks, archive, paid rewards, trophies or cup; Rookie Oval only; quality and music volume kept, the picked car and opponent back to their defaults; the same read back from the file, no welcome note")
+	# a second reset keeps the first backup (renamed with its date) and backs up the fresh save
+	SaveData.add_money(5)
+	var r2: Dictionary = SaveData.reset_everything()
+	var older := Array(DirAccess.get_files_at("user://")).filter(func(f: String) -> bool: return f.begins_with("test_reset_all.backup-"))
+	var b1: Variant = JSON.parse_string(FileAccess.get_file_as_string("user://" + older[0])) if older.size() == 1 else null
+	var b2: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.backup_path()))
+	t.check(bool(r2.ok) and older.size() == 1 and String(r2.kept).ends_with(older[0]) and b1 is Dictionary and int(b1.career.money) == 12345 and
+		b2 is Dictionary and int(b2.career.money) == 5 and SaveData.get_money() == 0,
+		"a second reset keeps the first backup as %s and backs up the save before it ($5)" % (older[0] if older.size() == 1 else "-"))
+	# the backup can't be written (the save file's folder doesn't exist): nothing is wiped
+	clean_up.call()
+	SaveData.use_file("user://no_such_dir_v617/test_reset_all.json")
+	SaveData.add_money(99)
+	var r3: Dictionary = SaveData.reset_everything()
+	t.check(not bool(r3.ok) and SaveData.get_money() == 99, "when the backup can't be written (no folder), nothing is wiped ($99 kept)")
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean_up.call()
 

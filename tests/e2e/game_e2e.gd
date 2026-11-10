@@ -80,8 +80,11 @@ extends SceneTree
 ##             over Settings, where buy dune is short of money, money 3000 then buy dune buys it,
 ##             Esc closes it back to Settings; ` opens it over Settings and closes it again; the pad
 ##             opens it from the Terminal row (A) and closes it (B); exit + Enter closes it without
-##             driving; in a race (Drive with the Dune) ` does nothing. Shots: terminal_menu,
-##             terminal_settings, terminal_over_settings.
+##             driving; in a race (Drive with the Dune) ` does nothing. Then reset everything
+##             (v6.17.0) asks first, reset everything confirm puts it back to a fresh install ($0,
+##             0 pts, only the Racer; the menu's header redraws at once), the backup next to the save
+##             holds the old career, settings stay. Shots: terminal_menu, terminal_settings,
+##             terminal_over_settings, terminal_reset_everything.
 ##   upgrades  car upgrades (v6.11.0; v6.16.0: ten levels) from a new career: the Racer's four part chips on the car
 ##             picker (level 0, the next price, greyed while the money is short, a locked car's off);
 ##             the stock Racer drives Rookie Oval with the medal autopilot of the author run (the
@@ -1715,6 +1718,31 @@ func terminal() -> void:
 	await key(KEY_ESCAPE)
 	await frames(4)
 	check(app.mode == app.menu_mode and not term.visible, "Esc: back on the menu, the terminal closed")
+
+	# reset everything (v6.17.0): asks first, then a fresh install; the menu redraws at once
+	var backup := SaveData.backup_path()
+	DirAccess.remove_absolute(backup)
+	SaveData.set_setting("grime", false)
+	await key(KEY_QUOTELEFT)
+	await type_text("points 50")
+	await type_text("reset everything")
+	check(SaveData.owns_car("dune") and UiData.points() == 250 and term.log_text().contains("Type reset everything confirm") and not FileAccess.file_exists(backup),
+		"reset everything: asks first (Type reset everything confirm), nothing changes, no backup yet")
+	await type_text("reset everything confirm")
+	await frames(6)
+	check(UiData.money() == 0 and UiData.points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and UiData.picked_car() == "racer" and
+		money_l.text == "$0" and points_l.text == "0 pts" and menu.selected_track == 0 and term.visible,
+		"reset everything confirm: $0, 0 pts, only the Racer, Rookie Oval picked; the menu's header redrew at once (%s, %s)" % [money_l.text, points_l.text])
+	var bk: Variant = JSON.parse_string(FileAccess.get_file_as_string(backup))
+	check(bk is Dictionary and int(bk.career.points) == 250 and (bk.career.cars as Array).has("dune") and term.log_text().contains(ProjectSettings.globalize_path(backup)) and
+		term.log_text().contains("To undo it") and SaveData.get_setting("grime") == false,
+		"the backup next to the save holds the old career (250 pts, the Dune); the terminal says where and how to undo; the settings stayed")
+	await frames(6)
+	await shot("terminal_reset_everything")
+	await key(KEY_ESCAPE)
+	check(not term.visible and app.mode == app.menu_mode and drive_btn.text == "DRIVE", "Esc: back on the menu, the Racer ready to drive")
+	SaveData.set_setting("grime", true)
+	DirAccess.remove_absolute(backup)
 
 
 # ---------------------------------------------------------------- the tracks open one at a time (v6.8.0)

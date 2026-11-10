@@ -1185,6 +1185,48 @@ func _app_terminal(t, app: GameApp) -> void:
 		"reset career confirm: $0, only the Racer; the picked Dune is for sale again (%s)" % drive_btn.text)
 	term.submit("unlock all")
 	t.check(SaveData.owned_cars().size() == Cars.ids().size() and SaveData.tracks_unlocked() and drive_btn.text == "DRIVE", "unlock all: every car (Drive), every track")
+	# (v6.17) reset everything: it asks first; then a backup next to the save file, a fresh install with the
+	# settings kept, and the app drops the network and the cup it held; a second one keeps the first backup
+	var clean_bk := func() -> void:
+		var dir := DirAccess.open("user://")
+		if dir != null:
+			for f: String in dir.get_files():
+				if f.begins_with("test_game_terminal.backup"):
+					dir.remove(f)
+	clean_bk.call()
+	var net_err := app.load_network_file("res://tests/fixtures/game_net.json") if AiLink.ready() else "no AI"
+	term.submit("money 15000")
+	SaveData.submit_record("rookie-oval", "racer", 130.0, [])
+	SaveData.set_upgrades("racer", PackedInt32Array([10, 4, 0, 2]))
+	SaveData.set_cup_place("rookie", "pro", 1)
+	UiData.set_setting("grime", false)
+	menu.select(4)
+	term.submit("reset everything")
+	t.check(SaveData.get_money() == 15000 and not SaveData.get_record("rookie-oval", "racer").is_empty() and not FileAccess.file_exists(SaveData.backup_path()),
+		"reset everything only asks")
+	term.submit("reset everything confirm")
+	var bk_text := FileAccess.get_file_as_string(SaveData.backup_path())
+	var bk: Variant = JSON.parse_string(bk_text) if bk_text != "" else null
+	var log_t: String = term.log_text()
+	t.check(SaveData.get_money() == 0 and SaveData.get_points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and Upgrades.is_stock(SaveData.get_upgrades("racer")) and
+		SaveData.get_record("rookie-oval", "racer").is_empty() and SaveData.network_cars().is_empty() and SaveData.cup_trophies().is_empty() and
+		not SaveData.tracks_unlocked() and SaveData.opened_tracks().size() <= 1 and UiData.get_setting("grime") == false and UiData.picked_car() == "racer" and
+		money_l.text == "$0" and app.network.is_empty() and app.cup == null and app.selected_track == 0 and drive_btn.text == "DRIVE",
+		"reset everything confirm: $0, 0 pts, the Racer stock, no records, networks, trophies; Rookie Oval only, picked; a setting kept (no mud on the screen); the app holds no network (%s before)" % ("loaded" if net_err == "" else net_err))
+	t.check(bk is Dictionary and int(bk.career.money) == 15000 and (bk.records as Dictionary).has("rookie-oval") and (bk.networks as Dictionary).size() == (1 if net_err == "" else 0) and
+		log_t.contains("Backup of the old save: %s" % ProjectSettings.globalize_path(SaveData.backup_path())) and log_t.contains("To undo it"),
+		"the backup next to the save file holds the old save ($15,000, the record, the network); the terminal says where and how to undo")
+	SaveData.add_money(77)
+	term.submit("reset everything confirm")
+	var kept := DirAccess.get_files_at("user://")
+	var older := Array(kept).filter(func(f: String) -> bool: return f.begins_with("test_game_terminal.backup-"))
+	var bk2: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.backup_path()))
+	var bk1: Variant = JSON.parse_string(FileAccess.get_file_as_string("user://" + older[0])) if older.size() == 1 else null
+	t.check(older.size() == 1 and bk1 is Dictionary and int(bk1.career.money) == 15000 and bk2 is Dictionary and int(bk2.career.money) == 77 and SaveData.get_money() == 0,
+		"a second reset keeps the first backup (renamed %s) and backs up the save before it" % (older[0] if older.size() == 1 else "-"))
+	clean_bk.call()
+	UiData.set_setting("grime", true)
+	term.submit("unlock all")
 	term.submit("exit")
 	inp.press("Enter")
 	menu.handle_keys(inp)
@@ -1366,6 +1408,9 @@ func _terminal(t) -> void:
 	r = term.run("reset career")
 	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset career confirm") and text_of.call(r).contains("Tracks opened by medals stay open") and
 		SaveData.get_money() == 4321 and not r.changed, "reset career: says what it would do (tracks opened by medals stay open) and how to confirm; nothing changes")
+	r = term.run("reset everything")
+	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset everything confirm") and text_of.call(r).contains("Your settings stay") and
+		text_of.call(r).contains("backup") and SaveData.get_money() == 4321 and not r.changed, "reset everything: says what it would do (settings stay, a backup first) and how to confirm; nothing changes")
 	r = term.run("reset")
 	var r7: Dictionary = term.run("reset records confirm")
 	var r8: Dictionary = term.run("money 5 confirm")

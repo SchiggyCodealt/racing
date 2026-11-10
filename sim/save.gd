@@ -52,6 +52,10 @@ extends RefCounted
 ##                                                    paid, the tracks flag off; the tracks opened by medals
 ##                                                    stay open (records, ghosts, scores, networks and
 ##                                                    settings stay too)
+##   SaveData.reset_everything() -> {ok, backup, kept} (v6.17.0, the terminal's `reset everything`) back to a
+##                                                    fresh install, settings kept, after a backup of the file
+##                                                    next to it (backup_path()); see the function
+##   SaveData.backup_path() -> "<save file>.backup.json" (user:// path)
 ## Championships (v6.14.0; sim/cups.gd, sim/cup_run.gd, sim/economy.gd claim_cup):
 ##   SaveData.cup_paid() -> the cup reward ids paid (once per cup, level and place)
 ##   SaveData.finish_cup(cup, level, place, ids, money, points)  the end of a cup, in one write: the
@@ -740,6 +744,61 @@ static func open_track(id: String) -> bool:
 ## off. The tracks medals opened stay open (only those the flag opened lock again). Best times,
 ## scores, ghosts, AI networks and settings are kept, and (v6.14) the cup trophies; the cup payouts
 ## and a cup in progress go.
+## v6.17.0: back to a fresh install (the terminal's `reset everything`). First the save as the game
+## holds it is written next to the file as backup_path() ("trackrush_save.backup.json"); a backup
+## already there is kept, renamed with its date and time ("trackrush_save.backup-2026-11-10-14-32-05.json"),
+## so no backup is ever overwritten. If the backup can't be written nothing is wiped ({ok = false}).
+## Then everything but the settings goes: best times and splits, ghosts, scores (so every medal),
+## the archive of older track versions, every car's AI network, and the whole career (money, points,
+## cars: only the starting ones, paid rewards, upgrades, opened tracks: only the first, the unlock
+## flag, the cup payouts, trophies and the cup in progress, the welcome note). The settings stay
+## (graphics, sound, display, the ghost toggle) except the menu's picked car and AI opponent, which go
+## back to their defaults (the other cars aren't owned any more, and My AI has no network).
+## Returns {ok, backup: the backup's real path (globalized), kept: an older backup's new real path or ""}.
+## Network files the player saved with "Save best network" (the networks folder) are left alone.
+static func reset_everything() -> Dictionary:
+	_mutex.lock()
+	var d: Dictionary = _all()
+	var bk: String = backup_path()
+	var kept: String = ""
+	if FileAccess.file_exists(bk):
+		var stamp: String = Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(bk)).replace("T", "-").replace(":", "-")
+		var old_name: String = "%s.backup-%s.json" % [path.get_basename(), stamp]
+		var n: int = 2
+		while FileAccess.file_exists(old_name):
+			old_name = "%s.backup-%s-%d.json" % [path.get_basename(), stamp, n]
+			n += 1
+		if DirAccess.rename_absolute(ProjectSettings.globalize_path(bk), ProjectSettings.globalize_path(old_name)) != OK:
+			_mutex.unlock()
+			return {ok = false, backup = ProjectSettings.globalize_path(bk), kept = ""}
+		kept = ProjectSettings.globalize_path(old_name)
+	var ok: bool = false
+	var f := FileAccess.open(bk, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify(_json_safe(d), "", false, true))
+		ok = f.get_error() == OK
+		f.close()
+	if not ok:
+		_mutex.unlock()
+		return {ok = false, backup = ProjectSettings.globalize_path(bk), kept = kept}
+	var settings: Dictionary = (d.get("settings", {}) as Dictionary).duplicate(true)
+	settings.erase("car")
+	settings.erase("opponent")
+	var fresh: Dictionary = {version = VERSION, records = {}, ghosts = {}, scores = {}, settings = settings, networks = {}, archive = {}}
+	_start_career(fresh)
+	_repair_career(fresh)
+	fresh.career.tracks_open = Array(Unlocks.from_records(fresh))
+	_data = fresh
+	_write()
+	_mutex.unlock()
+	return {ok = true, backup = ProjectSettings.globalize_path(bk), kept = kept}
+
+
+## Where reset_everything() writes its backup: next to the save file, "<name>.backup.json".
+static func backup_path() -> String:
+	return path.get_basename() + ".backup.json"
+
+
 static func reset_career() -> void:
 	_mutex.lock()
 	var open: Array = (_career().tracks_open as Array).duplicate()

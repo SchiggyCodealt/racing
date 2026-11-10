@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-10 (v6.16.0: round 4, item B: upgrades to level 10: seven more levels per part, each adding
+_Last updated: 2026-11-10 (v6.17.0: round 4, item C, the last: the terminal's `reset everything` puts the game back to
+a fresh install (career, records, ghosts, scores, medals, trophies, AI networks), keeps the settings, and writes a
+backup of the save next to it first; v6.16.0: round 4, item B: upgrades to level 10: seven more levels per part, each adding
 less (level 10 = 6.5 steps) and costing more (levels 8-10 a late-career goal), ten pips on the car picker; v6.15.0: round 4, item A: the trained AI uses nitro (a tank input and a nitro output,
 sensor version 3, FleetSim "trackrush-native 5", the tank refilled by clean checkpoints and laps), older networks widened
 with zero weights; no nitro for anyone in races against AI cars (Race the AI, Race the field, cups), the HUD and menu say
@@ -27,10 +29,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.16.0, round 4 items A-B done (AI nitro, upgrades to 10; item C next); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.17.0, round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 4 (asked on 2026-11-10): A. **the AI uses nitro, none in races against the AI (v6.15.0, done)**, B. **upgrades
-to level 10 (v6.16.0, done)**, C. a `reset everything` command (v6.17.0). See [Round 4](#round-4-ai-nitro-upgrades-to-level-10-reset-everything-v6150-v6170).
+to level 10 (v6.16.0, done)**, C. **a `reset everything` command (v6.17.0, done)**. See [Round 4](#round-4-ai-nitro-upgrades-to-level-10-reset-everything-v6150-v6170).
 Round 3, item 2: **Championships (v6.14.0, done)**. See [Round 3, item 2](#round-3-item-2-championships-v6140) and
 [How v6.14.0 was verified](#how-v6140-championships-was-verified).
 Round 3, item 1: **Race the field (v6.13.0, done)**. See [Round 3](#round-3-race-the-field-v6130) and
@@ -455,6 +457,15 @@ car, cup, clear); `tools/upgrades.gd` measured the new levels (stats 1,759 s, `-
 laps 1,227 s); the FleetSim libraries were not touched (upgrades are spec data); the Windows release export was made
 from a fresh import (no errors or warnings; the exe 115,033,984 bytes) and zipped as
 `build/TrackRush-6.16.0-windows.zip` (43.8 MB; not started: no Windows here).
+
+v6.17.0 (2026-11-10): the headless suite passes (1037 checks: sim 145, ui 240, world 199, game 274, ai 179; new: a
+reset with everything filled in, the backup's contents, the file read back, a second reset keeping the first backup,
+no reset when the backup can't be written, the terminal asking first, the app dropping the network and cup it held);
+the end-to-end terminal scenario passes at 1280 x 720 (38 with `gfx=low`: `reset everything` typed in asks first,
+`reset everything confirm` redraws the menu's header at $0 / 0 pts at once, the backup holds the old career, the
+settings stay; screenshot `terminal_reset_everything`); the FleetSim libraries were not touched; the Windows release
+export was made from a fresh import (no errors or warnings; the exe 115,037,136 bytes) and zipped as
+`build/TrackRush-6.17.0-windows.zip` (43.6 MB; not started: no Windows here).
 
 ## How v6.14.0 (championships) was verified
 
@@ -1652,6 +1663,29 @@ holding a lane, braking in a curve on asphalt, dirt and snow, every car; in the 
 Racer holds a keyboard drift 0.67 s against 0.83). Prices: every level of every part of every car $4,389,200 (levels
 1-3 $248,200 as before); the Racer $196,500 for levels 1-7 and $300,200 for 8-10, against $102,000 for a gold +
 Expert career with one car and $173,400 for author + Elite.
+
+### Item C: `reset everything` (v6.17.0, done)
+
+How it is built:
+- `sim/save.gd` `reset_everything()`: under the save's lock it first writes the whole save as it is to
+  `backup_path()` (next to the save: `trackrush_save.backup.json`); an older backup there is renamed with its file
+  date (`trackrush_save.backup-2026-11-10-16-27-56.json`, `-2` and on if that is taken), so a second reset never
+  overwrites the first one's backup. If the rename or the write fails it returns `ok = false` and changes nothing.
+  Then it builds a new save as a fresh install does (`_start_career`, `_repair_career`, `Unlocks.from_records` on no
+  records: only Rookie Oval open) with empty records, ghosts, scores, networks and archive, keeps the settings minus
+  the picked car and opponent, and writes it. Returns `{ok, backup, kept}` (global paths).
+- `game/terminal.gd`: `reset everything` is the second word of `reset` (Tab completes `career` / `everything`); it
+  asks first like `reset career` (`reset everything confirm`), says what goes and what stays, prints the backup's path
+  (and the older backup's new name) and how to undo it, and emits `wiped`.
+- `game/app.gd` `_after_wipe()` (on `wiped`): drops what the app held from the old save: the networks cache, the
+  network on the menu, the cup in progress, Train mode's kept session; picks Rookie Oval. The menu redraws from the
+  terminal's `changed` as for every other command.
+
+Choices made where the owner gave none: the settings stay as they are except the picked car (back to the Racer, the
+only car owned) and the AI opponent (back to the default); the network files **Save best network** wrote to
+`networks/` stay (they are the player's own files, like an exported network, and the reset message doesn't promise
+them gone); an older backup is kept, not overwritten; no backup, no reset. Undo is by hand (close the game, rename the
+backup to `trackrush_save.json`): the README says so, the terminal too.
 
 ## Round 3, item 2: Championships (v6.14.0)
 

@@ -151,7 +151,9 @@ func _ready() -> void:
 	ui.input.free()
 	ui.input = input
 	ui.menu.input = input
-	ui.menu.terminal.commands = Terminal.new()
+	var term := Terminal.new()
+	term.wiped.connect(_after_wipe)
+	ui.menu.terminal.commands = term
 	input.notice = ui.notice.show_text
 	add_child(ui)
 	message = MessageScreen.new()
@@ -693,6 +695,19 @@ func network_for(car_id: String) -> Dictionary:
 				parsed = {}
 		_networks[car_id] = parsed
 	return _networks[car_id]
+
+
+## v6.17.0: the terminal's `reset everything` emptied the save file: drop the networks read from it,
+## the cup in progress and the training session, go back to the first track, redraw the menu.
+func _after_wipe() -> void:
+	_networks.clear()
+	cup = null
+	if ResourceLoader.has_cached(TRAIN_MODE_PATH): # (the training screen's session, kept between visits)
+		(load(TRAIN_MODE_PATH) as Script).set("session", null)
+	selected_track = 0
+	if ui != null:
+		ui.menu.select(0)
+	_sync_network()
 
 
 ## `network` and the menu's AI status follow the picked car.
