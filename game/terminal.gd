@@ -71,11 +71,11 @@ const COMMANDS: Array[Dictionary] = [
 	{name = "reset", args = "career | everything", help = "start the career over, or everything back to a fresh install (asks first)", run = "_reset", wipes = true,
 		more = ["reset career sets money and points to 0, keeps only the Racer (stock) and makes every medal and AI win pay again.",
 			"Tracks opened by medals stay open (those only unlock tracks opened lock again). Best times, ghosts, AI networks",
-			"and settings stay. It asks first: type reset career confirm to do it.",
+			"and settings stay. It asks first: type yes (or reset career confirm) to do it.",
 			"reset everything puts the game back as it was when first installed: money, points, cars, upgrades, opened tracks,",
 			"paid rewards, trophies, the cup in progress, best times, medals, ghosts, scores, archived records and your AI",
 			"networks all go; your settings stay. A backup of the save file is written next to it first.",
-			"It asks first: type reset everything confirm to do it."], complete = ["career", "everything"]},
+			"It asks first: type yes (or reset everything confirm) to do it."], complete = ["career", "everything"]},
 	{name = "clear", args = "", help = "clear the terminal", run = "_clear", more = ["clear empties the terminal (Ctrl+L too)."]},
 	{name = "exit", args = "", help = "close the terminal (Esc or ` too)", run = "_exit", more = ["exit closes the terminal, as Esc and ` do."]},
 ]
@@ -91,6 +91,8 @@ class Out:
 	var confirmed: bool = false
 	## The line as typed, without "confirm" (for the confirm hint).
 	var line: String = ""
+	## (v6.18.0) confirm() asked: the next line may answer "yes" (Terminal.run).
+	var asked: bool = false
 
 	func add(kind: String, text: String) -> void:
 		lines.append([kind, text])
@@ -104,11 +106,16 @@ class Out:
 		if confirmed:
 			return true
 		add("warn", what)
-		add("warn", "Type %s confirm to do it." % line)
+		add("warn", "Nothing has changed yet. Type yes to do it (or %s confirm); anything else leaves it." % line)
+		asked = true
 		return false
 
 	func to_dict() -> Dictionary:
 		return {lines = lines, changed = changed, close = close, clear = clear}
+
+
+## (v6.18.0) The command line that asked first and waits for "yes" ("" none): see run().
+var _pending: String = ""
 
 
 # ---------------------------------------------------------------- running a line
@@ -119,6 +126,16 @@ func run(line: String) -> Dictionary:
 	var words := _words(line)
 	if words.is_empty():
 		return out.to_dict()
+	# (v6.18.0) the answer to a command that asked first: yes (or y) runs it, no (or n) drops it;
+	# any other line drops it too and runs as usual
+	if _pending != "":
+		var asked_line := _pending
+		_pending = ""
+		if words.size() == 1 and (words[0] == "yes" or words[0] == "y"):
+			return run(asked_line + " confirm")
+		if words.size() == 1 and (words[0] == "no" or words[0] == "n"):
+			out.add("info", "Left as it is: %s was not run." % asked_line)
+			return out.to_dict()
 	var cmd := find(words[0])
 	if cmd.is_empty():
 		var near := _nearest(words[0])
@@ -130,6 +147,8 @@ func run(line: String) -> Dictionary:
 		args = args.slice(0, args.size() - 1)
 	out.line = " ".join(PackedStringArray([String(cmd.name)]) + args)
 	call(String(cmd.run), args, out)
+	if out.asked:
+		_pending = out.line
 	return out.to_dict()
 
 

@@ -1176,7 +1176,12 @@ func _app_terminal(t, app: GameApp) -> void:
 	inp.press("Backquote")
 	menu.handle_keys(inp)
 	var rows: Array = menu.settings.get("_rows")
-	menu.settings.step_row(rows.size() - 1, 1)
+	var row_of := func(key: String) -> int:
+		for k in rows.size():
+			if str((rows[k].def as Dictionary).get("key", "")) == key:
+				return k
+		return -1
+	menu.settings.step_row(row_of.call("terminal"), 1)
 	t.check(term.is_open and menu.settings.is_open, "` closes it; Settings' Terminal row opens it again")
 	term.submit("reset career")
 	t.check(SaveData.get_money() == 15000 and SaveData.owns_car("dune"), "reset career only asks")
@@ -1234,6 +1239,42 @@ func _app_terminal(t, app: GameApp) -> void:
 	inp.press("Escape")
 	menu.handle_keys(inp)
 	t.check(not menu.settings.is_open, "Esc closes Settings")
+	# (v6.18.0) Settings' Reset all progress row: no typing; it asks twice, then the terminal's wipe
+	clean_bk.call()
+	SaveData.add_money(900)
+	SaveData.submit_record("rookie-oval", "racer", 131.0, [])
+	Unlocks.claim("rookie-oval", "gold")
+	menu.refresh()
+	inp.press("KeyO")
+	menu.handle_keys(inp)
+	t.check(row_of.call("reset") >= 0 and row_of.call("reset") == rows.size() - 1, "Settings has a Reset all progress row, the last one (after the Terminal)")
+	menu.settings.step_row(row_of.call("reset"), 1)
+	t.check(app.message.asking and app.message.text().contains("fresh install") and app.message.text().contains("backup") and SaveData.get_money() == 900,
+		"the Reset row asks first (what goes, the backup); nothing changed")
+	app.message.handle_keys(inp) # (no key: it stays)
+	inp.press("menu_back")
+	app.message.handle_keys(inp)
+	t.check(not app.message.visible and SaveData.get_money() == 900 and not SaveData.get_record("rookie-oval", "racer").is_empty() and not FileAccess.file_exists(SaveData.backup_path()),
+		"Esc on the question: nothing reset, no backup")
+	menu.settings.step_row(row_of.call("reset"), 1)
+	app.message.confirm()
+	t.check(app.message.asking and app.message.text().contains("Last check") and SaveData.get_money() == 900 and not SaveData.get_record("rookie-oval", "racer").is_empty(),
+		"the first yes asks again (a stray Enter never wipes): still $900 and the best time")
+	app.message.confirm()
+	t.check(SaveData.get_money() == 0 and SaveData.get_record("rookie-oval", "racer").is_empty() and SaveData.opened_tracks().size() <= 1 and not SaveData.tracks_unlocked() and
+		Terminal.medal_counts().tracks == 0 and money_l.text == "$0" and app.selected_track == 0 and FileAccess.file_exists(SaveData.backup_path()),
+		"the second yes resets everything: $0, no best time, no medal, only Rookie Oval open; the menu redrew; a backup was written")
+	t.check(app.message.visible and not app.message.asking and app.message.text().contains("Backup of the old save") and app.message.text().contains("To undo it"),
+		"a message says it is done, where the backup is and how to undo it")
+	inp.press("menu_accept")
+	app.message.handle_keys(inp)
+	SaveData.use_file(path) # (as a restart: the file is read again)
+	t.check(SaveData.get_money() == 0 and SaveData.get_record("rookie-oval", "racer").is_empty() and SaveData.opened_tracks().size() <= 1,
+		"read again from the file (a restart): still reset")
+	clean_bk.call()
+	inp.press("Escape")
+	menu.handle_keys(inp)
+	t.check(not menu.settings.is_open and not app.message.visible, "Enter closes the message, Esc Settings")
 	# in a race ` does nothing (on the menu's track: going back builds no other track on a thread)
 	var m: Node = app.start_play({"track": app.tracks[app.selected_track], "driver": "human"})
 	for i in 60 * 4:
@@ -1406,11 +1447,25 @@ func _terminal(t) -> void:
 
 	# reset (asks first)
 	r = term.run("reset career")
-	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset career confirm") and text_of.call(r).contains("Tracks opened by medals stay open") and
+	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type yes to do it (or reset career confirm)") and text_of.call(r).contains("Tracks opened by medals stay open") and
 		SaveData.get_money() == 4321 and not r.changed, "reset career: says what it would do (tracks opened by medals stay open) and how to confirm; nothing changes")
 	r = term.run("reset everything")
-	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Type reset everything confirm") and text_of.call(r).contains("Your settings stay") and
-		text_of.call(r).contains("backup") and SaveData.get_money() == 4321 and not r.changed, "reset everything: says what it would do (settings stay, a backup first) and how to confirm; nothing changes")
+	t.check(kind_of.call(r) == "warn" and text_of.call(r).contains("Nothing has changed yet") and text_of.call(r).contains("Type yes to do it (or reset everything confirm)") and text_of.call(r).contains("Your settings stay") and
+		text_of.call(r).contains("backup") and SaveData.get_money() == 4321 and not r.changed, "reset everything: says what it would do (settings stay, a backup first), that nothing changed yet and how to confirm; nothing changes")
+	# (v6.18.0) the next line may answer: no leaves it, another command drops the question, yes runs it
+	r = term.run("no")
+	var r_no2: Dictionary = term.run("yes")
+	t.check(kind_of.call(r) == "info" and text_of.call(r).contains("was not run") and kind_of.call(r_no2) == "error" and SaveData.get_money() == 4321,
+		"reset everything, then no: left as it is; a yes with nothing asked is an unknown command")
+	term.run("reset career")
+	term.run("money 1")
+	r = term.run("yes")
+	t.check(kind_of.call(r) == "error" and SaveData.get_money() == 4322, "a command in between drops the question: yes after it does nothing")
+	term.run("money set 4321")
+	term.run("reset career")
+	r = term.run("y")
+	t.check(r.changed and SaveData.get_money() == 0 and not SaveData.get_record("rookie-oval", "racer").is_empty(), "reset career, then y: the career starts over (the records stay)")
+	term.run("money set 4321")
 	r = term.run("reset")
 	var r7: Dictionary = term.run("reset records confirm")
 	var r8: Dictionary = term.run("money 5 confirm")

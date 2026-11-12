@@ -173,6 +173,7 @@ func _ready() -> void:
 	ui.menu.cups.start_cup.connect(func(id: String, lv: String) -> void: start_cup(id, lv))
 	ui.menu.cups.next_race.connect(func() -> void: cup_race())
 	ui.menu.cups.quit_cup.connect(ask_quit_cup)
+	ui.menu.reset_requested.connect(ask_reset_everything)
 	ui.menu.load_network.connect(load_network_dialog)
 	ui.menu.upgrade.connect(func(part: String) -> void: offer_upgrade(UiData.picked_car(), part))
 	ui.menu.save_network.connect(save_network_dialog)
@@ -699,6 +700,33 @@ func network_for(car_id: String) -> Dictionary:
 
 ## v6.17.0: the terminal's `reset everything` emptied the save file: drop the networks read from it,
 ## the cup in progress and the training session, go back to the first track, redraw the menu.
+## (v6.18.0) Settings' "Reset all progress" button: the terminal's `reset everything` without typing.
+## It asks twice (the second answer does it), so a stray Enter never wipes a career; then
+## SaveData.reset_everything (a backup first), the app drops what it held (_after_wipe), the menu
+## redraws and a message says what happened and where the backup is.
+func ask_reset_everything() -> void:
+	ui.menu.input = null
+	UiSound.play("ui_confirm")
+	message.ask("Reset all progress?", "This puts the game back to a fresh install: money, points, cars (only the Racer, stock), upgrades, best times, medals, ghosts, scores, opened tracks (only Rookie Oval), paid rewards, trophies, the cup in progress and every AI network you trained all go. Your settings stay. A backup of the save file is written first.",
+		"Reset everything", func() -> void:
+			ui.menu.input = null
+			message.ask("Really reset everything?", "Last check: after this your medals, best times, cars and opened tracks are gone. It can only be undone by hand, from the backup file.",
+				"Yes, reset it all", reset_everything))
+
+
+## Wipe the save file now (asked and confirmed already): {ok, backup, kept} of SaveData.reset_everything.
+func reset_everything() -> Dictionary:
+	var r: Dictionary = SaveData.reset_everything()
+	if not bool(r.ok):
+		refuse("Nothing was reset", "The backup of your save file could not be written (%s), so nothing was changed." % String(r.backup))
+		return r
+	_after_wipe()
+	UiSound.play("ui_confirm")
+	show_message("Everything is reset", "The game is back to a fresh install: %s, %s pts, the Racer, Rookie Oval open, no best times or medals. Your settings are kept.\n\nBackup of the old save: %s\nTo undo it: close the game, then rename the backup to %s (replacing the new one)." % [
+		UiFormat.money(SaveData.get_money()), UiFormat.points(SaveData.get_points()), String(r.backup), SaveData.path.get_file()])
+	return r
+
+
 func _after_wipe() -> void:
 	_networks.clear()
 	cup = null

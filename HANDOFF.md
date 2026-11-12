@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-10 (v6.17.0: round 4, item C, the last: the terminal's `reset everything` puts the game back to
+_Last updated: 2026-11-12 (v6.18.0: round 5, item 1 of 8: Settings has a **Reset all progress** button (asks twice, then
+`SaveData.reset_everything`), and a terminal command that asks first takes `yes` as the answer;
+v6.17.0: round 4, item C, the last: the terminal's `reset everything` puts the game back to
 a fresh install (career, records, ghosts, scores, medals, trophies, AI networks), keeps the settings, and writes a
 backup of the save next to it first; v6.16.0: round 4, item B: upgrades to level 10: seven more levels per part, each adding
 less (level 10 = 6.5 steps) and costing more (levels 8-10 a late-career goal), ten pips on the car picker; v6.15.0: round 4, item A: the trained AI uses nitro (a tank input and a nitro output,
@@ -29,8 +31,10 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.17.0, round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.18.0, round 5 under way (1 of 8 done: the Reset button); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
+Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
+[Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
 Round 4 (asked on 2026-11-10): A. **the AI uses nitro, none in races against the AI (v6.15.0, done)**, B. **upgrades
 to level 10 (v6.16.0, done)**, C. **a `reset everything` command (v6.17.0, done)**. See [Round 4](#round-4-ai-nitro-upgrades-to-level-10-reset-everything-v6150-v6170).
 Round 3, item 2: **Championships (v6.14.0, done)**. See [Round 3, item 2](#round-3-item-2-championships-v6140) and
@@ -1574,6 +1578,50 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
+
+## Round 5: eight items (v6.18.0 on)
+
+Asked on 2026-11-12: "Make the AIs in the races more competitive and better / make the car selection after the race
+you've chosen starts not before and make it possible to change cars within a championship / make on more car / make 4
+more maps in a rally stage style with new textures / make it possible to change the wheight of a car in the upgrades
+aka lighter / make it possible to actually reset everything to zero including medals and map unlocks / redesign the ui
+to be more streamlined and fix the leaderboard in more of a style of the f1 games / add a minimap with sectors make me
+able to look up the fastest sector on each map with what car which upgrades and what times".
+
+The order they are built in (the owner was told; each is pushed when done), and the defaults chosen where the request
+left it open:
+
+1. **Reset (v6.18.0, done)**: see below.
+2. **Menu flow**: pick the track and the race type first, then the car on a page of its own (with its upgrades); in a
+   cup that page comes up before every race, so the car can change between races. The menu loses what does not belong
+   to that flow (the AI tools move to a page of their own).
+3. **Leaderboard**: an F1-style timing tower on the left of the HUD (position, colour bar, three-letter code, gap) and
+   F1-style results and standings tables.
+4. **Weight**: a fifth upgrade part that makes the car lighter, ten levels like the others.
+5. **A seventh car**: an open-wheel formula car (the most grip, the best brakes, poor on loose ground).
+6. **Four rally stages**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own textures, and a Rally Cup.
+7. **The AI**: every level faster, the field closer together, the top level in an upgraded car, longer training so the
+   networks scrape the walls less.
+8. **A minimap with sectors**: three coloured sectors and the cars as dots in a race; a records page with the best
+   time of each sector on each track, with the car and the upgrades it was set with.
+
+### Item 1: the Reset button (v6.18.0, done)
+
+The owner asked for a reset "to zero including medals and map unlocks" again, two days after v6.17.0's `reset
+everything`. The command was checked once more on a save with medals, `unlock all`, cars and upgrades: it clears all
+of it, also after the file is read again (as a restart). The likely trouble: `reset everything` on its own only says
+what it would do, and the hint to type it again with `confirm` is easy to miss. So:
+- `ui/settings_screen.gd`: a **Reset all progress** row (an `action` row, key `reset`, the last row, in Career).
+  `MainMenu.reset_requested` passes it on; `GameApp.ask_reset_everything()` asks twice with `MessageScreen.ask` (the
+  first Yes opens "Really reset everything?", so a double Enter can't wipe), then `reset_everything()` calls
+  `SaveData.reset_everything()`, `_after_wipe()` and shows where the backup is and how to undo it.
+- `game/terminal.gd`: `Out.confirm()` now says "Nothing has changed yet. Type yes to do it (or <line> confirm)" and
+  sets `asked`; `run()` keeps that line as `_pending`: the next line `yes` / `y` runs it with `confirm`, `no` / `n`
+  drops it with a note, any other line drops it and runs as usual.
+- Tests: `tests/test_game.gd` (the row asks, Esc leaves everything, the first Yes asks again, the second wipes, the
+  message, the file read again; the terminal's yes / no / a command in between), `tests/test_ui.gd` (the row).
+- A helper for the releases: `tools/release.sh <version>` builds the Windows zip from a clean copy
+  (`docs/windows-readme.txt` is the zip's README.txt).
 
 ## Round 4: AI nitro, upgrades to level 10, reset everything (v6.15.0-v6.17.0)
 

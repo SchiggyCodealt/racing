@@ -81,6 +81,8 @@ extends SceneTree
 ##             Esc closes it back to Settings; ` opens it over Settings and closes it again; the pad
 ##             opens it from the Terminal row (A) and closes it (B); exit + Enter closes it without
 ##             driving; in a race (Drive with the Dune) ` does nothing. Then reset everything
+##             (v6.18.0: then Settings' Reset all progress row: Enter asks, a second Enter asks again, the
+##             third resets; shots settings_reset_ask, settings_reset_done)
 ##             (v6.17.0) asks first, reset everything confirm puts it back to a fresh install ($0,
 ##             0 pts, only the Racer; the menu's header redraws at once), the backup next to the save
 ##             holds the old career, settings stay. Shots: terminal_menu, terminal_settings,
@@ -1650,7 +1652,8 @@ func terminal() -> void:
 	var set_bar := (menu.settings.get("_scroll") as ScrollContainer).get_v_scroll_bar()
 	check(set_bar.max_value <= set_bar.page + 0.5, "Settings with the Terminal row fits 1280 x 720 without scrolling (content %.0f px, page %.0f)" % [set_bar.max_value, set_bar.page])
 	var rows: Array = menu.settings.get("_rows")
-	var row: Dictionary = rows[rows.size() - 1]
+	var term_row := rows.size() - 2 # (the last row is v6.18.0's Reset all progress)
+	var row: Dictionary = rows[term_row]
 	var open_btn: Button = row.segs[0]
 	check(menu.settings.visible and str(row.def.key) == "terminal" and open_btn.is_visible_in_tree(), "Settings shows the Terminal row with its Open button")
 	await frames(10)
@@ -1677,12 +1680,12 @@ func terminal() -> void:
 	inp.pad_active = true
 	await key(KEY_O)
 	for i in rows.size():
-		if menu.settings.selected_row == rows.size() - 1:
+		if menu.settings.selected_row == term_row:
 			break
 		inp.pad_active = true
 		inp.press("NavDown")
 		await frames(2)
-	check(menu.settings.selected_row == rows.size() - 1, "pad: down to the Terminal row")
+	check(menu.settings.selected_row == term_row, "pad: down to the Terminal row")
 	inp.pad_active = true
 	inp.press("PadA")
 	await frames(2)
@@ -1726,8 +1729,8 @@ func terminal() -> void:
 	await key(KEY_QUOTELEFT)
 	await type_text("points 50")
 	await type_text("reset everything")
-	check(SaveData.owns_car("dune") and UiData.points() == 250 and term.log_text().contains("Type reset everything confirm") and not FileAccess.file_exists(backup),
-		"reset everything: asks first (Type reset everything confirm), nothing changes, no backup yet")
+	check(SaveData.owns_car("dune") and UiData.points() == 250 and term.log_text().contains("Type yes to do it (or reset everything confirm)") and not FileAccess.file_exists(backup),
+		"reset everything: asks first (Type yes to do it, or reset everything confirm), nothing changes, no backup yet")
 	await type_text("reset everything confirm")
 	await frames(6)
 	check(UiData.money() == 0 and UiData.points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and UiData.picked_car() == "racer" and
@@ -1741,6 +1744,34 @@ func terminal() -> void:
 	await shot("terminal_reset_everything")
 	await key(KEY_ESCAPE)
 	check(not term.visible and app.mode == app.menu_mode and drive_btn.text == "DRIVE", "Esc: back on the menu, the Racer ready to drive")
+	# (v6.18.0) Settings' Reset all progress button: the same wipe without typing; it asks twice
+	DirAccess.remove_absolute(backup)
+	SaveData.add_money(4200)
+	SaveData.submit_record("rookie-oval", "racer", 140.0, [])
+	menu.refresh()
+	await key(KEY_O)
+	var srows: Array = menu.settings.get("_rows")
+	for i in srows.size() - 1 - menu.settings.selected_row:
+		await key(KEY_DOWN)
+	check(menu.settings.is_open and str(srows[menu.settings.selected_row].def.key) == "reset", "O, then down to the last row: Reset all progress")
+	await key(KEY_ENTER)
+	await frames(6)
+	var msg_l: Label = app.message.get("_text")
+	check(app.message.asking and msg_l.text.contains("fresh install") and UiData.money() == 4200, "Enter on it asks first; nothing changed")
+	await shot("settings_reset_ask")
+	await key(KEY_ENTER)
+	await frames(6)
+	check(app.message.asking and msg_l.text.contains("Last check") and UiData.money() == 4200 and not FileAccess.file_exists(backup),
+		"the first Enter asks again (a double Enter can't wipe): still $4,200, no backup yet")
+	await key(KEY_ENTER)
+	await frames(6)
+	check(UiData.money() == 0 and SaveData.get_record("rookie-oval", "racer").is_empty() and app.message.visible and not app.message.asking and
+		msg_l.text.contains("Backup of the old save") and FileAccess.file_exists(backup) and money_l.text == "$0",
+		"the second Enter resets everything: $0, no best time; a message says where the backup is")
+	await shot("settings_reset_done")
+	await key(KEY_ENTER)
+	await key(KEY_ESCAPE)
+	check(not app.message.visible and not menu.settings.is_open and app.mode == app.menu_mode, "Enter closes the message, Esc Settings: back on the menu")
 	SaveData.set_setting("grime", true)
 	DirAccess.remove_absolute(backup)
 

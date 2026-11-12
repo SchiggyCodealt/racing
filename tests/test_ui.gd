@@ -411,13 +411,22 @@ func _settings(t) -> void:
 	var acted := []
 	s.action.connect(func(k: String) -> void: acted.append(k))
 	var rows: Array = s.get("_rows")
-	var last: Dictionary = rows[rows.size() - 1]
+	var last: Dictionary = rows[rows.size() - 2]
 	t.check(str(last.def.key) == "terminal" and str(last.def.type) == "action" and str(last.def.section) == "Career" and
 		(last.segs[0] as Button).has_meta("label") and str((last.segs[0] as Button).get_meta("label").text) == "Open",
-		"the last row is the Terminal (v6.7.0, section Career): an Open button with its ` key cap")
-	s.step_row(rows.size() - 1, 1)
+		"the Career section starts with the Terminal (v6.7.0): an Open button with its ` key cap")
+	s.step_row(rows.size() - 2, 1)
 	(last.segs[0] as Button).pressed.emit()
 	t.check(acted == ["terminal", "terminal"], "Enter on the Terminal row and a click on Open emit action(\"terminal\")")
+	acted.clear()
+	# (v6.18.0) the last row: Reset all progress (the app asks twice before it wipes)
+	var reset_row: Dictionary = rows[rows.size() - 1]
+	t.check(str(reset_row.def.key) == "reset" and str(reset_row.def.type) == "action" and not reset_row.def.has("section") and
+		str((reset_row.segs[0] as Button).get_meta("label").text) == "Reset" and str(reset_row.def.hint).contains("backup"),
+		"the last row is Reset all progress (v6.18.0, in Career): a Reset button; its hint names the backup")
+	s.step_row(rows.size() - 1, 1)
+	(reset_row.segs[0] as Button).pressed.emit()
+	t.check(acted == ["reset", "reset"], "Enter on the Reset row and a click on Reset emit action(\"reset\")")
 	acted.clear()
 	s.add_row({"section": "Tools", "key": "tool", "label": "A tool", "type": "action", "button": "Open", "hint": "A test row."})
 	s.step_row(s.get("_rows").size() - 1, 1)
@@ -449,7 +458,7 @@ func _settings_audio(t) -> void:
 		keys.append(str(r.def.key))
 	var at := keys.find("vol_master")
 	t.check(keys.slice(at, at + 5) == ["vol_master", "vol_music", "vol_sfx", "vol_engine", "mute_unfocused"] and str(rows[at].def.section) == "Audio"
-		and keys.back() == "terminal", "the Audio section: Master, Music, Effects, Engines, Mute in the background (then Career's Terminal)")
+		and keys.slice(at + 5) == ["terminal", "reset"], "the Audio section: Master, Music, Effects, Engines, Mute in the background (then Career's Terminal and Reset)")
 	t.check(is_equal_approx(float(UiData.get_setting("vol_master")), 1.0) and is_equal_approx(float(UiData.get_setting("vol_music")), 0.7)
 		and is_equal_approx(float(UiData.get_setting("vol_sfx")), 0.8) and is_equal_approx(float(UiData.get_setting("vol_engine")), 0.8)
 		and UiData.get_setting("mute_unfocused") == true, "defaults: master 100%, music 70%, effects 80%, engines 80%, muted in the background")
@@ -637,7 +646,7 @@ func _terminal(t) -> void:
 	menu.handle_keys(_press(inp, ["Backquote"]))
 	t.check(not menu.terminal.is_open and menu.settings.is_open, "` closes it: back to Settings")
 	var srows: Array = menu.settings.get("_rows")
-	menu.settings.selected_row = srows.size() - 1
+	menu.settings.selected_row = srows.size() - 2
 	menu.handle_keys(_press(inp, ["PadA"], true))
 	t.check(menu.terminal.is_open, "pad A on Settings' Terminal row opens it")
 	menu.handle_keys(_press(inp, ["PadB"], true))

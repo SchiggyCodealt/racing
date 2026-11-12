@@ -65,6 +65,8 @@ signal car_selected(id: String)
 signal opponent_selected(id: String)
 ## (v6.11) buy the next level of part `part` of the picked car (the game asks first)
 signal upgrade(part: String)
+## (v6.18.0) Settings' Reset all progress button: the app asks, then wipes.
+signal reset_requested
 
 const W := preload("res://ui/widgets.gd")
 const TrackTile := preload("res://ui/track_tile.gd")
@@ -209,7 +211,9 @@ func _init() -> void:
 	add_child(terminal)
 	settings.action.connect(func(key: String) -> void:
 		if key == "terminal":
-			show_terminal(true))
+			show_terminal(true)
+		elif key == "reset":
+			reset_requested.emit())
 	terminal.changed.connect(refresh)
 	resized.connect(_layout)
 	_main.minimum_size_changed.connect(_place)

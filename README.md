@@ -78,6 +78,8 @@ Version 6.17.0 adds the terminal command **`reset everything`**: it puts the gam
 points, cars, upgrades, opened tracks, trophies, best times, medals, ghosts and your trained AI networks) and keeps
 your settings. It asks first, and it writes a backup of the old save next to it, so it can be undone (see
 [The terminal](#the-terminal) and [Saved data](#saved-data)).
+Version 6.18.0 puts that reset on a button: **Settings → Reset all progress** asks twice and then does the same wipe,
+no typing needed. In the terminal, a command that asks first now takes a plain `yes` as the answer.
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
 
@@ -1019,6 +1021,7 @@ The **Settings** screen (the button in the menu's header, or **O**) has:
 | Engines | 0-100 % (default 80 %) | Your car's engine and the AI car's. |
 | Mute in the background | On (default) / Off | No sound while another window is in front. |
 | Terminal | Open | Opens [the terminal](#the-terminal) (also the `` ` `` key). |
+| Reset all progress | Reset | (Version 6.18.0) Puts the game back to a fresh install: money, points, cars, upgrades, best times, medals, ghosts, opened tracks, trophies and trained AI networks all go; the settings stay. It asks twice (the first Yes only brings up a second question, so a stray Enter never wipes a career), writes a backup of the save first and then says where the backup is. The same as `reset everything` in the terminal. |
 
 Up / down (or W / S, the d-pad) pick a row, left / right or Enter change it (a volume by 10 %), Esc or O closes the
 screen; the mouse clicks the choices and clicks or drags a volume bar. The choices are saved straight away. At
@@ -1047,8 +1050,8 @@ behind it shows the new money, points and cars straight away.
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
 | `status` | Your money, points, the cars you own and their upgrades, how many medals you hold, how many tracks are open (and what opens the next one) and how many cup trophies you have |
-| `reset career` | Starts the career over: $0, 0 points, only the Racer (stock), and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first: type `reset career confirm` to do it |
-| `reset everything` | Puts the game back to a fresh install: $0, 0 points, only the Racer (stock), only Rookie Oval open, and no paid rewards, trophies, cup in progress, best times, medals, ghosts, scores, archived records or trained AI networks. Your settings (graphics, sound, display) stay. First it writes a backup of the save next to it, `trackrush_save.backup.json`, and prints where it is (see [Saved data](#saved-data) to undo it). It asks first: type `reset everything confirm` to do it |
+| `reset career` | Starts the career over: $0, 0 points, only the Racer (stock), and every medal and AI win pays again (best times, ghosts, AI networks and settings stay). The tracks medals opened stay open; those only `unlock tracks` opened lock again. It asks first and changes nothing until you answer: type `yes` (or the whole line again with `confirm` at the end, `reset career confirm`) |
+| `reset everything` | Puts the game back to a fresh install: $0, 0 points, only the Racer (stock), only Rookie Oval open, and no paid rewards, trophies, cup in progress, best times, medals, ghosts, scores, archived records or trained AI networks. Your settings (graphics, sound, display) stay. First it writes a backup of the save next to it, `trackrush_save.backup.json`, and prints where it is (see [Saved data](#saved-data) to undo it). It asks first and changes nothing until you answer: type `yes` (or `reset everything confirm`). Settings' **Reset all progress** button does the same without typing |
 | `clear` | Clears the terminal (Ctrl+L too) |
 | `exit` | Closes the terminal (Esc or `` ` `` too) |
 
@@ -1077,8 +1080,9 @@ and a cup in progress. Next to it are `networks\` (the copies **Save best networ
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
-it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, type
-`reset everything confirm` in the terminal (or close the game and delete the file).
+it can't be read, it is kept as `trackrush_save.json.bad` and the game starts fresh. To start over, press
+**Reset all progress** in Settings, or type `reset everything` and then `yes` in the terminal (or close the game and
+delete the file).
 
 `reset everything` first copies the save to `trackrush_save.backup.json` in the same folder (an older backup there is
 kept, renamed with its date: `trackrush_save.backup-2026-11-10-16-27-56.json`). To undo the reset, close the game,
@@ -1127,6 +1131,9 @@ godot --headless --path . --import
 godot --headless --path . --export-release "Windows Desktop" build/windows/TrackRush.exe
 godot --headless --path . --export-release "Linux" build/linux/TrackRush.x86_64
 ```
+
+`tools/release.sh 6.18.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
+project and writes `build/TrackRush-6.18.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
 
 The Windows build can be made on Linux and the other way round. The Linux build's training library needs a
 recent Linux (glibc 2.38, as in Ubuntu 24.04 or newer); on an older one the game runs and trains in GDScript.

@@ -12,7 +12,8 @@ extends "res://ui/dialog_screen.gd"
 ##   type "toggle"  On / Off (a bool setting)
 ##   type "slider"  a volume 0..1 in tenths (ui/volume_bar.gd; v6.12.0's Audio rows)
 ##   type "action"  a button (def.button, default "Open", with def.cap's key cap when given);
-##                  pressing it emits action(key): v6.7.0's Terminal row ("terminal")
+##                  pressing it emits action(key): v6.7.0's Terminal row ("terminal"), v6.18.0's
+##                  Reset all progress row ("reset": the app asks twice, then SaveData.reset_everything)
 ##   type "custom"  any Control in def.control (it handles its own input)
 ## Values are read and written with UiData.get_setting / set_setting; every change also emits
 ## setting_changed(key, value) for the game. "fullscreen" and "vsync" are window settings with
@@ -57,6 +58,8 @@ const ROWS := [
 		"hint": "No sound while another window is in front."},
 	{"section": "Career", "key": "terminal", "label": "Terminal", "type": "action", "button": "Open", "cap": "`",
 		"hint": "Change your career by typing: money 5000, points 200, unlock all (help lists all). The ` key opens it too."},
+	{"key": "reset", "label": "Reset all progress", "type": "action", "button": "Reset",
+		"hint": "Back to a fresh install: money, points, cars, upgrades, best times, medals, ghosts, opened tracks, trophies and trained AI all go. Asks twice, keeps your settings and writes a backup first."},
 ]
 
 const VolumeBar := preload("res://ui/volume_bar.gd")
