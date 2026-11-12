@@ -972,8 +972,8 @@ func _fleet_surfaces() -> void:
 ## in lockstep training and over dirt and snow with sliding controls.
 func _fleet_upgrades() -> void:
 	t.section("FleetSim with upgraded cars (v6.11.0)")
-	var all3 := PackedInt32Array([3, 3, 3, 3])
-	var all10 := PackedInt32Array([10, 10, 10, 10]) # (v6.16: ten levels)
+	var all3 := PackedInt32Array([3, 3, 3, 3, 3])
+	var all10 := PackedInt32Array([10, 10, 10, 10, 10]) # (v6.16: ten levels)
 	# the trainer drives the spec it's given (only for its own car), stock otherwise
 	var tr_up := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, walls = "crash", native = false, car_id = "dune",
 		spec = Upgrades.spec("dune", all3)})
@@ -991,7 +991,7 @@ func _fleet_upgrades() -> void:
 	var differ: PackedStringArray = []
 	var levels_tried := 0
 	for id in Cars.ids():
-		for lv: PackedInt32Array in [all3, all10, PackedInt32Array([3, 0, 0, 0]), PackedInt32Array([0, 2, 0, 3]), PackedInt32Array([1, 3, 2, 1]), PackedInt32Array([10, 4, 7, 10])]:
+		for lv: PackedInt32Array in [all3, all10, PackedInt32Array([3, 0, 0, 0, 0]), PackedInt32Array([0, 2, 0, 3, 0]), PackedInt32Array([1, 3, 2, 1, 0]), PackedInt32Array([10, 4, 7, 10, 0])]:
 			levels_tried += 1
 			var fs: Object = ClassDB.instantiate("FleetSim")
 			var sd := Trainer.spec_data(Upgrades.spec(id, lv))
@@ -1014,7 +1014,7 @@ func _fleet_upgrades() -> void:
 		levels_tried, "" if differ.is_empty() else "; differ: " + ", ".join(differ)])
 	# lockstep training: an upgraded Racer on Ramp Rally (dirt), an upgraded Thunder on Hairpin Valley
 	_lockstep("ramp-rally", "crash", 6, 61, "racer", Upgrades.spec("racer", all10))
-	_lockstep("hairpin-valley", "crash", 6, 62, "thunder", Upgrades.spec("thunder", PackedInt32Array([3, 2, 0, 3])))
+	_lockstep("hairpin-valley", "crash", 6, 62, "thunder", Upgrades.spec("thunder", PackedInt32Array([3, 2, 0, 3, 0])))
 	# every car with everything at level 10 over Ramp Rally's loose stretches, sliding: the same at every step
 	const STEPS := 600
 	var track := Tracks.build("ramp-rally")

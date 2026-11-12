@@ -536,7 +536,7 @@ func offer_upgrade(car_id: String, part: String) -> void:
 		return
 	var cname: String = Cars.get_car(car_id).name
 	if not UiData.owns_car(car_id):
-		refuse("The %s is locked" % cname, "Buy the %s first: then its engine, tyres, nitro and loose grip can be upgraded." % cname)
+		refuse("The %s is locked" % cname, "Buy the %s first: then its engine, tyres, nitro, loose grip and weight can be upgraded." % cname)
 		return
 	var lv: int = UiData.upgrade_levels(car_id)[Upgrades.index_of(part)]
 	if lv >= Upgrades.MAX_LEVEL:

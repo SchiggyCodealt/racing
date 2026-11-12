@@ -1091,7 +1091,7 @@ func _app_upgrades(t, app: GameApp) -> void:
 	var chips: Array = menu.car_page.part_chips # (v6.19: on the car page; the menu's refresh redraws it)
 	menu.select_car("kestrel")
 	menu.refresh()
-	t.check(chips.size() == 4 and (chips[0] as Button).disabled and bool(chips[0].get("locked")), "the Kestrel not yours: its four part chips are off")
+	t.check(chips.size() == 5 and (chips[0] as Button).disabled and bool(chips[4].get("locked")), "the Kestrel not yours: its five part chips are off")
 	app.offer_upgrade("kestrel", "engine")
 	t.check(app.message.visible and not app.message.asking and msg.text.contains("Buy the Kestrel first"), "a locked car's part: a message says buy the car first")
 	app.message.close()
@@ -1113,14 +1113,14 @@ func _app_upgrades(t, app: GameApp) -> void:
 	t.check(SaveData.get_upgrades("racer")[0] == 0 and UiData.money() == e1 + 1000, "Cancel: nothing bought")
 	(chips[0] as Button).pressed.emit()
 	app.message.confirm()
-	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([1, 0, 0, 0]) and UiData.money() == 1000 and money_l.text == "$1,000" and int(chips[0].get("level")) == 1 and
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([1, 0, 0, 0, 0]) and UiData.money() == 1000 and money_l.text == "$1,000" and int(chips[0].get("level")) == 1 and
 		int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2) and not app.message.visible,
 		"yes: the Racer's engine is at level 1, $1,000 left; the chip shows level 1 and the next price")
-	SaveData.set_upgrades("racer", PackedInt32Array([3, 3, 3, 3]))
+	SaveData.set_upgrades("racer", PackedInt32Array([3, 3, 3, 3, 3]))
 	menu.refresh()
 	t.check(not (chips[1] as Button).disabled and int(chips[1].get("price")) == Upgrades.price("racer", "tyres", 4) and int(chips[1].get("max_level")) == 10,
 		"v6.16: at level 3 the chip offers level 4 (%s) of 10" % UiFormat.money(Upgrades.price("racer", "tyres", 4)))
-	SaveData.set_upgrades("racer", PackedInt32Array([10, 10, 10, 10]))
+	SaveData.set_upgrades("racer", PackedInt32Array([10, 10, 10, 10, 10]))
 	menu.refresh()
 	app.offer_upgrade("racer", "tyres")
 	t.check((chips[1] as Button).disabled and chips[1].call("price_text") == "MAX" and app.message.visible and not app.message.asking and msg.text.contains("level 10 of 10 already"),
@@ -1130,8 +1130,8 @@ func _app_upgrades(t, app: GameApp) -> void:
 	app.selected_track = 0
 	menu.select(0)
 	var m: Node = app.start_play({"track": app.tracks[0], "driver": "human"})
-	var up_spec := Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10]))
-	t.check((m.get("car") as Car).spec == up_spec and m.get("levels") == PackedInt32Array([10, 10, 10, 10]), "Drive: the Racer with everything at level 10")
+	var up_spec := Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10, 10]))
+	t.check((m.get("car") as Car).spec == up_spec and m.get("levels") == PackedInt32Array([10, 10, 10, 10, 10]), "Drive: the Racer with everything at level 10")
 	app.show_menu()
 	var fixture := "res://tests/fixtures/game_net.json"
 	if AiLink.ready() and FileAccess.file_exists(fixture):
@@ -1227,7 +1227,7 @@ func _app_terminal(t, app: GameApp) -> void:
 	var net_err := app.load_network_file("res://tests/fixtures/game_net.json") if AiLink.ready() else "no AI"
 	term.submit("money 15000")
 	SaveData.submit_record("rookie-oval", "racer", 130.0, [])
-	SaveData.set_upgrades("racer", PackedInt32Array([10, 4, 0, 2]))
+	SaveData.set_upgrades("racer", PackedInt32Array([10, 4, 0, 2, 0]))
 	SaveData.set_cup_place("rookie", "pro", 1)
 	UiData.set_setting("grime", false)
 	menu.select(4)
@@ -1558,17 +1558,17 @@ func _terminal_upgrades(t) -> void:
 	t.check(text_of.call(r).contains("Engine | level 0 of 10, next %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and
 		text_of.call(r).contains("Loose grip | level 0 of 10") and not r.changed, "upgrade racer: its four parts, levels and next prices")
 	r = term.run("upgrade racer engine 3")
-	t.check(kind_of.call(r) == "gain" and r.changed and SaveData.get_upgrades("racer") == PackedInt32Array([3, 0, 0, 0]) and SaveData.get_money() == 0 and
+	t.check(kind_of.call(r) == "gain" and r.changed and SaveData.get_upgrades("racer") == PackedInt32Array([3, 0, 0, 0, 0]) and SaveData.get_money() == 0 and
 		text_of.call(r).contains("engine level 3 (+15 % power)"), "upgrade racer engine 3: free, at once (%s)" % text_of.call(r))
 	r = term.run("upgrade Racer TIRES 2")
 	var r2: Dictionary = term.run("upgrade racer tyres 2")
-	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 2, 0, 0]) and r.changed and kind_of.call(r2) == "info" and not r2.changed,
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 2, 0, 0, 0]) and r.changed and kind_of.call(r2) == "info" and not r2.changed,
 		"upgrade Racer TIRES 2: any case, the part's other names; again: already")
 	r = term.run("upgrade racer tyres 9")
-	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 9, 0, 0]) and r.changed and text_of.call(r).contains("tyres level 9 (+25 % asphalt grip)"),
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([3, 9, 0, 0, 0]) and r.changed and text_of.call(r).contains("tyres level 9 (+25 % asphalt grip)"),
 		"upgrade racer tyres 9 (v6.16: levels up to 10): %s" % text_of.call(r))
 	r = term.run("upgrade racer max")
-	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10]) and r.changed and text_of.call(r).contains("every part at level 10"), "upgrade racer max: every part at 10")
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10, 10]) and r.changed and text_of.call(r).contains("every part at level 10"), "upgrade racer max: every part at 10")
 	r = term.run("upgrade racer stock")
 	t.check(SaveData.get_upgrades("racer") == stock and r.changed, "upgrade racer stock: back to 0")
 	r = term.run("upgrade vortex max")
@@ -1576,11 +1576,11 @@ func _terminal_upgrades(t) -> void:
 		"upgrade vortex max without the Vortex: an error (car vortex first)")
 	term.run("car dune")
 	r = term.run("upgrade all max")
-	t.check(r.changed and SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10]) and SaveData.get_upgrades("dune") == PackedInt32Array([10, 10, 10, 10]) and
+	t.check(r.changed and SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10, 10]) and SaveData.get_upgrades("dune") == PackedInt32Array([10, 10, 10, 10, 10]) and
 		SaveData.get_upgrades("vortex") == stock and text_of.call(r).contains("Every car you own (2)"), "upgrade all max: every car you own (the Racer and the Dune)")
 	var st: String = text_of.call(term.run("status"))
 	var spent := Upgrades.car_total("racer") + Upgrades.car_total("dune")
-	t.check(st.contains("Upgrades | Racer E10 T10 N10 L10, Dune E10 T10 N10 L10 (%s of the %s" % [UiFormat.money(spent), UiFormat.money(Upgrades.total_all())]),
+	t.check(st.contains("Upgrades | Racer E10 T10 N10 L10 W10, Dune E10 T10 N10 L10 W10 (%s of the %s" % [UiFormat.money(spent), UiFormat.money(Upgrades.total_all())]),
 		"status: the upgraded cars and what their parts cost (%s)" % st.get_slice("Upgrades | ", 1).get_slice("\n", 0))
 	r = term.run("upgrade all stock")
 	st = text_of.call(term.run("status"))

@@ -45,6 +45,7 @@ var affordable := false
 ## (v6.11) the bars and the top speed with the upgrades bought ({} / 0: the stock car's), and the levels
 var bars_up: Dictionary = {}
 var top_up := 0.0
+var mass_up := 0.0   # (v6.21) kg with the weight part (0: the stock car's)
 var levels := PackedInt32Array()
 
 
@@ -64,13 +65,14 @@ func setup(id: String, car: Dictionary, side_view: Dictionary) -> void:
 	queue_redraw()
 
 
-## The upgrades bought for this car (v6.11): `bars` with them, the top speed `top` (km/h) and the
-## levels [engine, tyres, nitro, loose].
-func set_upgrades(bars: Dictionary, top: float, lv: PackedInt32Array) -> void:
-	if bars == bars_up and is_equal_approx(top, top_up) and lv == levels:
+## The upgrades bought for this car (v6.11): `bars` with them, the top speed `top` (km/h), the
+## levels [engine, tyres, nitro, loose, weight] and (v6.21) the mass `mass` (kg) with the weight part.
+func set_upgrades(bars: Dictionary, top: float, lv: PackedInt32Array, mass: float = 0.0) -> void:
+	if bars == bars_up and is_equal_approx(top, top_up) and lv == levels and is_equal_approx(mass, mass_up):
 		return
 	bars_up = bars
 	top_up = top
+	mass_up = mass
 	levels = lv
 	_tooltip()
 	queue_redraw()
@@ -87,17 +89,21 @@ func _top() -> float:
 	return top_up if _upgraded() and top_up > 0.0 else float(info.top)
 
 
+func _mass() -> float:
+	return mass_up if _upgraded() and mass_up > 0.0 else float(info.mass)
+
+
 func _tooltip() -> void:
 	if info.is_empty():
 		return
 	var up := ""
 	if _upgraded():
-		var names := ["engine", "tyres", "nitro", "loose grip"]
+		var names := ["engine", "tyres", "nitro", "loose grip", "weight"]
 		var parts: PackedStringArray = []
 		for i in mini(levels.size(), names.size()):
 			parts.append("%s %d" % [names[i], levels[i]])
 		up = " Upgrades: %s (green: what they add)." % ", ".join(parts)
-	tooltip_text = "%s (%d km/h, %.2f t): %s%s%s (C changes the car)" % [info.name, roundi(_top()), info.mass / 1000.0, info.description,
+	tooltip_text = "%s (%d km/h, %.2f t): %s%s%s (C changes the car)" % [info.name, roundi(_top()), _mass() / 1000.0, info.description,
 		(" Locked: it costs %s." % UiFormat.money(price)) if locked else "", up]
 
 
@@ -175,8 +181,8 @@ func _draw() -> void:
 	else:
 		# top speed and mass; in narrow cards the top speed alone (the mass is in the tooltip)
 		var top := _top()
-		var faster := roundi(top) > roundi(float(info.top))
-		var spec := ("%d km/h" % roundi(top)) if short_spec else ("%d km/h · %.2f t" % [roundi(top), info.mass / 1000.0])
+		var faster := roundi(top) > roundi(float(info.top)) or _mass() < float(info.mass) - 0.5
+		var spec := ("%d km/h" % roundi(top)) if short_spec else ("%d km/h · %.2f t" % [roundi(top), _mass() / 1000.0])
 		W.ellipsis(self, UiStyle.font("text", UiStyle.FS_S, 0, true), UiStyle.FS_S, Vector2(spec_x, base), spec,
 			size.x - px - spec_x, UiStyle.GOOD if faster else UiStyle.TEXT_3)
 	# five stat bars

@@ -46,7 +46,7 @@ extends Node3D
 ## between the axles. A ghost makes no smoke, skid marks or sparks and has no
 ## lights or glass; it shows the nitro jets (and with opts.dust, v6.10, dust and snow spray). The car's meshes are on visual
 ## layer CAR_LAYER (the contact shadow and the headlights skip them).
-## v6.11.0: opts.levels, the car's upgrade levels [engine, tyres, nitro, loose grip]: what they
+## v6.11.0: opts.levels, the car's upgrade levels [engine, tyres, nitro, loose grip, weight]: what they
 ## add is drawn as one more skinned mesh with the car's material (CarBuild.upgrades: bigger
 ## exhaust tips, yellow tyre rings, blue nitro bands, mud flaps); not on a ghost.
 

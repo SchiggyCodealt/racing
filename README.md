@@ -87,6 +87,9 @@ tidier for it: bigger track tiles, one block of race buttons, the AI's tools in 
 Version 6.20.0 gives the races a leaderboard in the way of the F1 games: a **timing tower** on the left of the screen
 (place in a box, the car's colour, the driver's three-letter code, the gap to the leader) whose rows slide when the
 order changes, and results and championship tables drawn as the same rows (see [Race the field](#race-the-field)).
+Version 6.21.0 adds a fifth upgrade, **weight**: every level makes the car 3 % lighter (level 10 about a fifth), so
+the same engine, brakes and nitro move less car. It pulls harder, stops shorter and gets more out of the nitro (see
+[Upgrades](#upgrades)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
@@ -159,7 +162,7 @@ On the menu:
 | Enter or Space | A | A time trial on the picked track: the **car page** opens first |
 | C / Shift+C | RB / LB | Next / previous car (on the menu: whose records you look at; on the car page: the car you drive) |
 | On the car page: arrows or W A S D | d-pad / left stick | Pick a car (down from the cars: its upgrades, then START) |
-| On the car page: 1-4 | A on a part | Buy the next level of that part (it asks first) |
+| On the car page: 1-5 | A on a part | Buy the next level of that part (it asks first) |
 | On the car page: Enter or Space / Esc | A / B | START (BUY when the car is not yours yet) / back to the menu |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
@@ -542,14 +545,16 @@ cup in progress).
 
 ### Upgrades
 
-Money also buys **upgrades** for the cars you own: four parts per car, ten levels each (version 6.16.0; three before),
-bought one level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows a row of four chips under the
+Money also buys **upgrades** for the cars you own: five parts per car (the fifth, weight, since version 6.21.0), ten
+levels each (version 6.16.0; three before),
+bought one level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows a row of five chips under the
 cards, each with the part's name, a pip per level (green: bought; levels 8-10 in a lighter green) and the next level's
 price (yellow when you can afford it, grey when not, MAX when all ten are bought; from $100,000 it is shortened, like
-$105k). Click a chip (or press its number, 1 to 4, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
+$105k). Click a chip (or press its number, 1 to 5, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
-its top speed turns green when it is higher. The `upgrade` and `buy <car> <part>` commands of
+its top speed and weight turn green when the top speed is higher or the car lighter (in a window too narrow for one
+row the chips stand three to a row). The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
 Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
@@ -561,13 +566,18 @@ Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); le
 | **Tyres** | +4 % grip on asphalt: about 3-5 % more cornering grip per level, slightly shorter stops (the grip on dirt and snow is the loose grip part's); level 10 +26 % | 1.68 / 1.58 g → 1.89 / 1.73 g → 2.13 / 1.83 g on the 30 m / 120 m circles |
 | **Nitro** | +10 % on the tank's length and +10 % refill from points per level; level 10 +65 % | 5.0 → 6.5 → 8.25 s of nitro, 145 → 223 → 326 m covered on one tank |
 | **Loose grip** | +5 % grip on dirt and snow per level, never above the car's grip on asphalt; level 10 +32.5 % | about +15 % and +33 % on dirt and snow (1.15 → 1.32 → 1.52 g on dirt); the Dune, which already keeps 97 % of its grip on dirt, gains 2 % there at any level and 15 % / 33 % on snow |
+| **Weight** (6.21.0) | -3 % weight per level (the yaw inertia with it, so the car turns in as before); level 10 -19.5 %. Nothing else is changed: the same engine, brakes, nitro and wings move less car | 1,250 → 1,137 → 1,006 kg; alone: 0-200 km/h 9.78 → 8.93 → 7.98 s, 100-0 km/h in 30.7 → 28.9 → 26.9 m, the nitro's 0-200 km/h 7.57 → 6.80 → 6.00 s; cornering grip and top speed stay within 1 % |
 
 The numbers are measured with the game's own physics (`tools/upgrades.gd`, see [Tests and tools](#tests-and-tools)).
-Everything at level 3 takes 4-8 % off a race for every car on Rookie Oval, Technical Trial, Ramp Rally and Hairpin
-Valley (the medal autopilot's best of 10 settings; the Racer on Rookie Oval 2:11.4 → 2:03.1, on Ramp Rally 3:09.2 →
-2:53.9). Everything at level 10 takes 8-15 % off (4-8 % more than level 3; the Racer on Rookie Oval 1:55.0, on Ramp
-Rally 2:42.0): about 1-5 % from the engine at 10, 2-11 % from the tyres, up to 6 % from loose grip on dirt and snow and
-up to 1.4 % from the nitro.
+Everything at level 3 takes 5-9 % off a race for every car on Rookie Oval, Technical Trial, Ramp Rally and Hairpin
+Valley (the medal autopilot's best of 10 settings; the Racer on Rookie Oval 2:11.4 → 2:01.5, on Ramp Rally 3:09.2 →
+2:52.5). Everything at level 10 takes 8-18 % off (the Racer on Rookie Oval 1:51.6, on Ramp
+Rally 2:40.6): about 1-5 % from the engine at 10, 2-11 % from the tyres, up to 6 % from loose grip on dirt and snow,
+up to 1.4 % from the nitro and up to 4 % from the weight. The weight helps most where a heavy car spends its time
+accelerating and braking (the Thunder on Rookie Oval 4.1 %, the Racer 3 % there and on Ramp Rally) and least on
+twisty tracks (under 1.5 % on Technical Trial and Hairpin Valley; the autopilot's Vortex was even 1.6 % slower on
+Hairpin Valley, arriving at the hairpins faster than its stock settings expect: brake a little earlier in a lighter
+car).
 One part at level 3: the tyres 3-5 % on asphalt tracks, the engine 1-2 %, loose grip 1-4 % on dirt and snow tracks,
 the nitro under 1 %. Each car keeps its character: no car spins or bounces more when fully upgraded (tested at level
 10 on jumps, braking in a curve on asphalt, dirt and snow, and holding a lane with the keyboard), though a car at
@@ -576,22 +586,22 @@ part works on every car by the same share, so with the same upgrades the Kestrel
 the brute and the Dune the dirt specialist. The top speed stops growing around engine level 7 on most cars (the gears
 run out), so the last engine levels mostly add acceleration.
 
-| Car | Engine (levels 1 / 2 / 3 ... 8 / 9 / 10) | Tyres | Nitro | Loose grip | Levels 1-7 | Levels 8-10 | Every level |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Racer | $1,500 / $3,000 / $5,250 ... $27,750 / $34,500 / $42,000 | $1,200 ... $33,600 | $700 ... $20,150 | $900 ... $25,200 | $196,500 | $300,200 | $496,700 |
-| Kestrel | $1,250 / $2,500 / $4,400 ... $23,150 / $28,750 / $35,000 | $1,000 ... $28,000 | $600 ... $16,800 | $750 ... $21,000 | $163,950 | $250,250 | $414,200 |
-| Thunder | $2,750 / $5,500 / $9,600 ... $50,900 / $63,250 / $77,000 | $2,200 ... $61,600 | $1,300 ... $36,950 | $1,650 ... $46,200 | $360,350 | $550,450 | $910,800 |
-| Drifter | $1,750 / $3,500 / $6,150 ... $32,400 / $40,250 / $49,000 | $1,400 ... $39,200 | $850 ... $23,500 | $1,050 ... $29,400 | $229,500 | $350,300 | $579,800 |
-| Dune | $2,250 / $4,500 / $7,900 ... $41,650 / $51,750 / $63,000 | $1,800 ... $50,400 | $1,100 ... $30,250 | $1,350 ... $37,800 | $295,050 | $450,450 | $745,500 |
-| Vortex | $3,750 / $7,500 / $13,150 ... $69,400 / $86,250 / $105,000 | $3,000 ... $84,000 | $1,800 ... $50,400 | $2,250 ... $63,000 | $491,550 | $750,650 | $1,242,200 |
+| Car | Engine (levels 1 / 2 / 3 ... 8 / 9 / 10) | Tyres | Nitro | Loose grip | Weight | Levels 1-7 | Levels 8-10 | Every level |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Racer | $1,500 / $3,000 / $5,250 ... $27,750 / $34,500 / $42,000 | $1,200 ... $33,600 | $700 ... $20,150 | $900 ... $25,200 | $1,300 ... $36,950 | $256,500 | $391,900 | $648,400 |
+| Kestrel | $1,250 / $2,500 / $4,400 ... $23,150 / $28,750 / $35,000 | $1,000 ... $28,000 | $600 ... $16,800 | $750 ... $21,000 | $1,100 ... $30,800 | $214,000 | $326,700 | $540,700 |
+| Thunder | $2,750 / $5,500 / $9,600 ... $50,900 / $63,250 / $77,000 | $2,200 ... $61,600 | $1,300 ... $36,950 | $1,650 ... $46,200 | $2,400 ... $67,750 | $470,400 | $718,600 | $1,189,000 |
+| Drifter | $1,750 / $3,500 / $6,150 ... $32,400 / $40,250 / $49,000 | $1,400 ... $39,200 | $850 ... $23,500 | $1,050 ... $29,400 | $1,550 ... $43,100 | $299,600 | $457,300 | $756,900 |
+| Dune | $2,250 / $4,500 / $7,900 ... $41,650 / $51,750 / $63,000 | $1,800 ... $50,400 | $1,100 ... $30,250 | $1,350 ... $37,800 | $2,000 ... $55,450 | $385,200 | $588,100 | $973,300 |
+| Vortex | $3,750 / $7,500 / $13,150 ... $69,400 / $86,250 / $105,000 | $3,000 ... $84,000 | $1,800 ... $50,400 | $2,250 ... $63,000 | $3,300 ... $92,400 | $641,700 | $980,000 | $1,621,700 |
 
-Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 cost what they did before version
-6.16.0 ($248,200 for every part of every car); from there each level's price rises by more than the one before
+Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 of the four older parts cost what they
+did before version 6.16.0 ($248,200 for every car; $324,000 with the weight); from there each level's price rises by more than the one before
 (level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
 wins gold and beats the Expert on every track earns $102,000 per car driven (author and the Elite everywhere
-$173,400): the Racer at level 7 everywhere costs about one author-and-Elite career with it ($196,500), and its levels
-8-10 another $300,200, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
-counts too). Every level of every part of every car costs $4,389,200.
+$173,400): the Racer at level 7 everywhere costs about one and a half author-and-Elite careers with it ($256,500), and its levels
+8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
+counts too). Every level of every part of every car costs $5,730,000.
 
 - **Medal times and AI opponents stay stock.** The medal times were set by the stock cars and the AI opponents always
   drive stock cars, so an upgraded car makes medals and wins easier. Each reward is still paid only once.
@@ -601,12 +611,15 @@ counts too). Every level of every part of every car costs $4,389,200.
   run exactly whatever the car has now, since it stores where the car was. Older records and ghosts count as stock.
 - **reset career** (in the terminal) makes every car stock again.
 - **On the car:** a bigger, polished exhaust tip per engine level, a yellow ring on every tyre that widens with the tyre
-  level, a blue band round the tail pipes per nitro level and mud flaps behind the rear wheels with loose grip (not on
-  the Drifter, which has its own, nor on the open-wheeled Dune).
+  level, a blue band round the tail pipes per nitro level, mud flaps behind the rear wheels with loose grip (not on
+  the Drifter, which has its own, nor on the open-wheeled Dune) and a carbon cover over every wheel's hub with the
+  weight part, bigger with each level.
+- **A lighter car in a pack.** Contacts between cars are shared by weight, so a lightened car is pushed about a
+  little more by a heavier one in Race the field and the cups.
 
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (level 10): its card's stat bars with green on top of the stock values, 297 km/h in green, and the Upgrades row under the cards with Engine, Tyres, Nitro and Loose grip all at MAX with ten pips each](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (level 10): its card's stat bars with green on top of the stock values, 298 km/h and 1.01 t in green, and the Upgrades row under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 
@@ -1073,7 +1086,7 @@ behind it shows the new money, points and cars straight away.
 | `points <n>` / `points set <n>` | The same for career points (`points 200`, `points set 1000`) |
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
 | `buy <name>` | Buys a car with your money, as BUY on the car page does (`buy kestrel`) |
-| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`) |
+| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`, `weight`) |
 | `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10, without paying (`upgrade dune tyres 7`); `upgrade dune max` puts every part at 10, `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
@@ -1160,8 +1173,8 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/Track
 godot --headless --path . --export-release "Linux" build/linux/TrackRush.x86_64
 ```
 
-`tools/release.sh 6.20.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
-project and writes `build/TrackRush-6.20.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
+`tools/release.sh 6.21.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
+project and writes `build/TrackRush-6.21.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
 
 The Windows build can be made on Linux and the other way round. The Linux build's training library needs a
 recent Linux (glibc 2.38, as in Ubuntu 24.04 or newer); on an older one the game runs and trains in GDScript.
@@ -1183,7 +1196,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 | `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
 | `godot --headless --path . --script res://tools/corners.gd` | Lists the tight corners of every track (radius, road width, banking) and how the medal autopilot takes them with each car: its lowest speed and its wall contacts per lap there, from the author runs in `data/medals.json` (`-- --tracks=a,b`, `--max-r=40` for corners tighter than 40 m, `--sweep` for the wall contacts over all 50 settings of the medal sweep, as long as the medal sweep: about 16 minutes for five tracks on 3 threads; `--tracks-json=` and `--medals=` read older files, `--json=` writes the numbers). Made for version 6.6.0's corner rework |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
-| `godot --headless --path . --script res://tools/upgrades.gd` | Measures what the upgrades do with the real physics: every car stock and with each part's levels (`tools/car_stats.gd`'s numbers), the grip on dirt and snow with loose grip, and prints the `MEASURED` lines for `sim/upgrades.gd` (about 8 minutes on 3 threads; `-- --check` only compares; `-- --laps` the medal autopilot's best lap times on four tracks stock and upgraded, `--quick` on 10 settings instead of 50, `--tracks=a,b --cars=a,b`) |
+| `godot --headless --path . --script res://tools/upgrades.gd` | Measures what the upgrades do with the real physics: every car stock and with each part's levels (`tools/car_stats.gd`'s numbers), the grip on dirt and snow with loose grip, and prints the `MEASURED` lines for `sim/upgrades.gd` (the engine's, the tyres' and the weight's levels: about 25 minutes on 4 threads; `--parts=weight` measures only some parts and prints the others as stored, about 9 minutes a part; `-- --check` only compares; `-- --laps` the medal autopilot's best lap times on four tracks stock and upgraded, `--quick` on 10 settings instead of 50, `--tracks=a,b --cars=a,b --sets=W10,all10`) |
 | `godot --headless --path . --script res://tools/bench.gd` | Measures how fast the GDScript physics runs |
 | `godot --headless --path . --script res://tools/field.gd` | Measures Race the field without the game: whole field races with every car (yours too) driven by its AI on five tracks at every level; prints whether every AI finished, the contacts, the respawns, how often the finishing order follows the drivers' paces and the script time per step (`-- --tracks=a,b --levels=a,b --car=racer --threads=3`, `--solo` also races each AI alone to compare; about 4 minutes for 15 races on 3 threads with `--solo`) |
 | `python3 tools/gen_sounds.py` | Makes every sound effect (`assets/audio/sfx/`) and music track (`assets/audio/music/`) from code (needs Python 3 with numpy, and ffmpeg for the music; `--only sfx` or `music`, `--names a,b` for some; about a minute). The same run writes the same files |

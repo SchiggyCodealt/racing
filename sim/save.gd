@@ -13,7 +13,7 @@ extends RefCounted
 ## be carried over.
 ##
 ##   SaveData.get_record(track_id, car_id)            -> {time, splits, date, up} or {} (up, v6.11: the
-##                                                    car's upgrade levels on that run, [0, 0, 0, 0] stock)
+##                                                    car's upgrade levels on that run, [0, 0, 0, 0, 0] stock)
 ##   SaveData.submit_record(track_id, car_id, time, splits[, up]) -> true when it is a new best (unknown car:
 ##                                                    false; splits: Array or race.splits; up: the levels)
 ##   SaveData.load_ghost(track_id, car_id)            -> the saved ghost (Replay.pack_ghost) or null, unchecked
@@ -38,7 +38,7 @@ extends RefCounted
 ##   SaveData.take_welcome()                          -> {money, points, medals} paid by the upgrade to
 ##                                                    version 4 for the medals already held, once ({} after)
 ## Car upgrades (v6.11.0; sim/upgrades.gd has the parts and prices, sim/economy.gd buy_upgrade):
-##   SaveData.get_upgrades(car_id) -> PackedInt32Array [engine, tyres, nitro, loose], each 0..10
+##   SaveData.get_upgrades(car_id) -> PackedInt32Array [engine, tyres, nitro, loose, weight], each 0..10
 ##                                                    (all 0 for a car not owned, or never upgraded)
 ##   SaveData.purchase_upgrade(car_id, part, level, price) -> "" (bought), "locked" (car not owned),
 ##                                                    "order" (not the next level), "max", "money", "unknown"
@@ -74,7 +74,7 @@ extends RefCounted
 ## settings: {...}, networks: {car: {slot: network file}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
-## tracks_open, upgrades: {car: [engine, tyres, nitro, loose]}, cups?: {paid: [cup reward ids], trophies: {cup:
+## tracks_open, upgrades: {car: [engine, tyres, nitro, loose, weight]}, cups?: {paid: [cup reward ids], trophies: {cup:
 ## {level: best place}}, run?: the cup in progress}}}.
 ## (cups, v6.14.0: absent in older files = no trophies, nothing paid, no cup in progress; version 5 stays.
 ## A reset career keeps the trophies (like the records) but not the cup payouts or the cup in progress.)
@@ -336,7 +336,7 @@ static func _repair_career(d: Dictionary) -> void:
 		if cu.get("run") is Dictionary:
 			fixed.run = cu.run
 		c.cups = fixed
-	# (v6.11) upgrades: owned cars only, four levels 0..Upgrades.MAX_LEVEL each, all-stock entries dropped
+	# (v6.11) upgrades: owned cars only, five levels 0..Upgrades.MAX_LEVEL each (four in files from before v6.21: the weight stock), all-stock entries dropped
 	var up: Dictionary = {}
 	if c.get("upgrades") is Dictionary:
 		for car: Variant in c.upgrades:
@@ -812,7 +812,7 @@ static func reset_career() -> void:
 
 # ---- car upgrades (v6.11.0; sim/upgrades.gd, sim/economy.gd buy_upgrade) -----------------
 
-## The upgrade levels of car `car_id`: [engine, tyres, nitro, loose], each 0..Upgrades.MAX_LEVEL
+## The upgrade levels of car `car_id`: [engine, tyres, nitro, loose, weight], each 0..Upgrades.MAX_LEVEL
 ## (all 0 for a car not owned or never upgraded).
 static func get_upgrades(car_id: String) -> PackedInt32Array:
 	_mutex.lock()

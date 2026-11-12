@@ -1,4 +1,4 @@
-Track Rush 6.20.0 for Windows (64-bit)
+Track Rush 6.21.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with six cars, fifteen tracks (seven of them with dirt
@@ -8,14 +8,17 @@ money and career points, and money buys cars and upgrades. The tracks open one
 at a time: you start with Rookie Oval, and a bronze medal or better on a
 track, with any car, opens the next one for good.
 
-New in 6.20.0: a leaderboard in the way of the F1 games. In Race the field
-and in the cups a timing tower stands on the left of the screen: every car in
-race order with its place in a box, its colour, the driver's three-letter
-code and the gap to the leader. The rows slide when the order changes, with a
-green or red arrow on a car that gained or lost a place. The results after a
-race and the championship standings are drawn as the same kind of rows.
+New in 6.21.0: a fifth upgrade, Weight. Every level makes the car 3 % lighter
+(level 10 about a fifth), so the same engine, brakes and nitro move less car:
+it pulls harder, stops shorter and gets more out of the nitro. It is the
+fifth chip on the car page (key 5) and shows on the car as carbon wheel
+covers. The car's weight on its card turns green when it is lighter.
 
 Earlier versions, newest first:
+6.20.0  a leaderboard in the way of the F1 games: a timing tower on the left
+        in Race the field and the cups (place, colour, three-letter code, gap
+        to the leader; rows slide, green and red arrows), and results and
+        championship tables as rows of the same kind.
 6.19.0  the menu turned around: track and race first (TIME TRIAL, Race the
         AI, Race the field or a cup), the car last on its own page with its
         upgrades and the shop; in a cup before every race, so you can change

@@ -447,7 +447,7 @@ static func upgrade_parts() -> Array:
 	return out
 
 
-## Car `id`'s upgrade levels [engine, tyres, nitro, loose] (all 0 for a car not owned).
+## Car `id`'s upgrade levels [engine, tyres, nitro, loose, weight] (all 0 for a car not owned).
 static func upgrade_levels(id: String) -> PackedInt32Array:
 	if _save:
 		return SaveData.get_upgrades(id)

@@ -26,6 +26,8 @@ const CarCard := preload("res://ui/car_card.gd")
 const PartChip := preload("res://ui/part_chip.gd")
 const PadRing := preload("res://ui/pad_ring.gd")
 const PadNav := preload("res://ui/pad_nav.gd")
+## The width a part chip needs for its name, ten pips and a price; narrower: the chips wrap.
+const CHIP_MIN_W := 172.0
 const PART_KEYS := [["Digit1", "Numpad1"], ["Digit2", "Numpad2"], ["Digit3", "Numpad3"], ["Digit4", "Numpad4"], ["Digit5", "Numpad5"],
 	["Digit6", "Numpad6"], ["Digit7", "Numpad7"], ["Digit8", "Numpad8"], ["Digit9", "Numpad9"]]
 
@@ -39,6 +41,8 @@ var cards: Array = []
 var cars_grid: GridContainer
 var part_chips: Array = []
 var parts_row: HBoxContainer
+var parts_grid: GridContainer   # (v6.21) the chips: one row, or three a row when narrow
+var _parts_cap: Control
 var desc_row: HBoxContainer
 var car_lock: Label
 var car_desc_name: Label
@@ -91,12 +95,21 @@ func _init() -> void:
 	cm.mouse_filter = Control.MOUSE_FILTER_PASS
 	cm.add_child(cap)
 	parts_row.add_child(cm)
+	_parts_cap = cm
+	# (v6.21: five parts) the chips in a grid: one row where they fit, three a row in a narrow window
+	parts_grid = GridContainer.new()
+	parts_grid.columns = UiData.upgrade_parts().size()
+	parts_grid.add_theme_constant_override("h_separation", UiStyle.S1)
+	parts_grid.add_theme_constant_override("v_separation", UiStyle.S1)
+	parts_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parts_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parts_row.add_child(parts_grid)
 	for p: Dictionary in UiData.upgrade_parts():
 		var chip: Button = PartChip.new()
 		chip.part_id = String(p.id)
 		chip.part_name = String(p.name)
 		chip.pressed.connect(func() -> void: upgrade.emit(String(p.id)))
-		parts_row.add_child(chip)
+		parts_grid.add_child(chip)
 		part_chips.append(chip)
 	var pm := UiStyle.margin([0, UiStyle.S4, 0, 0])
 	pm.add_child(parts_row)
@@ -165,7 +178,8 @@ func refresh() -> void:
 		c.selected = c.car_id == car
 		var p := UiData.car_price(c.car_id)
 		c.set_lock(not UiData.owns_car(c.car_id), p, have >= p)
-		c.set_upgrades(UiData.car_bars(c.car_id), float(UiData.car_stats(c.car_id).top), UiData.upgrade_levels(c.car_id))
+		var st := UiData.car_stats(c.car_id)
+		c.set_upgrades(UiData.car_bars(c.car_id), float(st.top), UiData.upgrade_levels(c.car_id), float(st.get("mass", 0.0)))
 	var info := UiData.car_info(car)
 	var owned := UiData.owns_car(car)
 	var price := UiData.car_price(car)
@@ -336,6 +350,10 @@ func _on_layout(w: float) -> void:
 		cols = 2
 	cars_grid.columns = cols
 	var card_w := (inner - (cols - 1) * UiStyle.S2) / cols
+	# the part chips: one row while a chip keeps room for its name, pips and price
+	var np := part_chips.size()
+	var chips_w := inner - _parts_cap.get_combined_minimum_size().x - UiStyle.S1
+	parts_grid.columns = np if (chips_w - (np - 1) * UiStyle.S1) / np >= CHIP_MIN_W else 3
 	for c in cards:
 		c.stacked = card_w < 330.0
 		c.short_spec = card_w < 300.0

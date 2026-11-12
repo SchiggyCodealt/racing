@@ -25,7 +25,7 @@ extends RefCounted
 ##   rec.before_jump(step, car); car.place(...); rec.after_jump(step, car)   on a respawn
 ##   var saved := Replay.pack_ghost(rec, {track = track, laps = 3, time = race.finish_time, car = "racer"[, up = levels]})
 ##       (v6.11: `up`, the car's upgrade levels, is kept with the ghost when not stock; unpack_ghost
-##       gives it back as `up`, [0, 0, 0, 0] for older ghosts. Ghosts are poses, so an upgraded run
+##       gives it back as `up`, all 0 for older ghosts. Ghosts are poses, so an upgraded run
 ##       replays exactly as it was driven whatever the car has now.)
 ##   var ghost := Replay.unpack_ghost(saved, track, laps[, car_id])   # {} when it doesn't fit / decode
 ##   var player := Replay.GhostPlayer.new(ghost); player.pose(step_f)  # moves player.car (a Car used as a pose)

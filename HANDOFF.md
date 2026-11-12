@@ -4,7 +4,8 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-12 (v6.20.0: round 5, item 3 of 8: the F1-style leaderboard: a timing tower on the HUD
+_Last updated: 2026-11-12 (v6.21.0: round 5, item 4 of 8: the weight upgrade, a fifth part (`sim/upgrades.gd`);
+v6.20.0: round 5, item 3 of 8: the F1-style leaderboard: a timing tower on the HUD
 (`ui/timing_tower.gd`) and results / standings tables as rows (`ui/result_row.gd`);
 v6.19.0: round 5, item 2 of 8: the car page (`ui/car_screen.gd`): track and race first, the
 car last, and before every race of a cup; a tidier Home;
@@ -35,7 +36,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.20.0, round 5 under way (3 of 8 done: the Reset button, the car page and tidier menu, the F1-style leaderboard); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.21.0, round 5 under way (4 of 8 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -190,7 +191,7 @@ three levels each, so money is still useful once all six cars are bought." What 
 - **The parts are data** (`sim/upgrades.gd`, `class_name Upgrades`): `PARTS` (id, name, short letter, `step` per level,
   `cost` weight, aliases for the terminal, the texts), `MAX_LEVEL` 3, `LEVEL_SHARE` [0.1, 0.2, 0.35] (a level's price
   as a share of the car's price), `FREE_CAR_BASE` 12000 (what the free Racer counts as). A car's levels are 4 ints
-  [engine, tyres, nitro, loose]. `Upgrades.spec(car, levels)` is `CarSpec.make(changes, Cars.spec(car))`, built once
+  [engine, tyres, nitro, loose, weight (v6.21)]. `Upgrades.spec(car, levels)` is `CarSpec.make(changes, Cars.spec(car))`, built once
   per car and levels (cached under a mutex, so training threads can share it); level 0 everywhere returns the stock
   spec object itself, so stock runs are bit for bit as before.
   - **Engine**: the torque curve × (1 + 0.05 × level). **Tyres**: `mu` × (1 + 0.04 × level), with the dirt and snow
@@ -1600,7 +1601,7 @@ left it open:
    upgrades); in a cup that page comes up before every race, so the car can change between races. See below.
 3. **Leaderboard (v6.20.0, done)**: an F1-style timing tower on the left of the HUD (position, colour bar,
    three-letter code, gap) and F1-style results and standings tables. See below.
-4. **Weight**: a fifth upgrade part that makes the car lighter, ten levels like the others.
+4. **Weight (v6.21.0, done)**: a fifth upgrade part that makes the car lighter, ten levels like the others. See below.
 5. **A seventh car**: an open-wheel formula car (the most grip, the best brakes, poor on loose ground).
 6. **Four rally stages**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own textures, and a Rally Cup.
 7. **The AI**: every level faster, the field closer together, the top level in an upgraded car, longer training so the
@@ -1677,6 +1678,33 @@ championship" and the menu half of "redesign the ui to be more streamlined".
   `CupTable.rows`. Shots: `field_battle`, `field_podium`, `cup_standings`, `cup_trophy`.
 - Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
   Race the AI have no tower (one car, or one ghost).
+
+### Item 4: the weight upgrade (v6.21.0, done)
+
+"make it possible to change the wheight of a car in the upgrades aka lighter".
+- `sim/upgrades.gd`: `PARTS` has a fifth entry, `weight` (short W, step 0.03, cost 1.1, aliases lighter / light /
+  mass / diet / wheight). `changes()` scales `mass` and `inertia` by 1 - 3 % a step (level 10: -19.5 %) and nothing
+  else; the physics does the rest (the same torque, brake force, nitro force and downforce on less mass). The yaw
+  inertia goes with the mass so the turn-in stays what it was. New parts go at the END of `PARTS`: the index is the
+  save file's (`career.upgrades[car]`, records' and ghosts' `up`) and the key's (1-5). `clean()` pads a list of four
+  from before 6.21 with a stock weight, so no save migration was needed (`SaveData.VERSION` stays 5).
+- `MEASURED` has `weight` rows per car (`{top, accel100, accel200, brake100, grip, gripFast}` for levels 1-10);
+  `stats()` sets the mass and scales those numbers by the weight's measured share on top of the engine's and tyres'
+  (the combination itself is not measured). `tools/upgrades.gd`: `MEASURED_PARTS`, `--parts=weight` (measure some
+  parts, print the others as stored), `--sets=` for `--laps`. Measured for the Racer at W10: 1,250 -> 1,006 kg,
+  0-200 km/h 9.78 -> 7.98 s, 100-0 km/h 30.7 -> 26.9 m, grip and top speed within 1 %.
+- UI: `ui/car_screen.gd` puts the chips in `parts_grid` (one row; three a row when a chip would be under
+  `CHIP_MIN_W`); the hint and the keys follow `part_chips.size()` (1-5). `ui/car_card.gd` shows the upgraded mass
+  (`set_upgrades(..., mass)`), green when lighter. `world/car_build.gd` `upgrades()`: a carbon disc over every wheel's
+  hub, bigger with the level.
+- Prices: every level of every part of every car is now $5,730,000 ($4,389,200 before); the Racer at 7 everywhere
+  $256,500, its levels 8-10 $391,900.
+- Tests: `tests/test_sim.gd` `_upgrades` (the part's numbers, only mass and inertia change, the measured levels,
+  prices, a four-level save list, an upgraded run with W6; the stability tests run with everything at 10 including the
+  weight), `test_ui.gd` (five chips at every window size, the Weight tooltip, the card's 1.01 t), `test_game.gd`,
+  `test_world.gd` (the wheel covers), e2e `upgrades` (50 clicks buy everything).
+- Not done: the AI opponents and medal times stay stock as before (item 7 puts the top AI level in an upgraded car).
+  A seventh car (item 5) needs its own `MEASURED` rows: `tools/upgrades.gd -- --cars=<id>`.
 
 ## Round 4: AI nitro, upgrades to level 10, reset everything (v6.15.0-v6.17.0)
 

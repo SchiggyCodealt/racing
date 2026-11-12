@@ -64,8 +64,8 @@ static func build(id: String, detail := 1) -> Dictionary:
 	return out
 
 
-## v6.11.0: what the car's upgrades (sim/upgrades.gd: engine, tyres, nitro, loose grip levels
-## 0..10 since v6.16) look like, as one more skinned kit drawn with the car's material (an empty kit
+## v6.11.0: what the car's upgrades (sim/upgrades.gd: engine, tyres, nitro, loose grip and, since
+## v6.21, weight levels; 0..10 since v6.16) look like, as one more skinned kit drawn with the car's material (an empty kit
 ## when all are 0; cached per car, levels and detail). Levels 1-3 look as in v6.11; levels 4-10
 ## grow the same parts in smaller steps (a level-10 part is not much bigger than a level-3 one:
 ## the tips stay on the car, the rings on the tyre):
@@ -75,6 +75,7 @@ static func build(id: String, detail := 1) -> Dictionary:
 ##     they meet as one blue sleeve at level 10
 ##   - loose grip: mud flaps behind the rear wheels with an accent strip (cars with wheel arches
 ##     and without their own: not the Drifter, which has them, nor the open-wheeled Dune)
+##   - weight (v6.21): a carbon disc over every wheel's hub (a light wheel cover), bigger each level
 static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
 	var key := "up:%s:%s:%d" % [id, ",".join(Array(levels).map(func(x: int) -> String: return str(x))), detail]
 	if _cache.has(key):
@@ -86,6 +87,7 @@ static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
 	var t: int = levels[1] if levels.size() > 1 else 0
 	var n: int = levels[2] if levels.size() > 2 else 0
 	var l: int = levels[3] if levels.size() > 3 else 0
+	var w: int = levels[4] if levels.size() > 4 else 0
 	var seg := 14 if detail else 8
 	var B := Kit.BODY
 	for nz: Array in Shapes.nozzles(s):
@@ -109,6 +111,15 @@ static func upgrades(id: String, levels: PackedInt32Array, detail := 1) -> Kit:
 			var xf := Transform3D(Basis(Vector3.UP, 0.0 if c.x > 0.0 else PI), c)
 			var r0 := R * 0.745
 			kit.add(Geo.ring(r0, r0 + 0.012 + 0.008 * mini(t, 3) + 0.003 * maxi(t - 3, 0), 28 if detail else 16).rotate_y(PI / 2.0).translate(W / 2.0 + 0.004, 0, 0).xform(xf), Kit.GLOSS, Kit.SPIN0 + i, lin(0xffc83d))
+	if w > 0:
+		for i in rg["wheels"].size():
+			var wd: Dictionary = rg["wheels"][i]
+			var c: Vector3 = wd["c"]
+			var R: float = wd["r"]
+			var W: float = wd["w"]
+			var xf := Transform3D(Basis(Vector3.UP, 0.0 if c.x > 0.0 else PI), c)
+			var r1 := R * (0.2 + 0.05 * mini(w, 3) + 0.012 * maxi(w - 3, 0))
+			kit.add(Geo.ring(0.012, r1, 20 if detail else 12).rotate_y(PI / 2.0).translate(W / 2.0 + 0.006, 0, 0).xform(xf), Kit.CARBON, Kit.SPIN0 + i, lin(0x0b0c0f))
 	if l > 0 and s["fenders"] and not s["mudflaps"]:
 		for wd: Dictionary in rg["wheels"]:
 			if wd["front"]:
