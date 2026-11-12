@@ -1,4 +1,4 @@
-Track Rush 6.18.0 for Windows (64-bit)
+Track Rush 6.19.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with six cars, fifteen tracks (seven of them with dirt
@@ -8,14 +8,18 @@ money and career points, and money buys cars and upgrades. The tracks open one
 at a time: you start with Rookie Oval, and a bronze medal or better on a
 track, with any car, opens the next one for good.
 
-New in 6.18.0: Settings has a "Reset all progress" button. It puts the game
-back to a fresh install (money, points, cars, upgrades, best times, medals,
-ghosts, opened tracks, trophies and your trained AI networks) and keeps your
-settings. It asks twice, and it first writes a backup of the save next to it
-(trackrush_save.backup.json). In the terminal, "reset everything" does the
-same: it asks first, and a plain "yes" answers it.
+New in 6.19.0: the menu is turned around. You pick the track and what to race
+first (TIME TRIAL, Race the AI, Race the field or a cup), and the car comes
+last, on its own page with its upgrades and the car shop. In a championship
+that page comes up before every race, so you can change cars inside a cup.
+The menu has bigger track tiles and fewer buttons; Watch AI, Train AI, Load
+AI and Save AI sit in one small row.
 
 Earlier versions, newest first:
+6.18.0  Settings has a "Reset all progress" button: back to a fresh install
+        (money, points, cars, upgrades, best times, medals, ghosts, opened
+        tracks, trophies, trained AI); it asks twice, keeps your settings and
+        writes a backup first (trackrush_save.backup.json).
 6.17.0  the terminal's "reset everything".
 6.16.0  upgrades go to level 10: seven more levels per part, each adding a
         little less and costing a lot more.
@@ -28,7 +32,7 @@ Earlier versions, newest first:
 6.12.0  sound and music: live engine sounds for every car, tyres, walls, wind,
         race cues, four music tracks, volumes in Settings.
 6.11.0  car upgrades: engine, tyres, nitro and loose grip, bought on the car
-        picker.
+        page.
 The terminal in Settings (or the ` key, under Esc, on the menu) takes commands
 such as "money 5000", "car vortex", "upgrade dune max" or "unlock all" (every
 car and track); "help" lists them all.
@@ -51,7 +55,9 @@ Controls
 --------
 Arrows or W A S D drive, Space is the handbrake, Shift is nitro, R restarts,
 Enter respawns at the last checkpoint, G shows or hides your ghost, Esc goes
-back to the menu. On the menu press H for every key and gamepad button, and
+back to the menu. On the menu Enter starts a time trial (the car page comes
+first: arrows or C pick the car, Enter starts, Esc goes back), T opens the
+cups. Press H for every key and gamepad button, and
 O for the settings (graphics quality, screen dirt and snow, fullscreen,
 vertical sync, interface size, the volumes, the terminal, the reset). The `
 key opens the terminal on the menu (not during a race). Any standard gamepad

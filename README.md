@@ -20,7 +20,7 @@ Version 6.4.0 adds three tracks at the end of the list, each in a scenery of its
 stage through autumn woods; **Northern Lights**, banked bowls of packed snow under the aurora; and **Summit Rush**, a
 sprint over a mountain on asphalt, dirt and snow (see [Tracks](#tracks)).
 Version 6.5.0 adds a career: medals and wins against five AI opponents (Rookie, Amateur, Pro, Expert and Elite) pay
-money and career points, and money buys cars: you start with the Racer and buy the other five on the car picker
+money and career points, and money buys cars: you start with the Racer and buy the other five on the car page
 (see [Money, points and cars](#money-points-and-cars)).
 Version 6.6.0 makes the tightest corners of five of the old tracks more forgiving: the hairpins and switchbacks of
 Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon Run are rounder (22-25 m instead of 13-19 m)
@@ -45,7 +45,7 @@ opponents of the seven dirt and snow tracks are new; the other eight tracks are 
 [Road surfaces](#road-surfaces)).
 Version 6.11.0 adds **car upgrades**, so money stays useful once all six cars are bought: every car has four parts,
 the **engine** (power), the **tyres** (grip on asphalt), the **nitro** tank (bigger, refills faster) and **loose grip**
-(grip on dirt and snow), three levels each (ten since 6.16.0), bought on the car picker. The stat bars show what they add, the car shows
+(grip on dirt and snow), three levels each (ten since 6.16.0), bought on the car page. The stat bars show what they add, the car shows
 them too (bigger exhausts, yellow tyre rings, blue nitro bands, mud flaps), and the medal times and AI opponents stay
 as they are, so upgrades make medals and wins easier (see [Upgrades](#upgrades)).
 Version 6.12.0 adds **sound and music**. Every car's engine is synthesized live from its revs, throttle and gears,
@@ -80,8 +80,12 @@ your settings. It asks first, and it writes a backup of the old save next to it,
 [The terminal](#the-terminal) and [Saved data](#saved-data)).
 Version 6.18.0 puts that reset on a button: **Settings → Reset all progress** asks twice and then does the same wipe,
 no typing needed. In the terminal, a command that asks first now takes a plain `yes` as the answer.
+Version 6.19.0 turns the menu around: you pick the **track** and **what to race** first (time trial, Race the AI, Race
+the field or a cup), and the **car comes last**, on its own page with its upgrades and the car shop. In a
+championship that page comes up before every race, so **you can change cars inside a cup**. The menu itself is
+tidier for it: bigger track tiles, one block of race buttons, the AI's tools in one small row.
 
-![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, the car picker with five cars still locked (padlock and price), Drive and the AI driver block with the opponent picked (Expert)](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
@@ -149,8 +153,11 @@ On the menu:
 | Key | Gamepad | Action |
 | --- | --- | --- |
 | Arrows or W A S D, 1-9, 0, -, = | d-pad / left stick | Pick a track (0, - and = are tracks 10-12; tracks 13-15 with the arrows, the mouse or the pad). A locked track can be picked too: its panel says what opens it |
-| C / Shift+C | RB / LB | Next / previous car |
-| Enter or Space | A | Drive |
+| Enter or Space | A | A time trial on the picked track: the **car page** opens first |
+| C / Shift+C | RB / LB | Next / previous car (on the menu: whose records you look at; on the car page: the car you drive) |
+| On the car page: arrows or W A S D | d-pad / left stick | Pick a car (down from the cars: its upgrades, then START) |
+| On the car page: 1-4 | A on a part | Buy the next level of that part (it asks first) |
+| On the car page: Enter or Space / Esc | A / B | START (BUY when the car is not yours yet) / back to the menu |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
 | `` ` `` (the key under Esc) | Settings, highlight **Terminal**, then A | The **terminal**: commands for money, points and cars (not during a race) |
@@ -164,20 +171,29 @@ to a stop. When you finish, the finish panel shows your time, the medal it earne
 from the next medal, your points with their breakdown, and the lap times; **R** races again and
 **Esc** goes back to the menu.
 
-**The menu** is three steps: **1 Track**, **2 Car**, **3 Drive**. Each track tile shows the track's
+**The menu** is two steps, **1 Track** and **2 Race**; the car comes last, on its own page (since version 6.19.0).
+Each track tile shows the track's
 outline (the dot is the start; sprints have a second dot at the finish), its number, how hard it is
 (1-5 bars), and the medal and best time you have with the picked car; a locked track's tile is darker, with a
 padlock and what opens it ("Bronze on 02": a bronze on track 02), and a track that has just opened says **NEW**
 (see [Unlocking tracks](#unlocking-tracks)). The panel on the right is the
-selected track: its description, length and laps, then with the picked car your best time, best
-score, whether a ghost is saved, the AI's best and the four medal times. Under it are **Drive** (**BUY** or
-**LOCKED** when the picked car is not yours yet, **LOCKED** on a locked track), the **Race my best-run ghost** option and the **AI driver** block:
-the opponent (**Rookie** to **Elite**, or **My AI**, the picked car's own network), what it does on this track and
-what beating it pays, Race the AI, Watch the AI, **Race the field** (v6.13.0: five AI drivers of the picked level on a
-grid with you), Train the AI and Load / Save network. Next to the **3 Drive** heading the **Cups** button (v6.14.0)
-shows your trophy cabinet and opens the championships. The header shows your money
-and career points and a few key hints; the **Controls** button lists the rest, and the **Settings** button opens the
-settings.
+selected track: its description, length and laps, then with the picked car ("With the Racer"; C or RB / LB looks at
+another car's) your best time, best score, whether a ghost is saved, the AI's best and the four medal times.
+Under it is **2 Race**: **TIME TRIAL** (alone against the clock, called **Drive** in the rest of this file and in earlier versions; **LOCKED** on a locked track) with the **Race my
+best-run ghost** option, the **AI driver** row (**Rookie** to **Elite**, or **My AI**, the picked car's own network)
+with what that driver does on this track and what beating it pays, **Race the AI** and **Race the field** (five AI
+drivers of the picked level on a grid with you). Next to the **2 Race** heading the **Cups** button shows your
+trophy cabinet and opens the championships. Under a thin line are the AI's tools: **Watch AI**, **Train AI**,
+**Load AI…** and **Save AI…**. The header shows your money and career points and a few key hints; the **Controls**
+button lists the rest, and the **Settings** button opens the settings.
+
+**The car page** opens when you have chosen a race (a button, Enter, a double-click on a track tile, START CUP or a
+cup's next race). Its first line says what is about to start. It shows the six cars, the picked car's upgrades and
+description, your money and **START**. A car you don't own shows a padlock and its price, and START reads **BUY
+$10,000** (or **LOCKED** when your money is short). Esc goes back without starting. Watch AI and Train AI start
+directly, with the car that is picked.
+
+![The car page after choosing a time trial on Seaside Stunts: six car cards with their stat bars, five of them locked with a padlock and a price, the Kestrel picked, its upgrade chips and description, $14,000 and the button reading BUY $10,000](docs/screenshots/car-page.png)
 
 **Drifting:** pull the handbrake (Space) into a corner to make the rear step out, then countersteer
 and use the throttle to hold the slide. Braking hard while turning only tightens the line a little.
@@ -223,16 +239,16 @@ There are six cars. Each handles differently and has its own best times, ghosts,
 | Vortex | 1,150 kg | 2.57 s | 6.22 s (5.47 s) | 321.4 km/h (338.1) | 3 s | 28.8 m | 1.68 g / 1.75 g | 1.22 s |
 
 The numbers are measured with the game's own physics (`tools/car_stats.gd`, see [Tests and tools](#tests-and-tools)).
-"Drift held" is how long a keyboard driver typically keeps a handbrake slide going. The car picker shows the same
+"Drift held" is how long a keyboard driver typically keeps a handbrake slide going. The car page shows the same
 as five bars (speed, acceleration, grip, drift, nitro). The numbers are for asphalt; on dirt and snow every car grips,
 brakes and accelerates less (see [Road surfaces](#road-surfaces)).
 
-**Picking a car:** click a car card under the tracks (a double-click drives straight away), press **C** /
-**Shift+C** on the menu, or use **RB** / **LB** on a gamepad. The cards sit three to a row (two in a narrow
-window); the line under them describes the picked car (in a window under 760 px high, such as 1280 x 720, a car you
-own shows its upgrades there instead, see [Upgrades](#upgrades); the description is in the card's tooltip). The choice is remembered, and Drive and Race the AI use it.
+**Picking a car:** choose a race first; the car page then shows the cars. Click a car card (a double-click starts
+straight away), use the arrows, **C** / **Shift+C**, or **RB** / **LB** on a gamepad. The cards sit three to a row
+(two in a narrow window); under them are the picked car's upgrades (see [Upgrades](#upgrades)) and its description.
+The choice is remembered, and C / Shift+C on the menu changes it too (the menu's records follow it).
 A new player owns only the Racer: the other cards show a padlock and the car's price, and their stats stay
-readable. With a locked car picked, Drive reads **BUY $10,000** (or **LOCKED** when your money is short) and buys it
+readable. With a locked car picked, START reads **BUY $10,000** (or **LOCKED** when your money is short) and buys it
 after asking (see [Money, points and cars](#money-points-and-cars)). The track tiles, the records and the medal times follow the picked car, and so does the AI driver block:
 each car has its own AI network (see [Training the AI](#training-the-ai)).
 
@@ -264,7 +280,7 @@ The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#
 
 **No nitro in AI races** (version 6.15.0). In every race against AI cars (Race the AI at any level and against My
 AI, Race the field and championships) nobody has nitro: every car starts with an empty tank and nothing refills
-it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's 3 Drive
+it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's 2 Race
 heading says "No nitro vs AI". Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
 the AI and training keep nitro.
 
@@ -358,13 +374,13 @@ new track's tile says **NEW** until you pick it or leave the menu.
 - **An opened track stays open for good**, even when a later version makes a medal faster or changes the track (the
   save file keeps the list of opened tracks).
 - A **locked track** can still be picked with the keys, the pad or the mouse. Its tile shows a padlock and what opens
-  it ("Bronze on 02"), its panel says it in full, and Drive reads **LOCKED**. **Drive** and **Race the AI** are
+  it ("Bronze on 02"), its panel says it in full, and TIME TRIAL reads **LOCKED**. **Drive** and **Race the AI** are
   refused there with a message saying what opens it.
 - **Watch the AI** and **Train the AI** work on every track, locked or not (the AI lab pays nothing). Race best on
   the training screen needs an open track, Watch best works anywhere.
 - The terminal's `unlock tracks` (or `unlock all`) opens every track at once (see [The terminal](#the-terminal)).
 
-![Hairpin Valley picked in a new career: its tile and the thirteen after it locked (padlock, "Bronze on 01" to "Bronze on 14"), the panel saying a bronze on Rookie Oval opens it and that Watch the AI and Train the AI work there anyway, Drive reading LOCKED](docs/screenshots/locked.png)
+![Hairpin Valley picked in a new career: its tile and the thirteen after it locked (padlock, "Bronze on 01" to "Bronze on 14"), the panel saying a bronze on Rookie Oval opens it and that Watch AI and Train AI work there anyway, the big button reading LOCKED](docs/screenshots/locked.png)
 
 A save from an earlier version (when every track was open) keeps every track you have a best time on, with any car
 (including best times kept from an older version of a track), and opens the track after every one where a best time
@@ -442,7 +458,7 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 | --- | --- |
 | ![Race the field on Rookie Oval: side by side with Nils Haugen's Kestrel for 2nd, Kai Ostrom's Vortex alongside; the HUD's P3/6, the gaps ahead (0.01 s) and behind (0.14 s) and the standings](docs/screenshots/field-race.png) | ![The podium on the start straight (You, Nils Haugen, Kai Ostrom) with the finish panel on the right: 1st of 6, the finishing order with times and gaps, the gold medal and the five place rewards, $4,600 and 160 points](docs/screenshots/field-podium.png) |
 
-**The car shop.** Pick a locked car and press Drive (BUY): it asks first, then the car is yours for good.
+**The car shop.** Choose a race, pick a locked car on the car page and press START (it reads BUY): it asks first, then the car is yours for good.
 
 | Car | Racer | Kestrel | Drifter | Dune | Thunder | Vortex |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -454,9 +470,11 @@ everywhere buy the Kestrel after five tracks.
 
 ### Championships
 
-(Version 6.14.0.) Press **Cups** (next to the **3 Drive** heading) or **T** on the menu. A championship is three
-races back to back against the same five AI drivers, with the car you picked: the standings after each race set the
-next grid, and the final standings give trophies and a big payout.
+(Version 6.14.0.) Press **Cups** (next to the **2 Race** heading) or **T** on the menu. A championship is three
+races back to back against the same five AI drivers: the standings after each race set the
+next grid, and the final standings give trophies and a big payout. Since version 6.19.0 the car page comes up before
+every race of a cup, showing the car you drove last: pick another car you own and the rest of the cup is driven with
+it (the AI drivers and the standings stay as they are).
 
 | | Cup | Tracks | Opens with track |
 | --- | --- | --- | --- |
@@ -515,10 +533,10 @@ cup in progress).
 ### Upgrades
 
 Money also buys **upgrades** for the cars you own: four parts per car, ten levels each (version 6.16.0; three before),
-bought one level at a time and in order. They are on the car picker: the picked car shows a row of four chips under the
+bought one level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows a row of four chips under the
 cards, each with the part's name, a pip per level (green: bought; levels 8-10 in a lighter green) and the next level's
 price (yellow when you can afford it, grey when not, MAX when all ten are bought; from $100,000 it is shortened, like
-$105k). Click a chip (or highlight it with the gamepad: down from the car, then A) to buy the next level: it asks
+$105k). Click a chip (or press its number, 1 to 4, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
 its top speed turns green when it is higher. The `upgrade` and `buy <car> <part>` commands of
@@ -576,9 +594,9 @@ counts too). Every level of every part of every car costs $4,389,200.
   level, a blue band round the tail pipes per nitro level and mud flaps behind the rear wheels with loose grip (not on
   the Drifter, which has its own, nor on the open-wheeled Dune).
 
-| The car picker, every part of the Racer bought | On the car |
+| The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The menu with the Racer fully upgraded (version 6.16.0, level 10): its card's stat bars with green on top of the stock values, 297 km/h in green, and the Upgrades row under the cards with Engine, Tyres, Nitro and Loose grip all at MAX with ten pips each](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (level 10): its card's stat bars with green on top of the stock values, 297 km/h in green, and the Upgrades row under the cards with Engine, Tyres, Nitro and Loose grip all at MAX with ten pips each](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 
@@ -1044,8 +1062,8 @@ behind it shows the new money, points and cars straight away.
 | `money set <n>` | Sets your money to exactly n (`money set 12000`). `money` alone shows it |
 | `points <n>` / `points set <n>` | The same for career points (`points 200`, `points set 1000`) |
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
-| `buy <name>` | Buys a car with your money, as BUY on the car picker does (`buy kestrel`) |
-| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car picker does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`) |
+| `buy <name>` | Buys a car with your money, as BUY on the car page does (`buy kestrel`) |
+| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`) |
 | `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10, without paying (`upgrade dune tyres 7`); `upgrade dune max` puts every part at 10, `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
@@ -1132,8 +1150,8 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/Track
 godot --headless --path . --export-release "Linux" build/linux/TrackRush.x86_64
 ```
 
-`tools/release.sh 6.18.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
-project and writes `build/TrackRush-6.18.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
+`tools/release.sh 6.19.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
+project and writes `build/TrackRush-6.19.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
 
 The Windows build can be made on Linux and the other way round. The Linux build's training library needs a
 recent Linux (glibc 2.38, as in Ubuntu 24.04 or newer); on an older one the game runs and trains in GDScript.

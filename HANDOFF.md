@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-12 (v6.18.0: round 5, item 1 of 8: Settings has a **Reset all progress** button (asks twice, then
+_Last updated: 2026-11-12 (v6.19.0: round 5, item 2 of 8: the car page (`ui/car_screen.gd`): track and race first, the
+car last, and before every race of a cup; a tidier Home;
+v6.18.0: round 5, item 1 of 8: Settings has a **Reset all progress** button (asks twice, then
 `SaveData.reset_everything`), and a terminal command that asks first takes `yes` as the answer;
 v6.17.0: round 4, item C, the last: the terminal's `reset everything` puts the game back to
 a fresh install (career, records, ghosts, scores, medals, trophies, AI networks), keeps the settings, and writes a
@@ -31,7 +33,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.18.0, round 5 under way (1 of 8 done: the Reset button); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.19.0, round 5 under way (2 of 8 done: the Reset button, the car page and tidier menu); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1592,9 +1594,8 @@ The order they are built in (the owner was told; each is pushed when done), and 
 left it open:
 
 1. **Reset (v6.18.0, done)**: see below.
-2. **Menu flow**: pick the track and the race type first, then the car on a page of its own (with its upgrades); in a
-   cup that page comes up before every race, so the car can change between races. The menu loses what does not belong
-   to that flow (the AI tools move to a page of their own).
+2. **Menu flow (v6.19.0, done)**: pick the track and the race type first, then the car on a page of its own (with its
+   upgrades); in a cup that page comes up before every race, so the car can change between races. See below.
 3. **Leaderboard**: an F1-style timing tower on the left of the HUD (position, colour bar, three-letter code, gap) and
    F1-style results and standings tables.
 4. **Weight**: a fifth upgrade part that makes the car lighter, ten levels like the others.
@@ -1622,6 +1623,34 @@ what it would do, and the hint to type it again with `confirm` is easy to miss. 
   message, the file read again; the terminal's yes / no / a command in between), `tests/test_ui.gd` (the row).
 - A helper for the releases: `tools/release.sh <version>` builds the Windows zip from a clean copy
   (`docs/windows-readme.txt` is the zip's README.txt).
+
+### Item 2: the car page and the tidier menu (v6.19.0, done)
+
+"make the car selection after the race you've chosen starts not before and make it possible to change cars within a
+championship" and the menu half of "redesign the ui to be more streamlined".
+- `ui/car_screen.gd` (`CarScreen`, a dialog like Settings; `MainMenu.car_page`): the car cards, the picked car's part
+  chips and description (all moved out of `ui/main_menu.gd`), the money, START (BUY / LOCKED for a car that is not
+  yours) and a line saying what is about to start (`event_text`). Keys: arrows / WASD, C / Shift+C, 1-9 buy a part,
+  Enter starts, Esc back; the pad has its own highlight (cards, parts, START).
+- `ui/main_menu.gd`: Home is "1 Track" and "2 Race". `ask_car(kind, args)` keeps what was chosen (`pending`: `drive`,
+  `race_ghost`, `race_field`, `cup_start` with cup and level, `cup_next`) and opens the page; the page's `start`
+  emits that signal (`_start_pending`). On a locked track the signal goes out at once (the app says what opens it).
+  Before `cup_next` the page shows the cup's car. The primary button reads TIME TRIAL (the mode is still `drive` /
+  "Drive" in the code, the HUD and older text). Watch AI, Train AI, Load AI…, Save AI… are small buttons under a rule
+  and start directly. Race the AI / Race the field are no longer off for a car you don't own (the car comes later).
+  `refresh()` also redraws the car page. The tiles' maps take the height the car picker used (`_layout`).
+- `game/app.gd`: `ui.menu.cup_start` -> `start_cup`, `ui.menu.cup_next` -> `cup_next_race()`: the car picked now
+  becomes `cup.car` (saved with the run); a car you don't own is offered for sale and nothing starts. The AI drivers
+  and the standings don't depend on your car; the field's pace follows the new car as in any field race.
+- `ui/cup_screen.gd`: START CUP no longer needs an owned car picked; its text says you pick the car before each race.
+- Tests: `tests/test_ui.gd` (the page's keys, pad, sizes, shop states), `tests/test_game.gd` (the shop on the page, a
+  cup's car page, the car change before race 3 and its refusal for a car that isn't yours). In `tests/e2e/game_e2e.gd`
+  `auto_start` presses START for the scenarios written before the page; the menu, economy, terminal and upgrades
+  scenarios turn it off where they use the page. Shots: `menu_home`, `menu_car_page`.
+- Found on the way: `tests/test_ui.gd`'s Settings checks stopped at the Reset row since v6.18.0 (a script error on
+  the plain button's missing label), and the e2e unlock scenario still expected save version 4. Both fixed.
+- Not done: no separate "AI lab" page (the four AI tools stayed on Home as small buttons), and the README still says
+  "Drive" for the time trial in its older sections.
 
 ## Round 4: AI nitro, upgrades to level 10, reset everything (v6.15.0-v6.17.0)
 

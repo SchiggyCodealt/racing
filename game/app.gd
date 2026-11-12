@@ -170,8 +170,9 @@ func _ready() -> void:
 	if cup == null and not SaveData.get_cup_run().is_empty():
 		SaveData.clear_cup_run() # (a cup this version can't carry on)
 	ui.menu.cups.run_view = func() -> Dictionary: return UiData.cup_view(cup)
-	ui.menu.cups.start_cup.connect(func(id: String, lv: String) -> void: start_cup(id, lv))
-	ui.menu.cups.next_race.connect(func() -> void: cup_race())
+	# (v6.19) the cup screen's START CUP and RACE n go through the menu's car page first
+	ui.menu.cup_start.connect(func(id: String, lv: String) -> void: start_cup(id, lv))
+	ui.menu.cup_next.connect(func() -> void: cup_next_race())
 	ui.menu.cups.quit_cup.connect(ask_quit_cup)
 	ui.menu.reset_requested.connect(ask_reset_everything)
 	ui.menu.load_network.connect(load_network_dialog)
@@ -382,7 +383,6 @@ func start_cup(cup_id: String, level: String) -> Node:
 			", ".join(Array(miss).map(func(id: String) -> String: return String(Tracks.def(id).get("name", id)))), "is" if miss.size() == 1 else "are"])
 		return null
 	if not UiData.owns_car(car):
-		ui.menu.show_cups(false)
 		offer_car(car)
 		return null
 	if not AiLink.ready():
@@ -393,6 +393,24 @@ func start_cup(cup_id: String, level: String) -> Node:
 		return null
 	cup = run
 	SaveData.set_cup_run(cup.to_dict())
+	UiSound.play("ui_confirm")
+	return cup_race()
+
+
+## (v6.19) The next race of the cup in progress with the car picked now (the menu's car page comes up
+## before every cup race): another car than the cup's so far becomes the cup's car from this race on.
+## The AI drivers and the standings stay; the field's pace follows the new car, as in any field race.
+## A car you don't own is offered for sale instead. Returns the race's mode, or null.
+func cup_next_race() -> Node:
+	if cup == null or cup.finished():
+		return null
+	var car := UiData.picked_car()
+	if not UiData.owns_car(car):
+		offer_car(car)
+		return null
+	if car != cup.car:
+		cup.car = car
+		SaveData.set_cup_run(cup.to_dict())
 	UiSound.play("ui_confirm")
 	return cup_race()
 

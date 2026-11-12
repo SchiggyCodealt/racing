@@ -54,7 +54,7 @@ func _init() -> void:
 	close_button.tooltip_text = "Back to the menu (a cup in progress is kept)"
 	_picker = UiStyle.vbox(0)
 	body.add_child(_picker)
-	_intro = UiStyle.label("Three races back to back against the same five AI drivers, with the car you picked. Each race pays as a field race; points 10-8-6-5-4-3 make the standings, which set the next grid. The top three win trophies; the cup pays by your final place, once per cup, level and place.",
+	_intro = UiStyle.label("Three races back to back against the same five AI drivers. You pick your car before every race, so you can change it inside a cup. Each race pays as a field race; points 10-8-6-5-4-3 make the standings, which set the next grid. The top three win trophies; the cup pays by your final place, once per cup, level and place.",
 		"text", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, false, false, 19)
 	_intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_intro.custom_minimum_size.x = 1
@@ -125,9 +125,7 @@ func _init() -> void:
 	var bar := UiStyle.hbox(UiStyle.S4)
 	_race_btn = UiStyle.button("Race", "PrimaryButton", 46)
 	_race_btn.custom_minimum_size.x = 260
-	_race_btn.pressed.connect(func() -> void:
-		UiSound.play("ui_confirm")
-		next_race.emit())
+	_race_btn.pressed.connect(func() -> void: next_race.emit())
 	bar.add_child(_race_btn)
 	_quit_btn = button_with_cap("Quit cup", "Q")
 	_quit_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -280,8 +278,6 @@ func _render_picker() -> void:
 		(r.cab as Control).queue_redraw()
 	for id: String in _level_btns:
 		(_level_btns[id] as Button).theme_type_variation = "ChipOnButton" if id == picked_level else "ChipButton"
-	var car := UiData.picked_car()
-	var cname := String(UiData.car_info(car).name)
 	var lname := Opponents.level_name(picked_level)
 	var good := "#" + UiStyle.GOOD.to_html(false)
 	var s := ""
@@ -290,11 +286,9 @@ func _render_picker() -> void:
 	elif not bool(picked.open):
 		s = "[color=#a7a9ae][b]%s is locked[/b][/color]: it opens when %s %s open (a bronze on the track before each opens it)." % [String(picked.name), String(picked.missing),
 			"is" if not String(picked.missing).contains(",") else "are"]
-	elif not UiData.owns_car(car):
-		s = "[color=#a7a9ae][b]The %s is locked[/b][/color]: buy it on the car picker, or pick a car you own (you race the car picked on the menu)." % cname
 	else:
 		var win := UiData.cup_pays(String(picked.id), picked_level, 1)
-		s = "[color=#a7a9ae][b]%s[/b][/color] with the [b]%s[/b] against a %s field" % [String(picked.name), cname, lname]
+		s = "[color=#a7a9ae][b]%s[/b][/color] against a %s field; you pick your car before each race" % [String(picked.name), lname]
 		if int(win.money) > 0:
 			s += ". A win pays [color=%s]+%s[/color] · +%s pts on top of each race's pay" % [good, UiFormat.money(int(win.money)), UiFormat.points(int(win.points))]
 		else:
@@ -304,7 +298,7 @@ func _render_picker() -> void:
 			s += "; your best here: %s" % Field.place_name(best)
 		s += "."
 	_info.text = s
-	_start_btn.disabled = picked.is_empty() or not bool(picked.open) or not UiData.owns_car(car)
+	_start_btn.disabled = picked.is_empty() or not bool(picked.open)
 	_start_btn.tooltip_text = _info.get_parsed_text()
 
 
@@ -339,12 +333,11 @@ func _render_standings() -> void:
 		_race_btn.text = "RACE %d: %s" % [done + 1, String(nx.name).to_upper()]
 
 
-## Start the picked cup (the game refuses a locked one, an unowned car).
+## Start the picked cup: the menu's car page comes first (the game refuses a locked cup, an unowned car).
 func start() -> void:
 	if _start_btn.disabled:
 		UiSound.play("ui_error")
 		return
-	UiSound.play("ui_confirm")
 	start_cup.emit(picked_cup, picked_level)
 
 
@@ -358,7 +351,6 @@ func handle_keys(inp: Object) -> void:
 	if _stand.visible:
 		if inp.consume(["Enter", "Space", "NumpadEnter", "PadA"]):
 			if not _race_btn.disabled:
-				UiSound.play("ui_confirm")
 				next_race.emit()
 		elif inp.consume(["KeyQ", "PadX"]):
 			quit_cup.emit()

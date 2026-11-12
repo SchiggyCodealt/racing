@@ -2,53 +2,43 @@ class_name MainMenu
 extends Control
 ## main_menu.gd
 ## ------------------------------------------------------------------
-## The main menu, in the order you use it (web/src/ui/menu.js, v5 layout): 1 pick a track,
-## 2 pick a car, 3 drive.
+## The main menu (Home), in the order you use it since v6.19.0: 1 pick a track, 2 pick what to race;
+## the car comes last, on its own page (ui/car_screen.gd, `car_page`) that opens when a race is chosen.
 ## - Track tiles: number, a minimap of the centre line (drawn from the built track, no image
-##   files), name, difficulty, and the medal and best time you hold with the picked car.
+##   files), name, difficulty, and the medal and best time you hold with the picked car. The tiles
+##   take the room the car picker used to: their maps grow with the window's height.
 ## - One panel for the selected track: description, type and length, a bigger map when the
-##   window is tall, your best time, best score and ghost with the picked car, the AI's best
-##   from training and the four medal times.
-## - The car picker (side view, name, top speed, mass, five stat bars, the picked car's
-##   description line). The pick is the "car" setting, which Drive and Race the AI ghost use.
-## - Drive, the best-run ghost option, the AI block for the picked car (its network's status, or
-##   that it has none yet; Load / Save network, Race the AI ghost, Watch the AI, Train the AI);
-##   the Controls screen and the Settings screen.
-## - v6.7.0, the terminal (ui/terminal_screen.gd): opened by Settings' Terminal row or the ` key on
-##   the menu and on Settings (not on Controls, never in a race: the menu isn't there); a command
-##   that changed the career redraws the menu.
-## - v6.5.0, the career: the header shows your money and career points; the car cards of cars you
-##   don't own show a lock and their price (their stats stay readable), and with such a car picked
-##   Drive becomes BUY (or LOCKED when the money is short: it says how much is missing); the AI
-##   block picks the opponent of Race / Watch the AI: an AI level (Rookie to Elite, its finish
-##   time on this track with this car and what beating it pays now) or My AI (the picked car's
-##   own trained network, as before).
-## - v6.13.0, Race the field: a button beside Train the AI races five AI drivers at the picked AI level
-##   on a starting grid (off with My AI picked, or a car you don't own; its tooltip says what a win pays).
-## - v6.14.0, championships: on the right of the "3 Drive" heading, the Cups button (ui/cup_cabinet.gd),
-##   which is also the trophy cabinet (one trophy per cup in the colour of your best place, pips for the
-##   five levels); it, or T, opens the cup screen (ui/cup_screen.gd, `cups`) over the menu; the game opens
-##   it between the races of a cup too.
-## - v6.11.0, car upgrades (sim/upgrades.gd): under the cards, the picked car's four parts (engine,
-##   tyres, nitro, loose grip) as chips with their levels and the next level's price; a chip buys
-##   that level (the game asks first: `upgrade`). A car you don't own shows them greyed out. The car
-##   cards' bars show the upgrades in green on top of the stock car. In a window under 760 px tall
-##   the parts take the place of the car's description line (a locked car shows the description
-##   and its price there instead); taller windows show both.
-## - v6.8.0, locked tracks: the tracks open one at a time (bronze or better on a track opens the
+##   window is tall, your best time, best score and ghost with the picked car ("With the Racer":
+##   C / Shift+C or LB / RB look at another car's records), the AI's best from training and the four
+##   medal times.
+## - "2 Race": TIME TRIAL (with the best-run ghost option), the AI driver row (an AI level, Rookie to
+##   Elite: its finish time on this track with the picked car and what beating it pays now; or My AI,
+##   the picked car's own trained network), Race the AI, Race the field (five AI drivers at the picked
+##   level on a starting grid; off with My AI), and on the heading's right the Cups button, which is
+##   also the trophy cabinet (ui/cup_cabinet.gd; it, or T, opens ui/cup_screen.gd, `cups`). Under a
+##   rule, the AI's tools: Watch AI, Train AI, Load AI…, Save AI… (the picked car's network).
+## - Choosing a race (the buttons, Enter, a double click on a tile, START CUP or a cup's next race)
+##   opens the car page: the car cards (a car you don't own shows a lock and its price: START reads BUY
+##   there), the picked car's upgrades and START. START emits the signal of the race chosen (`drive`,
+##   `race_ghost`, `race_field`, `cup_start`, `cup_next`); before a cup's next race the page shows the
+##   cup's car, and another pick changes the car for the rest of the cup. On a locked track the signal
+##   goes out at once, so the game says what opens it. Watch AI and Train AI start directly.
+## - The header: your money and career points, Settings, Controls. The terminal (ui/terminal_screen.gd)
+##   opens from Settings' Terminal row or the ` key on the menu and on Settings; a command that changed
+##   the career redraws the menu.
+## - Locked tracks (v6.8.0): the tracks open one at a time (bronze or better on a track opens the
 ##   next, sim/unlocks.gd). A locked tile is darker, with a padlock and what opens it ("Bronze on
-##   02"); it can still be picked (keys, pad, mouse), and its panel says what opens it and that
-##   Watch the AI and Train the AI work there anyway. Drive reads LOCKED (the game refuses Drive
-##   and Race the AI there with a message). A track a finish just opened is marked NEW until it is
-##   picked or the menu is left.
+##   02"); it can still be picked, and its panel says what opens it and that Watch AI and Train AI
+##   work there anyway. TIME TRIAL reads LOCKED. A track a finish just opened is marked NEW until it
+##   is picked or the menu is left.
 ## Every bit of game data comes through UiData; the buttons only emit signals.
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
-## C / Shift+C (next / previous car),
-## Enter or Space drives, H or ? opens Controls, O opens Settings, ` opens the terminal, T the cups.
+## C / Shift+C (next / previous car for the records shown), Enter or Space a time trial (the car page
+## first), H or ? opens Controls, O opens Settings, ` opens the terminal, T the cups.
 ## Gamepad: a highlight moved with the d-pad / stick over the track tiles (moving onto one
-## selects it), the car cards under them (moving onto one picks it) and the buttons; A drives
-## or presses, B goes back to the tracks, LB / RB pick the car, View opens Controls.
+## selects it) and the buttons (down from the bottom row of tiles); A races or presses, B goes back
+## to the tracks, LB / RB pick the car, View opens Controls.
 ## The host calls handle_keys(input) once per frame (or sets `input` and the menu polls it);
 ## `input` is a MenuInput or anything with its interface.
 
@@ -65,18 +55,15 @@ signal car_selected(id: String)
 signal opponent_selected(id: String)
 ## (v6.11) buy the next level of part `part` of the picked car (the game asks first)
 signal upgrade(part: String)
+## (v6.19) START on the car page for a cup: start cup `cup_id` at field level `level`, or the next
+## race of the cup in progress (with the car picked now)
+signal cup_start(cup_id: String, level: String)
+signal cup_next
 ## (v6.18.0) Settings' Reset all progress button: the app asks, then wipes.
 signal reset_requested
 
 const W := preload("res://ui/widgets.gd")
 const TrackTile := preload("res://ui/track_tile.gd")
-const CarCard := preload("res://ui/car_card.gd")
-const PartChip := preload("res://ui/part_chip.gd")
-## The parts row and the car's description line both show from this window height (px); below it
-## the parts take the description's place (an owned car; a locked one keeps its description).
-const BOTH_LINES_H := 760.0
-## The car picker shows three cards a row from this width (px), else two.
-const CARS_3COL := 780.0
 const TrackMapView := preload("res://ui/track_map_view.gd")
 const KeyCap := preload("res://ui/key_cap.gd")
 const MedalDot := preload("res://ui/medal_dot.gd")
@@ -94,8 +81,8 @@ const TRACK_KEYS := [
 ]
 ## The one hint line beside the title: [keys, what] for the keyboard, or the gamepad while it is the last input used.
 const HINTS := {
-	"keys": [["Arrows, 1–9 0 - =", "track"], ["C", "car"], ["Enter", "drive"]],
-	"pad": [["D-pad", "move"], ["LB RB", "car"], ["A", "drive"], ["View", "controls"]],
+	"keys": [["Arrows, 1–9 0 - =", "track"], ["Enter", "race"], ["T", "cups"]],
+	"pad": [["D-pad", "move"], ["A", "race"], ["View", "controls"]],
 }
 
 ## The menu's input (MenuInput or the same interface); polled in _process while the menu shows.
@@ -106,6 +93,12 @@ var settings: SettingsScreen
 var terminal: TerminalScreen
 ## (v6.14) the cup screen (ui/cup_screen.gd)
 var cups: CupScreen
+## (v6.19) the car page (ui/car_screen.gd): opens when a race is chosen
+var car_page: CarScreen
+## what the car page's START starts: "drive", "race_ghost", "race_field", "cup_start" (args: cup id,
+## level) or "cup_next"
+var pending := ""
+var pending_args: Array = []
 
 # layout state
 var map_h := 56.0
@@ -123,16 +116,8 @@ var _hint: HBoxContainer
 var _hint_holder: Control
 var _hint_mode := ""
 var _grid: GridContainer
+var _track_step: Control
 var _tiles: Array = []
-var _cars_grid: GridContainer
-var _cards: Array = []
-var _car_desc_name: Label
-var _car_desc: Label
-var _car_desc_row: HBoxContainer
-var _parts_row: HBoxContainer       # (v6.11) the picked car's upgrades
-var _parts_cap: Label
-var _part_chips: Array = []
-var _both_lines := false
 var _detail: PanelContainer
 var _detail_box: VBoxContainer
 var _td_num: Label
@@ -164,13 +149,14 @@ var _cups_btn: CupCabinet   # (v6.14) the Cups button and trophy cabinet
 ## (v6.15) the note beside it: no nitro in races against the AI
 var nitro_note: Label
 const NITRO_NOTE := "No nitro vs AI" # (v6.16: shorter, it fits beside Cups at 1280 x 720)
+## (v6.19) the primary button of Home: a time trial (the car page comes first)
+const DRIVE_TEXT := "TIME TRIAL"
 ## The opponent buttons (v6.5.0): AI level id or UiData.MY_AI -> Button.
 var _opp_btns: Dictionary = {}
 var _opp_row: HBoxContainer
 var _wallet: HBoxContainer
 var _money_l: Label
 var _points_l: Label
-var _car_lock: Label
 var _controls_btn: Button
 var _settings_btn: Button
 var _ring: Control
@@ -207,6 +193,15 @@ func _init() -> void:
 	add_child(settings)
 	cups = CupScreen.new()
 	add_child(cups)
+	cups.start_cup.connect(func(id: String, lv: String) -> void: ask_car("cup_start", [id, lv]))
+	cups.next_race.connect(func() -> void: ask_car("cup_next"))
+	car_page = CarScreen.new() # (over the cup screen: a cup's races ask for the car too)
+	add_child(car_page)
+	car_page.start.connect(_start_pending)
+	car_page.upgrade.connect(func(part: String) -> void: upgrade.emit(part))
+	car_page.car_picked.connect(func(id: String) -> void:
+		car_selected.emit(id)
+		refresh())
 	terminal = TerminalScreen.new() # (over Settings when opened from it)
 	add_child(terminal)
 	settings.action.connect(func(key: String) -> void:
@@ -240,9 +235,7 @@ func _build() -> void:
 	_build_head()
 	_gaps.head = _spacer(_left)
 	_build_tracks()
-	_gaps.tracks = _spacer(_left)
-	_build_cars()
-	var fill := Control.new() # (the car row takes the spare height: the cars stay at the top of it)
+	var fill := Control.new() # (spare height goes under the tiles)
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_left.add_child(fill)
@@ -274,7 +267,7 @@ func _build_head() -> void:
 	_wallet = UiStyle.hbox(UiStyle.S3)
 	_wallet.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_wallet.mouse_filter = Control.MOUSE_FILTER_PASS
-	_wallet.tooltip_text = "Your money buys cars (the car picker); career points add up everything you have won. Medals and wins against the AI opponents pay both, once per track, car and medal or AI level; later tracks pay more."
+	_wallet.tooltip_text = "Your money buys cars and upgrades (the car page, after you chose a race); career points add up everything you have won. Medals and wins against the AI opponents pay both, once per track, car and medal or AI level; later tracks pay more."
 	_money_l = UiStyle.label("", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.02, false, true, false, UiStyle.FS_L)
 	_money_l.size_flags_vertical = Control.SIZE_SHRINK_END
 	_money_l.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -318,7 +311,7 @@ func _build_head() -> void:
 	_head.add_child(_controls_btn)
 
 
-## A step heading with its number: "1 Track", "2 Car", "3 Drive" (style.css .step).
+## A step heading with its number: "1 Track", "2 Race" (style.css .step).
 func _step(n: String, text: String) -> Control:
 	var row := UiStyle.hbox(UiStyle.S3)
 	var badge := Control.new()
@@ -340,7 +333,8 @@ func _step(n: String, text: String) -> Control:
 
 
 func _build_tracks() -> void:
-	_left.add_child(_step("1", "Track"))
+	_track_step = _step("1", "Track")
+	_left.add_child(_track_step)
 	_grid = GridContainer.new()
 	_grid.columns = 6
 	_grid.add_theme_constant_override("h_separation", UiStyle.S2)
@@ -357,70 +351,9 @@ func _build_tracks() -> void:
 			if i != selected_track:
 				UiSound.play("ui_move")
 			select(i))
-		tile.activated.connect(func() -> void: drive.emit())
+		tile.activated.connect(func() -> void: ask_car("drive"))
 		_grid.add_child(tile)
 		_tiles.append(tile)
-
-
-func _build_cars() -> void:
-	_left.add_child(_step("2", "Car"))
-	_cars_grid = GridContainer.new()
-	_cars_grid.columns = 2
-	_cars_grid.add_theme_constant_override("h_separation", UiStyle.S2)
-	_cars_grid.add_theme_constant_override("v_separation", UiStyle.S2)
-	_cars_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_left.add_child(_cars_grid)
-	for id in UiData.car_ids():
-		var card: Control = CarCard.new()
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.setup(id, UiData.car_info(id), UiData.car_profile(id))
-		card.picked.connect(func() -> void:
-			if id != UiData.picked_car():
-				UiSound.play("ui_move")
-			select_car(id))
-		card.activated.connect(func() -> void: drive.emit())
-		_cars_grid.add_child(card)
-		_cards.append(card)
-	var lines := UiStyle.vbox(UiStyle.S2)
-	# (v6.11) the picked car's upgrades: a caption and a chip per part
-	_parts_row = UiStyle.hbox(UiStyle.S1)
-	_parts_row.custom_minimum_size.y = 26
-	_parts_cap = UiStyle.label("Upgrades", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
-	_parts_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_parts_cap.mouse_filter = Control.MOUSE_FILTER_PASS
-	_parts_cap.tooltip_text = "Upgrade the picked car: engine (power), tyres (grip on asphalt), nitro (a bigger tank that refills faster) and loose grip (grip on dirt and snow), ten levels each (the last ones dear), bought in order with your money. Medal times and the AI opponents stay as they are (stock cars), so upgrades make medals and wins easier."
-	var cm := UiStyle.margin([0, 0, UiStyle.S2, 0])
-	cm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	cm.mouse_filter = Control.MOUSE_FILTER_PASS
-	cm.add_child(_parts_cap)
-	_parts_row.add_child(cm)
-	for p: Dictionary in UiData.upgrade_parts():
-		var chip: Button = PartChip.new()
-		chip.part_id = String(p.id)
-		chip.part_name = String(p.name)
-		chip.pressed.connect(func() -> void: upgrade.emit(String(p.id)))
-		_parts_row.add_child(chip)
-		_part_chips.append(chip)
-	lines.add_child(_parts_row)
-	var desc := UiStyle.hbox(UiStyle.S1)
-	_car_desc_row = desc
-	_car_lock = UiStyle.label("", "text_semi", UiStyle.FS_S, UiStyle.ACCENT, 0.0, false, false, false, 18)
-	_car_lock.visible = false
-	desc.add_child(_car_lock)
-	_car_desc_name = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT, 0.0, false, false, false, 18)
-	_car_desc = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, false, false, 18)
-	_car_desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_car_desc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_car_desc.custom_minimum_size.x = 1
-	_car_desc.mouse_filter = Control.MOUSE_FILTER_PASS
-	desc.add_child(_car_desc_name)
-	desc.add_child(_car_desc)
-	for l: Label in [_car_lock, _car_desc_name, _car_desc]:
-		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lines.add_child(desc)
-	var m := UiStyle.margin([0, UiStyle.S3, 0, 0])
-	m.add_child(lines)
-	_left.add_child(m)
 
 
 func _build_detail() -> void:
@@ -557,25 +490,20 @@ func _build_detail() -> void:
 
 
 func _build_go() -> void:
-	var step := _step("3", "Drive")
+	var step := _step("2", "Race")
 	_side.add_child(step)
 	# (v6.14) the Cups button with the trophy cabinet, on the right of the heading (it overlaps the
 	# heading's bottom margin, so the menu keeps its height)
 	var head_row: HBoxContainer = step.get_child(0)
-	var fill := Control.new()
-	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	head_row.add_child(fill)
 	# (v6.15) races against the AI (Race the AI, Race the field, the cups) have no nitro for anyone
 	nitro_note = UiStyle.label(NITRO_NOTE, "text", UiStyle.FS_S, UiStyle.TEXT_3)
 	nitro_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	nitro_note.tooltip_text = "Race the AI, Race the field and the cups have no nitro for anyone (you or the AI). Drive and Watch the AI keep it."
+	nitro_note.tooltip_text = "Race the AI, Race the field and the cups have no nitro for anyone (you or the AI). The time trial and Watch AI keep it."
 	nitro_note.mouse_filter = Control.MOUSE_FILTER_PASS
 	nitro_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS # (never wider than the room left)
 	nitro_note.custom_minimum_size.x = 1
-	nitro_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nitro_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL # (the note takes the room and pushes Cups right)
 	nitro_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	fill.size_flags_horizontal = Control.SIZE_FILL # (the note takes the room and pushes Cups right)
 	head_row.add_child(nitro_note)
 	_cups_btn = CupCabinet.new()
 	_cups_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -584,36 +512,25 @@ func _build_go() -> void:
 		show_cups(true))
 	head_row.add_child(_cups_btn)
 	var actions := UiStyle.hbox(UiStyle.S5)
-	_drive_btn = UiStyle.button("Drive", "PrimaryButton", 46)
-	_drive_btn.text = "DRIVE"
+	_drive_btn = UiStyle.button("Time trial", "PrimaryButton", 46)
+	_drive_btn.text = DRIVE_TEXT
 	_drive_btn.custom_minimum_size.x = 190
-	_drive_btn.pressed.connect(func() -> void: drive.emit())
+	_drive_btn.pressed.connect(func() -> void: ask_car("drive"))
 	actions.add_child(_drive_btn)
 	_ghost_check = CheckToggle.new()
 	_ghost_check.text = "Race my best-run ghost"
-	_ghost_check.tooltip_text = "In Drive, a see-through copy of your best run on the track with the car you drive races with you (G switches it during a race)"
+	_ghost_check.tooltip_text = "In a time trial, a see-through copy of your best run on the track with the car you drive races with you (G switches it during a race)"
 	_ghost_check.toggled.connect(func(on: bool) -> void:
 		UiSound.play("ui_move")
 		UiData.set_setting("ghost", on))
 	actions.add_child(_ghost_check)
 	_side.add_child(actions)
 	_gaps.ai = _spacer(_side, UiStyle.S3)
-	# the AI driver
-	var head := UiStyle.hbox(UiStyle.S1)
+	# the AI driver: an AI level, or the car's own network (v6.5.0)
 	_ai_cap = UiStyle.label("AI driver", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
-	_ai_cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_ai_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_ai_cap.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_ai_cap.custom_minimum_size.x = 1
-	head.add_child(_ai_cap)
-	_load_btn = UiStyle.button("Load network…", "SmallQuietButton", 30)
-	_load_btn.pressed.connect(func() -> void: load_network.emit())
-	head.add_child(_load_btn)
-	_save_btn = UiStyle.button("Save network…", "SmallQuietButton", 30)
-	_save_btn.pressed.connect(func() -> void: save_network.emit())
-	head.add_child(_save_btn)
-	_side.add_child(head)
-	# the opponent: an AI level, or the car's own network (v6.5.0)
+	_side.add_child(_ai_cap)
 	_opp_row = UiStyle.hbox(UiStyle.S1)
 	var ids: Array = Array(Opponents.ids())
 	ids.append(UiData.MY_AI)
@@ -627,7 +544,7 @@ func _build_go() -> void:
 			select_opponent(id))
 		_opp_row.add_child(b)
 		_opp_btns[id] = b
-	var om := UiStyle.margin([0, UiStyle.S1, 0, 0])
+	var om := UiStyle.margin([0, UiStyle.S2, 0, 0])
 	om.add_child(_opp_row)
 	_side.add_child(om)
 	_ai_status = RichTextLabel.new()
@@ -648,33 +565,45 @@ func _build_go() -> void:
 	sm.add_child(_ai_status)
 	_gaps.status = sm
 	_side.add_child(sm)
-	var buttons := UiStyle.vbox(UiStyle.S2)
+	# the races against the AI: one car beside you, or five on a grid (v6.13)
 	var pair := UiStyle.hbox(UiStyle.S3)
-	_ghost_btn = UiStyle.button("Race the AI ghost")
-	_watch_btn = UiStyle.button("Watch the AI")
-	for b in [_ghost_btn, _watch_btn]:
+	_ghost_btn = UiStyle.button("Race the AI")
+	_field_btn = UiStyle.button("Race the field")
+	for b in [_ghost_btn, _field_btn]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.size_flags_stretch_ratio = 1.0
 		b.custom_minimum_size.x = 1
 		b.clip_text = true
 		pair.add_child(b)
-	_ghost_btn.pressed.connect(func() -> void: race_ghost.emit())
-	_watch_btn.pressed.connect(func() -> void: watch_ai.emit())
-	buttons.add_child(pair)
-	# (v6.13) Race the field beside Train the AI (one row: the menu still fits 1280 x 720)
-	var pair2 := UiStyle.hbox(UiStyle.S3)
-	_field_btn = UiStyle.button("Race the field")
-	_train_btn = UiStyle.button("Train the AI")
-	for b in [_field_btn, _train_btn]:
+	_ghost_btn.pressed.connect(func() -> void: ask_car("race_ghost"))
+	_field_btn.pressed.connect(func() -> void: ask_car("race_field"))
+	_side.add_child(pair)
+	# the AI's tools under a rule (v6.19: they start directly, no car page)
+	var rule := ColorRect.new()
+	rule.color = UiStyle.LINE
+	rule.custom_minimum_size = Vector2(0, 1)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rm := UiStyle.margin([0, UiStyle.S3, 0, UiStyle.S2])
+	rm.add_child(rule)
+	_gaps.lab = rm
+	_side.add_child(rm)
+	var lab := UiStyle.hbox(UiStyle.S1)
+	_watch_btn = UiStyle.button("Watch AI", "SmallButton", 30)
+	_train_btn = UiStyle.button("Train AI", "SmallButton", 30)
+	_load_btn = UiStyle.button("Load AI…", "SmallButton", 30)
+	_save_btn = UiStyle.button("Save AI…", "SmallButton", 30)
+	_load_btn.tooltip_text = "Load a network file as the picked car's own AI (My AI)"
+	_save_btn.tooltip_text = "Save the picked car's own AI network to a file"
+	for b in [_watch_btn, _train_btn, _load_btn, _save_btn]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.size_flags_stretch_ratio = 1.0
 		b.custom_minimum_size.x = 1
 		b.clip_text = true
-		pair2.add_child(b)
-	_field_btn.pressed.connect(func() -> void: race_field.emit())
+		lab.add_child(b)
+	_watch_btn.pressed.connect(func() -> void: watch_ai.emit())
 	_train_btn.pressed.connect(func() -> void: train_ai.emit())
-	buttons.add_child(pair2)
-	_side.add_child(buttons)
+	_load_btn.pressed.connect(func() -> void: load_network.emit())
+	_save_btn.pressed.connect(func() -> void: save_network.emit())
+	_side.add_child(lab)
 
 
 # ================================================================= showing the data
@@ -695,27 +624,28 @@ func refresh() -> void:
 			_tiles[i].set_lock(true, "%s on %s" % [UiStyle.MEDAL_NAMES[lock.medal], UiFormat.track_number(int(lock.index))],
 				"%s on %s opens it" % [str(UiStyle.MEDAL_NAMES[lock.medal]).to_lower(), lock.name])
 	_render_detail()
-	_render_cars()
 	_render_wallet()
 	_cups_btn.refresh()
+	car_page.refresh()
 	# the AI block is the picked car's: the opponent picked (an AI level, or its own network: that
 	# network's status, two lines at most (the whole text is in the tooltip), or that it has none yet)
 	var st := UiData.ai_status()
 	var cname: String = UiData.car_info(car).name
 	var opp := UiData.opponent()
-	var owned := UiData.owns_car(car)
 	_ai_cap.text = "AI driver · %s" % cname
 	for id: String in _opp_btns:
 		(_opp_btns[id] as Button).theme_type_variation = "ChipOnButton" if id == opp else "ChipButton"
+	_ghost_check.checked = bool(UiData.get_setting("ghost"))
+	_save_btn.disabled = not st.ready
+	_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
+	_drive_btn.text = DRIVE_TEXT
+	_drive_btn.theme_type_variation = "PrimaryButton"
+	_drive_btn.tooltip_text = "Drive %s alone against the clock, for medals, records and score. You pick the car next." % UiData.track_info(selected_track).name
 	if opp != UiData.MY_AI:
-		_render_opponent(opp, car, cname, owned)
-		_ghost_check.checked = bool(UiData.get_setting("ghost"))
-		_save_btn.disabled = not st.ready
-		_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
+		_render_opponent(opp, car, cname)
 		_render_track_lock()
 		return
 	_ghost_btn.text = "Race my AI"
-	_watch_btn.text = "Watch my AI"
 	_field_btn.disabled = true
 	_field_btn.tooltip_text = "Race the field: five AI drivers on a starting grid. Pick an AI level (Rookie to Elite) for them first; My AI races alone"
 	if st.ready:
@@ -736,39 +666,35 @@ func refresh() -> void:
 		_ai_status_text = "[color=#a7a9ae][b]No %s network yet[/b][/color]: Train the AI teaches one with the %s, or load a network file." % [cname, cname]
 	_ai_status.tooltip_text = _strip_bbcode(_ai_status_text)
 	_clamp_status()
-	_ghost_check.checked = bool(UiData.get_setting("ghost"))
-	_ghost_btn.disabled = not st.ready or not owned
+	_ghost_btn.disabled = not st.ready
 	_watch_btn.disabled = not st.ready
-	_save_btn.disabled = not st.ready
-	_ghost_btn.tooltip_text = ("Race your %s AI: a see-through %s driven by the network you trained (it pays no AI rewards)" % [cname, cname] if owned
-		else "Buy the %s to race it" % cname) if st.ready else "The %s has no AI network yet: train one first" % cname
+	_ghost_btn.tooltip_text = "Race your %s AI: a see-through %s driven by the network you trained (it pays no AI rewards). You pick the car next." % [cname, cname] if st.ready \
+		else "The %s has no AI network yet: train one first" % cname
 	_watch_btn.tooltip_text = "Watch the %s AI drive this track, with its sensors and network" % cname if st.ready \
 		else "The %s has no AI network yet: train one first" % cname
-	_train_btn.tooltip_text = "Train AI drivers with any car (the training screen starts with the %s)" % cname
 	_render_track_lock()
 
 
-## A locked track (v6.8.0): Drive reads LOCKED (unless the picked car is for sale: BUY first) and
-## Race the AI's tooltip says why it won't start; the game refuses both with a message.
+## A locked track (v6.8.0): the time trial reads LOCKED and Race the AI's tooltip says why it won't
+## start; the game refuses both with a message.
 func _render_track_lock() -> void:
 	var lock := UiData.track_lock(selected_track)
 	if lock.is_empty():
 		return
 	var why := "%s is locked: win %s or better on %s (any car) to open it" % [UiData.track_info(selected_track).name,
 		str(UiStyle.MEDAL_NAMES[lock.medal]).to_lower(), lock.name]
-	if UiData.owns_car(UiData.picked_car()):
-		_drive_btn.text = "LOCKED"
-		_drive_btn.theme_type_variation = ""
-		_drive_btn.tooltip_text = why + ". Watch the AI and Train the AI work here anyway."
+	_drive_btn.text = "LOCKED"
+	_drive_btn.theme_type_variation = ""
+	_drive_btn.tooltip_text = why + ". Watch AI and Train AI work here anyway."
 	if not _ghost_btn.disabled:
-		_ghost_btn.tooltip_text = why + ". Watch the AI works here."
+		_ghost_btn.tooltip_text = why + ". Watch AI works here."
 	if not _field_btn.disabled:
 		_field_btn.tooltip_text = why + "."
 
 
 ## The AI block with AI level `opp` picked: its finish time here with the picked car and what
 ## beating it pays now; Race / Watch drive it.
-func _render_opponent(opp: String, car: String, cname: String, owned: bool) -> void:
+func _render_opponent(opp: String, car: String, cname: String) -> void:
 	var lv: Dictionary = {}
 	for l: Dictionary in UiData.opponent_levels(UiData.track_id(selected_track), car):
 		if l.id == opp:
@@ -789,19 +715,18 @@ func _render_opponent(opp: String, car: String, cname: String, owned: bool) -> v
 	_ai_status.tooltip_text = _strip_bbcode(_ai_status_text)
 	_clamp_status()
 	_ghost_btn.text = "Race the %s AI" % lname
-	_watch_btn.text = "Watch the %s AI" % lname
-	_ghost_btn.disabled = not has or not owned
+	_ghost_btn.disabled = not has
 	_watch_btn.disabled = not has
-	_ghost_btn.tooltip_text = ("Race the %s AI: a see-through %s next to you; finish ahead of it to win" % [lname, cname] if owned
-		else "Buy the %s to race it" % cname) if has else "No %s AI on this track with the %s" % [lname, cname]
+	_ghost_btn.tooltip_text = "Race the %s AI: a see-through car next to you; finish ahead of it to win. You pick the car next (the time shown is with the %s)." % [lname, cname] if has \
+		else "No %s AI on this track with the %s" % [lname, cname]
 	_watch_btn.tooltip_text = "Watch the %s AI drive this track with the %s, with its sensors and network" % [lname, cname] if has \
 		else "No %s AI on this track with the %s" % [lname, cname]
 	# (v6.13) Race the field at this level: what a win pays now
-	_field_btn.disabled = not has or not owned
+	_field_btn.disabled = not has
 	var win: Dictionary = UiData.field_pays(UiData.track_id(selected_track), car, opp, 1)
-	_field_btn.tooltip_text = ("Race the field: five AI drivers at %s pace on a starting grid; you start last. Places pay once per track and car%s" % [
-		lname, (": a win pays +%s · +%s pts now" % [UiFormat.money(int(win.money)), UiFormat.points(int(win.points))]) if int(win.money) > 0 else " (every place here is paid)"]
-		if owned else "Buy the %s to race it" % cname) if has else "No %s AI on this track with the %s" % [lname, cname]
+	_field_btn.tooltip_text = "Race the field: five AI drivers at %s pace on a starting grid; you start last. You pick the car next. Places pay once per track and car%s" % [
+		lname, (": a win with the %s pays +%s · +%s pts now" % [cname, UiFormat.money(int(win.money)), UiFormat.points(int(win.points))]) if int(win.money) > 0 else " (every place here is paid with the %s)" % cname] if has \
+		else "No %s AI on this track with the %s" % [lname, cname]
 
 
 ## The header's money and points.
@@ -858,72 +783,6 @@ func _clamp_status() -> void:
 			return
 
 
-func _render_cars() -> void:
-	var car := UiData.picked_car()
-	var have := UiData.money()
-	for c in _cards:
-		c.selected = c.car_id == car
-		var price := UiData.car_price(c.car_id)
-		c.set_lock(not UiData.owns_car(c.car_id), price, have >= price)
-	for c in _cards:
-		c.set_upgrades(UiData.car_bars(c.car_id), float(UiData.car_stats(c.car_id).top), UiData.upgrade_levels(c.car_id))
-	_render_parts(car, have)
-	var info := UiData.car_info(car)
-	_car_desc_name.text = info.name
-	_car_desc.text = info.description
-	_car_desc.tooltip_text = "%s: %s" % [info.name, info.description]
-	# a car you don't own: its price on the line under the cards, and Drive buys it
-	var owned := UiData.owns_car(car)
-	var price := UiData.car_price(car)
-	_car_lock.visible = not owned
-	_car_lock.text = ("Locked · %s ·" % UiFormat.money(price)) if not owned else ""
-	if owned:
-		_drive_btn.text = "DRIVE"
-		_drive_btn.theme_type_variation = "PrimaryButton"
-		_drive_btn.tooltip_text = ""
-	elif have >= price:
-		_drive_btn.text = "BUY %s" % UiFormat.money(price)
-		_drive_btn.theme_type_variation = "PrimaryButton"
-		_drive_btn.tooltip_text = "Buy the %s for %s (you have %s): it asks first" % [info.name, UiFormat.money(price), UiFormat.money(have)]
-	else:
-		_drive_btn.text = "LOCKED"
-		_drive_btn.theme_type_variation = ""
-		_drive_btn.tooltip_text = "The %s costs %s: %s more to go. Medals and wins against the AI opponents pay money." % [
-			info.name, UiFormat.money(price), UiFormat.money(price - have)]
-
-
-## The picked car's upgrades (v6.11): each part's chip (levels, the next price), the rows shown.
-func _render_parts(car: String, have: int) -> void:
-	var owned := UiData.owns_car(car)
-	var cname: String = UiData.car_info(car).name
-	var lv := UiData.upgrade_levels(car)
-	var parts := UiData.upgrade_parts()
-	for k in _part_chips.size():
-		var chip: Button = _part_chips[k]
-		var p: Dictionary = parts[k]
-		var level: int = lv[k]
-		var nxt := UiData.upgrade_cost(car, String(p.id), level + 1)
-		chip.show_part(String(p.id), String(p.name), level, int(p.max), nxt, have >= nxt, not owned)
-		var now := "level %d of %d (%s)" % [level, int(p.max), Upgrades.effect(String(p.id), level)] if level > 0 else "stock (level 0 of %d)" % int(p.max)
-		if not owned:
-			chip.tooltip_text = "%s: %s. Buy the %s first to upgrade it." % [p.name, p.what, cname]
-		elif level >= int(p.max):
-			chip.tooltip_text = "%s: %s. Every level bought (%s)." % [p.name, p.what, Upgrades.effect(String(p.id), level)]
-		else:
-			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s Medal times and the AI opponents stay stock." % [
-				p.name, cname, p.what, now, level + 1, Upgrades.effect(String(p.id), level + 1), UiFormat.money(nxt), UiFormat.money(have),
-				"" if have >= nxt else " %s more to go." % UiFormat.money(nxt - have)]
-	# one line under the cards in a short window: an owned car's parts, a locked car's description
-	_parts_row.visible = _both_lines or owned
-	_car_desc_row.visible = _both_lines or not owned
-	_car_desc_row.custom_minimum_size.y = 0.0 if _both_lines else 26.0
-
-
-## The part chips the pad highlight can go to (shown and enabled).
-func _pad_parts() -> Array:
-	return _part_chips.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
-
-
 ## The panel of the selected track, with your records and its medal times with the picked car.
 func _render_detail() -> void:
 	var i := selected_track
@@ -945,7 +804,7 @@ func _render_detail() -> void:
 	var lock := UiData.track_lock(i)
 	_td_lock.visible = not lock.is_empty()
 	if not lock.is_empty():
-		_td_lock_text.text = "[color=#%s][b]Locked[/b][/color]: win %s or better on [b]%s[/b] (%s, any car) to open it. Watch the AI and Train the AI work here anyway; they pay nothing." % [
+		_td_lock_text.text = "[color=#%s][b]Locked[/b][/color]: win %s or better on [b]%s[/b] (%s, any car) to open it. Watch AI and Train AI work here anyway; they pay nothing." % [
 			UiStyle.ACCENT.to_html(false), str(UiStyle.MEDAL_NAMES[lock.medal]).to_lower(), lock.name, UiFormat.track_number(int(lock.index))]
 	_td_map.map = _maps[i]
 	_td_car_name.text = cinfo.name
@@ -993,11 +852,70 @@ func select(i: int) -> void:
 	_scroll.ensure_control_visible(_tiles[i])
 
 
-## Pick car `id` (remembered: Drive and Race the AI ghost use it); the tiles and the panel follow it.
+## Pick car `id` (remembered: the car page starts with it); the tiles and the panel follow it.
 func select_car(id: String) -> void:
 	UiData.set_setting("car", id)
 	car_selected.emit(id)
 	refresh()
+
+
+## A race was chosen (v6.19.0): `kind` "drive" (a time trial), "race_ghost", "race_field", "cup_start"
+## (args: cup id, level) or "cup_next". The car page comes up, and its START starts it. On a locked
+## track the signal goes out at once: the game says what opens the track. Before a cup's next race the
+## page shows the cup's car.
+func ask_car(kind: String, args: Array = []) -> void:
+	pending = kind
+	pending_args = args
+	if kind in ["drive", "race_ghost", "race_field"] and not UiData.track_lock(selected_track).is_empty():
+		_start_pending()
+		return
+	if kind == "cup_next":
+		var v: Dictionary = cups.run_view.call() if cups.run_view.is_valid() else {}
+		var c := String(v.get("car", ""))
+		if UiData.car_ids().has(c) and c != UiData.picked_car():
+			select_car(c)
+	car_page.event_text = event_text(kind, args)
+	UiSound.play("ui_confirm")
+	_ring.set_target(null)
+	car_page.open()
+
+
+## The car page's line for race `kind`: what is about to start.
+func event_text(kind: String, args: Array = []) -> String:
+	var t := UiData.track_info(selected_track)
+	var where := "%s %s" % [UiFormat.track_number(selected_track), t.name]
+	var opp := UiData.opponent()
+	match kind:
+		"drive":
+			return "Time trial · %s" % where
+		"race_ghost":
+			return ("Race my AI · %s" % where) if opp == UiData.MY_AI else "Race the %s AI · %s · no nitro" % [Opponents.level_name(opp), where]
+		"race_field":
+			return "Race the field (%s) · %s · no nitro" % [Opponents.level_name(opp), where]
+		"cup_start":
+			return "%s · %s field · you can change cars before every race" % [Cups.name_of(String(args[0])), Opponents.level_name(String(args[1]))]
+		"cup_next":
+			var v: Dictionary = cups.run_view.call() if cups.run_view.is_valid() else {}
+			if v.is_empty():
+				return "Cup race"
+			var nx: Dictionary = v.get("next", {})
+			return "%s · race %d of %d: %s %s · change cars if you like" % [String(v.name), int(v.done) + 1, int(v.count), String(nx.get("number", "")), String(nx.get("name", ""))]
+	return ""
+
+
+## START on the car page (or a race chosen on a locked track): the chosen race's signal goes out.
+func _start_pending() -> void:
+	match pending:
+		"drive":
+			drive.emit()
+		"race_ghost":
+			race_ghost.emit()
+		"race_field":
+			race_field.emit()
+		"cup_start":
+			cup_start.emit(String(pending_args[0]), String(pending_args[1]))
+		"cup_next":
+			cup_next.emit()
 
 
 ## The next (step 1) or previous (step -1) car.
@@ -1007,11 +925,18 @@ func cycle_car(step: int) -> void:
 	select_car(ids[(i + step + ids.size()) % ids.size()])
 
 
+## The picked car's card on the car page.
 func car_card() -> Control:
-	for c in _cards:
-		if c.car_id == UiData.picked_car():
-			return c
-	return null
+	return car_page.card()
+
+
+## (v6.19) Close the car page (a race started, or the menu is left).
+func show_car_page(on: bool) -> void:
+	if on:
+		_ring.set_target(null)
+		car_page.open()
+	else:
+		car_page.close()
 
 
 func show_menu(on: bool) -> void:
@@ -1026,6 +951,7 @@ func show_menu(on: bool) -> void:
 		show_settings(false)
 		show_terminal(false)
 		show_cups(false)
+		show_car_page(false)
 
 
 func show_controls(on: bool) -> void:
@@ -1093,6 +1019,10 @@ func handle_keys(inp: Object) -> void:
 		_terminal_was_open = terminal.visible
 		inp.clear_pressed()
 		return
+	if car_page.visible:
+		car_page.handle_keys(inp)
+		inp.clear_pressed()
+		return
 	if cups.visible:
 		cups.handle_keys(inp)
 		inp.clear_pressed()
@@ -1142,7 +1072,7 @@ func handle_keys(inp: Object) -> void:
 	if selected_track != was_track or UiData.picked_car() != was_car:
 		UiSound.play("ui_move") # (v6.12.0: ui/ui_sound.gd)
 	if inp.consume(["Enter", "Space", "NumpadEnter"]):
-		drive.emit()
+		ask_car("drive")
 	else:
 		handle_pad(inp)
 	inp.clear_pressed()
@@ -1176,34 +1106,26 @@ func _fit_hint() -> void:
 		items[k].visible = false
 
 
-## The controls the pad highlight can go to (shown and enabled), in the web's order.
+## The controls the pad highlight can go to (shown and enabled).
 func _pad_controls() -> Array:
 	var out: Array = []
-	var list: Array = [_controls_btn, _settings_btn, _cups_btn, _drive_btn, _ghost_btn, _watch_btn, _field_btn, _train_btn, _ghost_check, _save_btn]
+	var list: Array = [_controls_btn, _settings_btn, _cups_btn, _drive_btn, _ghost_btn, _field_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]
 	list.append_array(_opp_btns.values())
-	list.append_array(_part_chips)
 	for c in list:
 		if c.is_visible_in_tree() and not (c is BaseButton and c.disabled):
 			out.append(c)
 	return out
 
 
-func _pad_cars() -> Array:
-	return _cards.filter(func(c: Control) -> bool: return c.is_visible_in_tree())
-
-
 ## Gamepad on the menu (menu.js handlePad). The highlight is on the selected track tile
-## (_pad_at null), a car card or a button. On the tiles the d-pad moves like the arrow keys
-## (left / right along the tiles, wrapping; up / down a row; moving onto a tile selects it);
-## down from the bottom row goes to the cars, up from the top row to the Controls button. On
-## the cars, moving onto one picks it; up from the top row goes back to the tracks, right from
-## the last car or down from the bottom row to Drive. Between the buttons it moves to the
-## nearest one (left / right only along a row); left from the first button of a row goes back
-## to the picked car or the tracks, whichever is beside. A drives (on a tile) or presses the
-## button; on a car it goes back to the tracks. B goes back to the tracks, LB / RB pick the
-## previous / next car from anywhere. The highlight shows while the pad is the last input
-## used; a press while it is hidden only shows it. "Load network…" is left out (its file
-## dialog needs a mouse or keyboard anyway).
+## (_pad_at null) or a button. On the tiles the d-pad moves like the arrow keys (left / right
+## along the tiles, wrapping; up / down a row; moving onto a tile selects it); down from the
+## bottom row goes to TIME TRIAL, up from the top row to the Controls button. Between the buttons
+## it moves to the nearest one (left / right only along a row); left from the first button of a
+## row goes back to the tracks. A opens the car page for a time trial (on a tile) or presses the
+## button. B goes back to the tracks, LB / RB pick the previous / next car (the records shown)
+## from anywhere. The highlight shows while the pad is the last input used; a press while it is
+## hidden only shows it. "Load AI…" is left out (its file dialog needs a mouse or keyboard anyway).
 func handle_pad(inp: Object) -> void:
 	var was_track := selected_track
 	var was_car := UiData.picked_car()
@@ -1211,42 +1133,22 @@ func handle_pad(inp: Object) -> void:
 	var a: bool = inp.consume(["PadA"])
 	var b: bool = inp.consume(["PadB"])
 	var ctrls := _pad_controls()
-	var cars := _pad_cars()
 	var shown := _ring.target != null
-	var at: Control = _pad_at if (ctrls.has(_pad_at) or cars.has(_pad_at)) else null
-	var on_car := cars.has(at)
+	var at: Control = _pad_at if ctrls.has(_pad_at) else null
 	var step := (1 if inp.consume(["PadRB"]) else 0) - (1 if inp.consume(["PadLB"]) else 0)
 	if step != 0:
 		cycle_car(step)
-		if on_car:
-			at = car_card()
 	var drive_btn: Control = _drive_btn if ctrls.has(_drive_btn) else null
 	if dir != "" and shown:
 		var card: Control = _tiles[selected_track]
-		if on_car:
-			var next := PadNav.nearest_control(at, dir, cars)
-			if next != null:
-				select_car(next.car_id)
-				at = next
-			elif dir == "up":
-				at = null
-			elif dir == "down" and not _pad_parts().is_empty():
-				at = PadNav.nearest_control(at, "down", _pad_parts()) # (v6.11: the picked car's parts)
-				if at == null:
-					at = _pad_parts()[0]
-			elif dir == "right" or dir == "down":
-				at = drive_btn if drive_btn != null else at
-		elif (at == _controls_btn or at == _settings_btn) and dir == "down":
+		if (at == _controls_btn or at == _settings_btn) and dir == "down":
 			at = null # under the header buttons: the track tiles
-		elif _part_chips.has(at) and dir == "up":
-			at = car_card() # (v6.11) above the parts: the picked car
 		elif at != null:
 			var next := PadNav.nearest_control(at, dir, ctrls)
 			if next != null and (dir == "up" or dir == "down" or PadNav.same_row(at.get_global_rect(), next.get_global_rect())):
 				at = next # (left / right: only along a row)
 			elif dir == "left":
-				var back := PadNav.nearest_control(at, "left", [car_card(), card].filter(func(c: Variant) -> bool: return c != null))
-				at = back if back != null and back != card else null
+				at = null
 		elif dir == "left" or dir == "right":
 			var n := _tiles.size()
 			select((selected_track + (1 if dir == "right" else n - 1)) % n)
@@ -1255,18 +1157,15 @@ func handle_pad(inp: Object) -> void:
 			if next != null:
 				select(_tiles.find(next))
 			elif dir == "down":
-				at = car_card() # below the last row: the cars
+				at = drive_btn # below the last row: the race buttons
 			else:
 				at = _controls_btn if ctrls.has(_controls_btn) else null # above the top row: Controls
 	elif a and shown:
-		if on_car:
-			UiSound.play("ui_confirm")
-			at = null # the car is picked: back to the tracks
-		elif at != null:
+		if at != null:
 			_press(at)
 			return
 		else:
-			drive.emit()
+			ask_car("drive")
 			return
 	if b:
 		if at != null:
@@ -1311,13 +1210,13 @@ func pad_target() -> Control:
 
 # ================================================================= layout
 
-## Apply the window-size rules of style.css (in interface pixels: UiRoot lays the interface
-## out at the window's size divided by the interface scale, like CSS pixels):
-##   up to six tiles a row from 1200 px wide, four below (three under 760), as many a row as
-##   keeps the rows full (v6.4: 15 tracks make three rows of five); map 56 px in short windows
-##   (≤ 800 px; 40 px with three rows of tiles from 1200 px wide), 64 px, 80 px from 860 px tall,
-##   104 px from 1600 x 940 (with roomier tiles); the side column 30 % of the width
-##   (360-440 px); denser spacing when the window is short.
+## Apply the window-size rules (in interface pixels: UiRoot lays the interface out at the window's
+## size divided by the interface scale, like CSS pixels):
+##   up to six tiles a row from 1200 px wide, four below (three under 760), as many a row as keeps the
+##   rows full (15 tracks make three rows of five); the side column 30 % of the width (360-440 px);
+##   denser spacing when the window is short. Since v6.19.0 (no car picker on Home) the tiles take the
+##   window's height: their maps are as tall as the rows allow (40 px at least, 0.75 of the tile's width
+##   and 140 px at most); in one column (under 1000 px wide) the maps are 56 px and the page scrolls.
 func _layout() -> void:
 	var w := size.x
 	var h := size.y
@@ -1331,65 +1230,48 @@ func _layout() -> void:
 	var max_cols := 6 if w >= 1200 else (4 if w >= 760 else 3)
 	var rows := ceili(float(_tiles.size()) / max_cols)
 	columns = ceili(float(_tiles.size()) / maxi(1, rows))
-	# three rows of tiles in a short window: shorter maps and tighter tiles, so 1280 x 720 still
-	# shows the whole menu without scrolling
-	var dense := rows >= 3 and compact and w >= 1200
-	map_h = 64.0
-	if w >= 1200 and h >= 860:
-		map_h = 80.0
-	if big:
-		map_h = 104.0
-	if w < 1200 or compact:
-		map_h = 56.0
-	if w < 1200 and w >= 1000 and compact:
-		map_h = 44.0
-	if dense:
-		map_h = 40.0
 	_grid.columns = columns
 	var tile_px := float(UiStyle.S3)
 	if big:
 		tile_px = UiStyle.S4
 	elif w < 1280 and w >= 1200:
 		tile_px = UiStyle.S2
-	var tile_py := float(UiStyle.S4 if big else (UiStyle.S2 if dense else UiStyle.S3))
-	for t in _tiles:
-		t.set_metrics(map_h, tile_px, tile_py, UiStyle.FS_L if big else UiStyle.FS_M)
+	var tile_py := float(UiStyle.S4 if big else UiStyle.S3)
+	var name_px := UiStyle.FS_L if big else UiStyle.FS_M
 	var side_w := clampf(0.3 * w, 360.0, 440.0) if w >= 1200 else 340.0
 	_main.vertical = one_col
 	_side.custom_minimum_size.x = 0.0 if one_col else side_w
 	_gaps.head.custom_minimum_size.y = UiStyle.S4 if compact else UiStyle.S5
-	_gaps.tracks.custom_minimum_size.y = UiStyle.S4 if compact else UiStyle.S5
+	var pad_x := float(UiStyle.S6) if w >= 1000 else float(UiStyle.S4)
+	var pad_y := float(UiStyle.S4) if compact else float(UiStyle.S5)
+	var mw := minf(1480.0, w - 2 * pad_x)
+	map_h = 56.0
+	if not one_col:
+		var left_w := mw - side_w - _main.get_theme_constant("separation")
+		var tile_w := (left_w - (columns - 1) * UiStyle.S2) / columns
+		var avail: float = h - 2 * pad_y - _head.get_combined_minimum_size().y - _gaps.head.custom_minimum_size.y - _track_step.get_combined_minimum_size().y
+		var tile_h: float = floorf((avail - (rows - 1) * UiStyle.S2) / rows)
+		var foot: float = 2 * UiStyle.S2 + roundf(name_px * 1.25) + (UiStyle.S2 if name_px > UiStyle.FS_M else UiStyle.S1) + 18
+		if tile_h - foot - 2 * tile_py < 48.0:
+			tile_py = UiStyle.S2 # (many rows in a short window: tighter tiles)
+		map_h = clampf(tile_h - foot - 2 * tile_py, 40.0, minf(roundf((tile_w - 2 * tile_px) * 0.75), 140.0))
+	for t in _tiles:
+		t.set_metrics(map_h, tile_px, tile_py, name_px)
 	_gaps.side.custom_minimum_size.y = UiStyle.S3 if compact else UiStyle.S5
 	_gaps.ai.custom_minimum_size.y = UiStyle.S3 if compact else UiStyle.S5
 	_gaps.status.add_theme_constant_override("margin_bottom", UiStyle.S2 if compact else UiStyle.S3)
+	_gaps.lab.add_theme_constant_override("margin_top", UiStyle.S3 if compact else UiStyle.S4)
 	_td_car_gap.custom_minimum_size.y = UiStyle.S3 if compact else UiStyle.S5
 	_detail.add_theme_stylebox_override("panel", UiStyle.box(UiStyle.PANEL, false,
 		[UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5, UiStyle.S5, UiStyle.S4 if compact else UiStyle.S5]))
 	_td_desc.custom_minimum_size.y = 0.0 if compact else ceilf(UiStyle.FS_M * 1.45 * 3)
-	# (v6.11) the parts row and the description line both, or one in its place
-	var both := h >= BOTH_LINES_H or one_col
-	if both != _both_lines:
-		_both_lines = both
-		_render_parts(UiData.picked_car(), UiData.money())
 	_drive_btn.custom_minimum_size.y = 46.0 if compact else 52.0
-	# the car picker: three cards a row when it is at least CARS_3COL px wide (six cars in two rows),
-	# else two; the cards stack (bars under the side view and name) three a row, or two a row in a
-	# 500-760 px picker (style.css @container car-picker)
-	var pad_x := float(UiStyle.S6) if w >= 1000 else float(UiStyle.S4)
-	var mw := minf(1480.0, w - 2 * pad_x)
-	var picker_w := mw if one_col else mw - side_w - _main.get_theme_constant("separation")
-	var car_cols := 3 if picker_w >= CARS_3COL else 2
-	_cars_grid.columns = car_cols
-	var card_w := (picker_w - (car_cols - 1) * UiStyle.S2) / car_cols
-	for c in _cards:
-		c.stacked = car_cols == 3 or (picker_w >= 500.0 and picker_w <= 760.0)
-		c.short_spec = card_w < 300.0
-	# the ghost check box wraps its label beside the Drive button when the side column is narrow
+	# the ghost check box wraps its label beside the primary button when the side column is narrow
 	var row_sep := float(_ghost_check.get_parent().get_theme_constant("separation"))
 	var room := side_w - _drive_btn.custom_minimum_size.x - row_sep - 18 - UiStyle.S2
 	_ghost_check.wrap_width = room if (not one_col and room < UiStyle.text_width(_ghost_check.text, "text", UiStyle.FS_S)) else 0.0
-	# the AI's two buttons side by side in the 340 px side column: tighter padding
-	for b in [_ghost_btn, _watch_btn]:
+	# the two race buttons side by side in the 340 px side column: tighter padding
+	for b in [_ghost_btn, _field_btn]:
 		b.theme_type_variation = "TightButton" if (side_w < 360.0 and not one_col) else ""
 	# the stats two a row in the narrower side column (1000-1199 px)
 	_stats[0].box.get_parent().columns = 2 if (w < 1200 and w >= 1000) else 4

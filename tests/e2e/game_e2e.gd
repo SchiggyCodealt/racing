@@ -158,6 +158,10 @@ var out_dir := ""
 var passed := 0
 var failed := 0
 var _pilot: Autopilot = null
+## (v6.19) Choosing a race on the menu opens the car page first. While this is on, a key press or a
+## click that opened the page also presses its START (Enter), so the scenarios written before it
+## still start their races with one press; the menu scenario turns it off to look at the page.
+var auto_start := true
 
 
 func _initialize() -> void:
@@ -253,6 +257,7 @@ func wait_until(cond: Callable, timeout: float) -> bool:
 
 ## A press and release of physical key `k` (with Shift held when `shift`).
 func key(k: Key, shift: bool = false) -> void:
+	var page_was := _car_page_open()
 	if shift:
 		_key_event(KEY_SHIFT, true, false)
 	_key_event(k, true, shift)
@@ -261,6 +266,12 @@ func key(k: Key, shift: bool = false) -> void:
 	if shift:
 		_key_event(KEY_SHIFT, false, false)
 	await frames(1)
+	if auto_start and not page_was and _car_page_open():
+		await key(KEY_ENTER) # (the car page's START)
+
+
+func _car_page_open() -> bool:
+	return app != null and app.ui != null and app.ui.menu.car_page.is_open
 
 
 func _key_event(k: Key, down: bool, shift: bool) -> void:
@@ -294,6 +305,7 @@ func pad_axis(axis: JoyAxis, v: float) -> void:
 ## Click the middle of a Control with the left mouse button (scrolled into view first, as a
 ## player would).
 func click(c: Control) -> void:
+	var page_was := _car_page_open()
 	await scroll_to(c)
 	# (the interface layer is scaled: the screen transform maps the control to window pixels)
 	var p := c.get_screen_transform() * (c.size * 0.5)
@@ -305,6 +317,8 @@ func click(c: Control) -> void:
 		e.global_position = p
 		Input.parse_input_event(e)
 		await frames(2)
+	if auto_start and not page_was and _car_page_open():
+		await key(KEY_ENTER) # (the car page's START)
 
 
 ## Scroll the ScrollContainer around `c` (if any) so that `c` shows.
@@ -738,17 +752,17 @@ func menu_nav() -> void:
 		check(menu.selected_track == want, "→ track %d (%s)" % [want + 1, Tracks.build(Tracks.ids()[want]).name])
 	await key(KEY_RIGHT)
 	check(menu.selected_track == 0, "→ wraps to track 1")
-	# the whole menu fits a 1280 x 720 window: no scrolling, every tile and car card inside it
+	# the whole menu fits a 1280 x 720 window: no scrolling, every tile inside it
 	var win := Vector2(root.size)
 	var sc: ScrollContainer = menu.get("_scroll")
 	var bar := sc.get_v_scroll_bar()
 	var inside := true
-	for c: Control in (menu.get("_tiles") as Array) + (menu.get("_cards") as Array):
+	for c: Control in (menu.get("_tiles") as Array):
 		var r := c.get_global_rect()
 		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
 	var main: Control = menu.get("_main")
 	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5 and main.get_global_rect().end.y <= win.y + 0.5,
-		"the menu with %d tracks fits %dx%d: no scrolling (content %.0f px, page %.0f), every tile and car card on screen" % [n, win.x, win.y, bar.max_value, bar.page])
+		"the menu with %d tracks fits %dx%d: no scrolling (content %.0f px, page %.0f), every tile on screen" % [n, win.x, win.y, bar.max_value, bar.page])
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
 	check(app.world.track == app.tracks[0], "the 3D track follows the selection (built on a thread)")
 	var car0 := UiData.picked_car()
@@ -791,27 +805,56 @@ func menu_nav() -> void:
 	inp.press("PadB")
 	await frames(2)
 	check(not menu.controls.visible, "pad B closes Controls")
-	# down the three rows of tiles to the cars, then A drives
+	# down the three rows of tiles to the race buttons; B goes back
 	var rows_seen := {menu.selected_track / maxi(1, menu.columns): true}
 	for i in 5:
 		inp.pad_active = true
 		inp.press("NavDown")
 		await frames(2)
-		var on: Control = menu.pad_target()
-		if on != null and on.get("car_id") != null:
+		if menu.pad_target() == menu.get("_drive_btn"):
 			break
 		rows_seen[menu.selected_track / maxi(1, menu.columns)] = true
 	var at: Control = menu.pad_target()
-	check(at != null and at.get("car_id") != null and rows_seen.size() == 3,
-		"pad: down through the %d rows of tiles reaches the car cards (%s)" % [rows_seen.size(), at.name if at else "none"])
+	check(at == menu.get("_drive_btn") and rows_seen.size() == 3,
+		"pad: down through the %d rows of tiles reaches TIME TRIAL (%s)" % [rows_seen.size(), at.name if at else "none"])
 	inp.pad_active = true
 	inp.press("PadB")
 	await frames(2)
 	check(menu.pad_target() == menu.get("_tiles")[menu.selected_track], "pad B: back to the track tiles")
+	await shot("menu_home")
+	# (v6.19) A on a tile chooses a time trial: the car page comes first, and fits the window
+	auto_start = false
+	inp.pad_active = true
+	inp.press("PadA")
+	await frames(4)
+	var page: CarScreen = menu.car_page
+	var fits := page.is_open and page.start_btn.get_global_rect().end.y <= win.y + 0.5 and page.parts_row.is_visible_in_tree()
+	for c: Control in page.cards:
+		var r := c.get_global_rect()
+		fits = fits and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5
+	check(app.mode == app.menu_mode and fits and page.event_text.begins_with("Time trial · ") and page.pad_target() == page.card(),
+		"pad A on a tile: the car page (\"%s\") with every car, the parts and START on screen; nothing started yet" % page.event_text)
+	await shot("menu_car_page")
+	inp.pad_active = true
+	inp.press("NavRight")
+	await frames(2)
+	check(UiData.picked_car() == car1 and page.pad_target() == page.card(), "pad right on the car page: the next car (%s)" % car1)
+	inp.pad_active = true
+	inp.press("PadB")
+	await frames(2)
+	check(not page.is_open and app.mode == app.menu_mode and UiData.picked_car() == car1, "pad B: back to the menu, the pick stays")
+	await key(KEY_ENTER)
+	check(page.is_open, "Enter on the menu: the car page again")
+	await key(KEY_C, true)
+	check(UiData.picked_car() == car0, "Shift+C on the car page: the previous car")
+	inp.pad_active = true
+	inp.press("PadA")
+	await frames(2)
 	inp.pad_active = true
 	inp.press("PadA")
 	await frames(3)
-	check(app.mode != app.menu_mode and app.mode.get("driver") == "human", "pad A on a tile drives")
+	check(app.mode != app.menu_mode and app.mode.get("driver") == "human" and not page.is_open, "pad A on the car page starts the time trial")
+	auto_start = true
 	await pad_button(JOY_BUTTON_START)
 	check(app.mode == app.menu_mode, "pad Menu: back to the menu")
 	check(n == 15, "15 tracks")
@@ -1507,20 +1550,24 @@ func economy() -> void:
 		tiles[13].locked and tiles[14].locked and UiData.open_track_count() == 13, "the menu: %s, %s; Forest Rally NEW, the last two tracks locked" % [money_l.text, points_l.text])
 	await shot("economy_menu")
 
-	# the shop: the Vortex is short of money, the Kestrel is bought
+	# the shop (v6.19: the car page, after a race is chosen): the Vortex is short of money, the Kestrel is bought
+	auto_start = false
+	var page: CarScreen = menu.car_page
+	await key(KEY_ENTER)
+	check(page.is_open and drive_btn.text == "TIME TRIAL", "Enter (a time trial): the car page")
 	while UiData.picked_car() != "vortex":
 		await key(KEY_C)
-	check(drive_btn.text == "LOCKED", "the Vortex picked: LOCKED (it costs %s)" % UiFormat.money(UiData.car_price("vortex")))
+	check(page.start_btn.text == "LOCKED", "the Vortex picked: LOCKED (it costs %s)" % UiFormat.money(UiData.car_price("vortex")))
 	await key(KEY_ENTER)
 	var msg: Label = app.message.get("_text")
 	check(app.mode == app.menu_mode and app.message.visible and not app.message.asking and msg.text.contains("more to go"), "Enter: %s" % msg.text)
 	await key(KEY_ESCAPE)
-	check(not app.message.visible, "Esc closes it")
+	check(not app.message.visible and page.is_open, "Esc closes it (the car page stays)")
 	while UiData.picked_car() != "kestrel":
 		await key(KEY_C)
 	await frames(10)
 	var money2 := UiData.money()
-	check(drive_btn.text == "BUY $10,000" and not SaveData.owns_car("kestrel"), "the Kestrel picked: BUY $10,000")
+	check(page.start_btn.text == "BUY $10,000" and not SaveData.owns_car("kestrel"), "the Kestrel picked: BUY $10,000")
 	await shot("economy_shop")
 	await key(KEY_ENTER)
 	await frames(10)
@@ -1528,9 +1575,10 @@ func economy() -> void:
 	await shot("economy_buy")
 	await key(KEY_ENTER)
 	await frames(4)
-	check(SaveData.owns_car("kestrel") and UiData.money() == money2 - 10000 and drive_btn.text == "DRIVE" and money_l.text == UiFormat.money(money2 - 10000) and
-		app.mode == app.menu_mode, "Enter (yes): the Kestrel is yours, %s left" % UiFormat.money(UiData.money()))
+	check(SaveData.owns_car("kestrel") and UiData.money() == money2 - 10000 and page.start_btn.text == "START" and money_l.text == UiFormat.money(money2 - 10000) and
+		page.money_l.text == money_l.text and app.mode == app.menu_mode, "Enter (yes): the Kestrel is yours, %s left; the button reads START" % UiFormat.money(UiData.money()))
 	await key(KEY_ENTER)
+	auto_start = true
 	check(app.mode != app.menu_mode and str((app.mode.get("car_def") as Dictionary).id) == "kestrel", "Enter drives the Kestrel")
 	await key(KEY_ESCAPE)
 	await frames(4)
@@ -1634,17 +1682,24 @@ func terminal() -> void:
 	await key(KEY_ESCAPE)
 	check(not term.visible and app.mode == app.menu_mode, "Esc closes it (still on the menu)")
 
-	# the money buys the Kestrel on the car picker
+	# the money buys the Kestrel on the car page (v6.19: Enter chooses a time trial, the page comes up)
 	while UiData.picked_car() != "kestrel":
 		await key(KEY_C)
 	await frames(4)
-	check(drive_btn.text == "BUY $10,000", "the Kestrel: BUY $10,000 (the terminal's money counts)")
+	auto_start = false
+	await key(KEY_ENTER)
+	await frames(4)
+	var page: CarScreen = menu.car_page
+	check(page.is_open and page.start_btn.text == "BUY $10,000", "the Kestrel on the car page: BUY $10,000 (the terminal's money counts)")
 	await key(KEY_ENTER)
 	await frames(4)
 	check(app.message.asking, "BUY asks first")
 	await key(KEY_ENTER)
 	await frames(4)
-	check(SaveData.owns_car("kestrel") and UiData.money() == 15000 and money_l.text == "$15,000" and drive_btn.text == "DRIVE", "bought: the Kestrel is yours, $15,000 left")
+	check(SaveData.owns_car("kestrel") and UiData.money() == 15000 and money_l.text == "$15,000" and page.start_btn.text == "START", "bought: the Kestrel is yours, $15,000 left")
+	await key(KEY_ESCAPE)
+	auto_start = true
+	check(not page.is_open, "Esc: back on the menu")
 
 	# Settings: the Terminal row and its button
 	await key(KEY_O)
@@ -1743,7 +1798,7 @@ func terminal() -> void:
 	await frames(6)
 	await shot("terminal_reset_everything")
 	await key(KEY_ESCAPE)
-	check(not term.visible and app.mode == app.menu_mode and drive_btn.text == "DRIVE", "Esc: back on the menu, the Racer ready to drive")
+	check(not term.visible and app.mode == app.menu_mode and drive_btn.text == "TIME TRIAL", "Esc: back on the menu, the Racer ready to drive")
 	# (v6.18.0) Settings' Reset all progress button: the same wipe without typing; it asks twice
 	DirAccess.remove_absolute(backup)
 	SaveData.add_money(4200)
@@ -1849,7 +1904,7 @@ func unlock() -> void:
 	# a bronze on Rookie Oval opens Hairpin Valley
 	await key(KEY_1)
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
-	check(drive_btn.text == "DRIVE" and not lock_note.is_visible_in_tree(), "1: Rookie Oval, DRIVE")
+	check(drive_btn.text == "TIME TRIAL" and not lock_note.is_visible_in_tree(), "1: Rookie Oval, TIME TRIAL")
 	await key(KEY_ENTER)
 	var m: Node = app.mode
 	if not check(m != app.menu_mode and m.get("driver") == "human" and (m.get("track") as BuiltTrack).id == "rookie-oval", "Enter drives Rookie Oval"):
@@ -1876,39 +1931,42 @@ func unlock() -> void:
 	await shot("unlock_menu_after")
 	await key(KEY_2)
 	await wait_until(func() -> bool: return not app.building_track(), 60.0)
-	check(not tiles[1].is_new and drive_btn.text == "DRIVE" and not lock_note.is_visible_in_tree(), "2 picks it: NEW gone, DRIVE")
+	check(not tiles[1].is_new and drive_btn.text == "TIME TRIAL" and not lock_note.is_visible_in_tree(), "2 picks it: NEW gone, TIME TRIAL")
 	await key(KEY_ENTER)
 	await frames(5)
 	check(app.mode != app.menu_mode and (app.mode.get("track") as BuiltTrack).id == "hairpin-valley", "Enter drives Hairpin Valley")
 	await key(KEY_ESCAPE)
 	await frames(10)
 	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(SaveData.path))
-	check(disk is Dictionary and JsMath.same(disk.get("version"), 4) and (disk.career as Dictionary).get("tracks_open") == ["hairpin-valley"],
-		"the save file: career.tracks_open = [\"hairpin-valley\"] (still version 4)")
+	check(disk is Dictionary and JsMath.same(disk.get("version"), SaveData.VERSION) and (disk.career as Dictionary).get("tracks_open") == ["hairpin-valley"],
+		"the save file: career.tracks_open = [\"hairpin-valley\"] (version %d)" % SaveData.VERSION)
 
 
 # ---------------------------------------------------------------- upgrades (v6.11.0)
 
 func upgrades() -> void:
 	var menu: MainMenu = app.ui.menu
-	var chips: Array = menu.get("_part_chips")
+	var page: CarScreen = menu.car_page # (v6.19: the upgrades are on the car page, after a race is chosen)
+	var chips: Array = page.part_chips
 	var money_l: Label = menu.get("_money_l")
 	var msg: Label = app.message.get("_text")
 	var tid := "rookie-oval"
 	check(UiData.money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and Upgrades.is_stock(SaveData.get_upgrades("racer")),
 		"a new career: $0, the Racer, stock")
 	await pick(tid, "racer")
+	auto_start = false
+	await key(KEY_ENTER)
 	await frames(4)
-	var shown := chips.size() == 4
+	var shown := chips.size() == 4 and page.is_open
 	for c: Button in chips:
 		shown = shown and c.is_visible_in_tree() and not c.disabled and int(c.get("level")) == 0 and not bool(c.get("affordable"))
-	check(shown, "the Racer's four part chips on the car picker: level 0, the next level's price (grey: $0)")
+	check(shown, "Enter (a time trial): the car page with the Racer's four part chips: level 0, the next level's price (grey: $0)")
 	# the Kestrel (not yours): its chips are off and its description shows
 	while UiData.picked_car() != "kestrel":
 		await key(KEY_C)
 	await frames(4)
-	check((chips[0] as Button).disabled and not (menu.get("_parts_row") as Control).is_visible_in_tree() and (menu.get("_car_desc_row") as Control).is_visible_in_tree(),
-		"the Kestrel (not yours): its parts are off, its description shows instead")
+	check((chips[0] as Button).disabled and page.desc_row.is_visible_in_tree() and page.start_btn.text == "LOCKED",
+		"the Kestrel (not yours): its parts are off, START reads LOCKED ($0)")
 	while UiData.picked_car() != "racer":
 		await key(KEY_C)
 	await frames(4)
@@ -1936,15 +1994,16 @@ func upgrades() -> void:
 	await type_text("money %d" % (need + 5000 - UiData.money()))
 	await key(KEY_QUOTELEFT)
 	await frames(6)
-	check(UiData.money() == need + 5000 and bool(chips[0].get("affordable")), "the terminal's money: %s; the chips' prices in the accent" % money_l.text)
-	# the menu still fits 1280 x 720 with the parts row
+	await key(KEY_ENTER)
+	await frames(6)
+	check(UiData.money() == need + 5000 and page.is_open and bool(chips[0].get("affordable")), "the terminal's money: %s; Enter: the car page, the chips' prices in the accent" % money_l.text)
+	# the car page fits 1280 x 720
 	var win := Vector2(root.size)
-	var bar := (menu.get("_scroll") as ScrollContainer).get_v_scroll_bar()
 	var inside := true
-	for c: Control in chips + [menu.get("_drive_btn"), menu.car_card()]:
+	for c: Control in chips + [page.start_btn, menu.car_card()]:
 		var r := c.get_global_rect()
 		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
-	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5, "1280 x 720: the part chips, the cars and Drive on screen, no scrolling")
+	check(win == Vector2(1280, 720) and inside, "1280 x 720: the part chips, the cars and START on screen")
 	await shot("upgrades_menu")
 	var money0 := UiData.money()
 	await click(chips[0])
@@ -1979,6 +2038,7 @@ func upgrades() -> void:
 	await shot("upgrades_max")
 	# the upgraded Racer, the same autopilot: faster than the author time
 	await key(KEY_ENTER)
+	auto_start = true
 	m = app.mode
 	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10])), "Enter drives the upgraded Racer"):
 		return

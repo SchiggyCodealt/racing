@@ -692,13 +692,17 @@ func _app_cup(t, app: GameApp) -> void:
 	cups.pick_level("pro")
 	var info: String = (cups.get("_info") as RichTextLabel).get_parsed_text()
 	var win := UiData.cup_pays("rookie", "pro", 1)
-	t.check(not (cups.get("_start_btn") as Button).disabled and info.contains("+" + UiFormat.money(int(win.money))) and info.contains("Racer"),
+	t.check(not (cups.get("_start_btn") as Button).disabled and info.contains("+" + UiFormat.money(int(win.money))) and info.contains("you pick your car before each race"),
 		"with the tracks open START is on: \"%s\"" % info)
+	app.input.press("Enter")
+	menu.handle_keys(app.input)
+	t.check(menu.car_page.is_open and app.cup == null and app.mode == app.menu_mode and menu.car_page.event_text.begins_with("Rookie Cup · Pro field"),
+		"v6.19: START CUP (Enter) asks for the car first: the car page (\"%s\"); no cup yet" % menu.car_page.event_text)
 	app.input.press("Enter")
 	menu.handle_keys(app.input)
 	var m: Node = app.mode
 	var fr: FieldRace = m.get("field") if m != app.menu_mode else null
-	t.check(fr != null and app.cup != null and m.get("cup") == app.cup and str(app.ui.hud.get("_mode").text).begins_with("ROOKIE CUP · RACE 1/3 · PRO") and not cups.visible and
+	t.check(fr != null and not menu.car_page.is_open and app.cup != null and m.get("cup") == app.cup and str(app.ui.hud.get("_mode").text).begins_with("ROOKIE CUP · RACE 1/3 · PRO") and not cups.visible and
 		fr.racers[fr.player_index].slot == 5 and SaveData.get_cup_run().get("cup") == "rookie",
 		"Enter starts it: race 1 of 3 on Rookie Oval (%s), you last on the grid, the cup in the save file" % str(app.ui.hud.get("_mode").text))
 	if fr == null:
@@ -728,7 +732,10 @@ func _app_cup(t, app: GameApp) -> void:
 		int(app.cup.races[0]["you"].place) == place and menu.selected_track == 1 and CupRun.from_dict(SaveData.get_cup_run()).to_dict() == app.cup.to_dict() and
 		(cups.get("_table") as CupTable).get_child_count() == 7 * 7 and (cups.get("_race_btn") as Button).text == "RACE 2: HAIRPIN VALLEY",
 		"R after the finish doesn't race it again; Enter: the standings over the menu (six rows, you %s), Hairpin Valley picked behind them, the cup saved; RACE 2: HAIRPIN VALLEY" % Field.place_name(app.cup.place()))
-	# race 2: from your slot by the standings; Esc before the finish doesn't count it
+	# race 2: from your slot by the standings; Esc before the finish doesn't count it (v6.19: Enter on the
+	# standings opens the car page, Enter there starts the race)
+	app.input.press("Enter")
+	menu.handle_keys(app.input)
 	app.input.press("Enter")
 	menu.handle_keys(app.input)
 	m = app.mode
@@ -754,12 +761,28 @@ func _app_cup(t, app: GameApp) -> void:
 		rows2.append({"id": app.cup.drivers[k], "place": k + 2})
 	app.cup_result(rows2)
 	app.cup_standings()
+	# (v6.19) the car page comes up before every cup race, with the cup's car picked: another car you own
+	# becomes the cup's car from this race on; one you don't own is offered for sale and nothing starts
+	menu.select_car("kestrel")
 	cups.next_race.emit()
+	var page_ok: bool = menu.car_page.is_open and UiData.picked_car() == "racer" and app.mode == app.menu_mode and menu.car_page.event_text.contains("race 3 of 3")
+	menu.car_page.pick("kestrel")
+	menu.car_page.press_start()
+	var refused: bool = app.mode == app.menu_mode and app.cup.car == "racer" and app.message.visible and msg.text.contains("Kestrel costs")
+	app.message.close()
+	SaveData.give_car("kestrel")
+	menu.refresh()
+	var reads_start: bool = menu.car_page.start_btn.text == "START"
+	app.input.press("Enter")
+	menu.handle_keys(app.input)
 	m = app.mode
 	fr = m.get("field") if m != app.menu_mode else null
 	if fr == null:
 		t.check(false, "race 3 starts")
 		return
+	t.check(page_ok and refused and reads_start and app.cup.car == "kestrel" and SaveData.get_cup_run().get("car") == "kestrel" and str((m.get("car_def") as Dictionary).id) == "kestrel" and
+		app.cup.races_done() == 2 and not menu.car_page.is_open,
+		"v6.19: RACE 3 opens the car page with the cup's car (the Racer); the Kestrel is refused until it is yours, then race 3 runs with it and the cup keeps it (2 races stay counted)")
 	var money1 := UiData.money()
 	m.set("phase", "finished")
 	app.input.pressed["respawn"] = true
@@ -828,7 +851,7 @@ func _app_unlock(t, app: GameApp) -> void:
 	var lock_note: Control = menu.get("_td_lock")
 	var lock_text: String = (menu.get("_td_lock_text") as RichTextLabel).get_parsed_text()
 	t.check(menu.selected_track == 1 and lock_note.visible and lock_text.contains("Locked: win bronze or better on Rookie Oval") and
-		lock_text.contains("Watch the AI and Train the AI work here anyway") and drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("Hairpin Valley is locked"),
+		lock_text.contains("Watch AI and Train AI work here anyway") and drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("Hairpin Valley is locked"),
 		"Hairpin Valley can be picked: its panel says what opens it and that the AI lab works there; Drive reads LOCKED")
 	app.play("human", false)
 	t.check(app.mode == app.menu_mode and app.message.visible and msg.text.contains("Hairpin Valley opens when you win a bronze medal or better on Rookie Oval") and
@@ -857,7 +880,7 @@ func _app_unlock(t, app: GameApp) -> void:
 	var medals := Medals.medal_times(track, "racer")
 	app.play("human", false)
 	var m: Node = app.mode
-	t.check(m != app.menu_mode and m.get("track") == track and drive_btn.text == "DRIVE", "Rookie Oval drives")
+	t.check(m != app.menu_mode and m.get("track") == track and drive_btn.text == "TIME TRIAL", "Rookie Oval drives")
 	# (the medal autopilot's author run: any medal from bronze up opens the next track)
 	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
 	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
@@ -878,7 +901,7 @@ func _app_unlock(t, app: GameApp) -> void:
 	t.check(not tiles[1].locked and tiles[1].is_new and tiles[2].locked and UiData.open_track_count() == 2 and SaveData.opened_tracks() == PackedStringArray(["hairpin-valley"]),
 		"back on the menu: Hairpin Valley's tile is open and NEW; Ramp Rally is still locked")
 	menu.select(1)
-	t.check(not tiles[1].is_new and drive_btn.text == "DRIVE" and not (menu.get("_td_lock") as Control).visible, "picking it clears NEW; Drive reads DRIVE")
+	t.check(not tiles[1].is_new and drive_btn.text == "TIME TRIAL" and not (menu.get("_td_lock") as Control).visible, "picking it clears NEW; the button reads TIME TRIAL")
 	UiData.mark_new_track("hairpin-valley")
 	menu.refresh()
 	var shown: bool = tiles[1].is_new
@@ -926,20 +949,22 @@ func _app_career(t, app: GameApp) -> void:
 	menu.select_car("racer")
 	menu.select_opponent("rookie")
 	t.check(UiData.money() == 0 and UiData.points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and
-		points_l.text == "0 pts" and drive_btn.text == "DRIVE", "a new career: $0, 0 points, only the Racer (the menu's header: %s, %s)" % [money_l.text, points_l.text])
+		points_l.text == "0 pts" and drive_btn.text == "TIME TRIAL", "a new career: $0, 0 points, only the Racer (the menu's header: %s, %s)" % [money_l.text, points_l.text])
 
-	# the shop: a locked car's Drive
-	menu.select_car("kestrel")
-	var lock: Label = menu.get("_car_lock")
-	t.check(drive_btn.text == "LOCKED" and lock.visible and lock.text.contains("$10,000") and ghost_btn.disabled and not (menu.get("_watch_btn") as Button).disabled,
-		"the Kestrel picked: locked at $10,000 (Drive reads LOCKED, Race the AI is off, Watch the AI is on)")
+	# the shop (v6.19: the car page, opened by choosing a race): a locked car's START
+	menu.ask_car("drive")
+	var start_btn: Button = menu.car_page.start_btn
+	menu.car_page.pick("kestrel")
+	var lock: Label = menu.car_page.car_lock
+	t.check(menu.car_page.is_open and start_btn.text == "LOCKED" and lock.visible and lock.text.contains("$10,000") and not ghost_btn.disabled and not (menu.get("_watch_btn") as Button).disabled and
+		drive_btn.text == "TIME TRIAL", "the Kestrel picked on the car page: locked at $10,000 (START reads LOCKED; the menu's race buttons stay on)")
 	app.play("human", false)
 	t.check(app.mode == app.menu_mode and app.message.visible and not app.message.asking and msg.text.contains("costs $10,000") and
 		msg.text.contains("$10,000 more to go"), "Drive it with $0: a message says how much is missing; still on the menu")
 	app.message.close()
 	SaveData.add_money(12500)
 	menu.refresh()
-	t.check(drive_btn.text == "BUY $10,000" and money_l.text == "$12,500", "with $12,500 Drive reads BUY $10,000")
+	t.check(start_btn.text == "BUY $10,000" and money_l.text == "$12,500" and menu.car_page.money_l.text == "$12,500", "with $12,500 START reads BUY $10,000")
 	app.play("human", false)
 	t.check(app.message.asking and msg.text.contains("costs $10,000") and msg.text.contains("$2,500 is left") and app.mode == app.menu_mode,
 		"BUY asks first (what it costs, what is left)")
@@ -947,10 +972,10 @@ func _app_career(t, app: GameApp) -> void:
 	t.check(not SaveData.owns_car("kestrel") and UiData.money() == 12500, "Cancel: nothing bought")
 	app.play("human", false)
 	app.message.confirm()
-	t.check(SaveData.owns_car("kestrel") and UiData.money() == 2500 and drive_btn.text == "DRIVE" and not lock.visible and money_l.text == "$2,500" and
-		app.mode == app.menu_mode and not app.message.visible, "yes: the Kestrel is yours, $2,500 left (the header says so)")
-	app.play("human", false)
-	t.check(app.mode != app.menu_mode and str(app.mode.get("car_def").id) == "kestrel", "now Drive drives it")
+	t.check(SaveData.owns_car("kestrel") and UiData.money() == 2500 and start_btn.text == "START" and not lock.visible and money_l.text == "$2,500" and
+		app.mode == app.menu_mode and not app.message.visible and menu.car_page.is_open, "yes: the Kestrel is yours, $2,500 left (the header says so); the car page reads START")
+	start_btn.pressed.emit()
+	t.check(app.mode != app.menu_mode and str(app.mode.get("car_def").id) == "kestrel" and not menu.car_page.is_open, "now START drives it (the car page closes)")
 	app.show_menu()
 
 	# Race the Rookie AI on Seaside Stunts with the Racer (the author run of the medal sweep; the
@@ -1063,7 +1088,7 @@ func _app_upgrades(t, app: GameApp) -> void:
 	var menu: MainMenu = app.ui.menu
 	var msg: Label = app.message.get("_text")
 	var money_l: Label = menu.get("_money_l")
-	var chips: Array = menu.get("_part_chips")
+	var chips: Array = menu.car_page.part_chips # (v6.19: on the car page; the menu's refresh redraws it)
 	menu.select_car("kestrel")
 	menu.refresh()
 	t.check(chips.size() == 4 and (chips[0] as Button).disabled and bool(chips[0].get("locked")), "the Kestrel not yours: its four part chips are off")
@@ -1186,10 +1211,10 @@ func _app_terminal(t, app: GameApp) -> void:
 	term.submit("reset career")
 	t.check(SaveData.get_money() == 15000 and SaveData.owns_car("dune"), "reset career only asks")
 	term.submit("reset career confirm")
-	t.check(SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and drive_btn.text == "LOCKED",
-		"reset career confirm: $0, only the Racer; the picked Dune is for sale again (%s)" % drive_btn.text)
+	t.check(SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and menu.car_page.start_btn.text == "LOCKED",
+		"reset career confirm: $0, only the Racer; the picked Dune is for sale again (the car page's START reads %s)" % menu.car_page.start_btn.text)
 	term.submit("unlock all")
-	t.check(SaveData.owned_cars().size() == Cars.ids().size() and SaveData.tracks_unlocked() and drive_btn.text == "DRIVE", "unlock all: every car (Drive), every track")
+	t.check(SaveData.owned_cars().size() == Cars.ids().size() and SaveData.tracks_unlocked() and menu.car_page.start_btn.text == "START" and drive_btn.text == "TIME TRIAL", "unlock all: every car (START), every track")
 	# (v6.17) reset everything: it asks first; then a backup next to the save file, a fresh install with the
 	# settings kept, and the app drops the network and the cup it held; a second one keeps the first backup
 	var clean_bk := func() -> void:
@@ -1216,7 +1241,7 @@ func _app_terminal(t, app: GameApp) -> void:
 	t.check(SaveData.get_money() == 0 and SaveData.get_points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and Upgrades.is_stock(SaveData.get_upgrades("racer")) and
 		SaveData.get_record("rookie-oval", "racer").is_empty() and SaveData.network_cars().is_empty() and SaveData.cup_trophies().is_empty() and
 		not SaveData.tracks_unlocked() and SaveData.opened_tracks().size() <= 1 and UiData.get_setting("grime") == false and UiData.picked_car() == "racer" and
-		money_l.text == "$0" and app.network.is_empty() and app.cup == null and app.selected_track == 0 and drive_btn.text == "DRIVE",
+		money_l.text == "$0" and app.network.is_empty() and app.cup == null and app.selected_track == 0 and drive_btn.text == "TIME TRIAL" and menu.car_page.start_btn.text == "START",
 		"reset everything confirm: $0, 0 pts, the Racer stock, no records, networks, trophies; Rookie Oval only, picked; a setting kept (no mud on the screen); the app holds no network (%s before)" % ("loaded" if net_err == "" else net_err))
 	t.check(bk is Dictionary and int(bk.career.money) == 15000 and (bk.records as Dictionary).has("rookie-oval") and (bk.networks as Dictionary).size() == (1 if net_err == "" else 0) and
 		log_t.contains("Backup of the old save: %s" % ProjectSettings.globalize_path(SaveData.backup_path())) and log_t.contains("To undo it"),

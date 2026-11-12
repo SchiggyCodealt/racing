@@ -193,16 +193,17 @@ func _menu(t) -> Array:
 
 
 func _menu_cars(t) -> void:
-	t.section("menu car picker: six cars at every window size")
+	t.section("the car page (v6.19.0): six cars at every window size")
 	Fx.save_data_v5()
 	for sz: Vector2 in [Vector2(1280, 720), Vector2(1920, 1080), Vector2(1366, 768), Vector2(1024, 600), Vector2(900, 700), Vector2(700, 900)]:
 		var h := _holder(t, sz)
 		var menu := MainMenu.new()
 		h.add_child(menu)
 		menu.show_menu(true)
+		menu.ask_car("drive")
 		_settle(h)
-		var grid: GridContainer = menu.get("_cars_grid")
-		var cards: Array = menu.get("_cards")
+		var grid: GridContainer = menu.car_page.cars_grid
+		var cards: Array = menu.car_page.cards
 		var rects: Array[Rect2] = []
 		var inside := true
 		var overlap := false
@@ -213,12 +214,13 @@ func _menu_cars(t) -> void:
 				overlap = overlap or o.grow(-0.5).intersects(r)
 			rects.append(r)
 		var cols_ok := grid.columns == (3 if sz.x >= 1280 else grid.columns)
-		# at 1280 x 720 and up the menu shows every car without scrolling
+		# at 1280 x 720 and up the page shows every car, the parts and START without scrolling
 		var all_shown := true
 		if sz.x >= 1280:
 			for r in rects:
 				all_shown = all_shown and r.end.y <= sz.y + 0.5
-		t.check(cards.size() == 6 and inside and not overlap and cols_ok and all_shown,
+			all_shown = all_shown and menu.car_page.start_btn.get_global_rect().end.y <= sz.y + 0.5 and menu.car_page.parts_row.is_visible_in_tree()
+		t.check(menu.car_page.is_open and cards.size() == 6 and inside and not overlap and cols_ok and all_shown,
 			"%dx%d: %d cards, %d a row, inside the window and apart%s" % [sz.x, sz.y, cards.size(), grid.columns, ", all on screen" if sz.x >= 1280 else ""])
 		h.free()
 
@@ -247,14 +249,12 @@ func _menu_tracks(t) -> void:
 				overlap = overlap or o.grow(-0.5).intersects(r)
 			rects.append(r)
 			bottom = maxf(bottom, r.end.y)
-		for c: Control in menu.get("_cards"):
-			bottom = maxf(bottom, c.get_global_rect().end.y)
-		# from 1280 x 720 up every tile and car card is on screen without scrolling (the e2e menu
-		# scenario checks the whole menu with real frames)
+		# from 1280 x 720 up every tile is on screen without scrolling (the e2e menu scenario checks the
+		# whole menu with real frames)
 		var on_screen := bottom <= sz.y + 0.5 if sz.x >= 1280 else true
 		t.check(tiles.size() == 15 and menu.columns == int(case[1]) and inside and not overlap and on_screen,
 			"%dx%d: %d tiles, %d a row, inside the window and apart%s" % [sz.x, sz.y, tiles.size(), menu.columns,
-				", every tile and car card on screen (lowest ends at %d px)" % roundi(bottom) if sz.x >= 1280 else ""])
+				", every tile on screen (lowest ends at %d px, maps %d px)" % [roundi(bottom), roundi(menu.map_h)] if sz.x >= 1280 else ""])
 		h.free()
 
 
@@ -301,12 +301,41 @@ func _menu_keys(t) -> void:
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)
 	menu.handle_keys(_press(inp, ["Enter"]))
+	t.check(menu.car_page.is_open and drives[0] == 0 and menu.pending == "drive" and
+		menu.car_page.event_text == "Time trial · %s %s" % [UiFormat.track_number(0), UiData.track_info(0).name],
+		"v6.19: Enter chooses a time trial and the car page opens first (\"%s\"); nothing starts yet" % menu.car_page.event_text)
+	menu.handle_keys(_press(inp, ["KeyC"]))
+	var c_next := UiData.picked_car()
+	menu.handle_keys(_press(inp, ["ArrowLeft"]))
+	var back := UiData.picked_car()
+	menu.handle_keys(_press(inp, ["ArrowDown"]))
+	var below := UiData.picked_car()
+	menu.handle_keys(_press(inp, ["ArrowUp", "Digit3"]))
+	t.check(c_next == "kestrel" and back == "racer" and below == "drifter" and UiData.picked_car() == "racer" and menu.selected_track == 0 and
+		menu.car_page.card() == menu.car_page.cards[0] and menu.car_page.cards[0].selected,
+		"on the car page C and the arrows pick the car (three a row: down from the Racer is the Drifter); the track keys do nothing there")
 	menu.handle_keys(_press(inp, ["NumpadEnter"]))
-	t.check(drives[0] == 2, "Enter and NumpadEnter drive")
+	t.check(drives[0] == 1 and menu.car_page.start_btn.text == "START", "Enter on the car page starts (START): drive goes out")
+	menu.handle_keys(_press(inp, ["Escape"]))
+	t.check(not menu.car_page.is_open and drives[0] == 1, "Esc goes back to the menu without starting")
+	(menu.get("_ghost_btn") as Button).pressed.emit()
+	var ghosts := [0]
+	menu.race_ghost.connect(func() -> void: ghosts[0] += 1)
+	var ev := menu.car_page.event_text
+	menu.car_page.start_btn.pressed.emit()
+	menu.car_page.close()
+	(menu.get("_field_btn") as Button).pressed.emit()
+	var fields := [0]
+	menu.race_field.connect(func() -> void: fields[0] += 1)
+	var ev2 := menu.car_page.event_text
+	menu.handle_keys(_press(inp, ["Space"]))
+	menu.show_car_page(false)
+	t.check(ghosts[0] == 1 and fields[0] == 1 and drives[0] == 1 and ev.begins_with("Race the Rookie AI · ") and ev.ends_with("no nitro") and ev2.begins_with("Race the field (Rookie) · "),
+		"Race the AI and Race the field ask for the car too (\"%s\", \"%s\"); START sends race_ghost / race_field" % [ev, ev2])
 	menu.handle_keys(_press(inp, ["KeyH"]))
 	t.check(menu.controls.is_open, "H opens the Controls screen")
 	menu.handle_keys(_press(inp, ["Digit3", "Enter"]))
-	t.check(not menu.controls.is_open and menu.selected_track == 0 and drives[0] == 2, "on Controls, Enter only closes it")
+	t.check(not menu.controls.is_open and menu.selected_track == 0 and drives[0] == 1 and not menu.car_page.is_open, "on Controls, Enter only closes it")
 	menu.handle_keys(_press(inp, ["Slash"]))
 	menu.handle_keys(_press(inp, ["Escape"]))
 	t.check(not menu.controls.is_open, "? opens and Esc closes Controls")
@@ -337,13 +366,16 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_tiles")[14] and menu.selected_track == 14, "down a row: track 15 (Summit Rush, the third row of five)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	t.check(menu.pad_target() == menu.car_card(), "down from the bottom row: the picked car")
-	menu.handle_keys(_press(inp, ["NavRight"], true))
-	t.check(UiData.picked_car() == "kestrel" and menu.pad_target() == menu.car_card(), "right on the cars picks the Kestrel")
+	t.check(menu.pad_target() == menu.get("_drive_btn"), "down from the bottom row: TIME TRIAL (v6.19: the race buttons)")
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	var under: Control = menu.pad_target()
+	menu.handle_keys(_press(inp, ["NavUp"], true))
+	t.check(under != menu.get("_drive_btn") and under != null and menu.pad_target() == menu.get("_drive_btn"), "down and up along the race buttons")
 	menu.handle_keys(_press(inp, ["PadRB"], true))
-	t.check(UiData.picked_car() == "thunder" and menu.pad_target() == menu.car_card(), "RB picks the next car, the highlight follows")
-	menu.handle_keys(_press(inp, ["PadA"], true))
-	t.check(menu.pad_target() == menu.get("_tiles")[14], "A on a car goes back to the tracks")
+	menu.handle_keys(_press(inp, ["PadRB"], true))
+	t.check(UiData.picked_car() == "thunder" and menu.pad_target() == menu.get("_drive_btn"), "RB picks the next car (the records shown), the highlight stays")
+	menu.handle_keys(_press(inp, ["NavLeft"], true))
+	t.check(menu.pad_target() == menu.get("_tiles")[14], "left from the buttons goes back to the tracks")
 	menu.handle_keys(_press(inp, ["NavLeft"], true))
 	t.check(menu.selected_track == 13, "left on the tracks moves to the previous track")
 	menu.handle_keys(_press(inp, ["NavUp"], true))
@@ -367,7 +399,30 @@ func _menu_pad(t) -> void:
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)
 	menu.handle_keys(_press(inp, ["PadA"], true))
-	t.check(drives[0] == 1, "A on a track drives")
+	t.check(menu.car_page.is_open and drives[0] == 0 and menu.pad_target() == null, "A on a track chooses a time trial: the car page opens")
+	UiData.set_setting("car", "racer")
+	menu.refresh()
+	_settle(hm[0])
+	menu.handle_keys(_press(inp, ["NavRight"], true))
+	t.check(menu.car_page.pad_target() == menu.car_page.card() and UiData.picked_car() == "racer", "on the car page the first press only shows the highlight (on the picked car)")
+	menu.handle_keys(_press(inp, ["NavRight"], true))
+	t.check(UiData.picked_car() == "kestrel" and menu.car_page.pad_target() == menu.car_page.card(), "right picks the Kestrel, the highlight follows")
+	menu.handle_keys(_press(inp, ["PadLB"], true))
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	t.check(UiData.picked_car() == "drifter", "LB back to the Racer, down a row: the Drifter")
+	menu.handle_keys(_press(inp, ["PadLB"], true))
+	menu.handle_keys(_press(inp, ["PadLB"], true))
+	menu.handle_keys(_press(inp, ["PadLB"], true))
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	var on_chip: bool = menu.car_page.part_chips.has(menu.car_page.pad_target())
+	menu.handle_keys(_press(inp, ["NavDown"], true))
+	t.check(UiData.picked_car() == "drifter" or on_chip, "down from the bottom row of cars: the parts")
+	t.check(menu.car_page.pad_target() == menu.car_page.start_btn, "down from the parts: START")
+	menu.handle_keys(_press(inp, ["PadA"], true))
+	t.check(drives[0] == 1, "A on START starts")
+	menu.handle_keys(_press(inp, ["PadB"], true))
+	t.check(not menu.car_page.is_open, "B goes back to the menu")
 	menu.handle_keys(_press(inp, ["ArrowRight"], false))
 	t.check(menu.pad_target() == null, "a key press hides the highlight")
 	UiData.set_setting("car", "racer")
@@ -422,7 +477,7 @@ func _settings(t) -> void:
 	# (v6.18.0) the last row: Reset all progress (the app asks twice before it wipes)
 	var reset_row: Dictionary = rows[rows.size() - 1]
 	t.check(str(reset_row.def.key) == "reset" and str(reset_row.def.type) == "action" and not reset_row.def.has("section") and
-		str((reset_row.segs[0] as Button).get_meta("label").text) == "Reset" and str(reset_row.def.hint).contains("backup"),
+		(reset_row.segs[0] as Button).text == "Reset" and str(reset_row.def.hint).contains("backup"),
 		"the last row is Reset all progress (v6.18.0, in Career): a Reset button; its hint names the backup")
 	s.step_row(rows.size() - 1, 1)
 	(reset_row.segs[0] as Button).pressed.emit()
@@ -660,9 +715,10 @@ func _terminal(t) -> void:
 	menu.handle_keys(_press(inp, []))
 	menu.terminal.submit("exit")
 	menu.handle_keys(_press(inp, ["Enter"])) # (the Enter that ran exit, read by the menu in the same frame)
-	t.check(not menu.terminal.is_open and drives[0] == 0, "exit + Enter closes it without driving (that frame's keys were typed into it)")
+	t.check(not menu.terminal.is_open and drives[0] == 0 and not menu.car_page.is_open, "exit + Enter closes it without choosing a race (that frame's keys were typed into it)")
 	menu.handle_keys(_press(inp, ["Enter"]))
-	t.check(drives[0] == 1, "the next Enter drives again")
+	t.check(menu.car_page.is_open and drives[0] == 0, "the next Enter chooses a time trial again (the car page)")
+	menu.show_car_page(false)
 	menu.show_terminal(true)
 	menu.show_menu(false)
 	t.check(not menu.terminal.is_open, "leaving the menu closes it")
@@ -758,7 +814,8 @@ func _career(t) -> void:
 	var points_l: Label = menu.get("_points_l")
 	t.check(money_l.text == "$15,000" and points_l.text == "1,234 pts" and money_l.is_visible_in_tree() and
 		money_l.get_global_rect().end.x <= 1280.0 and money_l.get_global_rect().position.y >= 0.0, "the header shows the money and the points: %s, %s" % [money_l.text, points_l.text])
-	var cards: Array = menu.get("_cards")
+	menu.ask_car("drive") # (v6.19: the cars are on the car page)
+	var cards: Array = menu.car_page.cards
 	var locked: Array = []
 	var can: Array = []
 	for c: Control in cards:
@@ -768,23 +825,25 @@ func _career(t) -> void:
 			can.append(c.get("car_id"))
 	t.check(locked == ["kestrel", "thunder", "drifter", "dune", "vortex"] and int(cards[1].get("price")) == 10000 and can.has("kestrel") and can.has("drifter") and
 		not can.has("vortex"), "five cars locked, each with its price (the Kestrel $10,000); with $15,000 the Kestrel and the Drifter are affordable")
-	var drive_btn: Button = menu.get("_drive_btn")
-	var lock: Label = menu.get("_car_lock")
-	t.check(drive_btn.text == "DRIVE" and not lock.visible, "the Racer (owned): DRIVE")
+	var drive_btn: Button = menu.car_page.start_btn
+	var lock: Label = menu.car_page.car_lock
+	t.check(drive_btn.text == "START" and not lock.visible and (menu.get("_drive_btn") as Button).text == "TIME TRIAL" and menu.car_page.money_l.text == "$15,000",
+		"the Racer (owned): START on the car page (the menu's button reads TIME TRIAL); the page shows the money")
 	UiData.set_setting("car", "drifter")
 	menu.refresh()
-	t.check(drive_btn.text == "BUY $14,000" and lock.visible and lock.text.contains("$14,000") and (menu.get("_car_desc_name") as Label).text == "Drifter" and
-		(menu.get("_car_desc") as Label).text != "", "the Drifter picked: BUY $14,000, its stats and description still shown")
+	t.check(drive_btn.text == "BUY $14,000" and lock.visible and lock.text.contains("$14,000") and menu.car_page.car_desc_name.text == "Drifter" and
+		menu.car_page.car_desc.text != "" and (menu.get("_drive_btn") as Button).text == "TIME TRIAL", "the Drifter picked: BUY $14,000, its stats and description still shown")
 	UiData.set_setting("car", "vortex")
 	menu.refresh()
-	t.check(drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("$15,000 more to go") and (menu.get("_ghost_btn") as Button).disabled,
-		"the Vortex ($30,000): LOCKED, $15,000 more to go; Race the AI off")
+	t.check(drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("$15,000 more to go") and not (menu.get("_ghost_btn") as Button).disabled,
+		"the Vortex ($30,000): LOCKED, $15,000 more to go (Race the AI on the menu stays on: the car is picked after it)")
 	var r1 := UiData.buy_car("drifter")
 	var r2 := UiData.buy_car("vortex")
 	var r3 := UiData.buy_car("drifter")
 	menu.refresh()
 	t.check(r1.ok and not r2.ok and r2.error == "money" and int(r2.short) == 29000 and r3.error == "owned" and UiData.money() == 1000 and
-		UiData.owns_car("drifter") and not cards[3].get("locked") and money_l.text == "$1,000", "buying the Drifter: $1,000 left, its card unlocked; the Vortex is $29,000 short")
+		UiData.owns_car("drifter") and not cards[3].get("locked") and money_l.text == "$1,000" and menu.car_page.money_l.text == "$1,000", "buying the Drifter: $1,000 left, its card unlocked; the Vortex is $29,000 short")
+	menu.show_car_page(false)
 	# the opponent picker
 	UiData.set_setting("car", "racer")
 	var btns: Dictionary = menu.get("_opp_btns")
@@ -797,7 +856,7 @@ func _career(t) -> void:
 	var pays := Economy.payout(tid, "", "pro", PackedStringArray())
 	var st := str(menu.get("_ai_status_text"))
 	t.check(UiData.opponent() == "pro" and (btns["pro"] as Button).theme_type_variation == "ChipOnButton" and (menu.get("_ghost_btn") as Button).text == "Race the Pro AI" and
-		(menu.get("_watch_btn") as Button).text == "Watch the Pro AI" and st.contains("Pro AI") and st.contains(UiFormat.time(pro_t)) and
+		(menu.get("_watch_btn") as Button).text == "Watch AI" and (menu.get("_watch_btn") as Button).tooltip_text.begins_with("Watch the Pro AI") and st.contains("Pro AI") and st.contains(UiFormat.time(pro_t)) and
 		st.contains("+" + UiFormat.money(int(pays.money))) and not (menu.get("_ghost_btn") as Button).disabled,
 		"Pro picked: Race / Watch the Pro AI; it finishes %s in %s; beating it pays %s (Rookie, Amateur and Pro)" % [tid, UiFormat.time(pro_t), UiFormat.money(int(pays.money))])
 	UiData.store.career.paid["%s|racer" % tid] = ["ai-rookie", "ai-amateur", "ai-pro"]
@@ -867,20 +926,22 @@ func _upgrades(t) -> void:
 	UiData.set_setting("car", "racer")
 	var hm := _menu(t)
 	var menu: MainMenu = hm[1]
-	var chips: Array = menu.get("_part_chips")
-	var parts_row: Control = menu.get("_parts_row")
-	var desc_row: Control = menu.get("_car_desc_row")
+	menu.ask_car("drive") # (v6.19: the upgrades are on the car page)
+	_settle(hm[0])
+	var chips: Array = menu.car_page.part_chips
+	var parts_row: Control = menu.car_page.parts_row
+	var desc_row: Control = menu.car_page.desc_row
 	var names: Array = chips.map(func(c: Control) -> String: return str(c.get("part_name")))
 	var prices_ok := true
 	for k in chips.size():
 		var pid: String = UiData.upgrade_parts()[k].id
 		prices_ok = prices_ok and int(chips[k].get("price")) == Upgrades.price("racer", pid, 1) and int(chips[k].get("level")) == 0 and \
 			bool(chips[k].get("affordable")) and not (chips[k] as Button).disabled
-	t.check(chips.size() == 4 and names == ["Engine", "Tyres", "Nitro", "Loose grip"] and prices_ok and parts_row.is_visible_in_tree() and not desc_row.is_visible_in_tree(),
-		"the Racer (yours) at 1280 x 720: four part chips (Engine, Tyres, Nitro, Loose grip) at level 0 with the next level's price, in place of the description line")
+	t.check(chips.size() == 4 and names == ["Engine", "Tyres", "Nitro", "Loose grip"] and prices_ok and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
+		"the Racer (yours) at 1280 x 720: four part chips (Engine, Tyres, Nitro, Loose grip) at level 0 with the next level's price, over the description line")
 	var tip: String = (chips[0] as Control).tooltip_text
 	t.check(tip.contains("Level 1 (+5 %% power) costs %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and tip.contains("Medal times and the AI opponents stay stock") and
-		str((menu.get("_parts_cap") as Control).tooltip_text).contains("Medal times and the AI opponents stay"),
+		str((parts_row.get_child(0).get_child(0) as Control).tooltip_text).contains("Medal times and the AI opponents stay"),
 		"the chip's tooltip: what the next level does and costs; medal times and the AI opponents stay stock (the caption says so too)")
 	# buy in the store: in order, not past the top, not for a locked car, not without the money
 	var r1 := UiData.buy_upgrade("racer", "engine")
@@ -930,7 +991,7 @@ func _upgrades(t) -> void:
 	var off := true
 	for c: Button in chips:
 		off = off and c.disabled and bool(c.get("locked"))
-	t.check(off and not parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree() and (chips[0] as Control).tooltip_text.contains("Buy the Vortex first"),
+	t.check(off and desc_row.is_visible_in_tree() and (chips[0] as Control).tooltip_text.contains("Buy the Vortex first") and menu.car_page._pad_parts().is_empty(),
 		"the Vortex (not yours): its description shows, its parts are off (buy the car first)")
 	# the pad: down from the picked car (bottom row) to its parts, up back to the car
 	UiData.set_setting("car", "drifter")
@@ -939,31 +1000,20 @@ func _upgrades(t) -> void:
 	_settle(hm[0])
 	var inp := Fx.FakeInput.new()
 	menu.handle_keys(_press(inp, ["NavDown"], true))
+	var on_car: bool = menu.car_page.pad_target() == menu.car_card()
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	menu.handle_keys(_press(inp, ["NavDown"], true))
-	var on_car: bool = menu.pad_target() == menu.car_card()
-	menu.handle_keys(_press(inp, ["NavDown"], true))
-	var on_chip: bool = chips.has(menu.pad_target())
+	var first_chip: Control = menu.car_page.pad_target()
 	menu.handle_keys(_press(inp, ["NavRight"], true))
-	var right_chip: bool = chips.has(menu.pad_target())
+	var right_chip: bool = chips.has(menu.car_page.pad_target()) and menu.car_page.pad_target() != first_chip
 	var asked := []
 	menu.upgrade.connect(func(part: String) -> void: asked.append(part))
 	menu.handle_keys(_press(inp, ["PadA"], true))
 	menu.handle_keys(_press(inp, ["NavUp"], true))
-	t.check(on_car and on_chip and right_chip and asked.size() == 1 and asked[0] != "" and menu.pad_target() == menu.car_card() and UiData.picked_car() == "drifter",
+	t.check(on_car and chips.has(first_chip) and right_chip and asked.size() == 1 and asked[0] != "" and menu.car_page.pad_target() == menu.car_card() and UiData.picked_car() == "drifter",
 		"the pad: down from the Drifter to its part chips, right along them, A asks to buy one (%s), up back to the car" % [asked])
+	menu.handle_keys(_press(inp, ["Digit2"]))
+	t.check(asked.size() == 2 and asked[1] == "tyres", "the 2 key asks to buy the second part's next level (tyres)")
 	hm[0].free()
-	# a taller window (1366 x 768): the parts and the description both
-	var h := _holder(t, Vector2(1366, 768))
-	var m2 := MainMenu.new()
-	h.add_child(m2)
-	m2.show_menu(true)
-	_settle(h)
-	m2.call("_layout")
-	m2.refresh()
-	t.check((m2.get("_parts_row") as Control).is_visible_in_tree() and (m2.get("_car_desc_row") as Control).is_visible_in_tree(),
-		"1366 x 768: the parts and the description line both")
-	h.free()
 	UiData.reset()
 
 
@@ -991,28 +1041,25 @@ func _unlocks(t) -> void:
 	menu.handle_keys(_press(inp, ["Digit3"]))
 	var lock_text: String = (menu.get("_td_lock_text") as RichTextLabel).get_parsed_text()
 	t.check(menu.selected_track == 2 and (menu.get("_td_lock") as Control).visible and lock_text.begins_with("Locked: win bronze or better on Hairpin Valley (02, any car)") and
-		lock_text.ends_with("Watch the AI and Train the AI work here anyway; they pay nothing.") and drive_btn.text == "LOCKED" and drive_btn.theme_type_variation == "" and
+		lock_text.ends_with("Watch AI and Train AI work here anyway; they pay nothing.") and drive_btn.text == "LOCKED" and drive_btn.theme_type_variation == "" and
 		drive_btn.tooltip_text.begins_with("Ramp Rally is locked: win bronze or better on Hairpin Valley"),
 		"3 picks locked Ramp Rally: its panel says what opens it and that the AI lab works there; Drive reads LOCKED")
 	menu.handle_keys(_press(inp, ["Enter"]))
 	menu.handle_keys(_press(inp, ["ArrowRight"]))
-	t.check(drives[0] == 1 and menu.selected_track == 3 and tiles[3].locked, "Enter still asks to drive (the game refuses with a message); the arrows move on over locked tiles")
+	t.check(drives[0] == 1 and not menu.car_page.is_open and menu.selected_track == 3 and tiles[3].locked, "Enter still asks to drive, with no car page (the game refuses with a message); the arrows move on over locked tiles")
 	var ghost_btn: Button = menu.get("_ghost_btn")
 	var watch_btn: Button = menu.get("_watch_btn")
 	UiData.set_setting("opponent", "rookie")
 	menu.refresh()
-	t.check(ghost_btn.tooltip_text.contains("Banked Speedway is locked") and ghost_btn.tooltip_text.contains("Watch the AI works here") and
+	t.check(ghost_btn.tooltip_text.contains("Banked Speedway is locked") and ghost_btn.tooltip_text.contains("Watch AI works here") and
 		not watch_btn.tooltip_text.contains("locked"), "Race the AI's tooltip says the track is locked; Watch the AI's doesn't")
 	UiData.set_setting("car", "kestrel")
 	menu.refresh()
-	t.check(drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("Kestrel costs"), "a car for sale comes first: its LOCKED (or BUY) on a locked track too")
-	UiData.store.career.money = 20000
-	menu.refresh()
-	t.check(drive_btn.text == "BUY $10,000", "with the money: BUY $10,000 (buying works on any track)")
+	t.check(drive_btn.text == "LOCKED" and drive_btn.tooltip_text.contains("is locked"), "v6.19: a car for sale changes nothing on the menu (the car page sells it): LOCKED is the track's")
 	UiData.set_setting("car", "racer")
 	UiData.store.career.money = 0
 	menu.select(1)
-	t.check(drive_btn.text == "DRIVE" and drive_btn.theme_type_variation == "PrimaryButton" and not (menu.get("_td_lock") as Control).visible, "an open track: DRIVE, no lock note")
+	t.check(drive_btn.text == "TIME TRIAL" and drive_btn.theme_type_variation == "PrimaryButton" and not (menu.get("_td_lock") as Control).visible, "an open track: TIME TRIAL, no lock note")
 	# NEW: a track a finish just opened, until it is picked or the menu is left
 	UiData.store.career.tracks_open = ["hairpin-valley", "ramp-rally"]
 	UiData.mark_new_track("ramp-rally")
