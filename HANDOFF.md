@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-12 (v6.19.0: round 5, item 2 of 8: the car page (`ui/car_screen.gd`): track and race first, the
+_Last updated: 2026-11-12 (v6.20.0: round 5, item 3 of 8: the F1-style leaderboard: a timing tower on the HUD
+(`ui/timing_tower.gd`) and results / standings tables as rows (`ui/result_row.gd`);
+v6.19.0: round 5, item 2 of 8: the car page (`ui/car_screen.gd`): track and race first, the
 car last, and before every race of a cup; a tidier Home;
 v6.18.0: round 5, item 1 of 8: Settings has a **Reset all progress** button (asks twice, then
 `SaveData.reset_everything`), and a terminal command that asks first takes `yes` as the answer;
@@ -33,7 +35,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.19.0, round 5 under way (2 of 8 done: the Reset button, the car page and tidier menu); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.20.0, round 5 under way (3 of 8 done: the Reset button, the car page and tidier menu, the F1-style leaderboard); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1596,8 +1598,8 @@ left it open:
 1. **Reset (v6.18.0, done)**: see below.
 2. **Menu flow (v6.19.0, done)**: pick the track and the race type first, then the car on a page of its own (with its
    upgrades); in a cup that page comes up before every race, so the car can change between races. See below.
-3. **Leaderboard**: an F1-style timing tower on the left of the HUD (position, colour bar, three-letter code, gap) and
-   F1-style results and standings tables.
+3. **Leaderboard (v6.20.0, done)**: an F1-style timing tower on the left of the HUD (position, colour bar,
+   three-letter code, gap) and F1-style results and standings tables. See below.
 4. **Weight**: a fifth upgrade part that makes the car lighter, ten levels like the others.
 5. **A seventh car**: an open-wheel formula car (the most grip, the best brakes, poor on loose ground).
 6. **Four rally stages**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own textures, and a Rally Cup.
@@ -1651,6 +1653,30 @@ championship" and the menu half of "redesign the ui to be more streamlined".
   the plain button's missing label), and the e2e unlock scenario still expected save version 4. Both fixed.
 - Not done: no separate "AI lab" page (the four AI tools stayed on Home as small buttons), and the README still says
   "Drive" for the time trial in its older sections.
+
+### Item 3: the F1-style leaderboard (v6.20.0, done)
+
+"fix the leaderboard in more of a style of the f1 games".
+- `ui/timing_tower.gd` (`TimingTower`, a hand-drawn Control; `RaceHud._tower`, in the left column under the lap plate):
+  a head line (the lap, or the checkpoint in a sprint) and one row per car in race order: the place in a box (yours
+  in the accent, on a lighter row), the car's colour, the three-letter code and the **gap to the leader** ("Leader",
+  `gap_text`: +1.23, +12.3 from ten seconds, OUT). `show_board(FieldRace.board(me), head)` every frame;
+  `leader_gaps` turns the board's gaps (they are against you) into gaps to the first row. Rows slide to their new
+  places (`advance(dt)`, `SLIDE`), a car that gained / lost a place shows a green / red arrow for `ARROW_TIME`, a
+  chequered square marks a finished car. `tower.lines` is the text for tests ("1 BRA Leader", "2 YOU +0.85").
+  It replaces the HUD's old standings list (`_board`, `_field_row`); the top-right plate keeps P3/6 and Ahead / Behind
+  (gaps to you, `RaceHud.field_gap`). Hidden in a narrow window and where the finish panel would cover it.
+- `ui/result_row.gd` (`ResultRow`): one strip of a results table (place box, colour bar, then the cells the table
+  gives; `cell()` makes a Label cell of a fixed width or one that takes the room left; `head()` the column heads;
+  `bar_color` lightens a near-black car colour so it shows). Used by `FinishPanel._field` (driver, car, time, gap to
+  the winner: "Winner" / +x.xxx, "racing…", "OUT") and by `ui/cup_table.gd` (now a VBox of ResultRows: P1 / P2 per
+  race run, a win in green, a dot for a race to come, the points; `show_rows(..., medals = true)` gives the top
+  three's boxes their medal colours: the trophy moment).
+- Tests: `tests/test_ui.gd` `_field_ui` (the tower's place, rows, gaps, a pass with the slide and the arrows, the
+  results rows) and `_cup_ui` (the table's rows); `tests/test_game.gd` and the e2e cup scenario count
+  `CupTable.rows`. Shots: `field_battle`, `field_podium`, `cup_standings`, `cup_trophy`.
+- Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
+  Race the AI have no tower (one car, or one ghost).
 
 ## Round 4: AI nitro, upgrades to level 10, reset everything (v6.15.0-v6.17.0)
 

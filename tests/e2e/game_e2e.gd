@@ -1409,7 +1409,7 @@ func cup_run() -> void:
 			break
 		var tbl: CupTable = cs.get("_table")
 		var race_b: Button = cs.get("_race_btn")
-		check(app.mode == app.menu_mode and cs.is_standings and app.cup.races_done() == k + 1 and tbl.get_child_count() == 7 * 7 and _cups_fit(cs, race_b),
+		check(app.mode == app.menu_mode and cs.is_standings and app.cup.races_done() == k + 1 and tbl.rows.size() == 6 and _cups_fit(cs, race_b),
 			"after race %d: the standings over the menu (you %s, %d points), %s; they fit 1280 x 720 without scrolling" % [k + 1, Field.place_name(app.cup.place()),
 			int(app.cup.table()[app.cup.table().map(func(x: Dictionary) -> String: return String(x.id)).find(Cups.PLAYER)].points), race_b.text])
 		if k == 0:

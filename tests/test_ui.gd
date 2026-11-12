@@ -1128,12 +1128,44 @@ func _field_ui(t) -> void:
 	hud.update(s, 0.016)
 	_settle(h)
 	var ft := hud.field_text
-	t.check(off and plate.visible and ft == PackedStringArray(["P3/6", "ahead VAN 0.85", "behind PAR 1.24", "1 BRA -3.41", "2 VAN -0.85", "3 YOU ", "4 PAR +1.24", "5 REY +12.5", "6 OST out"]),
-		"the HUD: no field block in Drive; in a field race P3/6, the cars ahead and behind with their gaps, the standings (+12.5 past 10 s, an out car): %s" % " | ".join(ft))
+	t.check(off and plate.visible and ft == PackedStringArray(["P3/6", "ahead VAN 0.85", "behind PAR 1.24", "1 BRA Leader", "2 VAN +2.56", "3 YOU +3.41", "4 PAR +4.65", "5 REY +15.9", "6 OST OUT"]),
+		"the HUD: no field block in Drive; in a field race P3/6, the cars ahead and behind with their gaps, the timing tower's rows with the gaps to the leader (+15.9 past 10 s, an out car): %s" % " | ".join(ft))
+	# (v6.20) the timing tower: on the left under the lap plate, one row per car, yours marked
+	var tower: TimingTower = hud.get("_tower")
+	var lap_plate: Control = hud.get("_race_plate")
+	var tr := tower.get_global_rect()
+	t.check(tower.visible and tower.rows.size() == 6 and bool(tower.rows[2].me) and tower.head.begins_with("Lap ") and tr.position.x < 80.0 and
+		tr.position.y >= lap_plate.get_global_rect().end.y - 0.5 and tr.end.y < 720.0 and is_equal_approx(tr.size.x, TimingTower.WIDTH),
+		"the timing tower: six rows on the left under the lap plate (\"%s\", %d x %d px at y %d), your row marked" % [tower.head, roundi(tr.size.x), roundi(tr.size.y), roundi(tr.position.y)])
+	t.check(TimingTower.gap_text(0.004) == "+0.00" and TimingTower.gap_text(9.994) == "+9.99" and TimingTower.gap_text(12.34) == "+12.3" and
+		TimingTower.leader_gaps([{"gap": null}, {"gap": 0.7}, {"gap": 3.0}]) == PackedFloat64Array([0.0, 0.7, 3.0]) and TimingTower.leader_gaps([]).is_empty(),
+		"tower gaps: to the leader (+0.00, +9.99, +12.3 from ten seconds); leading yourself they are the gaps to you")
+	# you pass VAN: the rows swap places by sliding, a green arrow on yours and a red one on VAN's
+	var swapped: Array = [rows[0].duplicate(), rows[2].duplicate(), rows[1].duplicate(), rows[3], rows[4], rows[5]]
+	swapped[0].gap = -2.56
+	swapped[1].gap = null
+	swapped[2].gap = 0.4
+	s.field = {"pos": 2, "of": 6, "rows": swapped, "ahead": {"code": "BRA", "gap": 2.56}, "behind": {"code": "VAN", "gap": 0.4}}
+	hud.update(s, 0.016)
+	var ys: Dictionary = tower.get("_y")
+	var arrows: Dictionary = tower.get("_arrow")
+	var mid := float(ys[2]) > tower._row_y(1) and float(ys[2]) < tower._row_y(2) and float(ys[1]) > tower._row_y(1) and float(ys[1]) < tower._row_y(2)
+	var marked := arrows.size() == 2 and int(arrows[2].dir) == 1 and int(arrows[1].dir) == -1
+	for k in 60:
+		hud.update(s, 0.016)
+	var there := is_equal_approx(float(ys[2]), tower._row_y(1)) and is_equal_approx(float(ys[1]), tower._row_y(2)) and arrows.size() == 2
+	for k in 120:
+		hud.update(s, 0.016)
+	t.check(mid and marked and there and arrows.is_empty() and hud.field_text[4] == "2 YOU +2.56" and hud.field_text[5] == "3 VAN +2.96",
+		"a pass: the two rows slide to their new places (not a jump), a green arrow on your row and a red one on VAN's for %.1f s; then \"%s\", \"%s\"" % [TimingTower.ARROW_TIME, hud.field_text[4], hud.field_text[5]])
 	s.field = {"pos": 1, "of": 6, "rows": rows.slice(0, 2), "ahead": {}, "behind": {"code": "VAN", "gap": 0.5}}
 	hud.update(s, 0.016)
-	t.check(hud.field_text[0] == "P1/6" and hud.field_text[1] == "ahead " and not (hud.get("_ahead_l") as Control).visible, "leading: no car ahead shown")
+	t.check(hud.field_text[0] == "P1/6" and hud.field_text[1] == "ahead " and not (hud.get("_ahead_l") as Control).visible and tower.rows.size() == 2, "leading: no car ahead shown; the tower follows the field (two rows)")
 	t.check(RaceHud.field_gap(0.004) == "+0.00" and RaceHud.field_gap(-10.04) == "-10.0", "gaps: two decimals, one past 10 s")
+	hud.show_hud(false)
+	hud.show_hud(true)
+	hud.update(Fx.hud_drive(), 0.016)
+	t.check(not tower.visible and tower.rows.is_empty() and hud.field_text.is_empty(), "the next Drive: no tower")
 	h.free()
 	h = _holder(t)
 	var f := FinishPanel.new()
@@ -1151,8 +1183,14 @@ func _field_ui(t) -> void:
 	f.update(st)
 	_settle(h)
 	var texts := _texts(f)
-	t.check(texts.has("2nd") and texts.has("of 6 · Pro field") and texts.has("You") and texts.has("Ada Brandt") and texts.has("2:31.450") and texts.has("+1.250") and texts.has("racing…") and texts.has("out"),
-		"the finish panel: 2nd of 6 · Pro field, every driver with the time and gap so far (racing… for the cars still on track, out for a car out)")
+	var frows: Array = f.find_children("*", "ResultRow", true, false)
+	t.check(texts.has("2nd") and texts.has("of 6 · Pro field") and texts.has("You") and texts.has("Ada Brandt") and texts.has("2:31.450") and texts.has("Winner") and texts.has("+1.250") and texts.has("racing…") and texts.has("OUT"),
+		"the finish panel: 2nd of 6 · Pro field, every driver with the time and the gap to the winner so far (racing… for the cars still on track, OUT for a car out)")
+	var lined := frows.size() == 6
+	for k in frows.size():
+		var rr: ResultRow = frows[k]
+		lined = lined and rr.place == k + 1 and rr.me == (k == 1) and is_equal_approx(rr.size.x, (frows[0] as ResultRow).size.x) and rr.get_global_rect().end.x <= f.get_global_rect().end.x
+	t.check(lined, "the results as six F1-style rows (the place in a box, the car's colour, driver, car, time, gap), yours marked, all one width inside the panel (%d px)" % roundi((frows[0] as ResultRow).size.x if frows.size() > 0 else 0.0))
 	t.check(f.position.x + f.size.x > 1280.0 - 40.0 and f.position.x > 1280.0 * 0.3, "docked on the right (x %.0f, %.0f wide): the podium is on the left" % [f.position.x, f.size.x])
 	f.set_window_size(Vector2(800, 600))
 	_settle(h)
@@ -1208,9 +1246,10 @@ func _cup_ui(t) -> void:
 	var tbl: CupTable = cs.get("_table")
 	var race_b: Button = cs.get("_race_btn")
 	var stexts := _texts(cs)
-	t.check(cs.is_standings and tbl.columns == 7 and tbl.get_child_count() == 49 and race_b.text == "RACE 2: HAIRPIN VALLEY" and
-		stexts.has("Pts") and stexts.has("Rookie") and stexts.has("You") and stexts.has("2") and stexts.has("8"),
-		"the standings: the table (pos, colour, driver, Rookie / Hairpin / Ramp, Pts) for six drivers (you 2nd with 8), RACE 2: HAIRPIN VALLEY")
+	var mine: ResultRow = tbl.rows[1] if tbl.rows.size() == 6 else null
+	t.check(cs.is_standings and tbl.rows.size() == 6 and tbl.get_child_count() == 7 and mine != null and mine.me and mine.place == 2 and not (tbl.rows[0] as ResultRow).me and
+		race_b.text == "RACE 2: HAIRPIN VALLEY" and stexts.has("Driver") and stexts.has("Pts") and stexts.has("Rookie") and stexts.has("You") and stexts.has("P1") and stexts.has("P2") and stexts.has("8") and stexts.has("·"),
+		"the standings: the heads (Driver, Rookie / Hairpin / Ramp, Pts) and six F1-style rows (place box, colour, driver, P1 / P2 ... per race run, a dot for the ones to come, points): you 2nd with 8; RACE 2: HAIRPIN VALLEY")
 	var nexts: Array = []
 	var quits: Array = []
 	cs.next_race.connect(func() -> void: nexts.append(1))

@@ -730,7 +730,7 @@ func _app_cup(t, app: GameApp) -> void:
 	var after1: Array = app.cup.races[0].keys() if app.cup != null and app.cup.races.size() > 0 else []
 	t.check(still and app.mode == app.menu_mode and cups.visible and cups.is_standings and app.cup.races_done() == 1 and after1.size() == 6 and
 		int(app.cup.races[0]["you"].place) == place and menu.selected_track == 1 and CupRun.from_dict(SaveData.get_cup_run()).to_dict() == app.cup.to_dict() and
-		(cups.get("_table") as CupTable).get_child_count() == 7 * 7 and (cups.get("_race_btn") as Button).text == "RACE 2: HAIRPIN VALLEY",
+		(cups.get("_table") as CupTable).rows.size() == 6 and (cups.get("_race_btn") as Button).text == "RACE 2: HAIRPIN VALLEY",
 		"R after the finish doesn't race it again; Enter: the standings over the menu (six rows, you %s), Hairpin Valley picked behind them, the cup saved; RACE 2: HAIRPIN VALLEY" % Field.place_name(app.cup.place()))
 	# race 2: from your slot by the standings; Esc before the finish doesn't count it (v6.19: Enter on the
 	# standings opens the car page, Enter there starts the race)

@@ -84,6 +84,9 @@ Version 6.19.0 turns the menu around: you pick the **track** and **what to race*
 the field or a cup), and the **car comes last**, on its own page with its upgrades and the car shop. In a
 championship that page comes up before every race, so **you can change cars inside a cup**. The menu itself is
 tidier for it: bigger track tiles, one block of race buttons, the AI's tools in one small row.
+Version 6.20.0 gives the races a leaderboard in the way of the F1 games: a **timing tower** on the left of the screen
+(place in a box, the car's colour, the driver's three-letter code, the gap to the leader) whose rows slide when the
+order changes, and results and championship tables drawn as the same rows (see [Race the field](#race-the-field)).
 
 ![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
@@ -436,10 +439,16 @@ refused as for Drive.
   room, and an AI stuck or facing the wrong way for a few seconds is put back on the road (it can't be hit for a
   second after). Contacts only exist in this mode: Drive, Race the AI, the ghosts, training and the medal times are
   exactly as before.
-- **The HUD** shows your place (P3/6), the car ahead and behind with the gap in seconds, and the standings with
-  everyone's gap to you; mud and snow from any car close ahead reach your screen.
+- **The HUD** shows your place (P3/6) and the car ahead and behind with the gap in seconds at the top right, and
+  since version 6.20.0 the **timing tower** on the left, under the lap plate, in the way of the F1 games: the lap,
+  then one row per car in race order with the place in a box (yours yellow, on a lighter row), the car's colour, the
+  driver's three-letter code and the **gap to the leader** ("Leader" for the first, +1.23, +12.3 from ten seconds,
+  OUT for a car that gave up). When the order changes the rows slide to their new places, and a car that gained or
+  lost a place shows a green or red arrow for a moment; a chequered square marks a car that has finished. In a
+  window narrower than 1000 px the tower is left out. Mud and snow from any car close ahead reach your screen.
 - **The finish.** At your finish your place is final (everyone still racing is behind you). The finish panel moves
-  to the right with the finishing order, times and gaps (filled in as the others finish) and what the run paid; after
+  to the right with the finishing order as F1-style rows (place box, colour, driver, car, time, and the gap to the
+  winner, filled in as the others finish) and what the run paid; after
   two seconds the top three stand on a podium on the start straight. **R** races again, **Esc** goes back.
 
 **Pay by place** (on Rookie Oval, a Pro field; Rookie fields pay 0.6 ×, Amateur 1 ×, Pro 1.5 ×, Expert 2.1 ×, Elite
@@ -456,7 +465,7 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 
 | Mid-race (an Elite field on Rookie Oval) | The podium and the finish panel |
 | --- | --- |
-| ![Race the field on Rookie Oval: side by side with Nils Haugen's Kestrel for 2nd, Kai Ostrom's Vortex alongside; the HUD's P3/6, the gaps ahead (0.01 s) and behind (0.14 s) and the standings](docs/screenshots/field-race.png) | ![The podium on the start straight (You, Nils Haugen, Kai Ostrom) with the finish panel on the right: 1st of 6, the finishing order with times and gaps, the gold medal and the five place rewards, $4,600 and 160 points](docs/screenshots/field-podium.png) |
+| ![Race the field on Rookie Oval against an Elite field: the pack ahead on the first straight; on the left the timing tower (LAP 1/3, FOX the leader, the others with their gaps, a green and a red arrow where two cars just swapped places, your row 6th in yellow), at the top right P6/6 and the car ahead](docs/screenshots/field-race.png) | ![The podium on the start straight (You, Nils Haugen, Kai Ostrom) with the finish panel on the right: 1st of 6, the finishing order as F1-style rows with car, time and gap to the winner, the gold medal and the place rewards, $4,600 and 160 points; the timing tower on the left with a chequered square on every finished car](docs/screenshots/field-podium.png) |
 
 **The car shop.** Choose a race, pick a locked car on the car page and press START (it reads BUY): it asks first, then the car is yours for good.
 
@@ -492,8 +501,9 @@ open (a locked cup can be picked: it says which tracks are still locked). Pick a
   records, your ghost and opening tracks count as in Drive), plus points for the championship: **10, 8, 6, 5, 4, 3**
   for 1st to 6th (none for a car out of the race). The finish panel says what the race scored; **Enter** shows the
   standings. The cup's five drivers are picked by the cup and level and stay the same in every race.
-- **The standings** come between the races, over the menu (with the next track picked behind them): each driver's
-  place in every race run so far and their points, the leader first. Equal points go to the better best place, then
+- **The standings** come between the races, over the menu (with the next track picked behind them): one F1-style
+  row per driver, the leader first, with the place in a box, the driver's colour, the place in every race run so far
+  (P1, P2 ...; a win in green, a dot for a race to come) and the points. Equal points go to the better best place, then
   to the better place in the latest race. **RACE 2** (Enter) starts the next one, **Quit cup** (Q) ends the cup
   (it asks first; the cup pays nothing, the races you ran keep their pay), **Esc** closes them and keeps the cup.
 - **The grid** follows the standings: the leader on pole, the last last. Race 1 starts as a field race (you last);
@@ -526,9 +536,9 @@ cup in progress).
 
 | The cup picker (the cabinet per cup and level) | The standings between the races |
 | --- | --- |
-| ![The Championships screen over the menu: five cups with their tracks, difficulty bars and a trophy place per level, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1: you 1st with 10 points ahead of five AI drivers, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
+| ![The Championships screen over the menu: five cups with their tracks, difficulty bars and a trophy place per level, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1 as F1-style rows: you 1st with 10 points ahead of five AI drivers, P1 to P6 under Rookie and dots for the two races to come, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
 
-![The trophy moment after the Rookie Cup: the top three on the podium with gold, silver and bronze trophies, the final standings (you 1st with 30 points) and the cup's pay on the right](docs/screenshots/cup-trophy.png)
+![The trophy moment after the Rookie Cup: the top three on the podium with gold, silver and bronze trophies, the final standings as F1-style rows with gold, silver and bronze place boxes (you 1st with 30 points) and the cup's pay on the right](docs/screenshots/cup-trophy.png)
 
 ### Upgrades
 
@@ -1150,8 +1160,8 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/Track
 godot --headless --path . --export-release "Linux" build/linux/TrackRush.x86_64
 ```
 
-`tools/release.sh 6.19.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
-project and writes `build/TrackRush-6.19.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
+`tools/release.sh 6.20.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
+project and writes `build/TrackRush-6.20.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
 
 The Windows build can be made on Linux and the other way round. The Linux build's training library needs a
 recent Linux (glibc 2.38, as in Ubuntu 24.04 or newer); on an older one the game runs and trains in GDScript.

@@ -303,8 +303,7 @@ func _cup_final(s: Dictionary) -> void:
 	var what := "Champion! The gold trophy is yours" if place == 1 else ("The %s trophy is yours" % kind if kind != "" else "No trophy this time: the top three take them")
 	_box.add_child(_line([[what, "display_bold", _num_size(), UiStyle.ACCENT if kind != "" else UiStyle.TEXT_2, 0.06, true, roundf(_num_size() * 1.4)]], UiStyle.S1))
 	var table := CupTable.new()
-	table.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	table.show_rows(c.get("rows", []), c.get("races", []), small)
+	table.show_rows(c.get("rows", []), c.get("races", []), small, true)
 	var tm := UiStyle.margin([0, UiStyle.S2 if _short else UiStyle.S4, 0, 0])
 	tm.add_child(table)
 	_box.add_child(tm)
@@ -433,37 +432,27 @@ func _field(f: Dictionary) -> Control:
 		UiStyle.gap(UiStyle.S2), ["of %d · %s field" % [int(f.get("of", 0)), str(f.get("level", ""))], "text", _num_size(), UiStyle.TEXT_2]]))
 	if str(f.get("cup", "")) != "":
 		col.add_child(_line([[str(f.cup), "text_semi", small, UiStyle.ACCENT, 0.0, false, lh]]))
-	var grid := GridContainer.new()
-	grid.columns = 6
-	grid.add_theme_constant_override("h_separation", UiStyle.S3)
-	grid.add_theme_constant_override("v_separation", 0)
+	# (v6.20) the finishing order as F1-style rows: the place in a box, the car's colour, the driver, the
+	# car, the time and the gap to the winner
+	var grid := UiStyle.vbox(2)
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var num := _num_size()
+	var car_w := roundf(small * 4.6)
+	var time_w := roundf(num * 4.4)
+	var gap_w := roundf(small * 4.6)
 	for r: Dictionary in f.get("rows", []):
 		var me := bool(r.get("me", false))
 		var c := UiStyle.ACCENT if me else UiStyle.TEXT
-		var p := UiStyle.label(str(int(r.get("place", 0))), "display_bold", small, UiStyle.TEXT_2, 0.0, false, true, false, lh)
-		p.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(p)
-		var chip := ColorRect.new()
-		chip.color = r.get("color", Color.WHITE)
-		chip.custom_minimum_size = Vector2(5, roundf(small * 1.0))
-		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		grid.add_child(chip)
-		grid.add_child(UiStyle.label(str(r.get("name", "")), "text_semi" if me else "text", small, c, 0.0, false, false, false, lh))
-		grid.add_child(UiStyle.label(str(r.get("car", "")), "text", small, UiStyle.TEXT_2, 0.0, false, false, false, lh))
 		var t := float(r.get("time", INF))
-		var tl := UiStyle.label(UiFormat.time(t) if is_finite(t) else ("out" if bool(r.get("dnf", false)) else "racing…"), "display", _num_size(), c if is_finite(t) else UiStyle.TEXT_3,
-			0.0, false, true, false, lh)
-		tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(tl)
 		var g := float(r.get("gap", INF))
-		var gl := UiStyle.label("" if not is_finite(g) or int(r.get("place", 0)) == 1 else "+" + JsMath.to_fixed(g, 3), "display", small, UiStyle.TEXT_2,
-			0.0, false, true, false, lh)
-		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		gl.custom_minimum_size.x = 56
-		grid.add_child(gl)
+		var first := int(r.get("place", 0)) == 1
+		var cells: Array = [
+			ResultRow.cell(str(r.get("name", "")), "text_semi", small, c),
+			ResultRow.cell(str(r.get("car", "")), "text", small, UiStyle.TEXT_2, car_w),
+			ResultRow.cell(UiFormat.time(t) if is_finite(t) else ("OUT" if bool(r.get("dnf", false)) else "racing…"), "display", num, c if is_finite(t) else UiStyle.TEXT_3, time_w, true),
+			ResultRow.cell("" if not is_finite(g) else ("Winner" if first else "+" + JsMath.to_fixed(g, 3)), "display", small, UiStyle.TEXT_2, gap_w, true),
+		]
+		grid.add_child(ResultRow.make(int(r.get("place", 0)), r.get("color", Color.WHITE), me, cells, small))
 	var gm := UiStyle.margin([0, 0 if _short else UiStyle.S1, 0, 0])
 	gm.add_child(grid)
 	col.add_child(gm)

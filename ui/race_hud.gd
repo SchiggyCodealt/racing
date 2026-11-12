@@ -26,8 +26,9 @@ extends Control
 ##   show_watch(on) / watch_net(net)   the AI's network, live (Watch the AI)
 ## v6.13.0, Race the field: state.field {pos, of, rows: [{code, name, color, gap (s against you: - ahead,
 ## + behind; null for you), me, finished, dnf}], ahead / behind: {code, gap} or {}} (FieldRace.board)
-## shows a block at the top right: your place (P3/6), the gaps to the cars ahead and behind, and the
-## standings (place, colour, code, gap; your row in the accent). Absent: the block hides.
+## shows a block at the top right: your place (P3/6) and the gaps to the cars ahead and behind; and
+## (v6.20.0) the standings as a timing tower on the left, under the lap plate (ui/timing_tower.gd, in
+## the F1 games' way: place boxes, colours, codes, gaps to the leader). Absent: both hide.
 ## Score events: {kind, text, points, mult, combo_lost} (score.js events: "Clean checkpoint"
 ## +1,500 x3, "Drift" +820, "Wall" −200 · combo lost, "Drift lost" ...).
 
@@ -93,10 +94,10 @@ var _ahead_l: Label
 var _behind_l: Label
 var _ahead_cap: Label
 var _behind_cap: Label
-var _board: VBoxContainer
-var _board_rows: Array = []   # [{row, place, chip, code, gap}]
+var _tower: TimingTower        # (v6.20) the standings, on the left
 ## The field block's texts last shown (tests): "P3/6", the ahead / behind lines, one line per row.
 var field_text: PackedStringArray = []
+var _tower_hidden := false     # under the finish panel
 # bottom
 var _nitro: Control
 var _nitro_off: Label
@@ -170,6 +171,11 @@ func _build() -> void:
 	_race_plate.add_child(race)
 	_race_plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_left.add_child(_race_plate)
+	# (v6.20) a field race's standings: the timing tower
+	_tower = TimingTower.new()
+	_tower.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_tower.visible = false
+	_left.add_child(_tower)
 	_score_plate = _plate([UiStyle.S3, UiStyle.S1, UiStyle.S3, UiStyle.S1])
 	_score_plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var srow2 := UiStyle.hbox(UiStyle.S3)
@@ -318,31 +324,9 @@ func _build_field() -> void:
 		gaps.add_child(l)
 	top.add_child(gaps)
 	col.add_child(top)
-	_board = UiStyle.vbox(0)
-	col.add_child(_board)
 	_field_plate.add_child(col)
 	_field_plate.visible = false
 	_right.add_child(_field_plate)
-
-
-func _field_row() -> Dictionary:
-	var row := UiStyle.hbox(UiStyle.S2)
-	var place := UiStyle.label("", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, true, false, 18)
-	place.custom_minimum_size.x = 12
-	place.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	var chip := ColorRect.new()
-	chip.custom_minimum_size = Vector2(4, 12)
-	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var code := UiStyle.label("", "display_bold", UiStyle.FS_S, UiStyle.TEXT, 0.06, false, false, false, 18)
-	code.custom_minimum_size.x = 34
-	var gap := UiStyle.label("", "display", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, true, false, 18)
-	gap.custom_minimum_size.x = 52
-	gap.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	for c in [place, chip, code, gap]:
-		row.add_child(c)
-	_board.add_child(row)
-	return {"row": row, "place": place, "chip": chip, "code": code, "gap": gap}
 
 
 ## A gap for the field block: "+1.24" / "-0.85" (s), "+12.3" from ten seconds.
@@ -351,9 +335,12 @@ static func field_gap(g: float) -> String:
 	return ("+" if g >= 0.0 else "-") + (("%.1f" % a) if a >= 10.0 else ("%.2f" % a))
 
 
-func _update_field(f: Variant) -> void:
+func _update_field(f: Variant, head: String = "") -> void:
 	if not (f is Dictionary) or (f as Dictionary).is_empty():
 		_field_plate.visible = false
+		if _tower.visible or not _tower.rows.is_empty():
+			_tower.visible = false
+			_tower.clear()
 		field_text = []
 		return
 	_field_plate.visible = true
@@ -370,29 +357,10 @@ func _update_field(f: Variant) -> void:
 		(side[1] as Control).visible = txt != ""
 		(side[2] as Control).visible = txt != ""
 		out.append("%s %s" % [side[0], txt])
-	var rows: Array = f.get("rows", [])
-	while _board_rows.size() < rows.size():
-		_board_rows.append(_field_row())
-	_board.visible = not _narrow
-	for k in _board_rows.size():
-		var r: Dictionary = _board_rows[k]
-		(r.row as Control).visible = k < rows.size()
-		if k >= rows.size():
-			continue
-		var d: Dictionary = rows[k]
-		var me := bool(d.get("me", false))
-		(r.place as Label).text = str(k + 1)
-		(r.chip as ColorRect).color = d.get("color", Color.WHITE)
-		(r.code as Label).text = str(d.get("code", ""))
-		(r.code as Label).add_theme_color_override("font_color", UiStyle.ACCENT if me else UiStyle.TEXT)
-		var g: Variant = d.get("gap")
-		var gt := ""
-		if bool(d.get("dnf", false)):
-			gt = "out"
-		elif g != null:
-			gt = field_gap(float(g))
-		(r.gap as Label).text = gt
-		out.append("%d %s %s" % [k + 1, str(d.get("code", "")), gt])
+	# the standings: the timing tower on the left (not on the phone-sized HUD, nor under the finish panel)
+	_tower.show_board(f, head)
+	_tower.visible = not _narrow and not _tower_hidden
+	out.append_array(_tower.lines)
 	field_text = out
 
 
@@ -406,6 +374,8 @@ func show_hud(on: bool) -> void:
 	_split.modulate.a = 0.0
 	_split_timer = 0.0
 	reset_score()
+	_tower.clear()
+	_tower.visible = false
 	_layout()
 
 
@@ -459,7 +429,8 @@ func update(s: Dictionary, dt: float) -> void:
 	_ghost_l.text = gt
 	_ghost_plate.visible = gt != ""
 	_update_medal(s.get("medal"), float(s.get("time", 0.0)), bool(s.get("finished", false)))
-	_update_field(s.get("field"))
+	_update_field(s.get("field"), ("CP %s" % _cp_val.text) if sprint else "Lap %s" % _lap_val.text)
+	_tower.advance(dt)
 	if s.get("gear") == null or s.get("rpm") == null:
 		_rev.visible = false
 	else:
@@ -734,11 +705,15 @@ func _apply_panel_visibility() -> void:
 	var left_w := 0.0 # (every part's width, hidden or not, so hiding them doesn't change the answer)
 	for c in [_race_plate, _score_plate, _pops_box]:
 		left_w = maxf(left_w, c.get_combined_minimum_size().x)
+	if not _tower.rows.is_empty():
+		left_w = maxf(left_w, TimingTower.WIDTH)
 	var left_end := _left.position.x + left_w + UiStyle.S2
 	var covers_left := panel_open and fr.position.x < left_end
 	var covers_right := panel_open and fr.end.x > _right.position.x - UiStyle.S2 and fr.position.y < _right.position.y + _right.size.y
 	var narrow_hide := panel_open and (_narrow or covers_left)
 	_pops_box.visible = not narrow_hide
+	_tower_hidden = narrow_hide
+	_tower.visible = not _tower.rows.is_empty() and not _narrow and not _tower_hidden
 	_right.visible = not (panel_open and (_narrow or covers_right or _tiny))
 	# (the split goes under a tall panel: hidden then, the panel shows the time)
 	var split_y := 80.0 if not _narrow else 118.0
