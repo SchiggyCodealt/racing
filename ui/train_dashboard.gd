@@ -350,7 +350,7 @@ func _build_run() -> VBoxContainer:
 ## Six car tiles, three a row (Cars.ids() order); a press emits car_picked.
 func _car_grid(into: Array) -> GridContainer:
 	var grid := GridContainer.new()
-	grid.columns = 3
+	grid.columns = 3 if UiData.car_ids().size() <= 6 else 4 # (v6.22: seven cars in two rows, as six were)
 	grid.add_theme_constant_override("h_separation", UiStyle.S2)
 	grid.add_theme_constant_override("v_separation", UiStyle.S2)
 	for id in UiData.car_ids():

@@ -624,6 +624,8 @@ static func _wheel(kit: Kit, s: Dictionary, detail: int, rig: Dictionary, i: int
 	kit.add(Geo.box(0.08, 0.16, 0.1).translate(-W / 2 + 0.02, 0, 0).xform(xf), Kit.CARBON, up, lin(0x1a1b1e))
 	# suspension: upper and lower wishbones from the body (inboard) to the hub carrier
 	var inner := absf(c.x) - (0.32 if s["fenders"] else absf(c.x) - 0.42)
+	if not (s["arms"] as Array).is_empty():
+		inner = s["arms"][0 if wd["front"] else 1]
 	var outer := absf(c.x) - W / 2 - 0.02
 	var arm_c := lin(0x2a2c31)
 	var arms := [[-0.1, 0.035], [0.12, 0.028]] if detail else [[-0.1, 0.035]]
@@ -633,7 +635,12 @@ static func _wheel(kit: Kit, s: Dictionary, detail: int, rig: Dictionary, i: int
 		for dz in [-0.2, 0.2]:
 			var ib := Vector3(sx * inner, y + 0.02, c.z + dz)
 			kit.add_blend(tube(ib, o, a[1], -1.0, 6 if detail else 4), Kit.METAL if not s["fenders"] else Kit.CARBON, Kit.BODY, up, ib, o, arm_c if s["fenders"] else lin(s["cage"]))
-	if not s["fenders"]:
+	if s["pushrod"]:
+		# a push rod from the hub carrier up to the body (the formula car: its springs are inside)
+		var top := Vector3(sx * (inner + 0.01), c.y + 0.2, c.z - 0.04)
+		var bot := Vector3(sx * (outer - 0.03), c.y - 0.07, c.z)
+		kit.add_blend(tube(top, bot, 0.016, -1.0, 6 if detail else 4), Kit.METAL, Kit.BODY, up, top, bot, lin(s["cage"]))
+	elif not s["fenders"]:
 		# coil-over: damper body and a spring of rings, squashed and stretched with the wheel
 		var top := Vector3(sx * (absf(c.x) - 0.5), c.y + 0.42, c.z - 0.06)
 		var bot := Vector3(sx * (outer - 0.04), c.y + 0.06, c.z)
@@ -772,7 +779,8 @@ static func profile(id: String) -> Dictionary:
 		keys.push_front("sidePod")
 	for key in keys:
 		parts.append({"mat": "paint", "pts": side.call(b[key])})
-	parts.append({"mat": "carbon", "pts": rect.call(0.13, 0.135, 2.38, 0.025)}) # floor
+	var fz: Array = s.get("floorZ", [-2.25, 2.51])
+	parts.append({"mat": "carbon", "pts": rect.call((float(fz[0]) + float(fz[1])) / 2.0, 0.135, (float(fz[1]) - float(fz[0])) / 2.0, 0.025)}) # floor
 	for p in s["parts"]:
 		if p.get("flat", false):
 			continue

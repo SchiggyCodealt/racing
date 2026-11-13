@@ -4,7 +4,8 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-12 (v6.21.0: round 5, item 4 of 8: the weight upgrade, a fifth part (`sim/upgrades.gd`);
+_Last updated: 2026-11-13 (v6.22.0: round 5, item 5 of 9: a seventh car, the Apex formula car (`sim/cars.gd`,
+`world/car_shapes.gd`); v6.21.0: round 5, item 4: the weight upgrade, a fifth part (`sim/upgrades.gd`);
 v6.20.0: round 5, item 3 of 8: the F1-style leaderboard: a timing tower on the HUD
 (`ui/timing_tower.gd`) and results / standings tables as rows (`ui/result_row.gd`);
 v6.19.0: round 5, item 2 of 8: the car page (`ui/car_screen.gd`): track and race first, the
@@ -36,7 +37,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.21.0, round 5 under way (4 of 8 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.22.0, round 5 under way (5 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car; a ninth item, a Quattro-style rally car, was added on 2026-11-13); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1584,7 +1585,7 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
 
-## Round 5: eight items (v6.18.0 on)
+## Round 5: nine items (v6.18.0 on)
 
 Asked on 2026-11-12: "Make the AIs in the races more competitive and better / make the car selection after the race
 you've chosen starts not before and make it possible to change cars within a championship / make on more car / make 4
@@ -1602,11 +1603,15 @@ left it open:
 3. **Leaderboard (v6.20.0, done)**: an F1-style timing tower on the left of the HUD (position, colour bar,
    three-letter code, gap) and F1-style results and standings tables. See below.
 4. **Weight (v6.21.0, done)**: a fifth upgrade part that makes the car lighter, ten levels like the others. See below.
-5. **A seventh car**: an open-wheel formula car (the most grip, the best brakes, poor on loose ground).
+5. **A seventh car (v6.22.0, done)**: the Apex, an open-wheel formula car (the most grip, the best brakes, poor on
+   loose ground). See below.
 6. **Four rally stages**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own textures, and a Rally Cup.
-7. **The AI**: every level faster, the field closer together, the top level in an upgraded car, longer training so the
-   networks scrape the walls less.
-8. **A minimap with sectors**: three coloured sectors and the cars as dots in a race; a records page with the best
+7. **A rally car** (added by the owner on 2026-11-13: "also add a rally car modelled after the audi quattro later"):
+   a boxy 1980s Group B coupe in that style (all-wheel drive, a five-cylinder turbo), with a name of its own and no
+   Audi badges; built after the rally stages, so the AI retraining of the next item covers it.
+8. **The AI**: every level faster, the field closer together, the top level in an upgraded car, longer training so the
+   networks scrape the walls less. Give a field driver the Apex (and one the rally car) here.
+9. **A minimap with sectors**: three coloured sectors and the cars as dots in a race; a records page with the best
    time of each sector on each track, with the car and the upgrades it was set with.
 
 ### Item 1: the Reset button (v6.18.0, done)
@@ -1678,6 +1683,51 @@ championship" and the menu half of "redesign the ui to be more streamlined".
   `CupTable.rows`. Shots: `field_battle`, `field_podium`, `cup_standings`, `cup_trophy`.
 - Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
   Race the AI have no tower (one car, or one ghost).
+
+### Item 5: a seventh car, the Apex (v6.22.0, done)
+
+"make on more car". An open-wheel formula car, id `apex`, $40,000, white with red wings.
+- `sim/cars.gd` `DEFS`: 780 kg, rear-wheel drive, mu 1.74, downforce 2.3, a V10 revving to 11,500, six close
+  gears, 15.5 kN of brakes, dirtGrip 0.45 / snowGrip 0.34 (the least of all), a 3.5 s nitro tank. Measured: 0-100
+  2.58 s, 0-200 6.32 s, top 283.9 km/h, 100-0 20.7 m, 2.05 g / 2.42 g on the 30 m / 120 m circles.
+- Author times (`data/medals.json`, `tools/medals.gd -- --tracks=<all 15> --cars=apex --update`): the quickest car
+  on nine tracks (every all-asphalt track but Banked Speedway, where the Vortex's top speed wins, plus Mountain Pass
+  and Canyon Run) by 1.3-14.3 %, sixth on Ramp Rally and last on Hairpin Valley, Forest Rally, Northern Lights and
+  Summit Rush by 10-23 %. That margin on asphalt is meant (the dearest car), and it is what the wings do.
+- Its nitro adds only 0.12 s to 200 km/h from a standstill (the rear tyres are at their limit there, and the push
+  goes through the tyres); from 150 km/h three seconds of it add 20 km/h, as for the Racer.
+- The model (`world/car_shapes.gd` `"apex"`): new optional shape keys, all backwards compatible. `tub`: the car's
+  own tub stations instead of the racer's (the Apex is laid out in metres, no stretch); `floorZ`: a plain floor
+  between two z instead of the full-length one (and no generic diffuser fins); `arms` [front, rear]: where the
+  wishbones meet the body; `pushrod`: a push rod instead of the buggy's coil-over (`car_build.gd` `_wheel`);
+  `lights: "nose"`: one lamp in the nose tip, red strips on the rear wing's end plates (`light_geometries`,
+  `car_model.gd` `_lamp_points`). Look at a car with `tests/visual/car_studio.gd -- cars=apex view=front34`.
+- The engine (`audio/engine_voice.gd` `"apex"`): a V10, the brightest voice, gain 0.77 (level within 1.5 dB of
+  the others at 6000 rpm and at the redline, `tools/engine_preview.gd`).
+- AI opponents (`data/opponents/apex.json`): 15 networks, 80 generations each, all five levels on every track
+  within 1.6 % of their targets. The networks beat the author time by up to 18 % on the loose tracks (they ride the
+  walls where the autopilot's rear-wheel-drive Apex crawls), so the Elite there is capped to the author time.
+- Upgrades: `Upgrades.MEASURED.apex` (`tools/upgrades.gd -- --cars=apex`); every level of everything $2,162,000.
+  The weight part helps the Apex less than the others (level 10: 10 % quicker to 200 km/h, 2 % shorter stop): it
+  is tyre-limited off the line and under braking. Every level of every part of every car is now $7,892,000.
+- **The skidpad test changed** (`tools/car_stats.gd` `skidpad`): its speed ramp could not show more than about
+  2.0 g on the 120 m circle (the ramp to a target above 48 m/s ended inside the averaging window). Runs for targets
+  above 48 m/s are now longer (they end 2.8 s after the ramp, as the 48 m/s run does) and the search goes up to
+  sqrt(40 R). Below 48 m/s nothing changed: the six older cars' stock stats are the same to the last digit
+  (`tools/car_stats.gd` printed them). The rows that had been capped were measured again: the Vortex's tyres 4-10
+  (2.02 -> 2.08 ... 2.29 g) and the Thunder's tyres 8-10 (1.90 -> 1.94 g). The Apex's 2.42 g there does not rise
+  with tyres: it is engine-limited at 192 km/h (the test's throttle control allows 80 %).
+- UI: seven cards sit four to a row on the car page (it already did that above six) and on the training form
+  (`ui/train_dashboard.gd` `_car_grid`). With seven cars, down from the Drifter (top right) picks the Apex.
+- Money: the five cars up to the Vortex still cost $94,000 against $102,000 for a gold + Expert career; the Apex
+  is $40,000 on top (cups and Race the field pay it). The rally stages (item 6) will lengthen the career.
+- Tests: `test_sim.gd` (seven cars, the Apex has the least grip on dirt and snow, its nitro and weight thresholds,
+  the medal hash of the kept tracks without the Apex, prices), `test_ui.gd` (seven cards, four a row, pad and key
+  navigation), `test_game.gd` (terminal: 7 of 7, completion of `upgrade a`), `test_ai.gd` (seven tiles),
+  `test_world.gd` (no mud flaps for the Apex, a V10); e2e `menu`, `cars`, `economy`, `field`.
+- Not done: no field driver has the Apex yet (`sim/field.gd` `DRIVERS`): changing the roster changes every field
+  race, so it waits for item 8 (the AI), which retrains everything anyway. With the Apex on an asphalt track the
+  other cars can't reach its pace, so the field swaps to Apexes in the drivers' colours (the existing rule).
 
 ### Item 4: the weight upgrade (v6.21.0, done)
 

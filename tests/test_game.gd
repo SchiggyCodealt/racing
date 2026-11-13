@@ -1397,8 +1397,8 @@ func _terminal(t) -> void:
 
 	# cars
 	r = term.run("car")
-	t.check((r.lines as Array).filter(func(l: Array) -> bool: return l[0] == "row").size() == 6 and text_of.call(r).contains("Racer | yours") and
-		text_of.call(r).contains("Vortex | $30,000 in the shop") and not r.changed, "car on its own lists the six cars and their prices")
+	t.check((r.lines as Array).filter(func(l: Array) -> bool: return l[0] == "row").size() == 7 and text_of.call(r).contains("Racer | yours") and
+		text_of.call(r).contains("Vortex | $30,000 in the shop") and text_of.call(r).contains("Apex | $40,000 in the shop") and not r.changed, "car on its own lists the seven cars and their prices")
 	r = term.run("car Vortex")
 	t.check(kind_of.call(r) == "gain" and SaveData.owns_car("vortex") and r.changed and SaveData.get_money() == 0, "car Vortex (any case): yours, free")
 	r = term.run("car vortex")
@@ -1408,7 +1408,7 @@ func _terminal(t) -> void:
 	r = term.run("car kestrel THUNDER")
 	t.check(SaveData.owns_car("kestrel") and SaveData.owns_car("thunder") and text_of.call(r).contains("Kestrel, Thunder"), "car kestrel THUNDER: two at once")
 	r = term.run("car all")
-	t.check(SaveData.owned_cars().size() == 6 and text_of.call(r).contains("Now yours: Drifter, Dune") and text_of.call(r).contains("6 of 6"), "car all: every car")
+	t.check(SaveData.owned_cars().size() == 7 and text_of.call(r).contains("Now yours: Drifter, Dune, Apex") and text_of.call(r).contains("7 of 7"), "car all: every car")
 	r = term.run("car all")
 	t.check(text_of.call(r).contains("You already own every car") and not r.changed, "car all again: already")
 
@@ -1432,12 +1432,12 @@ func _terminal(t) -> void:
 	t.check(SaveData.tracks_unlocked() and SaveData.owned_cars().size() == 2 and r.changed, "unlock tracks: the tracks flag only")
 	fresh.call()
 	r = term.run("unlock cars")
-	t.check(SaveData.owned_cars().size() == 6 and not SaveData.tracks_unlocked(), "unlock cars: the cars only")
+	t.check(SaveData.owned_cars().size() == 7 and not SaveData.tracks_unlocked(), "unlock cars: the cars only")
 	fresh.call()
 	r = term.run("unlock all")
 	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
-	t.check(SaveData.owned_cars().size() == 6 and SaveData.tracks_unlocked() and r.changed and disk is Dictionary and JsMath.same(disk.version, SaveData.VERSION) and
-		disk.career.tracks_unlocked == true and (disk.career.cars as Array).size() == 6, "unlock all: every car and the tracks flag, in the save file (the current version)")
+	t.check(SaveData.owned_cars().size() == 7 and SaveData.tracks_unlocked() and r.changed and disk is Dictionary and JsMath.same(disk.version, SaveData.VERSION) and
+		disk.career.tracks_unlocked == true and (disk.career.cars as Array).size() == 7, "unlock all: every car and the tracks flag, in the save file (the current version)")
 	r = term.run("unlock all")
 	t.check(not r.changed and text_of.call(r).contains("already"), "unlock all again: nothing new")
 
@@ -1449,7 +1449,7 @@ func _terminal(t) -> void:
 	term.run("money set 4321")
 	r = term.run("status")
 	var st: String = text_of.call(r)
-	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(6 of 6)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
+	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(7 of 7)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
 		st.contains("1 of 15 tracks") and st.contains("Tracks | all 15 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
 		"status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag (the gold opened Hairpin Valley for good, unannounced: it was open)")
 	# v6.14.0: cup (the trophy cabinet; a place set without racing, nothing paid)
@@ -1509,7 +1509,7 @@ func _terminal(t) -> void:
 
 	# Tab
 	var tab_ok := true
-	var cases := [["", "", 12], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 3], ["car v", "car vortex ", 1], ["car ", "car ", 7], ["car D", "car D", 2],
+	var cases := [["", "", 12], ["mo", "money ", 1], ["M", "money ", 1], ["c", "c", 3], ["car v", "car vortex ", 1], ["car ", "car ", 8], ["car D", "car D", 2],
 		["help m", "help money ", 1], ["unlock a", "unlock all ", 1], ["reset c", "reset career ", 1], ["zz", "zz", 0], ["money s", "money set ", 1],
 		["car all x", "car all x", 0], ["status x", "status x", 0], ["p", "points ", 1]]
 	var tab_bad := []
@@ -1552,7 +1552,7 @@ func _terminal_upgrades(t) -> void:
 	var stock := Upgrades.stock()
 	var r: Dictionary = term.run("upgrade")
 	var rows := (r.lines as Array).filter(func(l: Array) -> bool: return l[0] == "row")
-	t.check(rows.size() == 6 and text_of.call(r).contains("Racer | engine 0, tyres 0, nitro 0, loose 0") and text_of.call(r).contains("Vortex | not yours") and not r.changed,
+	t.check(rows.size() == 7 and text_of.call(r).contains("Racer | engine 0, tyres 0, nitro 0, loose 0") and text_of.call(r).contains("Vortex | not yours") and not r.changed,
 		"upgrade alone: every car's levels (cars not yours say so)")
 	r = term.run("upgrade racer")
 	t.check(text_of.call(r).contains("Engine | level 0 of 10, next %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and
@@ -1611,7 +1611,7 @@ func _terminal_upgrades(t) -> void:
 		"buy at the top level: already; a car not yours, an unknown part, too many words: errors")
 	# Tab: the command, then the car
 	var tab_bad := []
-	for c: Array in [["up", "upgrade ", 1], ["u", "u", 2], ["upgrade v", "upgrade vortex ", 1], ["upgrade a", "upgrade all ", 1], ["upgrade d", "upgrade d", 2]]:
+	for c: Array in [["up", "upgrade ", 1], ["u", "u", 2], ["upgrade v", "upgrade vortex ", 1], ["upgrade al", "upgrade all ", 1], ["upgrade a", "upgrade a", 2], ["upgrade d", "upgrade d", 2]]:
 		var res: Dictionary = term.complete(c[0])
 		if res.line != c[1] or (res.options as PackedStringArray).size() != int(c[2]):
 			tab_bad.append([c[0], res.line, res.options])

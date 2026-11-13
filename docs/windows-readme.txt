@@ -1,20 +1,24 @@
-Track Rush 6.21.0 for Windows (64-bit)
+Track Rush 6.22.0 for Windows (64-bit)
 ======================================
 
-A Trackmania-style racer with six cars, fifteen tracks (seven of them with dirt
-or packed snow), medals, ghosts and an AI driver you train yourself, with any
-of the cars. Medals and wins against five AI opponents (Rookie to Elite) pay
-money and career points, and money buys cars and upgrades. The tracks open one
-at a time: you start with Rookie Oval, and a bronze medal or better on a
+A Trackmania-style racer with seven cars, fifteen tracks (seven of them with
+dirt or packed snow), medals, ghosts and an AI driver you train yourself, with
+any of the cars. Medals and wins against five AI opponents (Rookie to Elite)
+pay money and career points, and money buys cars and upgrades. The tracks open
+one at a time: you start with Rookie Oval, and a bronze medal or better on a
 track, with any car, opens the next one for good.
 
-New in 6.21.0: a fifth upgrade, Weight. Every level makes the car 3 % lighter
-(level 10 about a fifth), so the same engine, brakes and nitro move less car:
-it pulls harder, stops shorter and gets more out of the nitro. It is the
-fifth chip on the car page (key 5) and shows on the car as carbon wheel
-covers. The car's weight on its card turns green when it is lighter.
+New in 6.22.0: a seventh car, the Apex. An open-wheel formula car with front
+and rear wings: the lightest car, with the most grip, the shortest braking and
+the sharpest steering. It is the quickest car on most asphalt tracks, but its
+slick tyres and rear-wheel drive make it the slowest on dirt and snow. It
+costs $40,000 on the car page and has its own engine sound (a V10), medal
+times, upgrades and AI opponents.
 
 Earlier versions, newest first:
+6.21.0  a fifth upgrade, Weight: every level makes the car 3 % lighter (level
+        10 about a fifth), so it pulls harder, stops shorter and gets more out
+        of the nitro; the fifth chip on the car page (key 5).
 6.20.0  a leaderboard in the way of the F1 games: a timing tower on the left
         in Race the field and the cups (place, colour, three-letter code, gap
         to the leader; rows slide, green and red arrows), and results and

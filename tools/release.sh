@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # release.sh: build the Windows zip of a version from a clean copy of the project.
 # ------------------------------------------------------------------
-#   tools/release.sh 6.21.0            -> build/TrackRush-6.21.0-windows.zip
-#   GODOT=/path/to/godot tools/release.sh 6.21.0
+#   tools/release.sh 6.22.0            -> build/TrackRush-6.21.0-windows.zip
+#   GODOT=/path/to/godot tools/release.sh 6.22.0
 # Copies the files git knows (tracked, and new ones not ignored) as they are in the working tree to
 # a temporary folder, imports them from scratch (no stale .godot cache), exports the "Windows
 # Desktop" preset and zips TrackRush.exe, the training library next to it and docs/windows-readme.txt

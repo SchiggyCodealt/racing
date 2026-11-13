@@ -1112,8 +1112,8 @@ func _train_screen_cars() -> void:
 	mode.enter()
 	var d: Control = mode.get("dash")
 	var s: Object = TrainModeScript.session
-	t.check(d.car_chips.size() == 6 and d.run_chips.size() == 6 and d.car == "kestrel" and d.car_chips[1].selected and not d.car_chips[0].selected,
-		"the form has six car tiles, the menu's car (the Kestrel) picked")
+	t.check(d.car_chips.size() == 7 and d.run_chips.size() == 7 and d.car == "kestrel" and d.car_chips[1].selected and not d.car_chips[0].selected,
+		"the form has seven car tiles, the menu's car (the Kestrel) picked")
 	t.check(String(d.seed_info.text).contains("none yet for the Kestrel") and d.seed_check.disabled,
 		"no saved Kestrel network: Continue from saved network is off (%s)" % d.seed_info.text)
 	d.press(d.car_chips[2]) # Thunder

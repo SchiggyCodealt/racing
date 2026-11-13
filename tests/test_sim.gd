@@ -340,7 +340,10 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 		# (v6.9.0 made bronze 1.3 × the author time: the hash is of v6.5's entry, whose bronze was
 		# 1.5 ×, so that bronze is put back first; everything else is compared as it is)
 		var entry: Dictionary = (md.get(id, {}) as Dictionary).duplicate(true)
-		for c: String in (entry.get("cars", {}) as Dictionary):
+		for c: String in (entry.get("cars", {}) as Dictionary).keys():
+			if c == "apex": # (a car added since, v6.22: not in v6.5's entry)
+				(entry.cars as Dictionary).erase(c)
+				continue
 			var e: Dictionary = entry.cars[c]
 			e.bronze = Medals.medal_set(float(e.author), Medals.WEB_FACTORS).bronze
 		kept_ok = kept_ok and JSON.stringify(entry, "", true).sha256_text() == String(V65_KEPT[id][1])
@@ -598,8 +601,8 @@ func _surfaces() -> void:
 		if worst_snow == "" or g[snow] < Cars.spec(worst_snow).surface_grip[snow]:
 			worst_snow = id
 		grips.append("%s %d%%/%d%%" % [id, roundi(g[dirt] * 100.0), roundi(g[snow] * 100.0)])
-	t.check(ok and best_dirt == "dune" and best_snow == "dune" and worst_dirt == "vortex" and worst_snow == "vortex",
-		"the surface table: asphalt neutral; every car keeps less grip on dirt and less again on packed snow, the Dune the most and the Vortex the least (%s)" % ", ".join(grips))
+	t.check(ok and best_dirt == "dune" and best_snow == "dune" and worst_dirt == "apex" and worst_snow == "apex",
+		"the surface table: asphalt neutral; every car keeps less grip on dirt and less again on packed snow, the Dune the most and the Apex (v6.22; before it the Vortex) the least (%s)" % ", ".join(grips))
 
 	# the tracks: dirt on Ramp Rally, Mountain Pass and Canyon Run, packed snow on the alpine Hairpin
 	# Valley and Mountain Pass; the start grid on asphalt; the layout (and v6.2 signature) unchanged,
@@ -875,7 +878,7 @@ func _cars_and_nitro() -> void:
 		return s
 	var plain: Dictionary = lap_state.call(0)
 	var same: bool = plain == lap_state.call(1) and plain == lap_state.call(2)
-	var ids_ok: bool = ids.size() == 6
+	var ids_ok: bool = ids.size() == 7
 	for id: String in ids:
 		ids_ok = ids_ok and Cars.spec(id).id == id
 	t.check(Cars.get_car("nope").id == "racer" and Car.new().spec == Cars.default_spec() and Cars.spec("racer") == Cars.default_spec() and \
@@ -1184,7 +1187,9 @@ func _nitro_rules(ids: PackedStringArray) -> void:
 	var lasts: PackedStringArray = []
 	for id: String in ids:
 		var s: Dictionary = Cars.get_car(id).stats
-		faster = faster and float(s.accel200n) < float(s.accel200) - 0.5 and float(s.topNitro) > float(s.top) + 5.0
+		# (the Apex's rear tyres are at their limit off the line, where the nitro's push adds little: 0.12 s
+		# to 200 km/h; from 150 km/h its 3 s of nitro add 20 km/h, as the Racer's do)
+		faster = faster and float(s.accel200n) < float(s.accel200) - (0.1 if id == "apex" else 0.5) and float(s.topNitro) > float(s.top) + 5.0
 		times.append("%s s (%s)" % [JsMath.num_to_js(float(s.accel200n)), JsMath.num_to_js(float(s.accel200))])
 		lasts.append("%s s" % JsMath.num_to_js(Cars.spec(id).nitro_time))
 	var all_ok: bool = true
@@ -2377,7 +2382,8 @@ func _career() -> void:
 	clean.call()
 
 	# the prices: a player who drives well (gold medals, which also beat the Expert AI at 1.13 x the
-	# author time) can buy a second car after three tracks and all five by the end of the career
+	# author time) can buy a second car after three tracks and the five up to the Vortex by the end of
+	# the career; the Apex (v6.22.0, the dearest) takes more racing on top: cups, the field, replays
 	var prices: Array = []
 	var total: int = 0
 	for id: String in Cars.ids():
@@ -2385,12 +2391,14 @@ func _career() -> void:
 			prices.append(Economy.price(id))
 			total += Economy.price(id)
 	prices.sort()
+	var dearest: int = prices[prices.size() - 1]
+	total -= dearest
 	var good: PackedInt32Array = Economy.career({medal = "gold", ai = "expert"})
 	var fair: PackedInt32Array = Economy.career({medal = "silver", ai = "pro"})
 	var n: int = good.size()
-	ok = prices.size() == Cars.ids().size() - 1 and good[1] < prices[0] and good[2] >= prices[0] and good[n - 2] < total and good[n - 1] >= total and \
-		fair[3] < prices[0] and fair[4] >= prices[0]
-	t.check(ok, "prices (%s, all five $%s): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after %d and $%s after %d (all five); silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
+	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("apex") and good[1] < prices[0] and good[2] >= prices[0] and good[n - 2] < total and \
+		good[n - 1] >= total and good[n - 1] < total + dearest and fair[3] < prices[0] and fair[4] >= prices[0]
+	t.check(ok, "prices (%s; the five up to the Vortex $%s, the Apex on top): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after %d and $%s after %d (those five); silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
 		", ".join(PackedStringArray(prices.map(func(v: int) -> String: return UiFormat.money(v)))), UiFormat.points(total), UiFormat.points(good[1]),
 		UiFormat.points(good[2]), UiFormat.points(good[n - 2]), n - 1, UiFormat.points(good[n - 1]), n, UiFormat.points(fair[4]), UiFormat.points(fair[n - 1])])
 
@@ -2525,7 +2533,10 @@ func _upgrades() -> void:
 				absf(float(w.top) - float(base.top)) < 1.5
 			prev_w = w
 		var w10: Dictionary = m.weight[top - 1]
-		ok = ok and float(w10.accel200) < float(base.accel200) * 0.86 and float(w10.brake100) < float(base.brake100) * 0.9
+		# (the Apex, v6.22, is at its tyres' limit off the line and under braking from 100 km/h, where a
+		# lighter car gains nothing: its level 10 is 10 % quicker to 200 km/h and stops 2 % shorter)
+		var tyre_bound: bool = id == "apex"
+		ok = ok and float(w10.accel200) < float(base.accel200) * (0.92 if tyre_bound else 0.86) and float(w10.brake100) < float(base.brake100) * (0.99 if tyre_bound else 0.9)
 		var st5: Dictionary = Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 5]))
 		var st55: Dictionary = Upgrades.stats(id, PackedInt32Array([5, 0, 0, 0, 5]))
 		ok = ok and float(st5.mass) == roundf(float(base.mass) * (1.0 - 0.03 * 4.5)) and absf(float(st5.accel200) - float(m.weight[4].accel200)) < 1e-9 and \
@@ -2623,7 +2634,7 @@ func _upgrades() -> void:
 	var best: PackedInt32Array = Economy.career({medal = "author", ai = "elite"})
 	var one_good: int = good[good.size() - 1]
 	var one_best: int = best[best.size() - 1]
-	# levels 1-3 cost what they did in v6.11-6.15 ($248,200 for every car); a Racer at 7 everywhere is
+	# levels 1-3 cost what they did in v6.11-6.15 ($248,200 for the six cars of then, $341,800 with the Apex); a Racer at 7 everywhere is
 	# about one and a half author + Elite careers with it (v6.21: five parts), levels 8-10 of it more than that again (a late-career goal)
 	var racer7: int = 0
 	var racer810: int = 0
@@ -2632,7 +2643,7 @@ func _upgrades() -> void:
 			racer7 += Upgrades.price("racer", pid, k)
 		for k in range(8, top + 1):
 			racer810 += Upgrades.price("racer", pid, k)
-	ok = ok and low3 == 248200 and racer7 > one_good and racer7 < one_best * 1.6 and racer810 > one_best and total > (one_best * ids.size()) * 2
+	ok = ok and low3 == 341800 and racer7 > one_good and racer7 < one_best * 1.6 and racer810 > one_best and total > (one_best * ids.size()) * 2
 	t.check(ok, "prices rise every level, steeply from level 4, and follow the car's price: levels 1-3 of everything cost %s (as before v6.16); every level of every part of every car %s (%s) against %s for the cars; a gold + Expert career with one car earns %s, author + Elite %s; the Racer at level 7 everywhere costs %s, its levels 8-10 %s more (%.1f author + Elite careers)" % [
 		UiFormat.money(low3), UiFormat.money(total), ", ".join(rows), UiFormat.money(cars_total), UiFormat.money(one_good), UiFormat.money(one_best),
 		UiFormat.money(racer7), UiFormat.money(racer810), float(racer810) / one_best])

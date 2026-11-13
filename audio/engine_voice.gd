@@ -90,6 +90,16 @@ const ENGINES := {
 		"turbo": 0.0, "turbo_hz": [0.0, 0.0], "rattle": 0.0, "drive": 2.2, "off": 0.3, "crackle": 0.2,
 		"limiter_hz": 24.0, "gain": 0.83,
 	},
+	"apex": {
+		"name": "shrieking V10", "cylinders": 10,
+		"intervals": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+		"amps": [1.0, 0.93, 0.98, 0.9, 1.0, 0.95, 0.91, 1.0, 0.94, 0.97], "jitter": 0.05,
+		"pulse": [1000.0, 6000.0], "pipe": [520.0, -0.45, 0.22],
+		"body": [[470.0, 2.0, 0.7], [1900.0, 2.8, 0.75], [4600.0, 3.4, 0.5]], "direct": 0.22,
+		"tone": 11000.0, "rough": 0.12, "intake": [0.18, 3400.0], "whine": [0.02, 9.0],
+		"turbo": 0.0, "turbo_hz": [0.0, 0.0], "rattle": 0.0, "drive": 2.5, "off": 0.26, "crackle": 0.25,
+		"limiter_hz": 28.0, "gain": 0.77,
+	},
 }
 const DEFAULT := "racer"
 

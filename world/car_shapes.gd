@@ -1,8 +1,8 @@
 ## car_shapes.gd
 ## ------------------------------------------------------------------
-## The six car bodies (carMesh.js SHAPES and its procedural geometry, plus
-## the Dune buggy and the Vortex hypercar): one body plan with different
-## proportions and parts per car. world/car_build.gd turns a shape into the
+## The seven car bodies (carMesh.js SHAPES and its procedural geometry, plus
+## the Dune buggy, the Vortex hypercar and the Apex formula car): one body plan
+## with different proportions and parts per car. world/car_build.gd turns a shape into the
 ## whole skinned car (wheels, suspension, lights, decals, the driver).
 ## Every part is laid out in the racer's frame and then stretched by warp():
 ## x * width, y * height + lift, z * front (z > 0) or rear (z < 0).
@@ -26,10 +26,15 @@
 ##             sym: mirrored to -x as well; flat: left out of the side view (profile);
 ##             bone: "flap" for an active wing (car_build.gd moves it)
 ##   fenders, pods  false: no wheel arches / side pods (the buggy's open wheels); floorW: floor half width
+##   tub       the car's own tub (loft stations) instead of the racer's; floorZ [rear, front]: a plain
+##             floor between those z instead of the full-length one with a splitter (the formula car)
+##   arms      [front, rear] x where the wishbones meet the body (open wheels; else 0.42);
+##             pushrod: true for a push rod to the body instead of the buggy's coil-over
 ##   mudflaps  true: the car has its own mud flaps (v6.11: the loose grip upgrade adds none)
 ##   open      an open cockpit (no canopy over the driver)
 ##   number    the race number on the doors; decal [z, y, radius] of its roundel (racer frame)
-##   lights    "round" | "strip" (LED strips) | "buggy" (small lamps and a light bar)
+##   lights    "round" | "strip" (LED strips) | "buggy" (small lamps and a light bar) |
+##             "nose" (a lamp in the nose cone and lights on the rear wing's end plates)
 ##   hip, lean, wheel   the driver: hip point [x, z, y] (racer frame), recline (rad), steering
 ##             wheel [z, y, tilt]; tray [z0, z1, half width] the dark cockpit floor; seats [[x, z]]
 ##   suit, helmet, helmet_stripe, visor, gloves, rim, spokes, caliper, cage   colours (0xRRGGBB) and counts
@@ -70,7 +75,7 @@ const DEFAULTS := {
 	"rim": 0xc3c7cf, "spokes": 6, "caliper": 0xd8322b,
 	"suit": 0x202226, "helmet": 0xf2f2f2, "helmet_stripe": 0xd7263d, "visor": 0x10161f, "gloves": 0x1b1c20,
 	"tray": [], "seats": [], "seams": [], "vents": [], "tubes": [], "decal": [-0.05, 0.45, 0.15],
-	"cage": 0x3a3d42, "mudflaps": false,
+	"cage": 0x3a3d42, "mudflaps": false, "arms": [], "pushrod": false,
 }
 
 
@@ -255,6 +260,56 @@ static func shapes() -> Dictionary:
 				[0, -1.25, 0.0, 0.5, 0.6, 1.0]],
 			"vents": [[0.32, 1.7, 0.28, 0.1, 4], [0.3, -1.55, 0.4, 0.12, 6]],
 		},
+		# single-seater: a narrow tub with a pointed nose, open wheels on wishbones, side pods, an airbox
+		# behind the driver's head, wings front and rear (laid out in metres: no stretch)
+		"apex": {
+			"front": 1.0, "rear": 1.0, "width": 1.0, "height": 1.0, "lift": 0.0, "track": 0.97, "haunch": 1.0,
+			"wheels": [0.34, 0.33, 0.35, 0.44],
+			"fenders": false, "pods": false, "open": true, "floorW": 0.6, "floorZ": [-2.25, 1.12],
+			"arms": [0.17, 0.2], "pushrod": true,
+			"tub": [ST(-2.3, 0, 0.36, 0.1, 0.1), ST(-2.0, 0, 0.4, 0.16, 0.16), ST(-1.42, 0, 0.44, 0.24, 0.22), ST(-0.9, 0, 0.48, 0.34, 0.28),
+				ST(-0.45, 0, 0.48, 0.4, 0.28), ST(0.1, 0, 0.45, 0.42, 0.25), ST(0.7, 0, 0.425, 0.36, 0.235), ST(1.3, 0, 0.4, 0.24, 0.19),
+				ST(1.9, 0, 0.36, 0.16, 0.12, 4.5), ST(2.3, 0, 0.31, 0.1, 0.075, 4), ST(2.47, 0, 0.285, 0.06, 0.045, 3)],
+			"glass": [ST(0.46, 0, 0.7, 0.2, 0.035, 3), ST(0.54, 0, 0.69, 0.2, 0.03, 3), ST(0.62, 0, 0.67, 0.16, 0.012, 3)], # aero screen
+			"mirror": [0.47, 0.69, 0.45],
+			"stripes": [0.0], "stripeW": 0.07, "stripeAccent": true,
+			"exhausts": [[0.0, 0.56, -2.3, 0.055]],
+			"rain": [0.0, 0.36, -2.32],
+			"lights": "nose",
+			"parts": [
+				# airbox and engine cover, the intake over the driver's head, the camera on top
+				{"mat": "paint", "loft": [ST(-2.2, 0, 0.5, 0.06, 0.07, 3), ST(-1.7, 0, 0.6, 0.11, 0.14, 3), ST(-1.2, 0, 0.72, 0.15, 0.2, 3),
+					ST(-0.8, 0, 0.82, 0.16, 0.2, 3), ST(-0.58, 0, 0.87, 0.14, 0.15, 3)]},
+				{"mat": "carbon", "lamp": [0.1, 0.02], "at": [0, 0.87, -0.572]},
+				{"mat": "accent", "box": [0.07, 0.05, 0.16], "at": [0, 1.04, -0.78]},
+				# side pods (coke-bottle towards the rear wheels), their inlets, the vanes in front of them
+				{"mat": "paint", "sym": true, "loft": [ST(-1.75, 0.3, 0.33, 0.08, 0.07, 4), ST(-1.3, 0.36, 0.36, 0.15, 0.13, 4),
+					ST(-0.8, 0.52, 0.38, 0.23, 0.18, 4), ST(0.0, 0.57, 0.38, 0.24, 0.18, 4), ST(0.45, 0.56, 0.39, 0.22, 0.17, 4),
+					ST(0.62, 0.55, 0.39, 0.2, 0.15, 4)]},
+				{"mat": "carbon", "box": [0.3, 0.22, 0.02], "at": [0.55, 0.39, 0.625], "sym": true},
+				{"mat": "carbon", "box": [0.02, 0.16, 0.36], "at": [0.5, 0.27, 0.93], "sym": true},
+				# front wing: main plane, flaps, end plates, the pylons under the nose
+				{"mat": "carbon", "wing": [1.92, 0.4, 0.035], "at": [0, 0.115, 2.5], "rx": 0.06},
+				{"mat": "accent", "wing": [0.66, 0.2, 0.03], "at": [0.6, 0.2, 2.26], "rx": 0.4, "sym": true},
+				{"mat": "accent", "box": [0.025, 0.2, 0.46], "at": [0.955, 0.2, 2.29], "sym": true},
+				{"mat": "carbon", "box": [0.025, 0.14, 0.16], "at": [0.07, 0.2, 2.32], "sym": true},
+				# rear wing: main plane and flap between tall end plates, a beam wing, the pylon
+				{"mat": "carbon", "wing": [1.16, 0.4, 0.06], "at": [0, 0.9, -1.92], "rx": 0.14},
+				{"mat": "accent", "wing": [1.16, 0.2, 0.04], "at": [0, 1.02, -2.2], "rx": 0.45},
+				{"mat": "accent", "box": [0.03, 0.48, 0.5], "at": [0.595, 0.86, -2.12], "sym": true},
+				{"mat": "carbon", "box": [0.04, 0.42, 0.16], "at": [0, 0.72, -2.1]},
+				# diffuser: the floor kicks up behind the rear axle, with strakes
+				{"mat": "carbon", "box": [1.16, 0.03, 0.42], "at": [0, 0.215, -2.06], "rx": 0.25},
+				{"mat": "carbon", "box": [0.02, 0.1, 0.4], "at": [0.2, 0.19, -2.06], "rx": 0.25, "sym": true},
+				{"mat": "carbon", "box": [0.02, 0.1, 0.4], "at": [0.57, 0.19, -2.06], "rx": 0.25, "sym": true},
+			],
+			"number": "4", "hip": [0.0, 0.0, 0.24], "lean": 0.62, "wheel": [0.2, 0.58, 0.3],
+			"tray": [-0.56, 0.5, 0.25],
+			"suit": 0xd11f1f, "gloves": 0x1b1c20, "helmet": 0xf2c230, "helmet_stripe": 0x1b1c20,
+			"rim": 0x1b1c20, "spokes": 10, "caliper": 0xe2231a,
+			"decal": [0.95, 0.45, 0.1],
+			"cage": 0x15161a,
+		},
 	}
 	for id: String in _shapes:
 		var sh: Dictionary = _shapes[id]
@@ -390,9 +445,11 @@ static func box(sx: float, sy: float, sz: float, x: float, y: float, z: float) -
 
 ## Painted body panels: tub, fenders, side pods, and the livery stripes (racer frame).
 static func body_stations(shape: Dictionary) -> Dictionary:
-	var tub := [ST(-2.36, 0, 0.47, 0.5, 0.2), ST(-2.2, 0, 0.5, 0.58, 0.26), ST(-1.6, 0, 0.52, 0.62, 0.28), ST(-0.9, 0, 0.5, 0.64, 0.3),
+	var tub: Array = [ST(-2.36, 0, 0.47, 0.5, 0.2), ST(-2.2, 0, 0.5, 0.58, 0.26), ST(-1.6, 0, 0.52, 0.62, 0.28), ST(-0.9, 0, 0.5, 0.64, 0.3),
 		ST(0.0, 0, 0.46, 0.64, 0.28), ST(0.7, 0, 0.42, 0.62, 0.24), ST(1.3, 0, 0.37, 0.6, 0.19), ST(1.9, 0, 0.32, 0.58, 0.14, 4.5),
 		ST(2.3, 0, 0.29, 0.5, 0.1, 4), ST(2.47, 0, 0.27, 0.36, 0.06, 3)]
+	if shape.has("tub"):
+		tub = shape["tub"]
 	var front_fender := [ST(0.5, 0.79, 0.47, 0.05, 0.04, 3), ST(0.68, 0.8, 0.5, 0.16, 0.11, 4), ST(1.0, 0.8, 0.57, 0.24, 0.2),
 		ST(1.45, 0.81, 0.6, 0.26, 0.21), ST(1.9, 0.8, 0.55, 0.25, 0.19), ST(2.25, 0.78, 0.45, 0.2, 0.13, 4), ST(2.42, 0.74, 0.37, 0.12, 0.07, 3)]
 	var side_pod := [ST(-1.05, 0.76, 0.52, 0.26, 0.26), ST(-0.6, 0.75, 0.44, 0.26, 0.24), ST(0.1, 0.74, 0.42, 0.26, 0.22),
@@ -501,16 +558,22 @@ static func carbon_geometry(shape: Dictionary, detail := 1, exhausts := true, bo
 	var parts := []
 	# floor with a front splitter
 	var fw: float = shape.get("floorW", 0.9)
-	var fl := PackedVector2Array([Vector2(-fw, -2.25), Vector2(fw, -2.25), Vector2(fw, 2.2)])
-	Geo.quadratic(fl, Vector2(fw, 2.2), Vector2(fw * 0.955, 2.5), Vector2(0.4 * fw / 0.9, 2.52), 12)
-	fl.append(Vector2(-0.4 * fw / 0.9, 2.52))
-	Geo.quadratic(fl, Vector2(-0.4 * fw / 0.9, 2.52), Vector2(-fw * 0.955, 2.5), Vector2(-fw, 2.2), 12)
-	parts.append(Geo.extrude(fl, 0.05).rotate_x(PI / 2.0).translate(0, 0.16, 0))
+	if shape.has("floorZ"):
+		# a plain floor between two z (the formula car's starts behind its front wheels)
+		var fz: Array = shape["floorZ"]
+		parts.append(box(fw * 2.0, 0.05, float(fz[1]) - float(fz[0]), 0, 0.135, (float(fz[0]) + float(fz[1])) / 2.0))
+	else:
+		var fl := PackedVector2Array([Vector2(-fw, -2.25), Vector2(fw, -2.25), Vector2(fw, 2.2)])
+		Geo.quadratic(fl, Vector2(fw, 2.2), Vector2(fw * 0.955, 2.5), Vector2(0.4 * fw / 0.9, 2.52), 12)
+		fl.append(Vector2(-0.4 * fw / 0.9, 2.52))
+		Geo.quadratic(fl, Vector2(-0.4 * fw / 0.9, 2.52), Vector2(-fw * 0.955, 2.5), Vector2(-fw, 2.2), 12)
+		parts.append(Geo.extrude(fl, 0.05).rotate_x(PI / 2.0).translate(0, 0.16, 0))
 	# the racer: rear wing on swan-neck pylons
 	parts.append_array(part_geometries(shape, "carbon", detail, bone))
-	# diffuser fins
-	for x in [-0.6, -0.2, 0.2, 0.6]:
-		parts.append(box(0.03, 0.22, 0.4, x, 0.25, -2.12))
+	# diffuser fins (a car with its own floor brings its own)
+	if not shape.has("floorZ"):
+		for x in [-0.6, -0.2, 0.2, 0.6]:
+			parts.append(box(0.03, 0.22, 0.4, x, 0.25, -2.12))
 	# side intakes and mirror stalks
 	var m: Array = shape["mirror"]
 	for s in [1.0, -1.0]:
@@ -570,7 +633,8 @@ static func wheel_geometries(R: float, W: float) -> Dictionary:
 
 ## The lamps (warped onto the shape): head (glowing), tail (glowing red) and housing (dark bezels).
 ## Styles: "round" (lens and running-light strip), "strip" (thin LED blades), "buggy" (small
-## round lamps at the nose; car_build.gd adds the light bar on the cage).
+## round lamps at the nose; car_build.gd adds the light bar on the cage), "nose" (one lamp in
+## the tip of the nose cone, red strips on the rear wing's end plates).
 static func light_geometries(shape: Dictionary, detail := 1) -> Dictionary:
 	var head := []
 	var tail := []
@@ -578,7 +642,10 @@ static func light_geometries(shape: Dictionary, detail := 1) -> Dictionary:
 	var style: String = shape["lights"]
 	var seg := 12 if detail else 8
 	for s in [1.0, -1.0]:
-		if style == "round":
+		if style == "nose":
+			head.append(Geo.sphere(0.04, seg, 6).scale(1.0, 0.7, 0.6).translate(s * 0.028, 0.29, 2.462))
+			tail.append(box(0.012, 0.28, 0.03, s * 0.595, 0.8, -2.375))
+		elif style == "round":
 			head.append(Geo.sphere(0.1, seg, 6).scale(1.5, 0.42, 0.85).rotate_x(-0.55).translate(s * 0.79, 0.485, 2.31))
 			head.append(box(0.2, 0.018, 0.05, s * 0.79, 0.555, 2.2)) # daytime running light
 			housing.append(Geo.sphere(0.112, seg, 6).scale(1.5, 0.5, 0.85).rotate_x(-0.55).translate(s * 0.79, 0.48, 2.29))

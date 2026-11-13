@@ -13,9 +13,12 @@ extends RefCounted
 ##   dune     open buggy: soft and forgiving, grips well everywhere, lower top speed
 ##            (keeps the most grip on dirt and snow: dirtGrip, snowGrip)
 ##   vortex   hypercar: the most power and top speed, light and twitchy, smallest nitro tank
+##   apex     (v6.22) open-wheel formula car: the lightest, the most grip and downforce, the
+##            shortest braking and the sharpest steering; rear-wheel drive; the least grip on
+##            dirt and snow
 ##
 ## Use:
-##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex"] (picker order)
+##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex"] (picker order)
 ##   Cars.get_car(id)      -> {id, name, price, description, look {color, accent, shape},
 ##                             spec: CarSpec, stats {...}, bars {...}}; unknown ids give the racer
 ##   Cars.spec(id)         -> CarSpec (Car.new(track, idx, Cars.spec(id)))
@@ -49,7 +52,7 @@ const DEFS: Array[Dictionary] = [
 	{
 		id = "kestrel", name = "Kestrel",
 		price = 10000,
-		description = "Light and nimble: the most grip in slow corners, the shortest braking and the quickest launch, but a low top speed.",
+		description = "Light and nimble: strong grip in slow corners, short braking and the quickest launch, but a low top speed.",
 		look = {color = "#f2c14e", accent = "#2b2d42", shape = "small, short, low roadster or hot hatch; narrow track look, small lip spoiler, no big wing"},
 		changes = {
 			id = "kestrel",
@@ -158,6 +161,29 @@ const DEFS: Array[Dictionary] = [
 			maxSpeed = 91,
 		},
 		stats = {mass = 1150, accel100 = 2.57, accel200 = 6.22, top = 321.4, accel200n = 5.47, topNitro = 338.1, tankTime = 3, tankDist = 60, brake100 = 28.8, grip = 1.68, gripFast = 1.75, drift = 1.22},
+	},
+	{
+		id = "apex", name = "Apex",
+		price = 40000,
+		description = "Open-wheel formula car: the most grip, the shortest braking and the sharpest steering, pressed onto the road by its wings. Rear-wheel drive, and lost on dirt and snow.",
+		look = {color = "#f1f2f4", accent = "#e2231a", shape = "single-seater: narrow nose and tub, open wheels on wishbones, side pods, an airbox over the driver's head, front and rear wings"},
+		changes = {
+			id = "apex",
+			mass = 780, inertia = 980, cgToFront = 1.5, cgToRear = 1.3, cgHeight = 0.28, wheelRadius = 0.34,
+			mu = 1.74, loadSensitivity = 0.07, dirtGrip = 0.45, snowGrip = 0.34,
+			handbrake = 0.7, handbrakeFast = 0.5,
+			drag = 0.66, downforce = 2.3, aeroFront = 0.43,
+			idleRpm = 1500, redline = 11500, upshiftRpm = 11000, downshiftRpm = 6800, launchRpm = 6500,
+			torque = [[1500, 195], [4000, 280], [7000, 345], [9000, 372], [10500, 358], [11000, 340], [11500, 312]],
+			gears = [2.82, 2.25, 1.85, 1.57, 1.37, 1.22], finalDrive = 3.9, reverseRatio = 3.0, shiftTime = 0.06,
+			driveFront = 0.0, slideDrive = 4.0,
+			brakeForce = 15500, brakeFront = 0.6,
+			steerLock = 0.6, steerRate = 10, steerRefAccel = 28, steerAssist = 0.5,
+			escGain = 7, escMoment = 3600,
+			nitroTime = 3.5, nitroForce = 3600, nitroPower = 105000, nitroTop = 84.4, nitroFade = 3,
+			maxSpeed = 78.9,
+		},
+		stats = {mass = 780, accel100 = 2.58, accel200 = 6.32, top = 283.9, accel200n = 6.2, topNitro = 298, tankTime = 3.5, tankDist = 66, brake100 = 20.7, grip = 2.05, gripFast = 2.42, drift = 1.02},
 	},
 ]
 

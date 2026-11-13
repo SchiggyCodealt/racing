@@ -149,7 +149,7 @@ static func skidpad(spec: CarSpec, R: float) -> float:
 	var tr: BuiltTrack = circle(R)
 	var best: float = 0.0
 	var vT: float = sqrt(6.0 * R)
-	while vT < minf(95.0, sqrt(30.0 * R)):
+	while vT < minf(95.0, sqrt(40.0 * R)):
 		var car := Car.new(tr, 0, spec)
 		car.place(tr, 0, {x = tr.px[0], z = tr.pz[0], yaw = atan2(tr.tx[0], tr.tz[0]), vx = tr.tx[0] * vT * 0.7, vz = tr.tz[0] * vT * 0.7, idx = 0, laps = 0})
 		var ctrl := Car.Controls.new()
@@ -158,7 +158,12 @@ static func skidpad(spec: CarSpec, R: float) -> float:
 		var n: int = 0
 		var wall: bool = false
 		var s: int = 0
-		while s < 60 * 10 and not wall:
+		# 10 s, the speed averaged over the last 4. (v6.22) The target speed is ramped up at 2 m/s²
+		# from 0.7 vT: above 48 m/s the ramp ends later than 7.2 s, so the run goes on until 2.8 s
+		# after it (as at 48 m/s), or a car with wings would never be seen at its limit (the Apex
+		# read 1.98 g on the 120 m circle with any tyres). Up to 48 m/s nothing changed.
+		var total: int = maxi(60 * 10, int(9.0 * vT) + 168)
+		while s < total and not wall:
 			var look: int = maxi(2, JsMath.roundi((4.0 + car.speed * 0.3) / tr.seg_len))
 			var i: int = (car.idx + look) % tr.N
 			var gx: float = tr.px[i] - car.x
@@ -169,7 +174,7 @@ static func skidpad(spec: CarSpec, R: float) -> float:
 			ctrl.throttle = maxf(-1.0, minf(1.0, (minf(vT, 0.7 * vT + s * DT * 2.0) - car.forward_speed) * 0.8))
 			car.step(tr, ctrl, DT)
 			wall = car.hit_wall
-			if s > 60 * 6:
+			if s > total - 60 * 4:
 				lat_max = maxf(lat_max, absf(car.lat))
 				us += car.speed
 				n += 1

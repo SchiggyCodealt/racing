@@ -95,7 +95,7 @@ func _data(t) -> void:
 	t.check(surf[0] == "Asphalt" and surf[1] == "Asphalt + packed snow" and surf[2] == "Asphalt + dirt" and surf[7] == "Asphalt + dirt + packed snow" and \
 		surf[8] == "Asphalt + dirt" and surf[12] == "Asphalt + dirt" and surf[13] == "Asphalt + packed snow" and surf[14] == "Asphalt + dirt + packed snow" and \
 		surf.count("Asphalt") == 8, "the road surfaces of every track (v6.3, v6.4): %s" % ", ".join(surf))
-	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex"], "cars in picker order: %s" % [UiData.car_ids()])
+	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])
 	t.check(UiData.car_info("nope").id == "racer", "an unknown car gives the racer")
@@ -193,7 +193,7 @@ func _menu(t) -> Array:
 
 
 func _menu_cars(t) -> void:
-	t.section("the car page (v6.19.0): six cars at every window size")
+	t.section("the car page (v6.19.0; v6.22.0: seven cars) at every window size")
 	Fx.save_data_v5()
 	for sz: Vector2 in [Vector2(1280, 720), Vector2(1920, 1080), Vector2(1366, 768), Vector2(1024, 600), Vector2(900, 700), Vector2(700, 900)]:
 		var h := _holder(t, sz)
@@ -213,7 +213,7 @@ func _menu_cars(t) -> void:
 			for o in rects:
 				overlap = overlap or o.grow(-0.5).intersects(r)
 			rects.append(r)
-		var cols_ok := grid.columns == (3 if sz.x >= 1280 else grid.columns)
+		var cols_ok := grid.columns == (4 if sz.x >= 1280 else grid.columns)
 		# at 1280 x 720 and up the page shows every car, the parts and START without scrolling
 		var all_shown := true
 		if sz.x >= 1280:
@@ -228,7 +228,7 @@ func _menu_cars(t) -> void:
 		for c: Control in chips:
 			var r := c.get_global_rect()
 			chips_ok = chips_ok and r.size.x >= CarScreen.CHIP_MIN_W - 0.5 and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5
-		t.check(menu.car_page.is_open and cards.size() == 6 and inside and not overlap and cols_ok and all_shown and chips_ok,
+		t.check(menu.car_page.is_open and cards.size() == 7 and inside and not overlap and cols_ok and all_shown and chips_ok,
 			"%dx%d: %d cards, %d a row, inside the window and apart%s; the five part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
 		h.free()
@@ -305,7 +305,7 @@ func _menu_keys(t) -> void:
 	menu.handle_keys(_press(inp, ["KeyC", "Shift+KeyC"]))
 	t.check(UiData.picked_car() == "racer", "Shift+C picks the previous car")
 	menu.handle_keys(_press(inp, ["KeyC", "Shift+KeyC"]))
-	t.check(UiData.picked_car() == "vortex", "Shift+C wraps to the last car")
+	t.check(UiData.picked_car() == "apex", "Shift+C wraps to the last car (the Apex)")
 	UiData.set_setting("car", "racer")
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)
@@ -320,9 +320,9 @@ func _menu_keys(t) -> void:
 	menu.handle_keys(_press(inp, ["ArrowDown"]))
 	var below := UiData.picked_car()
 	menu.handle_keys(_press(inp, ["ArrowUp", "Digit3"]))
-	t.check(c_next == "kestrel" and back == "racer" and below == "drifter" and UiData.picked_car() == "racer" and menu.selected_track == 0 and
+	t.check(c_next == "kestrel" and back == "racer" and below == "dune" and UiData.picked_car() == "racer" and menu.selected_track == 0 and
 		menu.car_page.card() == menu.car_page.cards[0] and menu.car_page.cards[0].selected,
-		"on the car page C and the arrows pick the car (three a row: down from the Racer is the Drifter); the track keys do nothing there")
+		"on the car page C and the arrows pick the car (four a row since v6.22: down from the Racer is the Dune); the track keys do nothing there")
 	menu.handle_keys(_press(inp, ["NumpadEnter"]))
 	t.check(drives[0] == 1 and menu.car_page.start_btn.text == "START", "Enter on the car page starts (START): drive goes out")
 	menu.handle_keys(_press(inp, ["Escape"]))
@@ -418,7 +418,8 @@ func _menu_pad(t) -> void:
 	t.check(UiData.picked_car() == "kestrel" and menu.car_page.pad_target() == menu.car_page.card(), "right picks the Kestrel, the highlight follows")
 	menu.handle_keys(_press(inp, ["PadLB"], true))
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	t.check(UiData.picked_car() == "drifter", "LB back to the Racer, down a row: the Drifter")
+	t.check(UiData.picked_car() == "dune", "LB back to the Racer, down a row: the Dune")
+	menu.handle_keys(_press(inp, ["PadLB"], true))
 	menu.handle_keys(_press(inp, ["PadLB"], true))
 	menu.handle_keys(_press(inp, ["PadLB"], true))
 	menu.handle_keys(_press(inp, ["PadLB"], true))
@@ -426,7 +427,7 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	var on_chip: bool = menu.car_page.part_chips.has(menu.car_page.pad_target())
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	t.check(UiData.picked_car() == "drifter" or on_chip, "down from the bottom row of cars: the parts")
+	t.check(UiData.picked_car() == "dune" or on_chip, "down from the bottom row of cars: the parts")
 	t.check(menu.car_page.pad_target() == menu.car_page.start_btn, "down from the parts: START")
 	menu.handle_keys(_press(inp, ["PadA"], true))
 	t.check(drives[0] == 1, "A on START starts")
@@ -832,8 +833,8 @@ func _career(t) -> void:
 			locked.append(c.get("car_id"))
 		if c.get("affordable"):
 			can.append(c.get("car_id"))
-	t.check(locked == ["kestrel", "thunder", "drifter", "dune", "vortex"] and int(cards[1].get("price")) == 10000 and can.has("kestrel") and can.has("drifter") and
-		not can.has("vortex"), "five cars locked, each with its price (the Kestrel $10,000); with $15,000 the Kestrel and the Drifter are affordable")
+	t.check(locked == ["kestrel", "thunder", "drifter", "dune", "vortex", "apex"] and int(cards[1].get("price")) == 10000 and int(cards[6].get("price")) == 40000 and can.has("kestrel") and can.has("drifter") and
+		not can.has("vortex") and not can.has("apex"), "six cars locked, each with its price (the Kestrel $10,000, the Apex $40,000); with $15,000 the Kestrel and the Drifter are affordable")
 	var drive_btn: Button = menu.car_page.start_btn
 	var lock: Label = menu.car_page.car_lock
 	t.check(drive_btn.text == "START" and not lock.visible and (menu.get("_drive_btn") as Button).text == "TIME TRIAL" and menu.car_page.money_l.text == "$15,000",
@@ -1012,8 +1013,8 @@ func _upgrades(t) -> void:
 	t.check(off and desc_row.is_visible_in_tree() and (chips[0] as Control).tooltip_text.contains("Buy the Vortex first") and menu.car_page._pad_parts().is_empty(),
 		"the Vortex (not yours): its description shows, its parts are off (buy the car first)")
 	# the pad: down from the picked car (bottom row) to its parts, up back to the car
-	UiData.set_setting("car", "drifter")
-	UiData.store.career.cars = ["racer", "drifter"]
+	UiData.set_setting("car", "dune")
+	UiData.store.career.cars = ["racer", "dune"]
 	menu.refresh()
 	_settle(hm[0])
 	var inp := Fx.FakeInput.new()
@@ -1027,8 +1028,8 @@ func _upgrades(t) -> void:
 	menu.upgrade.connect(func(part: String) -> void: asked.append(part))
 	menu.handle_keys(_press(inp, ["PadA"], true))
 	menu.handle_keys(_press(inp, ["NavUp"], true))
-	t.check(on_car and chips.has(first_chip) and right_chip and asked.size() == 1 and asked[0] != "" and menu.car_page.pad_target() == menu.car_card() and UiData.picked_car() == "drifter",
-		"the pad: down from the Drifter to its part chips, right along them, A asks to buy one (%s), up back to the car" % [asked])
+	t.check(on_car and chips.has(first_chip) and right_chip and asked.size() == 1 and asked[0] != "" and menu.car_page.pad_target() == menu.car_card() and UiData.picked_car() == "dune",
+		"the pad: down from the Dune (bottom row) to its part chips, right along them, A asks to buy one (%s), up back to the car" % [asked])
 	menu.handle_keys(_press(inp, ["Digit2"]))
 	t.check(asked.size() == 2 and asked[1] == "tyres", "the 2 key asks to buy the second part's next level (tyres)")
 	hm[0].free()
