@@ -375,9 +375,15 @@ func _tracks(t) -> void:
 		for n in node.get_children():
 			if String(n.name).begins_with("gate-lights"):
 				gates += 1
-		t.check(gates == tr.cp_samples.size() + (1 if tr.closed else 2), "%s: one lit gate per checkpoint and start/finish" % id)
-		node.set_checkpoint_state(0, "passed")
-		t.check(node.cp_materials[0].albedo_color.is_equal_approx(Themes.col(0x2ee66a)), "%s: set_checkpoint_state colours the gate" % id)
+		node.set_checkpoint_state(0, "passed") # (no gate to colour any more: does nothing)
+		t.check(gates == (1 if tr.closed else 2) and node.cp_materials.size() == tr.cp_samples.size() and not node.cp_materials.any(func(m: Variant) -> bool: return m != null),
+			"%s: lit gates only at the start and finish (v6.27: no checkpoint gates; the checkpoints still count)" % id)
+		# (v6.27) no barriers on a track with loose surfaces: the run-off and the cones instead
+		var has_bar := node.find_child("barriers-*", false, false) != null
+		var has_run := node.find_child("runoff", false, false) != null
+		var cone_n: int = node.cones.count() if node.cones != null else 0
+		t.check(has_bar != tr.open_edges and has_run == tr.open_edges and (cone_n > 300) == tr.open_edges and (node.cone_mmi != null) == tr.open_edges,
+			"%s: %s" % [id, ("no barriers: the run-off and %d cones" % cone_n) if tr.open_edges else "barriers, no cones"])
 		# scenery stays off the road and out of the sea
 		var bad := 0
 		var full := 0
@@ -493,9 +499,12 @@ func _surfaces(t) -> void:
 	# all-asphalt track and what the road beside them throws at them in the alpha: 0 snow along
 	# Hairpin Valley's snow, 1 dirt along Ramp Rally's dirt, 0.5 elsewhere
 	var hv := Tracks.build("hairpin-valley")
+	# (v6.27: those tracks have no barriers now; with def edges "walls" they keep them)
 	var bars := {}
 	for tid: String in ["hairpin-valley", "ramp-rally"]:
-		var tn := TrackMesh.build(hv if tid == "hairpin-valley" else rr)
+		var dw: Dictionary = Tracks.def(tid).duplicate(true)
+		dw.edges = "walls"
+		var tn := TrackMesh.build(Tracks.build_def(dw))
 		var tp := TrackMesh.build(Tracks.build_asphalt(tid))
 		var same_rgb := true
 		var grime_mat := true

@@ -82,8 +82,9 @@ static func add_props(node: Node3D, c: TrackCtx) -> void:
 	var step := maxi(14, roundi(46.0 / t.seg_len))
 	var n := 0
 	var k := 6
-	# (v6.23: a theme with "posts": false has none: a rally stage out in the wild)
-	while k < c.segs - 2 and bool(theme.get("posts", true)):
+	# (v6.23: a theme with "posts": false has none: a rally stage out in the wild; v6.27: nor a
+	# track with no barriers to stand on, BuiltTrack.open_edges)
+	while k < c.segs - 2 and bool(theme.get("posts", true)) and not t.open_edges:
 		var i := c.wrap(k)
 		k += step
 		if c.near_gate(i, 6):
@@ -169,7 +170,7 @@ static func add_props(node: Node3D, c: TrackCtx) -> void:
 	# ---- chevron boards on the outside of tight corners ----
 	var cb := Geo.new()
 	k = 0
-	while k < c.segs:
+	while k < c.segs and not t.open_edges: # (v6.27: they stand on the barriers)
 		var i := c.wrap(k)
 		var j := c.wrap(k + 1)
 		k += 4
@@ -206,7 +207,7 @@ static func add_props(node: Node3D, c: TrackCtx) -> void:
 	var bstep := maxi(20, roundi(130.0 / t.seg_len))
 	n = 0
 	k = 10
-	while k < c.segs - 4:
+	while k < c.segs - 4 and not t.open_edges: # (v6.27: they hang on the barriers)
 		var i := c.wrap(k)
 		k += bstep
 		var straight := true

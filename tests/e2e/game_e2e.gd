@@ -224,6 +224,8 @@ func _main() -> void:
 			await audio_run()
 		"field":
 			await field_race()
+		"cones":
+			await cones_run()
 		"cup":
 			await cup_run()
 		_:
@@ -1252,6 +1254,69 @@ func perf() -> void:
 
 
 # ---------------------------------------------------------------- Race the field (v6.13.0)
+
+## (v6.27) A track without barriers (opts.track, default Pine Ridge): the autopilot drives, then the car
+## is steered off across the left edge: cones fly, the HUD notes the penalty, the car comes back from
+## the run-off; then the run is finished: the finish panel says how many cones and what they cost.
+func cones_run() -> void:
+	var tid := str(opts.get("track", "pine-ridge"))
+	var track := Tracks.build(tid)
+	var run: Dictionary = Medals.medal_times(track, "racer").get("run", {"aLat": 24.0, "lookK": 1.0})
+	await pick(tid, "racer")
+	await key(KEY_ENTER)
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and m.get("cones") != null and track.open_edges, "%s: Drive, a track without barriers (%d cones)" % [tid, (m.get("cones") as Cones).count() if m.get("cones") != null else 0]):
+		return
+	var tn: Node = app.world.track_node
+	check(tn.find_child("barriers-*", false, false) == null and tn.find_child("runoff", false, false) != null and tn.get("cone_mmi") != null,
+		"the world: no barriers, the run-off ground and the cones")
+	await wait_until(func() -> bool: return m.get("phase") == "race", 30.0)
+	autopilot(float(run.aLat), float(run.lookK))
+	var car: Car = m.get("car")
+	var race: RaceState = m.get("race")
+	await wait_until(func() -> bool: return race.time > float(opts.get("at", "9")), 60.0)
+	await shot("cones_road")
+	# off to the left: the autopilot's steering plus a pull, until the car is well out on the run-off
+	var p0: Autopilot = _pilot
+	app.input.feed = func(_speed: float) -> void:
+		var c: Car.Controls = p0.drive(car)
+		app.input.pad_steer = clampf(c.steer + 0.45, -1.0, 1.0)
+		app.input.pad_throttle = 0.7
+		app.input.pad_brake = 0.0
+	var out := func() -> bool: return absf(car.lat) - car._hw > 1.2 or race.time > 60.0
+	await wait_until(out, 20.0)
+	await frames(8)
+	await shot("cones_knock")
+	var pens := race.penalties
+	var sc: ScoreState = m.get("score")
+	var pops := PackedStringArray()
+	for c in (app.ui.hud.get("_pops_box") as Node).get_children():
+		for l in c.find_children("*", "Label", true, false):
+			pops.append((l as Label).text)
+	check(pens > 0 and int(sc.counts.cones) == pens and ("".join(pops).contains("+0.5 s") or "".join(pops).contains("cones +")),
+		"off the road: %d cone%s down, %s s on the clock, the run no longer clean; the popups say \"%s\"" % [pens, "" if pens == 1 else "s", race.penalty, "".join(pops)])
+	await frames(30)
+	await shot("cones_runoff")
+	var mm: Control = app.ui.hud.minimap
+	var lap: Control = app.ui.hud.get("_race_plate")
+	check(mm.is_visible_in_tree() and mm.get_global_rect().position.x < 80.0 and mm.get_global_rect().position.y >= lap.get_global_rect().end.y - 0.5,
+		"the minimap at the top left under the lap plate (%s)" % [mm.get_global_rect()])
+	# back to the road and on to the finish
+	autopilot(float(run.aLat), float(run.lookK))
+	fast(true)
+	var done := await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
+	fast(false)
+	stop_autopilot()
+	var fs: Dictionary = m.get("finish_state")
+	var lines: Array = fs.get("lines", [])
+	var cl := ""
+	for l in lines:
+		if str(l).contains("cone"):
+			cl = str(l)
+	check(done and cl.contains("%d cone" % race.penalties) and is_finite(race.finish_time), "finished %s; the finish panel: \"%s\"" % [RaceState.format_time(race.finish_time), cl])
+	await frames(20)
+	await shot("cones_finish")
+
 
 func field_race() -> void:
 	var tid := str(opts.get("track", "rookie-oval"))

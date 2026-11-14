@@ -99,6 +99,10 @@ var player_finished_at: float = -1.0
 var _cars: Array = []
 var _solid: Array = []
 var _touching: Dictionary = {}
+## (v6.27) the cones of a track without barriers (sim/cones.gd; null: walls), shared by the field, and
+## those knocked over in the last step: (cone, racer) pairs. Each costs its racer Cones.PENALTY s.
+var cones: Cones = null
+var knocked: Array[Vector2i] = []
 
 
 ## `lineup`: sim/field.gd's entries (pole first); `drivers`: one driver object per entry; the player's
@@ -108,6 +112,7 @@ var _touching: Dictionary = {}
 ## start spot (Field.grid's anchor), so its race is as long as in Drive.
 func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player_race: RaceState, player_info: Dictionary = {}, player_slot: int = -1) -> void:
 	track = t
+	cones = Cones.new(t) if t.open_edges else null
 	var ps: int = lineup.size() if player_slot < 0 or player_slot > lineup.size() else player_slot
 	for k in lineup.size():
 		var r := Racer.new()
@@ -166,6 +171,9 @@ func place_on_grid() -> void:
 	hits = []
 	player_finished_at = -1.0
 	_touching = {}
+	knocked = []
+	if cones != null:
+		cones.reset()
 
 
 ## One 60 Hz step of the whole field. Returns the player's race events (RaceState.update's).
@@ -182,9 +190,15 @@ func step(dt: float, player_ctrl: Car.Controls) -> Array[Dictionary]:
 			var c: Car.Controls = r.driver.call("drive", track, r.car, r.race)
 			traffic(r, c)
 			r._now = c
-	# 2. every car
+	# 2. every car (and the cones it knocks over, v6.27)
 	for r in racers:
 		r.car.step(track, r._now, dt)
+	knocked = []
+	if cones != null:
+		for k in racers.size():
+			for c in cones.hit(racers[k].car):
+				racers[k].race.penalize(Cones.PENALTY)
+				knocked.append(Vector2i(c, k))
 	# 3. solid cars collide
 	for k in racers.size():
 		var r := racers[k]

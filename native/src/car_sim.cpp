@@ -25,6 +25,14 @@ constexpr double WALL_Y = 0.45; // car.gd WALL_Y: m above the car's base where w
 constexpr double U_MIN = 1.5; // car.gd U_MIN
 constexpr int SEARCH_WINDOW = 8; // collision.gd SEARCH_WINDOW
 constexpr double KINK_DOT = 0.5; // collision.gd KINK_DOT
+// (v6.27) open edges: collision.gd OFF_SLOPE, OFF_SLOPE_K, OFF_SLOPE_MAX; car.gd VERGE_BLEND, VERGE_ROLL, VERGE_V, VERGE_GRIP
+constexpr double OFF_SLOPE = 1.5;
+constexpr double OFF_SLOPE_K = 1.5;
+constexpr double OFF_SLOPE_MAX = 6.0;
+constexpr double VERGE_BLEND = 1.0;
+constexpr double VERGE_ROLL = 30.0;
+constexpr double VERGE_V = 8.0;
+constexpr double VERGE_GRIP = 0.5;
 
 // GDScript utility functions with their exact semantics.
 inline double minf(double a, double b) { return a < b ? a : b; }
@@ -137,6 +145,30 @@ Loc &locate(const Track &track, double x, double z, int hint, Loc &out) {
 
 // Collision.locate_near: smooth projection starting at segment i, walking to the
 // neighbour segment (at most a few) until the point projects inside a segment.
+// (v6.27) Collision.off_slope: how far down the run-off's slope a point e m beyond the road edge is.
+double off_slope(double drop, double e) {
+	double w = OFF_SLOPE + OFF_SLOPE_K * (drop > 0.0 ? drop : 0.0);
+	if (w > OFF_SLOPE_MAX) {
+		w = OFF_SLOPE_MAX;
+	}
+	double u = e / w;
+	if (u >= 1.0) {
+		return 1.0;
+	}
+	if (u <= 0.0) {
+		return 0.0;
+	}
+	return u * u * (3.0 - 2.0 * u);
+}
+
+// (v6.27) BuiltTrack.runoff_at: how far beyond the road edge a car may go at sample i + t on side s.
+double runoff_at(const Track &track, int i, double t, double side) {
+	int j = track.closed ? (i + 1) % track.N : mini(i + 1, track.count - 1);
+	int o = side > 0.0 ? 0 : 1;
+	double a = track.runoff[i * 2 + o];
+	return a + (track.runoff[j * 2 + o] - a) * t;
+}
+
 Loc &locate_near(const Track &track, double x, double z, int i, Loc &out) {
 	const int N = track.N;
 	const bool closed = track.closed;
@@ -250,6 +282,17 @@ Loc &locate_near(const Track &track, double x, double z, int i, Loc &out) {
 	out.hw = hw_i + (hw[j] - hw_i) * tc;
 	// Positive bank (left-hand turn) raises the right edge (negative lat).
 	out.ground_y = cy - lat * std::tan(bank);
+	if (track.open_edges) {
+		double e = (lat > 0.0 ? lat : -lat) - out.hw;
+		if (e > 0.0) {
+			const double *sy = track.side_y.data();
+			double gy = sy[i] + (sy[j] - sy[i]) * tc;
+			double edge = cy - (lat > 0.0 ? out.hw : -out.hw) * std::tan(bank);
+			double u = off_slope(edge - gy, e);
+			out.ground_y = edge + (gy - edge) * u;
+			out.bank = bank * (1.0 - u);
+		}
+	}
 	return out;
 }
 
@@ -534,9 +577,14 @@ void axle_mix(CarState &c, const Spec &P, const Track &track, double p) {
 	double ab = 0.0;
 	double wl = 0.0;
 	double a0 = 0.0;
+	double off = c.mx_off;
+	int vg = track.verge;
 	for (int s = 0; s < S; s++) {
 		double wa = W[k * S + s];
 		double w = wa + (W[j * S + s] - wa) * f;
+		if (off > 0.0) {
+			w = w * (1.0 - off) + (s == vg ? off : 0.0);
+		}
 		if (s == 0) {
 			a0 = w;
 		}
@@ -549,9 +597,12 @@ void axle_mix(CarState &c, const Spec &P, const Track &track, double p) {
 		wl += w * track.surf_wall[s];
 	}
 	c.mx_pure = a0 == 1.0;
-	c.mx_g = g;
+	c.mx_g = g * (1.0 - (1.0 - VERGE_GRIP) * off);
 	c.mx_k = st;
-	c.mx_r = r;
+	double vr = VERGE_ROLL * std::min(c.speed / VERGE_V, 1.0); // (the speed of the last step)
+	if (vr < r)
+		vr = r;
+	c.mx_r = r + (vr - r) * off;
 	c.mx_e = e;
 	c.mx_b = bk;
 	c.mx_a = ab;
@@ -566,6 +617,13 @@ void surface_mix(CarState &c, const Spec &P, const Track &track) {
 	}
 	double cos_t = std::sin(c.yaw) * -c.nz + std::cos(c.yaw) * c.nx; // heading against the road's tangent
 	double p0 = c.idx + c.t;
+	// (v6.27) open edges: off the road the run-off's surface takes over across a metre around the edge
+	double off = 0.0;
+	if (track.open_edges) {
+		off = ((c.lat > 0.0 ? c.lat : -c.lat) - c.hw + 0.5) / VERGE_BLEND;
+		off = off < 0.0 ? 0.0 : (off > 1.0 ? 1.0 : off);
+	}
+	c.mx_off = off;
 	axle_mix(c, P, track, p0 + (P.cg_to_front * cos_t) / track.seg_len);
 	bool pure_f = c.mx_pure;
 	c.env_gf = c.mx_g;
@@ -1144,6 +1202,23 @@ bool walls(CarState &c, const Spec &P, const Track &track, double h) {
 	c.nz = loc.nz;
 	c.hw = loc.hw;
 	bool near_end = !track.closed && (loc.idx < 4 || loc.idx > track.seg_count - 5);
+	if (track.open_edges && !near_end) {
+		// (v6.27) no barriers: only the far end of the run-off holds the car, softly
+		double sgn0 = loc.lat > 0.0 ? 1.0 : -1.0;
+		double over = std::fabs(loc.lat) - loc.hw - runoff_at(track, loc.idx, loc.t, sgn0);
+		if (over <= 0.0) {
+			return true;
+		}
+		double nudge = over < 0.5 ? over : 0.5;
+		c.x -= loc.nx * nudge * sgn0;
+		c.z -= loc.nz * nudge * sgn0;
+		double vn0 = (c.vx * loc.nx + c.vz * loc.nz) * sgn0;
+		if (vn0 > 0.0) {
+			c.vx -= loc.nx * vn0 * sgn0;
+			c.vz -= loc.nz * vn0 * sgn0;
+		}
+		return false;
+	}
 	double reach = P.half_length + 1.5;
 	if (!near_end && std::fabs(loc.lat) < loc.hw - reach) {
 		return true;
@@ -1263,6 +1338,15 @@ double road_height_at(const Track &track, double p, double lat_at) {
 	int j = track.closed ? (k + 1) % track.N : k + 1;
 	double py = track.py[k] + (track.py[j] - track.py[k]) * t;
 	double bk = track.bank[k] + (track.bank[j] - track.bank[k]) * t;
+	if (track.open_edges) {
+		double hw = track.hw[k] + (track.hw[j] - track.hw[k]) * t;
+		double e = (lat_at > 0.0 ? lat_at : -lat_at) - hw;
+		if (e > 0.0) {
+			double gy = track.side_y[k] + (track.side_y[j] - track.side_y[k]) * t;
+			double edge = py - (lat_at > 0.0 ? hw : -hw) * std::tan(bk);
+			return edge + (gy - edge) * off_slope(edge - gy, e);
+		}
+	}
 	return py - lat_at * std::tan(bk);
 }
 

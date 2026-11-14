@@ -140,6 +140,7 @@ func run(checker: Variant) -> bool:
 	_field()
 	_cups()
 	_sectors()
+	_open_edges()
 	_reset_everything()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
@@ -148,6 +149,94 @@ func run(checker: Variant) -> bool:
 		ScoreState.format_points(43500) == "43,500" and ScoreState.format_points(-500) == "−500",
 		"format_delta and format_points (+0.001, -1.250, 43,500, −500)")
 	return true
+
+
+# ---- open edges and cones (v6.27.0) ---------------------------------------------------
+
+## The tracks with loose surfaces lose their barriers: a run-off beside the road (its ground sloping
+## down to the terrain's level, as wide as RUNOFF where no other road is near), its surface under the
+## wheels, and cones on both edges that a car knocks over for Cones.PENALTY s each.
+func _open_edges() -> void:
+	t.section("open edges and cones (v6.27.0): no barriers where the road is loose, cones that cost 0.5 s")
+	var open_ids := PackedStringArray()
+	var match_loose := true
+	for tr in tracks:
+		if tr.open_edges:
+			open_ids.append(tr.id)
+		match_loose = match_loose and tr.open_edges == tr.has_surfaces()
+	t.check(match_loose and open_ids.size() == 11,
+		"every track with loose surfaces has open edges, the all-asphalt ones keep their barriers (%d: %s)" % [open_ids.size(), ", ".join(open_ids)])
+	var pine := by_id("pine-ridge")
+	var d: Dictionary = pine.def.duplicate(true)
+	d.edges = "walls"
+	var walled: BuiltTrack = Tracks.build_def(d)
+	t.check(not walled.open_edges and walled.signature() == pine.signature() and walled.runoff.is_empty(),
+		"a definition's edges = \"walls\" keeps them; open edges leave the signature as it was (records, ghosts and the AI stay)")
+	var n := pine.count
+	var ro_ok := pine.runoff.size() == 2 * n and pine.side_y.size() == n
+	var ro_min := INF
+	var ro_max := 0.0
+	var below := true
+	for i in n:
+		for o in 2:
+			var v: float = pine.runoff[i * 2 + o]
+			ro_min = minf(ro_min, v)
+			ro_max = maxf(ro_max, v)
+		var low: float = pine.py[i] - pine.hw[i] * absf(tan(pine.bank[i]))
+		below = below and pine.side_y[i] <= low + 1e-4
+	t.check(ro_ok and ro_min >= 0.0 and ro_max <= TrackBuilder.RUNOFF and below and pine.verge != Surfaces.ASPHALT,
+		"the run-off: 0 to %.0f m a side (here %.1f to %.1f), its ground at or below the lower road edge, its surface %s" % [TrackBuilder.RUNOFF, ro_min, ro_max, Surfaces.id(pine.verge)])
+	# the ground beside the road: the road edge's height, down the slope, then flat
+	var loc := Collision.Loc.new()
+	var i0 := n / 3
+	var lat_edge: float = pine.hw[i0]
+	var heights := PackedFloat64Array()
+	for e in [0.0, 1.0, 3.0, 8.0]:
+		var q := Vector2(pine.px[i0] + pine.nx[i0] * (lat_edge + e), pine.pz[i0] + pine.nz[i0] * (lat_edge + e))
+		heights.append(Collision.locate_near(pine, q.x, q.y, i0, loc).ground_y)
+	var falls := heights[1] <= heights[0] + 1e-6 and heights[2] <= heights[1] + 1e-6 and absf(heights[3] - pine.side_y[i0]) < 0.05
+	t.check(falls, "beside the road the ground falls from the edge to the terrain's level and stays there (%s)" % [heights])
+	# the cones
+	var cones := Cones.new(pine)
+	var sorted := true
+	var on_line := true
+	for k in cones.count():
+		if k > 0 and cones.sample[k] < cones.sample[k - 1]:
+			sorted = false
+		var i: int = cones.sample[k]
+		var lat: float = (cones.x[k] - pine.px[i]) * pine.nx[i] + (cones.z[k] - pine.pz[i]) * pine.nz[i]
+		on_line = on_line and absf(absf(lat) - pine.hw[i] - Cones.EDGE) < 1e-3 and signf(lat) == cones.side[k]
+	t.check(cones.count() > 300 and sorted and on_line and Cones.new(by_id("rookie-oval")).count() == 0 and Cones.new(walled).count() == 0,
+		"%d cones on Pine Ridge, %.2f m beyond each edge, in road order; none where there are barriers" % [cones.count(), Cones.EDGE])
+	var k0 := cones.count() / 2
+	var si: int = cones.sample[k0]
+	var car := Car.new(pine, si)
+	car.place(pine, si, {x = cones.x[k0], z = cones.z[k0], yaw = pine.heading(si), vx = 0.0, vz = 0.0, idx = si})
+	var first := cones.hit(car)
+	var again := cones.hit(car)
+	var was_down := cones.down[k0] == 1
+	cones.reset()
+	t.check(k0 in first and again.is_empty() and was_down and not (1 in cones.down),
+		"a car on a cone knocks it over once (it stays down: %s, then nothing); reset() stands every cone up again" % [first])
+	var race := RaceState.new(pine)
+	race.penalize(Cones.PENALTY)
+	race.penalize(Cones.PENALTY)
+	race.finished = true
+	race.penalize(Cones.PENALTY)
+	t.check(is_equal_approx(race.time, 1.0) and race.penalties == 2 and is_equal_approx(race.penalty, 1.0),
+		"each cone adds %s s to the race clock (none once finished)" % Cones.PENALTY)
+	# driving off on purpose: the run-off holds the car softly, nothing hits a wall
+	var off := Car.new(pine)
+	var furthest := 0.0
+	var finite := true
+	var walls := 0
+	for k in 900:
+		off.step(pine, Car.Controls.new(0.25 if k > 120 else 0.0, 1.0), 1.0 / 60.0)
+		furthest = maxf(furthest, absf(off.lat) - off._hw)
+		finite = finite and is_finite(off.x) and is_finite(off.y) and is_finite(off.speed)
+		walls += 1 if off.hit_wall else 0
+	t.check(finite and walls == 0 and furthest > 2.0 and furthest <= TrackBuilder.RUNOFF + 1.0,
+		"steering off the road at full throttle: out across the run-off, held %.1f m beyond the edge at most, no wall contact" % furthest)
 
 
 # ---- sectors (v6.26.0) ----------------------------------------------------------------
@@ -276,6 +365,28 @@ static func straight_road(id: String, n: int, width: float) -> BuiltTrack:
 
 func by_id(id: String) -> BuiltTrack:
 	return Tracks.build(id)
+
+
+var _walled_cache: Dictionary = {}
+
+## `tr` with its barriers (v6.27: the tracks with loose surfaces have open edges; the wall checks
+## run on the same layout with edges = "walls").
+func walled(tr: BuiltTrack) -> BuiltTrack:
+	if not tr.open_edges:
+		return tr
+	if not _walled_cache.has(tr.id):
+		var d: Dictionary = tr.def.duplicate(true)
+		d.edges = "walls"
+		_walled_cache[tr.id] = Tracks.build_def(d)
+	return _walled_cache[tr.id]
+
+
+## Every track with its barriers (walled()).
+func walled_tracks() -> Array[BuiltTrack]:
+	var out: Array[BuiltTrack] = []
+	for tr: BuiltTrack in tracks:
+		out.append(walled(tr))
+	return out
 
 
 ## Track `id` as the web game (v5) has it: all asphalt (the road surfaces of v6.3 stripped) and,
@@ -544,12 +655,13 @@ static func _basic_race(track: BuiltTrack) -> float:
 
 func _physics() -> void:
 	t.section("physics: walls, NaN, the racing line")
+	var walls: Array[BuiltTrack] = walled_tracks() # (v6.27) the loose tracks with their barriers
 	# 4a. no bounce: 30° into the left wall at 50 m/s on a straight, wheels straight; the same hit
 	# must cost at least half the speed within 0.5 s
 	var worst: float = 0.0
 	var kept: float = INF
 	var loss: float = INF
-	for track: BuiltTrack in tracks:
+	for track: BuiltTrack in walls:
 		var i: int = track.start_idx + 15
 		var car: Car = launch(track, i, 0.0, PI / 6.0, 50.0)
 		var touched: bool = false
@@ -583,7 +695,7 @@ func _physics() -> void:
 	# 4a2. no sticking: pressed nose-in against a wall at 45-85°, the car steers off at full throttle
 	var w_stick: float = 0.0
 	var where: String = ""
-	for track: BuiltTrack in tracks:
+	for track: BuiltTrack in walls:
 		var i: int = track.start_idx + 15
 		for deg: float in [45.0, 55.0, 65.0, 75.0, 85.0]:
 			var car: Car = launch(track, i, track.hw[i] - 3.5, deg * PI / 180.0, 5.0)
@@ -605,7 +717,7 @@ func _physics() -> void:
 	var shots: int = 0
 	var escapes: int = 0
 	var worst_lat: float = -INF
-	for track: BuiltTrack in tracks:
+	for track: BuiltTrack in walls:
 		var f: float = 0.05
 		while f < 1.0:
 			var i: int = floori(track.count * f)
@@ -634,7 +746,7 @@ func _physics() -> void:
 	var below: int = 0
 	var outside: int = 0
 	_seed = 12345
-	for track: BuiltTrack in tracks:
+	for track: BuiltTrack in walls:
 		var car := Car.new(track)
 		var c := ctrl(0.0, 0.0)
 		for k in 6000:
@@ -757,8 +869,8 @@ func _rally_stages() -> void:
 				best_car = car
 		winners.append(best_car)
 	var dune_best: bool = winners == PackedStringArray(["quadra", "dune", "quadra", "dune"])
-	t.check(ok and clean >= 5 and worst < 0.3 and dune_best, "medal times for every car on the four stages; the Quadra is the quickest car on gravel and ice, the Dune on sand and mud; on the ice %d of %d author runs touch the banks for under 5 %% of the run (the worst %d %%)" % [
-		clean, Cars.ids().size(), roundi(worst * 100.0)])
+	t.check(ok and clean >= 5 and worst < 0.3 and dune_best, "medal times for every car on the four stages; the Quadra is the quickest car on gravel and ice, the Dune on sand and mud; on the ice %d of %d author runs touch the banks for under 5 %% of the run (the worst %d %%; quickest: %s)" % [
+		clean, Cars.ids().size(), roundi(worst * 100.0), ", ".join(winners)])
 
 	# a save from before v6.23 with a bronze on Summit Rush (then the last track): Pine Ridge opens
 	var path := "user://test_sim_stages.json"
@@ -1011,7 +1123,7 @@ func _surfaces() -> void:
 	var gaps: PackedStringArray = []
 	ok = true
 	for id: String in ["hairpin-valley", "ramp-rally", "mountain-pass", "canyon-run", "forest-rally", "northern-lights", "summit-rush"]:
-		var tr: BuiltTrack = by_id(id)
+		var tr: BuiltTrack = walled(by_id(id)) # (v6.27: with its barriers; the open edges have none)
 		var clean: float = INF
 		for a_lat: float in ([18.0, 22.0] if Tracks.legacy_signature(id) != "" else [18.0, 22.0, 28.0, 32.0, 40.0]):
 			clean = minf(clean, _medal_lap(tr, a_lat).x)
@@ -1173,7 +1285,7 @@ func _cars_and_nitro() -> void:
 		var spec: CarSpec = Cars.spec(id)
 		fastest = maxf(fastest, float(Cars.get_car(id).stats.topNitro))
 		var v_top: float = (float(Cars.get_car(id).stats.topNitro) / 3.6) * 1.1
-		for track: BuiltTrack in tracks:
+		for track: BuiltTrack in walled_tracks():
 			var i: int = track.start_idx + 15
 			var car: Car = launch(track, i, 0.0, PI / 6.0, 50.0, spec)
 			var touched: bool = false
@@ -1644,7 +1756,7 @@ func _score() -> void:
 			rookie.name, ScoreState.format_points(sa.total), a.events.size(), gates, int(S.comboMax), (a.race as RaceState).laps, ScoreState.format_points(expect)])
 
 	# 12b. clean driving pays: on Hairpin Valley the clean autopilot outscores a corner-cutting one that hits the walls
-	var hairpin: BuiltTrack = by_id("hairpin-valley")
+	var hairpin: BuiltTrack = walled(by_id("hairpin-valley")) # (v6.27: with its barriers)
 	var clean: Dictionary = scored_race(hairpin, Autopilot.basic(hairpin, 11.0, 7.5, 77.0, Cars.default_spec())) # (it knows the snow)
 	var rough: Dictionary = scored_race(hairpin, Autopilot.basic(hairpin, 21.0))
 	var rc: Dictionary = (rough.score as ScoreState).counts
@@ -1803,9 +1915,10 @@ func _ghosts() -> void:
 	var minutes: float = 0.0
 	var wall_steps: int = 0
 	var synced: bool = true
-	# Hairpin Valley with a corner-cutting autopilot that hits the walls; Ramp Rally (jumps) driven clean
+	# Hairpin Valley (with its barriers, v6.27) with a corner-cutting autopilot that hits the walls;
+	# Ramp Rally (jumps, open edges) driven clean
 	for pair: Array in [["hairpin-valley", 21.0], ["ramp-rally", 11.0]]:
-		var track: BuiltTrack = by_id(pair[0])
+		var track: BuiltTrack = walled(by_id(pair[0])) if pair[0] == "hairpin-valley" else by_id(pair[0])
 		var car := Car.new(track)
 		var race := RaceState.new(track)
 		var pilot := Autopilot.basic(track, float(pair[1]))
@@ -2828,7 +2941,7 @@ func _upgrades() -> void:
 	var laps: PackedStringArray = []
 	ok = true
 	for tid: String in ["rookie-oval", "ramp-rally"]:
-		var tr: BuiltTrack = by_id(tid)
+		var tr: BuiltTrack = walled(by_id(tid)) # (v6.27: Ramp Rally with its barriers: the car's pace, not the cones)
 		for id: String in ["racer", "thunder", "dune"]:
 			var r0: Dictionary = Autopilot.drive_race(tr, 20.0, 0.75, id, true)
 			var r3: Dictionary = Autopilot.drive_race(tr, 20.0, 0.75, id, true, Upgrades.spec(id, all3))

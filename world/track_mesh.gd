@@ -85,6 +85,13 @@ var ctx: TrackCtx
 var theme: Dictionary
 var theme_name := ""
 var terrain: Terrain
+## (v6.27) open edges: the cones (sim/cones.gd), their MultiMesh, rest transforms and the ones flying
+var cones: Cones = null
+var cone_mmi: MultiMeshInstance3D = null
+var cone_rest: Array[Transform3D] = []
+var _flying: Array[Dictionary] = []
+var _cone_loc := Collision.Loc.new()
+var _cone_down := PackedByteArray()
 ## checkpoint gate light materials, by checkpoint index
 var cp_materials: Array[StandardMaterial3D] = []
 ## instanced scenery thinned by the quality level: {node: MultiMeshInstance3D, full: int, kind: "scenery" | "tuft"}
@@ -122,10 +129,16 @@ static func build(track: BuiltTrack) -> TrackMesh:
 	node._build_curbs()
 	lap["curbs"] = (Time.get_ticks_usec() - tl) / 1000
 	tl = Time.get_ticks_usec()
-	node._build_barriers()
+	if track.open_edges:
+		# (v6.27) no barriers: the run-off beside the road, and cones on its edges
+		node._build_runoff()
+		node._build_cones()
+	else:
+		node._build_barriers()
 	lap["barriers"] = (Time.get_ticks_usec() - tl) / 1000
 	tl = Time.get_ticks_usec()
-	node._build_embankments()
+	if not track.open_edges:
+		node._build_embankments()
 	lap["embank"] = (Time.get_ticks_usec() - tl) / 1000
 	tl = Time.get_ticks_usec()
 	node._build_start_lines()
@@ -766,6 +779,160 @@ func _glow_stripe(g: Geo, i: int, j: int, s: float) -> void:
 
 
 ## Earth slopes from the outside of the barriers down into the terrain.
+# =============================================================================
+# (v6.27) Open edges: the run-off and the cones
+# =============================================================================
+
+## The ground beside an open-edged road, exactly where the car physics has it (Collision.locate:
+## down the slope from the road edge to side_y, then flat out to the end of the run-off), then a
+## short bank down to the terrain.
+func _build_runoff() -> void:
+	var c := ctx
+	var t := c.track
+	var rows := c.segs + 1
+	var g := Geo.new()
+	var gc: Dictionary = theme["ground"]
+	# the run-off is the track's loose ground (t.verge, what the physics drives on there): the grass
+	# tinted well over to that surface's colour, so it reads as a gravel trap
+	var loose := Color(String(Surfaces.def(t.verge).road)).srgb_to_linear()
+	var verge := (Themes.lin(gc["a"]) * 0.85).lerp(loose, 0.5)
+	var earth := Themes.lin(gc["dirt"])
+	verge.a = 1.0
+	earth.a = 1.0
+	var steps := [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+	var per := steps.size() + 2
+	for s: float in [1.0, -1.0]:
+		var start := g.count()
+		for k in rows:
+			var i := c.wrap(k)
+			var eY := c.edge_y(i, s)
+			var gy: float = t.side_y[i]
+			var drop := eY - gy
+			var w := clampf(Collision.OFF_SLOPE + Collision.OFF_SLOPE_K * maxf(drop, 0.0), Collision.OFF_SLOPE, Collision.OFF_SLOPE_MAX)
+			var ro: float = t.runoff[i * 2 + (0 if s > 0.0 else 1)]
+			var far := maxf(ro + 1.0, w + 0.5)
+			for f: float in steps:
+				var e: float = f * minf(w, far)
+				var q := _side(i, s, t.hw[i] + e)
+				var y := eY + (gy - eY) * Collision.off_slope(drop, e)
+				g.vert(Vector3(q.x, y - 0.015, q.y), Vector3.UP, q / 7.0, verge)
+			var q1 := _side(i, s, t.hw[i] + far)
+			g.vert(Vector3(q1.x, gy - 0.015, q1.y), Vector3.UP, q1 / 7.0, verge.lerp(earth, 0.35))
+			# a short bank down below the terrain (which may lie lower: its cells are coarse)
+			var q2 := _side(i, s, t.hw[i] + far + 2.0)
+			var toe := minf(terrain.height_at(q2.x, q2.y) - 0.6, gy - 0.4)
+			g.vert(Vector3(q2.x, toe, q2.y), Vector3.UP, q2 / 7.0, earth)
+		for k in rows - 1:
+			var a := start + k * per
+			var cc := a + per
+			for m in per - 1:
+				if s > 0.0:
+					g.quad(a + m, cc + m, cc + m + 1, a + m + 1)
+				else:
+					g.quad(a + m, a + m + 1, cc + m + 1, cc + m)
+	g.compute_normals()
+	_add_geo(g, terrain.material, "runoff")
+
+
+## The cones along both edges (sim/cones.gd), one MultiMesh; knock_cone() throws one aside.
+func _build_cones() -> void:
+	cones = Cones.new(ctx.track)
+	var n := cones.count()
+	if n == 0:
+		return
+	var orange := Themes.lin(0xff6a13)
+	var white := Themes.lin(0xf4f4f0)
+	var base := Themes.lin(0x26262a)
+	var geo := Geo.new()
+	geo.add_geometry(Geo.box(0.42, 0.04, 0.42).translate(0, 0.02, 0).paint_solid(base))
+	geo.add_geometry(Geo.cylinder(0.035, 0.1, 0.24, 12).translate(0, 0.62, 0).paint_solid(orange))
+	geo.add_geometry(Geo.cylinder(0.1, 0.13, 0.16, 12).translate(0, 0.42, 0).paint_solid(white))
+	geo.add_geometry(Geo.cylinder(0.13, 0.17, 0.3, 12).translate(0, 0.19, 0).paint_solid(orange))
+	var mat := vc_mat(0.55)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = geo.to_mesh(mat)
+	mm.instance_count = n
+	cone_rest.resize(n)
+	_cone_down.resize(n)
+	_cone_down.fill(0)
+	var t := ctx.track
+	for k in n:
+		var i: int = cones.sample[k]
+		var xf := Transform3D(Basis(Vector3.UP, atan2(t.tx[i], t.tz[i])), Vector3(cones.x[k], cones.y[k], cones.z[k]))
+		cone_rest[k] = xf
+		mm.set_instance_transform(k, xf)
+	cone_mmi = MultiMeshInstance3D.new()
+	cone_mmi.name = "cones"
+	cone_mmi.multimesh = mm
+	cone_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(cone_mmi)
+
+
+## (v6.27) Throw cone k aside: it flies off the way the car (vx, vz m/s) pushed it, tumbling, and
+## comes to rest on its side. A cone that is down already stays where it is.
+func knock_cone(k: int, vx: float, vz: float) -> void:
+	if cone_mmi == null or k < 0 or k >= cone_rest.size() or _cone_down[k] != 0:
+		return
+	_cone_down[k] = 1
+	var v := Vector2(vx, vz)
+	var sp := v.length()
+	var out := Vector2(cones.side[k] * ctx.track.nx[cones.sample[k]], cones.side[k] * ctx.track.nz[cones.sample[k]])
+	var dir := (v * 0.7 + out * 3.0) if sp > 0.5 else out * 3.0
+	var fly := {"k": k, "p": cone_rest[k].origin, "v": Vector3(dir.x, 2.0 + sp * 0.12, dir.y),
+		"axis": Vector3(dir.y, 0.0, -dir.x).normalized() if dir.length() > 0.01 else Vector3.RIGHT,
+		"a": 0.0, "w": 6.0 + sp * 0.4, "i": cones.sample[k], "yaw": cone_rest[k].basis}
+	_flying.append(fly)
+	set_process(true)
+
+
+## Every cone standing again (a restart).
+func reset_cones() -> void:
+	_flying.clear()
+	_cone_down.fill(0)
+	if cone_mmi == null:
+		return
+	for k in cone_rest.size():
+		cone_mmi.multimesh.set_instance_transform(k, cone_rest[k])
+
+
+func _process(dt: float) -> void:
+	if _flying.is_empty():
+		set_process(false)
+		return
+	var mm := cone_mmi.multimesh
+	var keep: Array[Dictionary] = []
+	for f: Dictionary in _flying:
+		var v: Vector3 = f.v
+		var p: Vector3 = f.p + v * dt
+		v.y -= 9.81 * dt
+		var a: float = f.a + float(f.w) * dt
+		var landed := false
+		# the ground under it, as the physics has it (road, run-off slope, flat run-off)
+		var loc := Collision.locate_near(ctx.track, p.x, p.z, int(f.i), _cone_loc)
+		f.i = loc.idx
+		var fl: float = loc.ground_y
+		if p.y <= fl and v.y < 0.0:
+			p.y = fl
+			if v.y < -2.0:
+				v = Vector3(v.x * 0.5, -v.y * 0.3, v.z * 0.5)
+				f.w = float(f.w) * 0.5
+			else:
+				landed = true
+		f.v = v
+		f.p = p
+		f.a = a
+		var b: Basis = Basis(f.axis, a) * (f.yaw as Basis)
+		if landed:
+			# on its side, lying where it came down
+			b = Basis(f.axis, PI / 2.0) * (f.yaw as Basis)
+			p.y = fl + 0.14
+		mm.set_instance_transform(int(f.k), Transform3D(b, p))
+		if not landed:
+			keep.append(f)
+	_flying = keep
+
+
 func _build_embankments() -> void:
 	var c := ctx
 	var t := c.track
@@ -857,8 +1024,7 @@ func _build_gates() -> void:
 	else:
 		defs.append({"i": t.start_line, "kind": "start", "label": "START"})
 		defs.append({"i": t.finish_idx, "kind": "start", "label": "FINISH"})
-	for k in t.cp_samples.size():
-		defs.append({"i": t.cp_samples[k], "kind": "cp", "k": k, "label": "CHECKPOINT %d" % (k + 1)})
+	# (v6.27: no checkpoint gates any more, only the start and the finish; the checkpoints still count)
 	var atlas := Tex.gate_atlas(defs)
 	var frame := Geo.new()
 	var banner := Geo.new()

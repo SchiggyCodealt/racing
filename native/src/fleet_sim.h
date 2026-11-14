@@ -52,6 +52,7 @@ struct Agent {
 	bool race_finished = false;
 	// Trainer.Agent
 	bool alive = true, finished = false, touched_wall = false;
+	bool off = false; // (v6.27) Trainer.Agent.off: out over the cone line (a track without barriers)
 	int reason = 0; // Trainer.REASONS index (0 = still driving)
 	double fitness = 0.0, start_prog = 0.0, max_prog = 0.0, last_improve = 0.0, gate_deadline = 0.0;
 	double prev_x = 0.0, prev_y = 0.0, prev_z = 0.0, prev_yaw = 0.0;

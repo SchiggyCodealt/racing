@@ -26,8 +26,9 @@ extends SceneTree
 ##
 ## The race is the one the player drives in Drive, with each car: all the laps of a
 ## circuit, a sprint start to finish, standing start at GO with a full tank, 60 Hz:
-## car.step, race.update, then the style score whose banked points refill the tank.
-## Author time: the best finish of the medal autopilot (Autopilot.medal) over
+## car.step, the cones it knocks over (v6.27, 0.5 s each on the clock), race.update, then the style
+## score whose banked points refill the tank.
+## Author time: the best finish (on the clock, cones included) of the medal autopilot (Autopilot.medal) over
 ## Autopilot.GRID_A_LAT × GRID_LOOK_K (the first in grid order on a tie, lookK outer),
 ## to the millisecond the HUD shows; gold / silver / bronze = author × Medals.FACTORS,
 ## rounded up to a whole second. A run that is stuck for 3 s or takes over 15 min
@@ -35,7 +36,7 @@ extends SceneTree
 
 const METHOD: String = "author: fastest finish of the look-ahead autopilot in tools/medals.gd over aLat " + \
 	"14/16/18/20/22/24/26/28/32/40 m/s² × lookK 0.35/0.55/0.75/1/1.3 (braking 11 m/s², aim at most 80 m ahead), " + \
-	"nitro at full throttle with |steer| < 0.25, refilled by the style score; wall touches allowed; " + \
+	"nitro at full throttle with |steer| < 0.25, refilled by the style score; wall touches allowed, cones cost 0.5 s; " + \
 	"gold/silver/bronze = author × %s, rounded up to a whole second"
 
 
@@ -195,7 +196,7 @@ static func car_medals(track: BuiltTrack, car_id: String) -> Dictionary:
 			if not r.finished:
 				continue
 			finished += 1
-			if best.is_empty() or r.steps < best.steps:
+			if best.is_empty() or r.time < best.time: # (v6.27: the clock with the cone penalties)
 				best = r
 				best.a_lat = a_lat
 				best.look_k = look_k
@@ -204,6 +205,8 @@ static func car_medals(track: BuiltTrack, car_id: String) -> Dictionary:
 	var author: float = JsMath.round(best.time * 1000.0) / 1000.0 # what the HUD shows for that run
 	var entry: Dictionary = Medals.medal_set(author)
 	entry.run = {aLat = best.a_lat, lookK = best.look_k, steps = best.steps, wallSteps = best.wall}
+	if track.open_edges:
+		entry.run.cones = best.cones
 	return {runs = runs, finished = finished, entry = entry, best = best}
 
 

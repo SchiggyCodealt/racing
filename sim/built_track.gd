@@ -27,6 +27,13 @@ extends RefCounted
 ##   surface      the road surface of every sample (Surfaces index; empty: all asphalt)
 ##   surf_w       blend weights: surf_n per sample (sample i, surface s at i * surf_n + s),
 ##                smoothed across borders; empty when the track is all asphalt (v6.3)
+##   open_edges   (v6.27) no barriers along the road (every track with loose surfaces, or def
+##                edges = "cones"): cones on the edges (sim/cones.gd) and a run-off beside the road
+##   side_y       (v6.27) the ground level beside the road at every sample (the terrain's level:
+##                world/track_ctx.gd's G); the run-off slopes down to it from the road edge
+##   runoff       (v6.27) open edges: how far beyond the edge a car may go, 2 per sample (left at
+##                2i, right at 2i + 1): at most RUNOFF m, less where other road is near
+##   verge        (v6.27) the surface of the run-off (Surfaces index)
 ##
 ## The per-sample arrays are PackedFloat32Array like the JS Float32Arrays, so
 ## every value is exactly the JS value (float32), read as a 64-bit float.
@@ -68,6 +75,20 @@ var surf_w: PackedFloat32Array = PackedFloat32Array()
 var surf_n: int = 0
 ## the two surfaces the look carries (Surfaces.slots(), made on first use)
 var slot_cache: PackedInt32Array = PackedInt32Array()
+## (v6.27) open edges: see the header
+var open_edges: bool = false
+var side_y: PackedFloat32Array = PackedFloat32Array()
+var runoff: PackedFloat32Array = PackedFloat32Array()
+var verge: int = 0
+
+
+## (v6.27) Open edges: how far beyond the road edge a car may go at sample i + t on the left
+## (side +1) or right (side -1).
+func runoff_at(i: int, t: float, side: float) -> float:
+	var j: int = (i + 1) % N if closed else mini(i + 1, count - 1)
+	var o: int = 0 if side > 0.0 else 1
+	var a: float = runoff[i * 2 + o]
+	return a + (runoff[j * 2 + o] - a) * t
 
 
 ## Sample index wrapped round a circuit / clamped to the ends of a sprint.

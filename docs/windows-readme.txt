@@ -1,4 +1,4 @@
-Track Rush 6.26.0 for Windows (64-bit)
+Track Rush 6.27.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with eight cars, nineteen tracks (seven of them with
@@ -9,15 +9,23 @@ career points, and money buys cars and upgrades. The tracks open one at a
 time: you start with Rookie Oval, and a bronze medal or better on a track,
 with any car, opens the next one for good.
 
-New in 6.26.0: a minimap and sectors, in the way of the F1 games. Every
-track is split into three sectors, S1 to S3. During a race the minimap at
-the bottom right shows the track, the sector you are in (yellow), the ones
-done this lap (green when they are the fastest yet) and every car as a dot,
-with the sector times under it. On the menu, R (or the Records button next
-to Cups) shows the fastest time through each sector of every track, by any
-car, with the car and its upgrades, and the ideal lap they add up to.
+New in 6.27.0: no more barriers on the eleven tracks with dirt, snow,
+gravel, sand, ice or mud. Orange cones stand along both edges instead, and
+beside the road there is a run-off you can drive on, up to 10 m wide. It
+works like a gravel trap (little grip, a lot of drag), so cutting across
+it or running wide costs time. Each cone you knock over adds 0.5 s to your
+time and spoils the clean-driving combo. The AI opponents on those tracks
+learned to race without walls and the medal times were measured again.
+The checkpoint gates and the CP counter are gone (the checkpoints still
+count), the minimap moved to the top left and the timing tower to the top
+right, above your place, best time and medal.
 
 Earlier versions, newest first:
+6.26.0  a minimap with three sectors, S1 to S3, in the way of the F1 games:
+        the sector you are in, the ones done this lap (green when the
+        fastest yet) and every car as a dot; on the menu, R (or Records)
+        shows the fastest time through each sector of every track, by any
+        car, with the car and its upgrades.
 6.25.0  faster, closer AI opponents: every level a step faster (the Elite
         flat out, 3-11 % under the author time), every AI car at upgrade
         level 3, a field 4 % from the slowest car to the fastest, and two

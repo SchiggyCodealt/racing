@@ -6,7 +6,9 @@ extends RefCounted
 ## its AI ghost): the AI's car (v6.25: Opponents.spec, the car with the AI's upgrades), a standing start at GO, 60 Hz steps of the network driver (ai/sensors.gd
 ## AIDriver, with the level's speed cap), car.step, race.update; walls are ridden (the
 ## opponent never collides with you and is never put out by a wall), and when it makes no
-## progress for PlayMode.STUCK_TIME seconds it is put back at its last checkpoint, standing. No
+## progress for PlayMode.STUCK_TIME seconds it is put back at its last checkpoint, standing. On a track
+## without barriers (v6.27) each cone it knocks over adds Cones.PENALTY s; its cones are its own (the
+## game's AI ghost has its own set too, so its race stays the one measured here). No
 ## nitro (v6.15): an empty tank and no refills, as in every race against the AI (the shipped
 ## networks have no nitro anyway: their nitro output is widened in as 0, ai/sensors.gd).
 ## The opponent's race does not depend on yours, and the physics is deterministic, so its finish
@@ -15,7 +17,7 @@ extends RefCounted
 ## tests/test_ai.gd re-runs some of them.
 ##
 ##   OpponentRace.run(net, track, car_id, cap = INF, max_time = MAX_TIME, trace = false)
-##     -> {finished, time (INF when not finished), steps, respawns, wall_steps, top (m/s),
+##     -> {finished, time (INF when not finished), steps, respawns, wall_steps, top (m/s), cones,
 ##         speeds (PackedFloat32Array, one per step, only with trace)}
 ## (`net` is driven as it is: give each thread its own copy, NeuralNetwork.clone().)
 
@@ -39,9 +41,13 @@ static func run(net: NeuralNetwork, track: BuiltTrack, car_id: String, cap: floa
 	var speeds := PackedFloat32Array()
 	var limit: int = int(max_time / STEP)
 	var steps: int = 0
+	var cones: Cones = Cones.new(track) if track.open_edges else null
 	while not race.finished and steps < limit:
 		var c: Car.Controls = driver.drive(track, car, race)
 		car.step(track, c, STEP)
+		if cones != null:
+			for k in cones.hit(car):
+				race.penalize(Cones.PENALTY)
 		race.update(car, STEP)
 		steps += 1
 		if car.hit_wall:
@@ -55,7 +61,7 @@ static func run(net: NeuralNetwork, track: BuiltTrack, car_id: String, cap: floa
 			watch = PlayMode._new_watch(car, race.time)
 			respawns += 1
 	var out: Dictionary = {finished = race.finished, time = race.finish_time, steps = steps, respawns = respawns,
-		wall_steps = wall_steps, top = top}
+		wall_steps = wall_steps, top = top, cones = race.penalties}
 	if trace:
 		out.speeds = speeds
 	return out

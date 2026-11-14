@@ -79,13 +79,17 @@ static func analyse(p_track: BuiltTrack, p_theme: Dictionary) -> TrackCtx:
 
 	# Lowest road edge and the terrain level next to the road. erode+blur with
 	# the same radius guarantees G[i] <= low[i] (terrain never above the road).
-	var low := PackedFloat32Array()
-	low.resize(n)
-	for i in n:
-		low[i] = p_track.py[i] - p_track.hw[i] * absf(c.tan_b[i])
-	c.G = _blur(_erode(low, 30, c.closed), 30, c.closed)
-	for i in n:
-		c.G[i] -= 0.35
+	# (v6.27: the track builder makes it, side_y: the car drives on it beside an open-edged road)
+	if p_track.side_y.size() == n:
+		c.G = p_track.side_y.duplicate()
+	else:
+		var low := PackedFloat32Array()
+		low.resize(n)
+		for i in n:
+			low[i] = p_track.py[i] - p_track.hw[i] * absf(c.tan_b[i])
+		c.G = _blur(_erode(low, 30, c.closed), 30, c.closed)
+		for i in n:
+			c.G[i] -= 0.35
 
 	# Corners get curbs: radius under ~150 m, short runs removed.
 	c.corner.resize(n)
@@ -153,7 +157,7 @@ func _plan_grandstand() -> void:
 	var anchor := 0 if closed else mini(count - 1, t.start_idx + 12)
 	var L := 40.0
 	var D := 13.0
-	var gap := 5.0
+	var gap := 5.0 if not t.open_edges else TrackBuilder.RUNOFF + 2.0 # (v6.27: beyond the run-off)
 	for s: float in [-1.0, 1.0]:
 		var off := s * (t.hw[anchor] + BARRIER_W + gap + D / 2.0)
 		var cx := t.px[anchor] + t.nx[anchor] * off

@@ -17,6 +17,8 @@ extends RefCounted
 ##   race.lap_times, race.respawn (car.snapshot() at the last gate, {} before),
 ##   race.lap(), race.cp_in_lap(), race.total_gates(), race.cp_per_lap
 ##   RaceState.format_time(t) -> "m:ss.mmm";  RaceState.format_delta(d) -> "+0.123"
+##   race.penalize(s)                          (v6.27) a time penalty (a cone): s added to the clock
+##   race.penalty, race.penalties               the seconds added so far and how many times
 
 var track: BuiltTrack
 var laps: int = 1
@@ -35,6 +37,9 @@ var lap_times: PackedFloat64Array = PackedFloat64Array()
 var lap_start: float = 0.0
 ## car snapshot at the last gate ({} before the first)
 var respawn: Dictionary = {}
+## (v6.27) time penalties so far (seconds added to the clock) and their number (cones knocked)
+var penalty: float = 0.0
+var penalties: int = 0
 
 
 func _init(t: BuiltTrack, n_laps: int = -1) -> void:
@@ -54,6 +59,18 @@ func reset() -> void:
 	lap_times = PackedFloat64Array()
 	lap_start = 0.0
 	respawn = {}
+	penalty = 0.0
+	penalties = 0
+
+
+## (v6.27) Adds `s` seconds to the clock (a knocked cone), until the finish. The splits, lap times,
+## sector times and the finish time that follow all carry it.
+func penalize(s: float) -> void:
+	if finished:
+		return
+	time += s
+	penalty += s
+	penalties += 1
 
 
 ## The lap being driven (1-based, at most laps).

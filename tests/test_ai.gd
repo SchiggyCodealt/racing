@@ -911,14 +911,22 @@ func _fleet_cars() -> void:
 ## FleetSim.debug_drive: the states the same (bit for bit) at every step. v6.10: also Northern
 ## Lights (snow bowls, much wall contact), and the steps braking or touching a wall on loose ground
 ## (the loose brakes, ABS and wall friction) are counted: there must be some on every track.
+## v6.27: those four with their barriers back (def edges "walls"), for the walls on loose ground, and
+## two tracks as they are now, without barriers: there the steps out on the run-off are counted.
 func _fleet_surfaces() -> void:
 	t.section("FleetSim on dirt and snow: every car")
 	if not Trainer.native_available():
 		t.check(true, "FleetSim not loaded: only the GDScript simulation is checked")
 		return
 	const STEPS := 900
-	for tid: String in ["ramp-rally", "hairpin-valley", "mountain-pass", "northern-lights"]:
+	for run: Array in [["ramp-rally", true], ["hairpin-valley", true], ["mountain-pass", true], ["northern-lights", true],
+			["hairpin-valley", false], ["pine-ridge", false]]:
+		var tid: String = run[0]
 		var track := Tracks.build(tid)
+		if run[1]:
+			var dw: Dictionary = track.def.duplicate(true)
+			dw.edges = "walls"
+			track = Tracks.build_def(dw)
 		var td := Trainer.track_data(track, 1)
 		var all_same := true
 		var drives := 0
@@ -953,7 +961,7 @@ func _fleet_surfaces() -> void:
 					want.append_array([car.x, car.y, car.z, car.yaw, car.vx, car.vz, car.speed, car.yaw_rate, car.prog, car.slip])
 					loose_steps += 1 if car._env_loose else 0
 					loose_brake += 1 if car._env_loose and c.throttle < 0.0 else 0
-					loose_wall += 1 if car._env_loose and car.hit_wall else 0
+					loose_wall += 1 if car._env_loose and (car.hit_wall or (track.open_edges and absf(car.lat) > car._hw + 1.0)) else 0
 				var got: PackedFloat64Array = fs.call("debug_drive", st[0], tape, Trainer.STEP)
 				drives += 1
 				if got != want:
@@ -965,8 +973,9 @@ func _fleet_surfaces() -> void:
 						first = "%s from sample %d: step %d field %d: %s / %s" % [id, st[0], k / 10, k % 10,
 							want[k] if k < want.size() else NAN, got[k] if k < got.size() else NAN]
 		t.check(all_same and drives >= 12 and loose_steps > drives * 200 and loose_brake > 0 and loose_wall > 0,
-			"%s (%s): every car over the entries and exits of its loose stretches, %d drives of %d steps (%d steps with an axle on loose ground, %d of them braking, %d touching a wall): FleetSim's car the same as GDScript's at every step%s" % [
-				tid, Surfaces.summary(track), drives, STEPS, loose_steps, loose_brake, loose_wall, "" if first == "" else "; first difference " + first])
+			"%s (%s, %s): every car over the entries and exits of its loose stretches, %d drives of %d steps (%d steps with an axle on loose ground, %d of them braking, %d %s): FleetSim's car the same as GDScript's at every step%s" % [
+				tid, Surfaces.summary(track), "no barriers" if track.open_edges else "barriers", drives, STEPS, loose_steps, loose_brake, loose_wall,
+				"out on the run-off" if track.open_edges else "touching a wall", "" if first == "" else "; first difference " + first])
 
 
 ## v6.11 upgrades: an upgraded car reaches FleetSim as data like a stock one (the trainer's

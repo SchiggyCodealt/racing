@@ -33,6 +33,14 @@ extends RefCounted
 ## cell; collide_capsule does the same with each segment's cell range instead,
 ## which visits exactly the same segments in the same order.)
 
+## (v6.27) Open edges (BuiltTrack.open_edges): beside the road the ground slopes from the road
+## edge's height down to the ground level (side_y) over OFF_SLOPE + OFF_SLOPE_K x the drop metres
+## (at most OFF_SLOPE_MAX), smoothly, then stays flat; locate() gives that height (and the bank
+## fading out down the slope) for points beyond the edge.
+const OFF_SLOPE: float = 1.5
+const OFF_SLOPE_K: float = 1.5
+const OFF_SLOPE_MAX: float = 6.0
+
 ## How many segments either side of the hint locate() searches.
 const SEARCH_WINDOW: int = 8
 ## cos of the normal change across one segment above which the segment counts as a kink.
@@ -241,7 +249,30 @@ static func locate_near(track: BuiltTrack, x: float, z: float, i: int, out: Loc)
 	out.hw = hw_i + (hw[j] - hw_i) * tc
 	# Positive bank (left-hand turn) raises the right edge (negative lat).
 	out.ground_y = cy - lat * tan(bank)
+	if track.open_edges:
+		var e: float = (lat if lat > 0.0 else -lat) - out.hw
+		if e > 0.0:
+			var sy: PackedFloat32Array = track.side_y
+			var gy: float = sy[i] + (sy[j] - sy[i]) * tc
+			var edge: float = cy - (out.hw if lat > 0.0 else -out.hw) * tan(bank)
+			var u: float = off_slope(edge - gy, e)
+			out.ground_y = edge + (gy - edge) * u
+			out.bank = bank * (1.0 - u)
 	return out
+
+
+## (v6.27) How far down the run-off's slope a point `e` m beyond the road edge is (0 at the edge,
+## 1 where the flat ground begins), for a drop of `drop` m from the edge to the ground.
+static func off_slope(drop: float, e: float) -> float:
+	var w: float = OFF_SLOPE + OFF_SLOPE_K * (drop if drop > 0.0 else 0.0)
+	if w > OFF_SLOPE_MAX:
+		w = OFF_SLOPE_MAX
+	var u: float = e / w
+	if u >= 1.0:
+		return 1.0
+	if u <= 0.0:
+		return 0.0
+	return u * u * (3.0 - 2.0 * u)
 
 
 ## Parameter t of the smooth projection of (x, z) on segment i: solves
