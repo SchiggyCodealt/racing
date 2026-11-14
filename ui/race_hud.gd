@@ -29,6 +29,9 @@ extends Control
 ## shows a block at the top right: your place (P3/6) and the gaps to the cars ahead and behind; and
 ## (v6.20.0) the standings as a timing tower on the left, under the lap plate (ui/timing_tower.gd, in
 ## the F1 games' way: place boxes, colours, codes, gaps to the leader). Absent: both hide.
+## v6.26.0, the minimap (ui/race_minimap.gd) at the bottom right: set_minimap(track) once per race, then
+## state.minimap {sector, cells, records, cars} (see RaceMinimap.show_state) every frame; absent: hidden. It
+## hides on the phone-sized HUD, in short windows and under the finish panel.
 ## Score events: {kind, text, points, mult, combo_lost} (score.js events: "Clean checkpoint"
 ## +1,500 x3, "Drift" +820, "Wall" −200 · combo lost, "Drift lost" ...).
 
@@ -95,6 +98,8 @@ var _behind_l: Label
 var _ahead_cap: Label
 var _behind_cap: Label
 var _tower: TimingTower        # (v6.20) the standings, on the left
+var minimap: RaceMinimap       # (v6.26) the track, its sectors and the cars, bottom right
+var _minimap_on := false
 ## The field block's texts last shown (tests): "P3/6", the ahead / behind lines, one line per row.
 var field_text: PackedStringArray = []
 var _tower_hidden := false     # under the finish panel
@@ -257,6 +262,10 @@ func _build() -> void:
 	_ghost_l = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, false, false, 18)
 	_ghost_plate.add_child(_ghost_l)
 	_right.add_child(_ghost_plate)
+	# (v6.26) bottom right, above the nitro: the minimap with the sector times
+	minimap = RaceMinimap.new()
+	minimap.visible = false
+	add_child(minimap)
 	# bottom right: nitro, speed, gear and revs
 	_nitro = NitroGauge.new()
 	add_child(_nitro)
@@ -376,11 +385,18 @@ func show_hud(on: bool) -> void:
 	reset_score()
 	_tower.clear()
 	_tower.visible = false
+	_minimap_on = false
+	minimap.visible = false
 	_layout()
 
 
 func set_mode(text: String) -> void:
 	_mode.text = text
+
+
+## (v6.26) The minimap's track (once per race; the state comes with update()).
+func set_minimap(t: BuiltTrack) -> void:
+	minimap.set_track(t)
 
 
 ## Key hints at the bottom left: [[key, what it does, gamepad button or ""], ...]. They name the
@@ -430,6 +446,11 @@ func update(s: Dictionary, dt: float) -> void:
 	_ghost_plate.visible = gt != ""
 	_update_medal(s.get("medal"), float(s.get("time", 0.0)), bool(s.get("finished", false)))
 	_update_field(s.get("field"), ("CP %s" % _cp_val.text) if sprint else "Lap %s" % _lap_val.text)
+	var mm: Variant = s.get("minimap")
+	_minimap_on = mm is Dictionary and not (mm as Dictionary).is_empty()
+	if _minimap_on:
+		minimap.show_state(mm)
+	minimap.visible = _minimap_shown()
 	_tower.advance(dt)
 	if s.get("gear") == null or s.get("rpm") == null:
 		_rev.visible = false
@@ -729,8 +750,15 @@ func _apply_panel_visibility() -> void:
 	# the lap plate too, when the (full-width) panel reaches up to it
 	var race_r := Rect2(_left.position, _race_plate.get_combined_minimum_size())
 	_race_plate.visible = not (panel_open and race_r.grow(UiStyle.S1).intersects(fr))
+	minimap.visible = _minimap_shown()
 	# the AI's network goes under the finish panel in small windows: hidden while they would overlap
 	watch_panel.visible = _watch_on and not (panel_open and Rect2(watch_panel.position, watch_panel.size).intersects(fr))
+
+
+## (v6.26) The minimap shows in a race that gives it a state, not on the phone-sized HUD, in a short
+## window or under the finish panel.
+func _minimap_shown() -> bool:
+	return _minimap_on and not _narrow and not _tiny and not panel_open
 
 
 func show_watch(on: bool) -> void:
@@ -772,6 +800,7 @@ func _layout() -> void:
 	_pin(_nitro_off, 1, 1, x, 125 if not narrow else 89, Vector2(nw, 16))
 	_pin(_speed_row, 1, 1, x, 54 if not narrow else 44)
 	_pin(_rev, 1, 1, x, UiStyle.S5 if not narrow else UiStyle.S3, Vector2(nw, 26))
+	_pin(minimap, 1, 1, x, 125 + 16 + UiStyle.S3)
 	_pin(_keys, 0, 1, x, UiStyle.S5 if not narrow else 64, Vector2(w * 0.45 if narrow else w - 2 * x - 260, 0))
 	_pin(watch_panel, 0, 1, x if not narrow else 8, 64 if not narrow else 96, Vector2(minf(430.0, 0.4 * w), minf(300.0, 0.38 * h)))
 	_pin(_countdown, 0.5, 0.34, 0, 0)

@@ -112,6 +112,12 @@ Version 6.25.0 makes the **AI opponents faster and closer**: every level is a st
 race is 4 % from the slowest car to the fastest instead of 8 %, and two new drivers race the Apex and the Quadra
 (see [Money, points and cars](#money-points-and-cars) and [Race the field](#race-the-field)).
 
+Version 6.26.0 adds a **minimap** to the race screen and splits every track into **three sectors**, in the way of the
+F1 games: the minimap at the bottom right shows the track with the sector you are in, the ones you have done (green
+when they are the fastest yet) and every car as a dot, with the sector times under it. The menu's new **Records**
+button (or **R**) lists the fastest time through each sector of every track, by any car, with the car and its
+upgrades (see [The minimap and sector records](#the-minimap-and-sector-records)).
+
 ![The menu: money and career points in the header, 19 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last six tracks, the four rally stages among them, still locked with a padlock and "Bronze on 13" to "Bronze on 18"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
@@ -189,6 +195,7 @@ On the menu:
 | O | highlight **Settings**, then A | The **Settings** screen |
 | `` ` `` (the key under Esc) | Settings, highlight **Terminal**, then A | The **terminal**: commands for money, points and cars (not during a race) |
 | T | highlight **Cups**, then A | The **championships**: pick a cup and a level, or the standings of the cup you are in (v6.14.0) |
+| R | highlight **Records**, then A | The **sector records**: the fastest time through each sector of every track, with the car and its upgrades (v6.26.0; Esc, R or B closes it) |
 | Mouse | | Click a track tile or a car card to pick it, double-click to drive straight away |
 
 Each run starts with a 3-2-1-GO countdown. Circuits are 3 laps, and a lap only counts when you pass
@@ -210,7 +217,7 @@ Under it is **2 Race**: **TIME TRIAL** (alone against the clock, called **Drive*
 best-run ghost** option, the **AI driver** row (**Rookie** to **Elite**, or **My AI**, the picked car's own network)
 with what that driver does on this track and what beating it pays, **Race the AI** and **Race the field** (five AI
 drivers of the picked level on a grid with you). Next to the **2 Race** heading the **Cups** button shows your
-trophy cabinet and opens the championships. Under a thin line are the AI's tools: **Watch AI**, **Train AI**,
+trophy cabinet and opens the championships, and the **Records** button beside it opens the sector records. Under a thin line are the AI's tools: **Watch AI**, **Train AI**,
 **Load AI…** and **Save AI…**. The header shows your money and career points and a few key hints; the **Controls**
 button lists the rest, and the **Settings** button opens the settings.
 
@@ -336,8 +343,8 @@ The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#
 
 **No nitro in AI races** (version 6.15.0). In every race against AI cars (Race the AI at any level and against My
 AI, Race the field and championships) nobody has nitro: every car starts with an empty tank and nothing refills
-it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's 2 Race
-heading says "No nitro vs AI". Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
+it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's AI driver
+line says "No nitro vs AI". Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
 the AI and training keep nitro.
 
 ### Points for clean driving
@@ -364,6 +371,34 @@ jump or wall contact going on right now, and short notes pop up for every gain a
 the total, the breakdown and how much nitro the points earned. Your **best score is saved for each track and
 car** and shown in the menu's track panel. Clean driving pays most: one wall hit costs the combo and the clean
 lap and clean run bonuses, often 10,000-15,000 points in all.
+
+### The minimap and sector records
+
+Since version 6.26.0 every track is split into **three sectors** of the same length, **S1**, **S2** and **S3**, as in
+the F1 games: on a circuit from the start line to a third of the lap, to two thirds and back to the line; on a sprint
+from the start to the finish the same way. Each sector is timed as you cross its end, so the three sectors of a lap
+add up to the lap time (the first sector of a race starts at GO, from a standstill; later laps start it at full speed).
+
+During a race the **minimap** at the bottom right, above the nitro gauge, shows the track from above with the sector
+you are driving in yellow, the sectors you have done this lap in green (the fastest time through that sector so far,
+by any car) or white (slower), and the ones still to come in grey. Your car is the yellow dot with a dark rim, the
+others (the AI's ghost, or the field) are dots in their colours. Under the map are the lap's sector times: green for
+a new record, white for a slower time, and in grey the record to beat for the sectors still to come (a dash when
+there is none). After the last sector the lap's times stay up for a few seconds. The minimap is left out on a small
+window, where the race screen has no room for it.
+
+Your fastest time through each sector of each track is kept with the car and its upgrades, whatever race you drove it
+in (a time trial, an AI race, the field or a cup), so a record can come from a lap that was not your best overall.
+The finish panel says when a run set new ones ("New sector records: S1, S3"). The menu's **Records** button (or **R**)
+opens the **Sector records** screen: a row for every track with its small map (yellow dots where the sectors meet),
+the three record times, each over the car that set it and its upgrades (a code such as `E3 T3 N0 L3 W2` for engine,
+tyres, nitro, loose grip and weight; **stock** for none; the tooltip spells them out with the date), and the **ideal
+lap**, the three added up. Watch AI and the AI's own runs set no records. Like best times, the records stop counting
+when the physics or the track changes, and **Reset all progress** clears them.
+
+| The minimap during a race | The sector records |
+| --- | --- |
+| ![Driving on Night Highway: at the bottom right, above the nitro gauge, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come](docs/screenshots/minimap.png) | ![The Sector records screen over the menu: a row for every track with its small map and yellow sector marks, the S1, S2 and S3 records with the car and its upgrades under each time, and the ideal lap](docs/screenshots/sector-records.png) |
 
 ### Medals
 
@@ -1246,7 +1281,7 @@ trained AI network of every car (a save file from version 6.0-6.1 had one networ
 and the career: money, points, the cars you own and their upgrades, the rewards already paid, the tracks medals have
 opened (and, since 6.23.0, how many tracks the game had when they were last checked, so tracks added later can open),
 whether the terminal's `unlock all` opened every track, and (6.14.0) the cup trophies, the cup payouts
-and a cup in progress. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+and a cup in progress, and (6.26.0) the sector records of every track with the car and upgrades that set them. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -1388,7 +1423,8 @@ sim/                    game logic without any graphics: tracks, road surfaces, 
                         points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd),
                         car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs), Race the
                         field (field.gd: the drivers, paces and grid; field_race.gd: the race; car_contact.gd: solid cars),
-                        championships (cups.gd: the cups, points, standings and grids; cup_run.gd: a cup in progress)
+                        championships (cups.gd: the cups, points, standings and grids; cup_run.gd: a cup in progress),
+                        the three sectors of a lap and their clock (sectors.gd)
 ai/                     the AI: network, evolution, sensors and driver, trainer, an opponent's race (opponent_race.gd)
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
@@ -1400,7 +1436,8 @@ world/                  3D: track mesh, terrain and scenery, sky and themes, car
 ui/                     the interface, built in code: style, menu, Controls, Settings and terminal screens, HUD, finish panel,
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart, the car
                         picker's part chips (part_chip.gd), the volume bars (volume_bar.gd), the championships (cup_screen.gd,
-                        cup_table.gd, cup_cabinet.gd: the menu's Cups button), ui_sound.gd (the
+                        cup_table.gd, cup_cabinet.gd: the menu's Cups button), the race minimap (race_minimap.gd), the
+                        Sector records screen (records_screen.gd), ui_sound.gd (the
                         interface's sounds, without depending on audio/)
 audio/                  sound (v6.12.0): the buses, volumes, pooled players and music (game_audio.gd), every sound
                         file as data (sound_bank.gd), the live engine synthesizer (engine_voice.gd) and a car's

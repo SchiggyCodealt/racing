@@ -76,6 +76,8 @@ const COUNTDOWN := 3.0
 const STUCK_TIME := 3.0 # s without progress before an AI car is respawned
 const PB_COLOR := Color("#8fd6ff") # the best-run ghost (the AI ghost is purple)
 const AI_GHOST_COLOR := Color("#b36bff")
+## (v6.26) s a finished lap's sector times stay on the minimap into the next lap
+const HOLD_SECTORS := 4.0
 const NOTE_TIME := 2.5 # s a HUD note (ghost on / off) stays up
 const POPS_KEPT := 8 # score events kept for the HUD between two frames
 const RESPAWN_AHEAD := 6 # samples a respawned car is moved past its checkpoint (12 m)
@@ -147,6 +149,16 @@ var acc := 0.0
 var ghost_text := ""
 ## The finish panel's state of the last finish ({} before), kept for tests.
 var finish_state: Dictionary = {}
+## (v6.26) the sectors (sim/sectors.gd): this run's clock, the track's records when it began (SaveData
+## get_sectors), the best of each sector so far (records and this run), the HUD's cells for the lap,
+## when the finished lap's cells give way to the next one's (race time; -1 none), and whether this
+## run's sector times are saved yet (the player's runs only: at the finish, a restart or leaving)
+var sectors: Sectors.Clock = null
+var sector_rec: Array[Dictionary] = []
+var sector_top := PackedFloat64Array()
+var sector_cells: Array = []
+var sector_hold := -1.0
+var sectors_saved := true
 ## Physics steps and wall-clock time spent in them (the e2e runs measure the script cost).
 var steps_run := 0
 var step_usec := 0
@@ -222,6 +234,7 @@ func enter() -> void:
 	var hud := app.ui.hud
 	var cname: String = car_def.name
 	hud.set_mode(_mode_text(cname))
+	hud.set_minimap(track) # (v6.26)
 	var keys: Array = []
 	if driver == "human" and nitro_on:
 		keys.append(["Shift", "nitro", "X / RB"])
@@ -255,6 +268,7 @@ func _enter_view() -> void:
 
 
 func exit() -> void:
+	_save_sectors()
 	for a: CarAudio in [car_audio, ghost_audio]:
 		if a != null and is_instance_valid(a):
 			a.silence()
@@ -272,10 +286,12 @@ func _exit_view() -> void:
 
 
 func restart() -> void:
+	_save_sectors() # (v6.26: the sector times of the run left behind count)
 	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
 	if not nitro_on:
 		car.nitro = 0.0 # (v6.15: no nitro in races against the AI)
 	race = RaceState.new(track)
+	_new_sectors()
 	_place_start()
 	record = SaveData.get_record(track.id, car_def.id) # your best with this car
 	medal_target = _aim_for() # fixed for the run: the HUD ticks it at the finish if won
@@ -418,6 +434,7 @@ func _race_step(dt: float) -> void:
 			_add_score_events(score.update(car, race, dt)) # before _on_finish, which shows the score
 		if rec != null:
 			rec.add(race_step, car, race.finished) # before _on_finish, which saves the run
+		_sector_step()
 		for ev: Dictionary in events:
 			_on_gate(ev)
 		_watchdog()
@@ -498,6 +515,15 @@ func _on_finish() -> void:
 			UiData.mark_new_track(opened)
 		s.score = _score_state()
 		record = SaveData.get_record(track.id, car_def.id)
+		# (v6.26) the run's sector times: those that beat the track's records (any car's) are kept
+		var better := _save_sectors()
+		if not better.is_empty():
+			var names := PackedStringArray()
+			for k in better:
+				names.append(Sectors.name(k))
+			var l: Array = s.get("lines", [])
+			l.append("New sector record%s: %s (any car on this track)" % ["s" if names.size() > 1 else "", ", ".join(names)])
+			s.lines = l
 	else:
 		s.medal = _medal_line(t, null)
 		if not record.is_empty():
@@ -740,6 +766,73 @@ func _hud_extra(_s: Dictionary) -> void:
 	pass
 
 
+# ---------------------------------------------------------------- sectors (v6.26.0)
+
+## A new run's sector clock, the records it is measured against and the HUD's cells.
+func _new_sectors() -> void:
+	sectors = Sectors.Clock.new(track, race.laps)
+	sector_rec = SaveData.get_sectors(track.id)
+	sector_top = PackedFloat64Array()
+	for k in Sectors.COUNT:
+		sector_top.append(float(sector_rec[k].time) if not sector_rec[k].is_empty() else INF)
+	sector_cells = _lap_cells()
+	sector_hold = -1.0
+	sectors_saved = driver != "human"
+
+
+static func _lap_cells() -> Array:
+	return [{"state": "now"}, {"state": "next"}, {"state": "next"}]
+
+
+## After the race step: the sectors the car finished (each one green on the HUD when it is the fastest
+## yet, records and this run alike); a finished lap's cells stay up HOLD_SECTORS s into the next lap.
+func _sector_step() -> void:
+	if sectors == null:
+		return
+	if sector_hold >= 0.0 and race.time >= sector_hold:
+		sector_hold = -1.0
+		sector_cells = _lap_cells()
+	for ev: Dictionary in sectors.update(car.prog, race.time):
+		var k: int = ev.sector
+		if k == 0 and sector_hold >= 0.0:
+			sector_hold = -1.0
+			sector_cells = _lap_cells()
+		var best: bool = float(ev.time) < sector_top[k]
+		if best:
+			sector_top[k] = float(ev.time)
+		sector_cells[k] = {"time": float(ev.time), "state": "best" if best else "done"}
+		if k < Sectors.COUNT - 1:
+			sector_cells[k + 1] = {"state": "now"}
+		elif sectors.sector() < Sectors.COUNT:
+			sector_hold = race.time + HOLD_SECTORS
+
+
+## Keep this run's best sector times where they beat the track's records (the player's runs, once).
+## The sectors improved.
+func _save_sectors() -> PackedInt32Array:
+	if sectors_saved or sectors == null:
+		return PackedInt32Array()
+	sectors_saved = true
+	return SaveData.submit_sectors(track.id, car_def.id, sectors.best, levels)
+
+
+## The minimap's cars: yours (or the watched AI's) and the AI ghost (field_mode.gd: the field).
+func _map_cars() -> Array:
+	var out: Array = [{"x": car.x, "z": car.z, "me": true}]
+	if not ghost.is_empty():
+		out.append({"x": (ghost.car as Car).x, "z": (ghost.car as Car).z, "color": AI_GHOST_COLOR})
+	return out
+
+
+func _minimap_state() -> Dictionary:
+	if sectors == null:
+		return {}
+	var recs: Array = []
+	for k in Sectors.COUNT:
+		recs.append(sector_top[k] if is_finite(sector_top[k]) else null)
+	return {"sector": sectors.sector(), "cells": sector_cells, "records": recs, "cars": _map_cars()}
+
+
 ## The HUD of this frame.
 func _render_hud(dt: float) -> void:
 	var hud := app.ui.hud
@@ -781,6 +874,7 @@ func _render_hud(dt: float) -> void:
 		"finished": race.finished,
 		"ghost_text": gt,
 		"pad": app.input.pad_active, # key hints name the gamepad buttons
+		"minimap": _minimap_state(), # (v6.26)
 	}
 	_hud_extra(s)
 	hud.update(s, dt)

@@ -35,7 +35,8 @@ extends Control
 ##
 ## Keyboard: arrows / WASD / 1-9, 0, -, = (tracks 1-12; further tracks by arrows, mouse or pad),
 ## C / Shift+C (next / previous car for the records shown), Enter or Space a time trial (the car page
-## first), H or ? opens Controls, O opens Settings, ` opens the terminal, T the cups.
+## first), H or ? opens Controls, O opens Settings, ` opens the terminal, T the cups, R the sector
+## records (v6.26.0: ui/records_screen.gd).
 ## Gamepad: a highlight moved with the d-pad / stick over the track tiles (moving onto one
 ## selects it) and the buttons (down from the bottom row of tiles); A races or presses, B goes back
 ## to the tracks, LB / RB pick the car, View opens Controls.
@@ -89,6 +90,7 @@ const HINTS := {
 var input: Object = null
 var selected_track := 0
 var controls: ControlsScreen
+var records: RecordsScreen   # (v6.26.0) the sector records
 var settings: SettingsScreen
 var terminal: TerminalScreen
 ## (v6.14) the cup screen (ui/cup_screen.gd)
@@ -158,6 +160,7 @@ var _wallet: HBoxContainer
 var _money_l: Label
 var _points_l: Label
 var _controls_btn: Button
+var _records_btn: Button
 var _settings_btn: Button
 var _ring: Control
 var _pad_at: Control = null   # the button or car the pad highlight is on (null: the selected track tile)
@@ -189,6 +192,8 @@ func _init() -> void:
 	add_child(_ring)
 	controls = ControlsScreen.new()
 	add_child(controls)
+	records = RecordsScreen.new()
+	add_child(records)
 	settings = SettingsScreen.new()
 	add_child(settings)
 	cups = CupScreen.new()
@@ -500,11 +505,19 @@ func _build_go() -> void:
 	nitro_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	nitro_note.tooltip_text = "Race the AI, Race the field and the cups have no nitro for anyone (you or the AI). The time trial and Watch AI keep it."
 	nitro_note.mouse_filter = Control.MOUSE_FILTER_PASS
-	nitro_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS # (never wider than the room left)
-	nitro_note.custom_minimum_size.x = 1
-	nitro_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL # (the note takes the room and pushes Cups right)
-	nitro_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	head_row.add_child(nitro_note)
+	nitro_note.size_flags_horizontal = Control.SIZE_SHRINK_END # (v6.26: on the AI driver line, beside its caption)
+	var push := UiStyle.gap(0, 0) # (pushes Records and Cups right)
+	push.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head_row.add_child(push)
+	# (v6.26) the sector records, beside the Cups
+	_records_btn = Dialog.button_with_cap("Records", "R")
+	_records_btn.tooltip_text = "The fastest sector times on every track, with the car and its upgrades"
+	_records_btn.custom_minimum_size.y = CupCabinet.H
+	_records_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_records_btn.pressed.connect(func() -> void:
+		UiSound.play("ui_confirm")
+		show_records(true))
+	head_row.add_child(_records_btn)
 	_cups_btn = CupCabinet.new()
 	_cups_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_cups_btn.pressed.connect(func() -> void:
@@ -530,7 +543,12 @@ func _build_go() -> void:
 	_ai_cap = UiStyle.label("AI driver", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
 	_ai_cap.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_ai_cap.custom_minimum_size.x = 1
-	_side.add_child(_ai_cap)
+	_ai_cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ai_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var cap_row := UiStyle.hbox(UiStyle.S3)
+	cap_row.add_child(_ai_cap)
+	cap_row.add_child(nitro_note) # (v6.26: moved here from beside Cups, where the Records button went)
+	_side.add_child(cap_row)
 	_opp_row = UiStyle.hbox(UiStyle.S1)
 	var ids: Array = Array(Opponents.ids())
 	ids.append(UiData.MY_AI)
@@ -948,6 +966,7 @@ func show_menu(on: bool) -> void:
 	else:
 		_ring.set_target(null)
 		show_controls(false)
+		show_records(false)
 		show_settings(false)
 		show_terminal(false)
 		show_cups(false)
@@ -960,6 +979,15 @@ func show_controls(on: bool) -> void:
 		controls.open()
 	else:
 		controls.close()
+
+
+## (v6.26.0) The sector records over the menu.
+func show_records(on: bool) -> void:
+	if on:
+		_ring.set_target(null)
+		records.open()
+	else:
+		records.close()
 
 
 func show_settings(on: bool) -> void:
@@ -1019,6 +1047,10 @@ func handle_keys(inp: Object) -> void:
 		_terminal_was_open = terminal.visible
 		inp.clear_pressed()
 		return
+	if records.visible:
+		records.handle_keys(inp)
+		inp.clear_pressed()
+		return
 	if car_page.visible:
 		car_page.handle_keys(inp)
 		inp.clear_pressed()
@@ -1055,6 +1087,11 @@ func handle_keys(inp: Object) -> void:
 	if inp.consume(["KeyT"]):
 		UiSound.play("ui_confirm")
 		show_cups(true)
+		inp.clear_pressed()
+		return
+	if inp.consume(["KeyR"]):
+		UiSound.play("ui_confirm")
+		show_records(true)
 		inp.clear_pressed()
 		return
 	var n := _tiles.size()
@@ -1109,7 +1146,7 @@ func _fit_hint() -> void:
 ## The controls the pad highlight can go to (shown and enabled).
 func _pad_controls() -> Array:
 	var out: Array = []
-	var list: Array = [_controls_btn, _settings_btn, _cups_btn, _drive_btn, _ghost_btn, _field_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]
+	var list: Array = [_controls_btn, _settings_btn, _records_btn, _cups_btn, _drive_btn, _ghost_btn, _field_btn, _watch_btn, _train_btn, _ghost_check, _save_btn]
 	list.append_array(_opp_btns.values())
 	for c in list:
 		if c.is_visible_in_tree() and not (c is BaseButton and c.disabled):

@@ -1,4 +1,4 @@
-Track Rush 6.25.0 for Windows (64-bit)
+Track Rush 6.26.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with eight cars, nineteen tracks (seven of them with
@@ -9,15 +9,19 @@ career points, and money buys cars and upgrades. The tracks open one at a
 time: you start with Rookie Oval, and a bronze medal or better on a track,
 with any car, opens the next one for good.
 
-New in 6.25.0: faster, closer AI opponents. Every level is a step faster:
-the Rookie at about 1.4 x the author time (slower than bronze), the Amateur
-between silver and bronze, the Pro between gold and silver, the Expert at
-about the author time and the Elite flat out, 3-11 % under it. Every AI car
-now has every part at upgrade level 3, and the AI networks were trained
-further in those cars. A field race is 4 % from the slowest car to the
-fastest instead of 8 %, and two new drivers race the Apex and the Quadra.
+New in 6.26.0: a minimap and sectors, in the way of the F1 games. Every
+track is split into three sectors, S1 to S3. During a race the minimap at
+the bottom right shows the track, the sector you are in (yellow), the ones
+done this lap (green when they are the fastest yet) and every car as a dot,
+with the sector times under it. On the menu, R (or the Records button next
+to Cups) shows the fastest time through each sector of every track, by any
+car, with the car and its upgrades, and the ideal lap they add up to.
 
 Earlier versions, newest first:
+6.25.0  faster, closer AI opponents: every level a step faster (the Elite
+        flat out, 3-11 % under the author time), every AI car at upgrade
+        level 3, a field 4 % from the slowest car to the fastest, and two
+        new drivers in the Apex and the Quadra.
 6.24.0  an eighth car, the Quadra: a boxy 1980s all-wheel-drive rally coupe
         with a five-cylinder turbo, the quickest on snow, ice and gravel;
         $26,000, with its own sound, medal times, upgrades and opponents.
@@ -80,7 +84,7 @@ Arrows or W A S D drive, Space is the handbrake, Shift is nitro, R restarts,
 Enter respawns at the last checkpoint, G shows or hides your ghost, Esc goes
 back to the menu. On the menu Enter starts a time trial (the car page comes
 first: arrows or C pick the car, Enter starts, Esc goes back), T opens the
-cups. Press H for every key and gamepad button, and
+cups, R the sector records. Press H for every key and gamepad button, and
 O for the settings (graphics quality, screen dirt and snow, fullscreen,
 vertical sync, interface size, the volumes, the terminal, the reset). The `
 key opens the terminal on the menu (not during a race). Any standard gamepad
@@ -88,8 +92,9 @@ works.
 
 Where your saves go
 -------------------
-Best times, ghosts, scores, settings (volumes too), your money, points, cars,
-their upgrades and opened tracks, and each car's trained AI network are kept in
+Best times, ghosts, scores, sector records, settings (volumes too), your
+money, points, cars, their upgrades and opened tracks, and each car's trained
+AI network are kept in
 
   %APPDATA%\TrackRush\trackrush_save.json
 

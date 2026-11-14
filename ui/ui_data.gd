@@ -25,7 +25,8 @@ extends RefCounted
 ## Shapes returned (plain Dictionaries, so nothing here depends on sim/ types):
 ##   track_info(i)   {id, name, difficulty, description, closed, laps, length, sprint_length, theme,
 ##                   surfaces (the road surfaces for the menu: "Asphalt", "Asphalt + dirt", ...)}
-##   track_map(i)    see TrackMapView.make_map: {points, size, start, finish (or null), closed}
+##   track_map(i)    see TrackMapView.make_map: {points, size, start, finish (or null), closed, marks}
+##   sector_records(track)  (v6.26.0) [{time, car, up, date} or {}] x 3: the track's fastest sectors
 ##   car_info(id)    {id, name, description, color, accent, top, mass, bars {speed, acceleration,
 ##                   grip, drift, nitro}, rev {idle_rpm, redline, upshift_rpm}}
 ##   car_profile(id) {parts: [{mat, pts: PackedVector2Array of (z, y) m}], wheels: [[z, r]]}
@@ -151,13 +152,20 @@ static func track_map(i: int) -> Dictionary:
 		var t: Object = _tracks[i]
 		var closed: bool = t.get("closed")
 		var n: int = int(t.get("N")) if closed else int(t.get("count"))
+		var marks: Array = []
+		if t is BuiltTrack:
+			var sm: PackedInt32Array = Sectors.marks(t)
+			marks = [sm[0], sm[1]]
 		m = TrackMapView.make_map(t.get("px"), t.get("pz"), n, closed,
-			0 if closed else int(t.get("start_line")), -1 if closed else int(t.get("finish_idx")))
+			0 if closed else int(t.get("start_line")), -1 if closed else int(t.get("finish_idx")), marks)
 	else:
 		var mp: Dictionary = fixture().tracks[i].map
 		var px := PackedFloat64Array(mp.px)
-		m = TrackMapView.make_map(px, PackedFloat64Array(mp.pz), px.size(), fixture().tracks[i].closed,
-			int(mp.start), int(mp.finish))
+		var closed: bool = fixture().tracks[i].closed
+		var a: int = 0 if closed else int(mp.start)
+		var span: int = (px.size() if closed else int(mp.finish)) - a
+		m = TrackMapView.make_map(px, PackedFloat64Array(mp.pz), px.size(), closed,
+			int(mp.start), int(mp.finish), [a + roundi(span / 3.0), a + roundi(span * 2.0 / 3.0)])
 	_maps[i] = m
 	return m
 
@@ -279,6 +287,21 @@ static func best_score(track: String, car: String) -> int:
 		var b := SaveData.get_best_score(track, car)
 		return int(b.score) if not b.is_empty() else -1
 	return int(store.scores.get(_key(track, car), -1))
+
+
+## (v6.26.0) The fastest time through each sector of a track by any car (sim/sectors.gd): [{time (s),
+## car (id), up (upgrade levels), date} or {} for none] x 3, from SaveData or the store's "sectors"
+## ({track: [the same]}).
+static func sector_records(track: String) -> Array:
+	if _save:
+		return SaveData.get_sectors(track)
+	var out: Array = [{}, {}, {}]
+	var s: Variant = (store.get("sectors", {}) as Dictionary).get(track)
+	if s is Array:
+		for k in mini((s as Array).size(), 3):
+			if s[k] is Dictionary:
+				out[k] = s[k]
+	return out
 
 
 ## True when a ghost of the best run is saved for the track and car (and fits this track's

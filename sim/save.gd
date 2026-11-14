@@ -65,13 +65,21 @@ extends RefCounted
 ##   SaveData.set_cup_place(cup, level, place)        set (or with 0 clear) a place without paying (the terminal)
 ##   SaveData.clear_cup_trophies()                    every trophy gone (the terminal; rewards paid stay paid)
 ##   SaveData.get_cup_run() -> the cup in progress (CupRun.to_dict(), {} none); set_cup_run(d); clear_cup_run()
+## Sector records (v6.26.0; sim/sectors.gd splits a lap into three):
+##   SaveData.get_sectors(track_id) -> [entry, entry, entry]: the best time of each sector on the track, whatever
+##                                                    the car: {time, car, up (its upgrade levels), date}, or {}
+##                                                    for none (or one set under other physics or on another
+##                                                    version of the track)
+##   SaveData.submit_sectors(track_id, car_id, times, up) -> the sectors (0..2) whose record `times` (3 floats,
+##                                                    INF: not driven) beat, written in one go
 ## Unlocking tracks (v6.8.0; sim/unlocks.gd has the rule):
 ##   SaveData.opened_tracks() -> the tracks opened by medals (track ids; the first track is always open)
 ##   SaveData.open_track(id)                          open track `id` for good (true when it was not yet)
 ##
 ## File layout: {version, records: {track: {car: {time, splits, date, physics, sig}}},
 ## ghosts: {track: {car: ghost}}, scores: {track: {car: {score, date, rules, physics, sig}}},
-## settings: {...}, networks: {car: {slot: network file}},
+## settings: {...}, networks: {car: {slot: network file}}, sectors (v6.26): {track: {sig, physics, best: [{time, car, up,
+## date} or null] × 3}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
 ## tracks_open, upgrades: {car: [engine, tyres, nitro, loose, weight]}, cups?: {paid: [cup reward ids], trophies: {cup:
@@ -152,7 +160,7 @@ static func _all() -> Dictionary:
 			else:
 				# keep what we couldn't read, then start over
 				DirAccess.copy_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path + ".bad"))
-		for k: String in ["records", "ghosts", "scores", "settings", "networks", "archive"]:
+		for k: String in ["records", "ghosts", "scores", "settings", "networks", "archive", "sectors"]:
 			if not (_data.get(k) is Dictionary):
 				_data[k] = {}
 		# (version 3 and older have no career; a career is kept whatever the version says: an older
@@ -463,6 +471,47 @@ static func submit_record(track_id: String, car_id: String, time: float, splits:
 	_set_entry("records", track_id, car_id, e)
 	_mutex.unlock()
 	return true
+
+
+# ---- sector records (v6.26.0) -------------------------------------------------------
+
+## The best time of each of the track's three sectors, with any car: [{time, car, up, date} or {}] × 3.
+static func get_sectors(track_id: String) -> Array[Dictionary]:
+	_mutex.lock()
+	var out: Array[Dictionary] = [{}, {}, {}]
+	var e: Variant = (_all().sectors as Dictionary).get(track_id)
+	if e is Dictionary and JsMath.same(e.get("physics"), Car.PHYSICS_VERSION) and _same_track(e, track_id) and e.get("best") is Array:
+		var best: Array = e.best
+		for k in mini(best.size(), Sectors.COUNT):
+			var b: Variant = best[k]
+			if b is Dictionary and _is_num(b.get("time")) and float(b.time) > 0.0 and Cars.has_car(str(b.get("car", ""))):
+				out[k] = {time = float(b.time), car = str(b.car), up = Upgrades.clean(b.get("up")), date = str(b.get("date", ""))}
+	_mutex.unlock()
+	return out
+
+
+## Keep the sector times of a run (`times`: 3 floats, INF or <= 0 for a sector not driven) that beat the
+## track's records, with the car and its upgrade levels; one write. Returns the sectors (0..2) improved.
+static func submit_sectors(track_id: String, car_id: String, times: Variant, up: Variant = null) -> PackedInt32Array:
+	var better := PackedInt32Array()
+	if not Cars.has_car(car_id) or Tracks.signature(track_id) == "" or not (times is Array or times is PackedFloat64Array):
+		return better
+	var cur: Array[Dictionary] = get_sectors(track_id)
+	var best: Array = []
+	for k in Sectors.COUNT:
+		var c: Dictionary = cur[k]
+		best.append({time = c.time, car = c.car, up = Array(c.up), date = c.date} if not c.is_empty() else null)
+		var t: float = float(times[k]) if k < times.size() and _is_num(times[k]) else INF
+		if t > 0.0 and is_finite(t) and (c.is_empty() or t < float(c.time)):
+			best[k] = {time = t, car = car_id, up = Array(Upgrades.clean(up)), date = _now()}
+			better.append(k)
+	if better.is_empty():
+		return better
+	_mutex.lock()
+	(_all().sectors as Dictionary)[track_id] = {sig = Tracks.signature(track_id), physics = Car.PHYSICS_VERSION, best = best}
+	_write()
+	_mutex.unlock()
+	return better
 
 
 # ---- ghosts ------------------------------------------------------------------------
@@ -791,7 +840,7 @@ static func reset_everything() -> Dictionary:
 	var settings: Dictionary = (d.get("settings", {}) as Dictionary).duplicate(true)
 	settings.erase("car")
 	settings.erase("opponent")
-	var fresh: Dictionary = {version = VERSION, records = {}, ghosts = {}, scores = {}, settings = settings, networks = {}, archive = {}}
+	var fresh: Dictionary = {version = VERSION, records = {}, ghosts = {}, scores = {}, settings = settings, networks = {}, archive = {}, sectors = {}}
 	_start_career(fresh)
 	_repair_career(fresh)
 	fresh.career.tracks_open = Array(Unlocks.from_records(fresh))

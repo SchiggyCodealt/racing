@@ -139,6 +139,7 @@ func run(checker: Variant) -> bool:
 	_upgrades()
 	_field()
 	_cups()
+	_sectors()
 	_reset_everything()
 	t.section("formatters")
 	t.check(RaceState.format_time(119.9996) == "2:00.000" and RaceState.format_time(61.5) == "1:01.500" and RaceState.format_time(INF) == "--:--.---",
@@ -147,6 +148,92 @@ func run(checker: Variant) -> bool:
 		ScoreState.format_points(43500) == "43,500" and ScoreState.format_points(-500) == "−500",
 		"format_delta and format_points (+0.001, -1.250, 43,500, −500)")
 	return true
+
+
+# ---- sectors (v6.26.0) ----------------------------------------------------------------
+
+## Sectors: the thirds of a lap (circuit: from the line; sprint: from the start spot to the finish), the
+## clock that times them from car.prog, and the records SaveData keeps per track (any car).
+func _sectors() -> void:
+	t.section("sectors (v6.26.0): three per lap, timed from the car's progress, a record per track")
+	var oval := by_id("rookie-oval")
+	var pass_ := by_id("mountain-pass")
+	var mo: PackedInt32Array = Sectors.marks(oval)
+	var mp: PackedInt32Array = Sectors.marks(pass_)
+	var span := pass_.finish_idx - pass_.start_idx
+	t.check(mo[0] == roundi(oval.N / 3.0) and mo[1] == roundi(oval.N * 2.0 / 3.0) and mo[2] == oval.N and
+		mp[2] == pass_.finish_idx and absi(mp[0] - pass_.start_idx - roundi(span / 3.0)) <= 1 and absi(mp[1] - mp[0] - roundi(span / 3.0)) <= 1,
+		"a circuit's sectors end at %d, %d and %d (N): thirds from the line; a sprint's at %d, %d, %d (thirds from the start spot %d to the finish)" % [mo[0], mo[1], mo[2], mp[0], mp[1], mp[2], pass_.start_idx])
+	t.check(Sectors.of_sample(oval, 0) == 0 and Sectors.of_sample(oval, mo[0]) == 1 and Sectors.of_sample(oval, oval.N - 1) == 2 and
+		Sectors.of_sample(oval, oval.N + 1) == 0 and Sectors.of_sample(pass_, 0) == -1 and Sectors.of_sample(pass_, pass_.start_idx) == 0 and
+		Sectors.of_sample(pass_, pass_.finish_idx - 1) == 2 and Sectors.of_sample(pass_, pass_.finish_idx + 1) == -1 and Sectors.name(2) == "S3",
+		"of_sample: the sector of a sample (a circuit wraps; a sprint's road before the start and past the finish is in none)")
+	# the clock on a made-up run: 1 sample a second over two laps, a jump over two marks in one step
+	var clock := Sectors.Clock.new(oval, 2)
+	var evs: Array = []
+	var at := 0.0
+	var prog := float(oval.start_idx)
+	var jumped := false
+	while prog < 2.0 * oval.N + 5 and at < 10000.0:
+		at += 1.0
+		prog += 1.0 if at < float(oval.N) * 0.5 else 1.5
+		if not jumped and prog >= oval.N + mo[0] - 1.0:
+			jumped = true
+			prog += float(mo[1] - mo[0]) + 1.0 # (a jump: S1 and S2 of lap 2 end in one step)
+		evs.append_array(clock.update(prog, at))
+	var lap1: PackedFloat64Array = clock.times[0]
+	var lap2: PackedFloat64Array = clock.times[1] if clock.times.size() > 1 else PackedFloat64Array()
+	var sum1 := 0.0
+	for v in lap1:
+		sum1 += v
+	t.check(evs.size() == 6 and lap1.size() == 3 and lap2.size() == 3 and clock.sector() == Sectors.COUNT and clock.lap() == 1 and
+		is_equal_approx(sum1, float(evs[2].at)) and lap2[1] == 0.0 and int(evs[4].sector) == 1 and int(evs[4].lap) == 1 and
+		clock.best[1] == 0.0 and clock.best[0] == minf(lap1[0], lap2[0]),
+		"the clock: six sectors over two laps (lap 1: %s), the first lap's three add up to its time, two marks passed in one step end two sectors at once (the second 0 s), best per sector, done after the last" % [lap1])
+	# a real race: the sectors add up to the finish time
+	var car := Car.new(oval)
+	var race := RaceState.new(oval)
+	var pilot := Autopilot.basic(oval)
+	var c2 := Sectors.Clock.new(oval)
+	var n_ev := 0
+	while not race.finished and race.time < 600.0:
+		car.step(oval, pilot.drive(car), DT)
+		race.update(car, DT)
+		n_ev += c2.update(car.prog, race.time).size()
+	var total := 0.0
+	var lap_ok := true
+	for lp in c2.times.size():
+		var lsum := 0.0
+		for v in c2.times[lp]:
+			total += v
+			lsum += v
+		lap_ok = lap_ok and lp < race.lap_times.size() and absf(lsum - race.lap_times[lp]) < 1e-6
+	t.check(race.finished and n_ev == 3 * oval.laps and absf(total - race.finish_time) < 1e-6 and lap_ok,
+		"Rookie Oval with the autopilot: %d sectors, adding up to the finish time %s and each lap's three to its lap time" % [n_ev, RaceState.format_time(race.finish_time)])
+	# the records: any car, the fastest per sector, with its upgrades
+	var path := "user://test_sectors.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	SaveData.use_file(path)
+	var b1: PackedInt32Array = SaveData.submit_sectors("rookie-oval", "racer", PackedFloat64Array([24.5, INF, 30.25]), PackedInt32Array([3, 0, 0, 0, 1]))
+	var b2: PackedInt32Array = SaveData.submit_sectors("rookie-oval", "kestrel", [25.0, 20.0, 30.0], [0, 0, 0, 0, 0])
+	var b3: PackedInt32Array = SaveData.submit_sectors("rookie-oval", "bus", [1.0, 1.0, 1.0])
+	var b4: PackedInt32Array = SaveData.submit_sectors("no-such-track", "racer", [1.0, 1.0, 1.0])
+	var b5: PackedInt32Array = SaveData.submit_sectors("rookie-oval", "racer", [-1.0, NAN, 40.0])
+	var g: Array[Dictionary] = SaveData.get_sectors("rookie-oval")
+	t.check(b1 == PackedInt32Array([0, 2]) and b2 == PackedInt32Array([1, 2]) and b3.is_empty() and b4.is_empty() and b5.is_empty() and
+		g[0].car == "racer" and g[0].time == 24.5 and g[0].up == PackedInt32Array([3, 0, 0, 0, 1]) and g[1].car == "kestrel" and g[1].time == 20.0 and
+		g[2].car == "kestrel" and g[2].time == 30.0 and Upgrades.is_stock(g[2].up) and str(g[0].date) != "" and SaveData.get_sectors("hairpin-valley")[0].is_empty(),
+		"the records: S1 24.500 Racer E3..W1, S2 20.000 and S3 30.000 Kestrel stock (beat the Racer's 30.250); an unknown car or track, a negative or NaN time or a slower one keep nothing")
+	SaveData.use_file(path) # (read back from the file)
+	var g2: Array[Dictionary] = SaveData.get_sectors("rookie-oval")
+	t.check(g2[0].time == 24.5 and g2[1].car == "kestrel" and g2[2].time == 30.0, "the records are read back from the save file")
+	SaveData.reset_everything()
+	t.check(SaveData.get_sectors("rookie-oval")[0].is_empty() and SaveData.get_sectors("rookie-oval")[1].is_empty(), "reset everything wipes the sector records")
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	for f: String in DirAccess.get_files_at("user://"):
+		if f.begins_with("test_sectors"):
+			DirAccess.remove_absolute("user://" + f)
 
 
 # ---- helpers ------------------------------------------------------------------------

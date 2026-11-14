@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-14 (v6.25.0: round 5, item 8 of 9: faster, closer AI opponents: every level a step faster
+_Last updated: 2026-11-14 (v6.26.0: round 5, item 9 of 9, the last: a minimap with three sectors on the race screen
+(`sim/sectors.gd`, `ui/race_minimap.gd`) and a Sector records screen on the menu (`ui/records_screen.gd`, R) with the
+fastest time of every sector of every track, the car and its upgrades (`SaveData.get_sectors` / `submit_sectors`);
+v6.25.0: round 5, item 8 of 9: faster, closer AI opponents: every level a step faster
 (`sim/opponents.gd` `LEVELS`), the AI's cars with every part at upgrade level 3 (`Opponents.UPGRADES`, `Opponents.spec`),
 all 152 networks trained on in those cars (`tools/opponents.gd --tune`), a closer field (`sim/field.gd` `PACE`) and two
 more drivers (the Apex and the Quadra);
@@ -47,7 +50,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.25.0, round 5 under way (8 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents; the minimap with sectors is next and last); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.26.0, round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -334,7 +337,7 @@ that follows the revs, tyre squeal, gravel and snow crunch, wall hits, nitro, mu
 | Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
 | Car upgrades (v6.11.0): the parts table, upgraded specs, prices, the save file's `career.upgrades` (VERSION 5), the picker's part chips and green bars, the app's ask-first purchase, play and train modes driving the upgraded car (opponents stock), records and ghosts tagged with the levels, the parts on the model, the terminal's `upgrade` / `buy <car> <part>` / `status` row, `tools/upgrades.gd` | done; specs per part / level / car, measured effects, laps, stability (jumps, lane keeping, curve braking on three surfaces), prices and buying, migration and junk, an upgraded ghost replaying exactly, FleetSim parity with upgraded specs, the app, the terminal, the picker and the model are tests; e2e `upgrades` | `sim/upgrades.gd`, `sim/car_spec.gd`, `sim/score.gd`, `sim/save.gd`, `sim/economy.gd`, `sim/replay.gd`, `sim/autopilot.gd`, `ai/trainer.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `ui/part_chip.gd`, `ui/main_menu.gd`, `ui/car_card.gd`, `ui/ui_data.gd`, `game/app.gd`, `game/terminal.gd`, `world/car_build.gd`, `world/car_model.gd`, `world/car_shapes.gd`, `tools/upgrades.gd` |
 | Sound and music (v6.12.0): buses with a limiter, volumes and the background mute (settings), pooled effects, music with cross-fade and ducking, the live engine synthesizer (six characters), a car's loops and one-shots from the sim, the race's cues, the interface's clicks, the shop's cash, the Settings sliders in two columns, the generated effects and music | done; buses, volumes, saving, the mute, every file, pools, the queue, music, the engines (pitch against rpm, levels, gear change, limiter, crackle, turbo, nitro), a car's events and loops, the app's sounds of a race and the shop, the sliders are tests; e2e `audio` under Movie Maker (levels, clipping, pitch against the sim's rpm, cues on time, the mute) | `audio/`, `assets/audio/`, `tools/gen_sounds.py`, `tools/engine_preview.gd`, `ui/volume_bar.gd`, `ui/ui_sound.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/terminal_screen.gd`, `game/app.gd`, `game/message_screen.gd`, `modes/play_mode.gd`, `sim/save.gd`, `ui/ui_data.gd` |
-| Tests: headless suite (1,109 checks as of v6.25.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (1,125 checks as of v6.26.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -1630,8 +1633,8 @@ left it open:
    with a name of its own and no Audi badges. See below.
 8. **The AI (v6.25.0, done)**: every level a step faster, the AI's cars upgraded, the networks trained further, the
    field closer together, a field driver in the Apex and one in the Quadra. See below.
-9. **A minimap with sectors**: three coloured sectors and the cars as dots in a race; a records page with the best
-   time of each sector on each track, with the car and the upgrades it was set with.
+9. **A minimap with sectors (v6.26.0, done)**: three coloured sectors and the cars as dots in a race; a records page
+   with the best time of each sector on each track, with the car and the upgrades it was set with. See below.
 
 ### Item 1: the Reset button (v6.18.0, done)
 
@@ -1702,6 +1705,32 @@ championship" and the menu half of "redesign the ui to be more streamlined".
   `CupTable.rows`. Shots: `field_battle`, `field_podium`, `cup_standings`, `cup_trophy`.
 - Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
   Race the AI have no tower (one car, or one ghost).
+
+### Item 9: the minimap with sectors and the sector records (v6.26.0, done)
+
+"Add a minimap with sectors make me able to look up the fastest sector on each map with what car which upgrades and
+what times". What changed:
+- **Sectors** (`sim/sectors.gd`, pure logic): a lap in thirds by distance (`Sectors.marks`: a circuit from sample 0,
+  the line; a sprint from `start_idx` to `finish_idx`). `Sectors.Clock` ends a sector when `car.prog` passes its mark,
+  the same rule as RaceState's gates, so a lap's three add up to its lap time exactly (tested on a real race). The
+  first sector of a race starts at GO. A respawn behind a mark just makes the sector longer.
+- **Play modes** (`modes/play_mode.gd`: `_new_sectors`, `_sector_step`, `_save_sectors`, `_minimap_state`; the field
+  adds its cars in `field_mode.gd` `_map_cars`): every race times its sectors; a human driver's run best per sector is
+  submitted once, at the finish, a restart or leaving (`sectors_saved`); Watch AI submits nothing. The finish panel
+  names new records. A sector is "best" (green) when faster than the track's record and the run's best so far.
+- **The minimap** (`ui/race_minimap.gd`, pinned by `ui/race_hud.gd` above the nitro gauge): drawn by hand from the
+  track's centre line (turned when taller than wide, as the menu tiles), sector colours by state (now yellow, best
+  green, done white, next grey; a sprint's run-off dim), the start (and finish) bar, the cars as dots. Hidden on the
+  narrow / tiny HUD and under a panel. `state.minimap` absent or empty: hidden (the training screen, tests).
+- **Records** (`sim/save.gd`): `sectors: {track: {sig, physics, best: [{time, car, up, date} or null] x 3}}`, any
+  car, checked against the track signature and physics version like best times; `reset_everything` clears them.
+- **The screen** (`ui/records_screen.gd`, a dialog like Controls): a row per track (map with the sector marks from
+  `UiData.track_map(i).marks`, S1-S3 with car and upgrade code, ideal lap). The menu's Records button sits beside Cups
+  (the header had no room at 640 px; the "No nitro vs AI" note moved to the AI driver line to make room), key R; `UiData.sector_records` reads SaveData or the store.
+- Tests: `tests/test_sim.gd` `_sectors` (marks, the clock, a real race adding up, the records, reset),
+  `tests/test_ui.gd` `_sectors_ui` (the HUD minimap and the screen); the e2e shots scenario opens the records after
+  its run (`records_<size>`).
+- Not done: no per-car sector records (the ask was the fastest by any car); the field's AI cars set none.
 
 ### Item 8: faster, closer AI opponents (v6.25.0, done)
 

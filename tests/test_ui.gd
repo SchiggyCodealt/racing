@@ -37,6 +37,7 @@ func run(t) -> bool:
 	_unlocks(t)
 	_field_ui(t)
 	_cup_ui(t)
+	_sectors_ui(t)
 	_scale(t)
 	UiData.reset()
 	return true
@@ -1317,6 +1318,68 @@ func _cup_ui(t) -> void:
 	fr = f.get_global_rect()
 	t.check(fr.end.y <= 600.5 and fr.position.y >= -0.5, "800 x 600: it still fits (%d px high)" % roundi(fr.size.y))
 	h.free()
+	UiData.reset()
+
+
+## (v6.26.0) The HUD's minimap with the sector times, and the menu's Sector records screen (R).
+func _sectors_ui(t) -> void:
+	t.section("minimap and sector records (v6.26.0)")
+	UiData.reset()
+	var h := _holder(t)
+	var hud := RaceHud.new()
+	h.add_child(hud)
+	hud.show_hud(true)
+	var oval := Tracks.build("rookie-oval")
+	hud.set_minimap(oval)
+	var s := Fx.hud_drive()
+	hud.update(s, 0.016)
+	var hidden_without: bool = not hud.minimap.visible
+	s.minimap = {"sector": 1, "cells": [{"time": 24.512, "state": "best"}, {"state": "now"}, {"state": "next"}],
+		"records": [24.512, 20.0, null], "cars": [{"x": oval.px[0], "z": oval.pz[0], "me": true}, {"x": oval.px[50], "z": oval.pz[50], "color": Color.RED}]}
+	hud.update(s, 0.016)
+	_settle(h)
+	var r := hud.minimap.get_global_rect()
+	t.check(hidden_without and hud.minimap.visible and hud.minimap.lines == PackedStringArray(["S1 24.512 best", "S2 20.000 now", "S3 — next"]) and
+		r.end.x <= 1280.0 and r.end.y <= 720.0 and r.position.x > 900.0,
+		"the minimap shows only with a state, bottom right (%s): S1 green 24.512, S2 being driven with the record 20.000 in grey, S3 still to come" % [r])
+	hud.show_panel(Fx.panel_finish())
+	var off_panel: bool = not hud.minimap.visible
+	hud.hide_panel()
+	h.size = Vector2(640, 360)
+	hud.update(s, 0.016)
+	t.check(off_panel and not hud.minimap.visible, "it goes under the finish panel and on a small window")
+	h.free()
+	# the records screen
+	UiData.store["sectors"] = {"rookie-oval": [{"time": 24.5, "car": "racer", "up": PackedInt32Array([3, 0, 0, 0, 1]), "date": "2026-11-14T10:00:00"},
+		{"time": 20.0, "car": "kestrel", "up": PackedInt32Array([0, 0, 0, 0, 0]), "date": ""}, {}],
+		"hairpin-valley": [{"time": 30.0, "car": "racer", "up": [], "date": ""}, {"time": 31.0, "car": "racer", "up": [], "date": ""}, {"time": 32.5, "car": "racer", "up": [], "date": ""}]}
+	var hm := _menu(t)
+	var menu: MainMenu = hm[1]
+	var inp := Fx.FakeInput.new()
+	menu.handle_keys(_press(inp, ["KeyR"]))
+	_settle(hm[0])
+	var rec: RecordsScreen = menu.records
+	var n := UiData.track_count()
+	t.check(rec.is_open and rec.lines.size() == n and rec.lines[0] == "01 Rookie Oval: S1 24.500 Racer E3 T0 N0 L0 W1, S2 20.000 Kestrel stock, S3 -, ideal -" and
+		rec.lines[1] == "02 Hairpin Valley: S1 30.000 Racer stock, S2 31.000 Racer stock, S3 32.500 Racer stock, ideal 1:33.500" and
+		rec.get("_count").text == "5 of %d sectors set" % (n * 3),
+		"R opens the sector records: a row a track (%s; %s), the ideal lap once all three are set" % [rec.lines[0], rec.lines[1]])
+	var marks: Array = UiData.track_map(0).get("marks", [])
+	t.check(marks.size() == 2 and rec.get("_maps").size() == n + 1 and (rec.get("_maps")[1] as Control).visible, "every row has its map with the two sector marks")
+	menu.handle_keys(_press(inp, ["Enter", "Digit3"]))
+	t.check(rec.is_open and menu.selected_track == 9, "on the records, other keys do nothing")
+	menu.handle_keys(_press(inp, ["KeyR"]))
+	t.check(not rec.is_open, "R closes it")
+	menu.show_records(true)
+	menu.handle_keys(_press(inp, ["PadB"], true))
+	t.check(not rec.is_open, "the pad's B closes it")
+	hm[0].size = Vector2(700, 600)
+	menu.show_records(true)
+	_settle(hm[0])
+	t.check(not (rec.get("_maps")[1] as Control).visible and rec.panel.get_global_rect().end.x <= 700.5, "on a narrow window the maps go and the table fits")
+	menu.handle_keys(_press(inp, ["Escape"]))
+	t.check(not rec.is_open, "Esc closes it")
+	hm[0].free()
 	UiData.reset()
 
 

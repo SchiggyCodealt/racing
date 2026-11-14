@@ -20,6 +20,8 @@ var line_color: Color = UiStyle.TEXT_2:
 var line_width: float = 2.0
 var dot_color: Color = UiStyle.TEXT
 var dot_size: float = 6.0
+## (v6.26.0) The colour of the sector marks (map.marks); transparent: not drawn.
+var mark_color: Color = Color(0, 0, 0, 0)
 ## Space above the map inside the rect, and the rect height at or under which nothing is drawn
 ## (the track panel's map: s5 under the description, only when it has more than 64 px).
 var top_gap: float = 0.0
@@ -33,7 +35,8 @@ func _init() -> void:
 
 ## The map of a centre line given as sample arrays (`n` samples used; circuits close the loop).
 ## `start` / `finish`: sample indices of the start and finish lines (finish -1 on circuits).
-static func make_map(px: Variant, pz: Variant, n: int, closed: bool, start: int, finish: int) -> Dictionary:
+## `marks` (v6.26.0): sample indices where the sectors meet (sim/sectors.gd), drawn when mark_color is set.
+static func make_map(px: Variant, pz: Variant, n: int, closed: bool, start: int, finish: int, marks: Array = []) -> Dictionary:
 	var step := maxi(1, int(roundf(n / 160.0)))
 	var x0 := INF
 	var x1 := -INF
@@ -58,9 +61,13 @@ static func make_map(px: Variant, pz: Variant, n: int, closed: bool, start: int,
 		i += step
 	if not closed and (n - 1) % step != 0:
 		pts.append(at.call(n - 1))
+	var mk: Array = []
+	for m in marks:
+		mk.append(at.call(clampi(int(m), 0, n - 1)))
 	return {
 		"points": pts, "size": Vector2(w + 2 * pad, h + 2 * pad), "closed": closed,
 		"start": at.call(start), "finish": at.call(finish) if not closed and finish >= 0 else null,
+		"marks": mk,
 	}
 
 
@@ -82,3 +89,6 @@ func _draw() -> void:
 	draw_circle(off + map.start * k, dot_size * 0.5, dot_color, true, -1.0, true)
 	if map.finish != null:
 		draw_circle(off + map.finish * k, dot_size * 0.5, dot_color, true, -1.0, true)
+	if mark_color.a > 0.0:
+		for p: Vector2 in map.get("marks", []):
+			draw_circle(off + p * k, dot_size * 0.42, mark_color, true, -1.0, true)

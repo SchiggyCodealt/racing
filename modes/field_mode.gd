@@ -151,6 +151,7 @@ func _race_step(dt: float) -> void:
 			_add_score_events(score.update(car, race, dt))
 		if rec != null:
 			rec.add(race_step, car, race.finished)
+		_sector_step() # (v6.26)
 		for ev: Dictionary in events:
 			_on_gate(ev)
 	_bumps()
@@ -258,6 +259,17 @@ func _grime_ahead(view: CarEffects.Pose) -> Vector2:
 	for m in ai_models:
 		var a := ScreenGrime.ahead_of(view, m.pose, track)
 		out = Vector2(maxf(out.x, a.x), maxf(out.y, a.y))
+	return out
+
+
+## (v6.26) The minimap's cars: yours and the field's, in their colours.
+func _map_cars() -> Array:
+	var out: Array = super._map_cars()
+	if field == null:
+		return out
+	for k in lineup.size():
+		var c: Car = field.racers[k].car
+		out.append({"x": c.x, "z": c.z, "color": Color(str(lineup[k].get("color", "#cccccc")))})
 	return out
 
 

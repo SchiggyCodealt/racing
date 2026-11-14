@@ -971,6 +971,20 @@ func shots() -> void:
 	await key(KEY_ESCAPE)
 	await frames(30)
 	await shot("menu_after_" + tag)
+	# (v6.26.0) the run's sectors are the track's records now: R shows them
+	await key(KEY_R)
+	await frames(20)
+	var rec: RecordsScreen = app.ui.menu.records
+	var row := ""
+	for l: String in rec.lines:
+		if l.contains(" " + Tracks.build(tid).name + ":"):
+			row = l
+	check(rec.is_open and row != "" and not row.contains("S1 -") and not row.contains("S3 -") and not row.ends_with("ideal -"),
+		"R opens the sector records with this run's three sectors: %s" % row)
+	await shot("records_" + tag)
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(not rec.is_open, "Esc closes the records")
 	if str(opts.get("train", "1")) == "1":
 		await train_shot(tag)
 
