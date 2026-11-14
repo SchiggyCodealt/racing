@@ -1,4 +1,4 @@
-Track Rush 6.24.0 for Windows (64-bit)
+Track Rush 6.25.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with eight cars, nineteen tracks (seven of them with
@@ -9,17 +9,18 @@ career points, and money buys cars and upgrades. The tracks open one at a
 time: you start with Rookie Oval, and a bronze medal or better on a track,
 with any car, opens the next one for good.
 
-New in 6.24.0: an eighth car, the Quadra. A boxy 1980s rally coupe in the
-style of the Group B cars: all-wheel drive, a five-cylinder turbo with short
-gears, box wheel arches, a big wing and four rally lamps. It keeps the most
-grip of all on snow and ice, launches almost as hard as the Kestrel and lands
-jumps softly, but it is draggy (244.9 km/h) and one of the slowest cars on
-plain asphalt. It is the quickest car on Hairpin Valley, Ramp Rally, Northern
-Lights, Summit Rush and the gravel and ice stages; the Dune stays ahead on
-Forest Rally, sand and mud. $26,000, with its own engine sound, medal times,
-upgrades and AI opponents.
+New in 6.25.0: faster, closer AI opponents. Every level is a step faster:
+the Rookie at about 1.4 x the author time (slower than bronze), the Amateur
+between silver and bronze, the Pro between gold and silver, the Expert at
+about the author time and the Elite flat out, 3-11 % under it. Every AI car
+now has every part at upgrade level 3, and the AI networks were trained
+further in those cars. A field race is 4 % from the slowest car to the
+fastest instead of 8 %, and two new drivers race the Apex and the Quadra.
 
 Earlier versions, newest first:
+6.24.0  an eighth car, the Quadra: a boxy 1980s all-wheel-drive rally coupe
+        with a five-cylinder turbo, the quickest on snow, ice and gravel;
+        $26,000, with its own sound, medal times, upgrades and opponents.
 6.23.0  four rally stages, tracks 16 to 19: Pine Ridge (gravel), Dune Sea
         (sand), Frozen Lake (ice) and Monsoon Trail (mud), point-to-point
         sprints with their own textures and scenery, and a sixth cup, the

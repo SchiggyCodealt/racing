@@ -14,7 +14,7 @@ extends RefCounted
 ##
 ## The pace: grid slot k (0 = pole) aims at PACE[k] × the level's finish time with YOUR car on that
 ## track (Opponents.time_of), so a Pro field is about Pro pace for the car you drive whatever the AI
-## drive: the pole sitter is the slowest (1.08 ×), the last AI on the grid the fastest (1.0 × : beating
+## drive: the pole sitter is the slowest (1.04 ×), the last AI on the grid the fastest (1.0 × : beating
 ## it is beating the level). A driver's speed cap comes from its car's measured levels on that track
 ## (cap_for: between two levels, log-interpolated; slower than the Rookie, the Rookie's cap scaled down).
 ## A car that can't reach its driver's pace on that track even at Elite (a Dune against your Vortex's
@@ -48,9 +48,13 @@ const DRIVERS: Array[Dictionary] = [
 	{id = "moreau", name = "Tess Moreau", code = "MOR", car = "racer", color = "#ff6fae"},
 	{id = "haugen", name = "Nils Haugen", code = "HAU", car = "kestrel", color = "#24408e"},
 	{id = "fox", name = "Lena Fox", code = "FOX", car = "drifter", color = "#b5652b"},
+	# (v6.25) the Apex and the Quadra get drivers too
+	{id = "duarte", name = "Ines Duarte", code = "DUA", car = "apex", color = "#00a19b"},
+	{id = "lind", name = "Otto Lind", code = "LIN", car = "quadra", color = "#c1121f"},
 ]
-## Each AI grid slot's pace (pole first) × the level's finish time with the player's car.
-const PACE: PackedFloat64Array = [1.08, 1.06, 1.04, 1.02, 1.0]
+## Each AI grid slot's pace (pole first) × the level's finish time with the player's car. (v6.25: a
+## closer field, 4 % from first to last; it was 8 %.)
+const PACE: PackedFloat64Array = [1.04, 1.03, 1.02, 1.01, 1.0]
 ## m between two grid slots (one behind the other, alternating sides: rows 2 × SLOT_GAP apart).
 const SLOT_GAP: float = 10.0
 ## m either side of the centre line (at most LANE_SHARE of the road's half width).

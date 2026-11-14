@@ -964,9 +964,9 @@ func _upgrades(t) -> void:
 	t.check(wtip.contains("Level 1 (-3 %% weight) costs %s" % UiFormat.money(Upgrades.price("racer", "weight", 1))) and wtip.contains("lighter car"),
 		"the Weight chip's tooltip: a lighter car, level 1 takes 3 %% off (%s)" % UiFormat.money(Upgrades.price("racer", "weight", 1)))
 	var tip: String = (chips[0] as Control).tooltip_text
-	t.check(tip.contains("Level 1 (+5 %% power) costs %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and tip.contains("Medal times and the AI opponents stay stock") and
-		str((parts_row.get_child(0).get_child(0) as Control).tooltip_text).contains("Medal times and the AI opponents stay"),
-		"the chip's tooltip: what the next level does and costs; medal times and the AI opponents stay stock (the caption says so too)")
+	t.check(tip.contains("Level 1 (+5 %% power) costs %s" % UiFormat.money(Upgrades.price("racer", "engine", 1))) and tip.contains("Medal times stay stock; the AI opponents keep their level 3 car") and
+		str((parts_row.get_child(0).get_child(0) as Control).tooltip_text).contains("the AI opponents keep their own car (every part at level 3)"),
+		"the chip's tooltip: what the next level does and costs; medal times stay stock and the AI opponents keep their level 3 car (the caption says so too)")
 	# buy in the store: in order, not past the top, not for a locked car, not without the money
 	var r1 := UiData.buy_upgrade("racer", "engine")
 	var r2 := UiData.buy_upgrade("vortex", "engine")

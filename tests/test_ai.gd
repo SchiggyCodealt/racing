@@ -17,8 +17,10 @@ extends RefCounted
 ##   thread, pause, Save best network (the car's own network), switching car (asking first when
 ##   a better network is not saved), loading another car's network, Stop
 ## - the AI opponents (v6.5.0, data/opponents): every track and car has all five levels, each
-##   finishes and is slower than the level above, Elite at gold pace or faster, Rookie slower
-##   than bronze; a sample of their races re-run (ai/opponent_race.gd) finish on the stored time
+##   finishes and is slower than the level above, the menu's level texts hold against the medals
+##   (v6.25: Elite under the author time and at most about 10 % under it, Expert about the author
+##   time, Pro between gold and silver, Amateur between silver and bronze, Rookie slower than
+##   bronze), the AI's car is the level 3 one; a sample of their races re-run (ai/opponent_race.gd) finish on the stored time
 ##   to the millisecond; the speed cap of AIDriver
 ## About a minute with the extension (most of it the GDScript simulation), longer without.
 
@@ -1241,7 +1243,7 @@ func _opponents() -> void:
 	var gap_min: float = INF
 	# (v6.9.0: what each level's blurb says about the medals, against the faster bronze)
 	var amateur_fast: Array = []
-	var amateur_min: float = INF
+	var amateur_min: float = 0.0
 	var pro_off: Array = []
 	var expert_off: Array = []
 	for car: String in Cars.ids():
@@ -1266,34 +1268,38 @@ func _opponents() -> void:
 				above = time
 			var elite: float = float(e.levels.elite.time)
 			var rookie: float = float(e.levels.rookie.time)
-			worst_elite = maxf(worst_elite, elite / float(m.gold))
+			worst_elite = maxf(worst_elite, elite / float(m.author))
 			best_elite = minf(best_elite, elite / float(m.author))
 			rookie_min = minf(rookie_min, rookie / float(m.bronze))
-			if elite > float(m.gold):
-				elite_slow.append("%s/%s" % [car, tid])
+			if elite >= float(m.author) or elite < 0.88 * float(m.author):
+				elite_slow.append("%s/%s %.3f" % [car, tid, elite / float(m.author)])
 			if rookie <= float(m.bronze):
 				rookie_fast.append("%s/%s" % [car, tid])
 			var amateur: float = float(e.levels.amateur.time)
 			var pro: float = float(e.levels.pro.time)
 			var expert: float = float(e.levels.expert.time)
-			amateur_min = minf(amateur_min, amateur / float(m.bronze))
-			if amateur <= float(m.bronze):
-				amateur_fast.append("%s/%s" % [car, tid])
-			if not (pro > float(m.silver) and pro <= float(m.bronze)):
-				pro_off.append("%s/%s" % [car, tid])
-			if not (expert > float(m.gold) and expert <= float(m.silver)):
-				expert_off.append("%s/%s" % [car, tid])
+			amateur_min = maxf(amateur_min, amateur / float(m.bronze))
+			if not (amateur > float(m.silver) and amateur < float(m.bronze)):
+				amateur_fast.append("%s/%s amateur" % [car, tid])
+			if not (pro > float(m.gold) and pro < float(m.silver)):
+				pro_off.append("%s/%s pro" % [car, tid])
+			if not (expert < float(m.gold) and absf(expert / float(m.author) - 1.0) <= 0.05):
+				expert_off.append("%s/%s expert %.3f" % [car, tid, expert / float(m.author)])
 	t.check(missing.is_empty() and n == Cars.ids().size() * Tracks.ids().size(), "every track has all five levels with every car (%d of %d) %s" % [
 		n, Cars.ids().size() * Tracks.ids().size(), missing])
 	t.check(order_bad.is_empty() and gap_min > 1.0, "lap times get faster from Rookie to Elite everywhere: each level at least %.3f × the next one up's time %s" % [gap_min, order_bad])
-	t.check(elite_slow.is_empty() and best_elite > 0.97, "Elite at gold pace or faster everywhere (at most %.3f × gold) and held to about the author time (at least %.3f × author) %s" % [
-		worst_elite, best_elite, elite_slow])
+	t.check(elite_slow.is_empty() and Opponents.level("elite").blurb.contains("up to 10 % under the author time"),
+		"Elite (v6.25: in the AI's level 3 car, flat out or held to about 0.9 × the author time) under the author time everywhere and at most about 10 %% under it (%.3f to %.3f × author) %s" % [
+		best_elite, worst_elite, elite_slow])
 	t.check(rookie_fast.is_empty(), "Rookie slower than the bronze medal everywhere (at least %.3f × bronze) %s" % [rookie_min, rookie_fast])
 	t.check(amateur_fast.is_empty() and pro_off.is_empty() and expert_off.is_empty() and
-		str(Opponents.level("amateur").blurb).contains("slower than bronze") and str(Opponents.level("pro").blurb).contains("between silver and bronze") and
-		str(Opponents.level("expert").blurb).contains("between gold and silver"),
-		"the menu's level texts hold with bronze at %s × the author time: Amateur a little slower than bronze (at least %.3f × bronze), Pro between silver and bronze, Expert between gold and silver, everywhere %s" % [
+		str(Opponents.level("amateur").blurb).contains("between silver and bronze") and str(Opponents.level("pro").blurb).contains("between gold and silver") and
+		str(Opponents.level("expert").blurb).contains("about the author time, well inside gold"),
+		"the menu's level texts hold (v6.25: every level a step faster) with bronze at %s × the author time: Amateur between silver and bronze (%.3f × bronze at most), Pro between gold and silver, Expert within 5 %% of the author time and faster than gold, everywhere %s" % [
 			JsMath.num_to_js(float(Medals.FACTORS.bronze)), amateur_min, amateur_fast + pro_off + expert_off])
+	t.check(Opponents.spec("dune") == Upgrades.spec("dune", PackedInt32Array([3, 3, 3, 3, 3])) and Opponents.UPGRADES == PackedInt32Array([3, 3, 3, 3, 3]) and
+		Opponents.file_data("racer").get("upgrades") is Array and Upgrades.clean(Opponents.file_data("racer").upgrades) == Opponents.UPGRADES,
+		"the AI opponents drive their car with every part at upgrade level 3 (v6.25), and the files say so")
 	t.check(off.is_empty(), "each slowed level within 2 %% of its target (pace × author, at least %.2f × the level above) %s" % [Opponents.MIN_GAP, off])
 
 	# the races: re-run with ai/opponent_race.gd (the game's AI ghost race), they finish on the stored time

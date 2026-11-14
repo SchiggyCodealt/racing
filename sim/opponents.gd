@@ -4,14 +4,16 @@ extends RefCounted
 ## Elite on every track with every car, shipped in data/opponents/<car>.json.
 ## ------------------------------------------------------------------
 ## Each track and car has one network of its own, trained on that track with that car by
-## tools/opponents.gd --train (FleetSim, walls ride) until its race beats the gold medal. Every
-## level drives that network; a level whose network would be faster than its pace drives it with
-## a speed cap (ai/sensors.gd AIDriver.speed_cap): it settles just under the cap on the
+## tools/opponents.gd --train (FleetSim, walls ride) until its race beats the gold medal, then (v6.25)
+## trained on with --tune in the AI's own car (UPGRADES: every part at level 3) until it stops
+## getting faster. Every level drives that network in that car; a level whose network would be faster than its pace
+## drives it with a speed cap (ai/sensors.gd AIDriver.speed_cap): it settles just under the cap on the
 ## straights and takes the corners as the network does. Each level's cap is set by
 ## tools/opponents.gd so that the opponent's race takes about `pace` × the car's author time
-## (data/medals.json), and at least MIN_GAP × the next level up; Elite drives flat out where the
-## network is no faster than the author time, and is held to about the author time where it is
-## (on Hairpin Valley's snow the networks ride the walls to 0.83-0.92 × the author time). The opponent never
+## (data/medals.json, the stock car's), and at least MIN_GAP × the next level up. Elite drives flat out
+## where that is no faster than 0.9 × the author time, and is held to about that where it is (leaning
+## on the walls, the tuned networks get to 0.75-0.83 × with the Apex on loose ground and on the snowy
+## hairpins); before v6.25 it was held to about the author time in the stock car. The opponent never
 ## collides with you and its race does not depend on yours, so its finish time is known: the
 ## file stores it, the menu shows it and tests check it (ai/opponent_race.gd runs it).
 ## Data-driven: a new level is one more LEVELS entry (and its rewards in sim/economy.gd).
@@ -26,27 +28,32 @@ extends RefCounted
 ##   Opponents.time_of(track_id, car_id, level) -> the level's finish time (s), or -1
 ##   Opponents.cap_of(track_id, car_id, level) -> its speed cap (m/s; INF for none), or -1
 ##   Opponents.has_track(track_id, car_id) -> true when all the levels are there
+##   Opponents.spec(car_id) -> the CarSpec every AI opponent drives (v6.25: the car with UPGRADES)
 ##
 ## File (data/opponents/<car>.json, written by tools/opponents.gd; don't edit by hand):
-##   {format, car, physics, generated, method, tracks: {id: {sig, laps, seed, generation,
+##   {format, car, physics, upgrades, generated, method, tracks: {id: {sig, laps, seed, generation,
 ##    network: {network file}, levels: {level: {cap (m/s, null = none), time (s)}}}}}
 
 const DATA_DIR: String = "res://data/opponents"
 const FORMAT: String = "track-rush-opponents"
 ## The levels, slowest first. pace: the target finish time as a share of the car's author time
-## (a network slower than that drives flat out). blurb: the menu's text; what it says about the
-## medals holds on every track with every car (tests/test_ai.gd checks it against the measured
-## times; v6.9.0's faster bronze, 1.3 × the author time, put the Amateur just behind bronze and the
-## Pro between silver and bronze).
+## (a network slower than that drives flat out). blurb: the menu's text; what it
+## says about the medals holds on every track with every car (tests/test_ai.gd checks it against the
+## measured times, with gold, silver and bronze at 1.06, 1.2 and 1.3 × the author time, rounded up).
+## v6.25.0: every level a step faster (it was 1.6, 1.4, 1.25, 1.13 and 1.0, in the stock car).
 const LEVELS: Array[Dictionary] = [
-	{id = "rookie", name = "Rookie", pace = 1.6, blurb = "takes it easy: slower than the bronze medal"},
-	{id = "amateur", name = "Amateur", pace = 1.4, blurb = "a steady driver, a little slower than bronze"},
-	{id = "pro", name = "Pro", pace = 1.25, blurb = "quick: between silver and bronze pace"},
-	{id = "expert", name = "Expert", pace = 1.13, blurb = "fast: between gold and silver pace"},
-	{id = "elite", name = "Elite", pace = 1.0, blurb = "the fastest: about the author time"},
+	{id = "rookie", name = "Rookie", pace = 1.4, blurb = "takes it easy: slower than the bronze medal"},
+	{id = "amateur", name = "Amateur", pace = 1.25, blurb = "a steady driver: between silver and bronze pace"},
+	{id = "pro", name = "Pro", pace = 1.1, blurb = "quick: between gold and silver pace"},
+	{id = "expert", name = "Expert", pace = 1.0, blurb = "fast: about the author time, well inside gold"},
+	{id = "elite", name = "Elite", pace = 0.9, blurb = "the fastest, in an upgraded car: up to 10 % under the author time"},
 ]
 ## Each level's finish time is at least this × the next level up's (tools/opponents.gd).
 const MIN_GAP: float = 1.04
+## (v6.25) The upgrade levels of every AI opponent's car (sim/upgrades.gd order: engine, tyres, nitro,
+## loose, weight; the nitro does nothing, as the AI races without it). The levels' times are measured
+## in this car; the medals stay the stock car's.
+const UPGRADES: PackedInt32Array = [3, 3, 3, 3, 3]
 
 static var _files: Dictionary = {}
 static var _mutex: Mutex = Mutex.new()
@@ -92,6 +99,11 @@ static func file_data(car_id: String) -> Dictionary:
 	return d
 
 
+## The car every AI opponent drives: car_id with UPGRADES (Upgrades.spec, cached).
+static func spec(car_id: String) -> CarSpec:
+	return Upgrades.spec(car_id, UPGRADES)
+
+
 ## Forget the files read (tools/opponents.gd after writing one; tests).
 static func reload() -> void:
 	_mutex.lock()
@@ -100,11 +112,14 @@ static func reload() -> void:
 
 
 ## The opponents of a track with a car: {sig, laps, network, levels {id: {cap, time}}, ...}, or {}
-## when there are none, or they were made for other physics or another version of the track.
+## when there are none, or they were made for other physics, another version of the track or another
+## AI car (UPGRADES).
 static func entry(track_id: String, car_id: String) -> Dictionary:
 	var d: Dictionary = file_data(car_id)
 	if d.is_empty() or not JsMath.same(d.get("physics"), Car.PHYSICS_VERSION) or not (d.get("tracks") is Dictionary):
 		return {}
+	if not (d.get("upgrades") is Array) or Upgrades.clean(d.upgrades) != UPGRADES:
+		return {} # (made for another car: v6.25 files say which upgrades they were measured with)
 	var e: Variant = (d.tracks as Dictionary).get(track_id)
 	if not (e is Dictionary) or not (e as Dictionary).get("network") is Dictionary or not (e as Dictionary).get("levels") is Dictionary:
 		return {}

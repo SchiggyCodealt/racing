@@ -998,8 +998,8 @@ func _app_career(t, app: GameApp) -> void:
 	app.play("human", true)
 	var m: Node = app.mode
 	t.check(m != app.menu_mode and m.get("with_ghost") == true and m.get("level") == "rookie" and float(m.get("cap")) == Opponents.cap_of(tid, "racer", "rookie") and
-		str(app.ui.hud.get("_mode").text).begins_with("VS ROOKIE AI") and (m.get("ghost").car as Car).spec == Cars.get_car("racer").spec,
-		"Race the Rookie AI: its car next to yours (cap %.1f m/s); the HUD says VS ROOKIE AI" % float(m.get("cap")))
+		str(app.ui.hud.get("_mode").text).begins_with("VS ROOKIE AI") and (m.get("ghost").car as Car).spec == Opponents.spec("racer"),
+		"Race the Rookie AI: its car (v6.25: the AI's level 3 Racer) next to yours (cap %.1f m/s); the HUD says VS ROOKIE AI" % float(m.get("cap")))
 	var medals := Medals.medal_times(track, "racer")
 	_feed(app, Autopilot.medal(track, float(medals.run.aLat), float(medals.run.lookK), true, Autopilot.DECEL, Cars.spec("racer")))
 	_run_until(m, func() -> bool: return m.get("phase") == "finished", 200.0)
@@ -1078,7 +1078,8 @@ func _app_career(t, app: GameApp) -> void:
 
 ## v6.11.0: the car picker's part chips in the app: a locked car's part says so, money short says
 ## how much, the chip asks first and buys the next level; the races drive the upgraded car, the AI
-## opponents and their stored times stay stock; Watch the AI with the player's own network too.
+## opponents their own car (v6.25: every part at level 3, whatever you bought); Watch the AI with the
+## player's own network too.
 func _app_upgrades(t, app: GameApp) -> void:
 	t.section("the app: car upgrades (v6.11.0)")
 	var path := "user://test_game_upgrades.json"
@@ -1107,8 +1108,8 @@ func _app_upgrades(t, app: GameApp) -> void:
 	SaveData.add_money(e1 + 1000)
 	menu.refresh()
 	(chips[0] as Button).pressed.emit()
-	t.check(app.message.asking and msg.text.contains("Level 1 of 10") and msg.text.contains("+5 % power") and msg.text.contains("Medal times and the AI opponents stay") and
-		msg.text.contains("$1,000 is left"), "with the money: it asks first (level 1 of 10, +5 % power, what is left, medals and AI opponents stock)")
+	t.check(app.message.asking and msg.text.contains("Level 1 of 10") and msg.text.contains("+5 % power") and msg.text.contains("Medal times and the AI opponents (every part at level 3) stay as they are") and
+		msg.text.contains("$1,000 is left"), "with the money: it asks first (level 1 of 10, +5 % power, what is left, medal times and the AI's level 3 cars unchanged)")
 	app.message.close()
 	t.check(SaveData.get_upgrades("racer")[0] == 0 and UiData.money() == e1 + 1000, "Cancel: nothing bought")
 	(chips[0] as Button).pressed.emit()
@@ -1136,10 +1137,11 @@ func _app_upgrades(t, app: GameApp) -> void:
 	var fixture := "res://tests/fixtures/game_net.json"
 	if AiLink.ready() and FileAccess.file_exists(fixture):
 		var parsed: Dictionary = AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(fixture)))
-		# an AI opponent: its car stock (its stored times are the stock car's)
+		# an AI opponent: the AI's car (v6.25: every part at level 3, Opponents.UPGRADES; its stored times are that car's)
 		m = app.start_play({"track": app.tracks[0], "driver": "human", "ghost": true, "net": parsed.net, "level": "rookie", "ai_car": "racer"})
-		t.check((m.get("car") as Car).spec == up_spec and m.get("with_ghost") == true and (m.get("ghost").car as Car).spec == Cars.spec("racer"),
-			"Race the Rookie AI: you drive the upgraded Racer, the AI opponent a stock one")
+		t.check((m.get("car") as Car).spec == up_spec and m.get("with_ghost") == true and (m.get("ghost").car as Car).spec == Opponents.spec("racer") and
+			Opponents.spec("racer") == Upgrades.spec("racer", PackedInt32Array([3, 3, 3, 3, 3])),
+			"Race the Rookie AI: you drive the upgraded Racer, the AI opponent the AI's Racer (every part at level 3)")
 		app.show_menu()
 		# the player's own network: the upgraded car (Watch the AI and Race my AI)
 		m = app.start_play({"track": app.tracks[0], "driver": "ai", "net": parsed.net, "ai_car": "racer"})

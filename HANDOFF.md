@@ -4,7 +4,11 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-14 (v6.24.0: round 5, item 7 of 9: an eighth car, the Quadra, a boxy 1980s rally coupe with
+_Last updated: 2026-11-14 (v6.25.0: round 5, item 8 of 9: faster, closer AI opponents: every level a step faster
+(`sim/opponents.gd` `LEVELS`), the AI's cars with every part at upgrade level 3 (`Opponents.UPGRADES`, `Opponents.spec`),
+all 152 networks trained on in those cars (`tools/opponents.gd --tune`), a closer field (`sim/field.gd` `PACE`) and two
+more drivers (the Apex and the Quadra);
+v6.24.0: round 5, item 7 of 9: an eighth car, the Quadra, a boxy 1980s rally coupe with
 all-wheel drive and a five-cylinder turbo (`sim/cars.gd`, `world/car_shapes.gd`, `audio/engine_voice.gd`), with its
 medal times, upgrades and AI opponents;
 v6.23.0: round 5, item 6 of 9: four rally stages on four new road surfaces, gravel, sand,
@@ -43,7 +47,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.24.0, round 5 under way (7 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13; the AI is next, then the minimap with sectors); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.25.0, round 5 under way (8 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents; the minimap with sectors is next and last); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -330,7 +334,7 @@ that follows the revs, tyre squeal, gravel and snow crunch, wall hits, nitro, mu
 | Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
 | Car upgrades (v6.11.0): the parts table, upgraded specs, prices, the save file's `career.upgrades` (VERSION 5), the picker's part chips and green bars, the app's ask-first purchase, play and train modes driving the upgraded car (opponents stock), records and ghosts tagged with the levels, the parts on the model, the terminal's `upgrade` / `buy <car> <part>` / `status` row, `tools/upgrades.gd` | done; specs per part / level / car, measured effects, laps, stability (jumps, lane keeping, curve braking on three surfaces), prices and buying, migration and junk, an upgraded ghost replaying exactly, FleetSim parity with upgraded specs, the app, the terminal, the picker and the model are tests; e2e `upgrades` | `sim/upgrades.gd`, `sim/car_spec.gd`, `sim/score.gd`, `sim/save.gd`, `sim/economy.gd`, `sim/replay.gd`, `sim/autopilot.gd`, `ai/trainer.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `ui/part_chip.gd`, `ui/main_menu.gd`, `ui/car_card.gd`, `ui/ui_data.gd`, `game/app.gd`, `game/terminal.gd`, `world/car_build.gd`, `world/car_model.gd`, `world/car_shapes.gd`, `tools/upgrades.gd` |
 | Sound and music (v6.12.0): buses with a limiter, volumes and the background mute (settings), pooled effects, music with cross-fade and ducking, the live engine synthesizer (six characters), a car's loops and one-shots from the sim, the race's cues, the interface's clicks, the shop's cash, the Settings sliders in two columns, the generated effects and music | done; buses, volumes, saving, the mute, every file, pools, the queue, music, the engines (pitch against rpm, levels, gear change, limiter, crackle, turbo, nitro), a car's events and loops, the app's sounds of a race and the shop, the sliders are tests; e2e `audio` under Movie Maker (levels, clipping, pitch against the sim's rpm, cues on time, the mute) | `audio/`, `assets/audio/`, `tools/gen_sounds.py`, `tools/engine_preview.gd`, `ui/volume_bar.gd`, `ui/ui_sound.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/terminal_screen.gd`, `game/app.gd`, `game/message_screen.gd`, `modes/play_mode.gd`, `sim/save.gd`, `ui/ui_data.gd` |
-| Tests: headless suite (1,108 checks as of v6.24.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (1,109 checks as of v6.25.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -1417,7 +1421,7 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
     scales of v6.1 on purpose (the same bar means the same grip on every car).
   - **No loose grip mark on two models**: the Drifter has its own mud flaps and the Dune has open wheels, so neither
     shows loose grip on the model (the chips and bars do).
-  - **The AI opponents' networks were trained on stock cars**; the player's own network is trained on the upgraded
+  - **The AI opponents drive their own level 3 car** (v6.25.0; stock before), whatever the player bought; the player's own network is trained on the upgraded
     car if the car was upgraded when training started (a session keeps the spec it started with; upgrading during a
     session takes effect in the next one).
   - The nitro part is 10 % a level (the brief said about 3-5 %): at that size it is worth 0-0.8 % of a race at level
@@ -1479,12 +1483,14 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
 - **The AI opponents are a single network per track and car held to a lower top speed**, not different drivers: the
   slow levels take every corner at the same capped speed (the Rookie is very steady), they never use nitro (v6.15.0:
   nobody does in a race against them; their networks were trained without it and have zero nitro weights), and with
-  walls ride they lean on walls in tight corners like the trained networks do. Elite is the network flat out where
-  that is about the author time, else capped to it (on about half the track-and-car pairs; the networks are up to
-  17 % faster than the author time on Hairpin Valley, where they ride the walls). The opponents' cars don't collide
+  walls ride they lean on walls in tight corners like the trained networks do. Since v6.25.0 they drive their car with
+  every part at level 3, and Elite is the network flat out where that is no faster than 0.9 × the author time, else
+  held to about that (53 of 152 pairs; leaning on the walls, the tuned networks get as far as 0.75 × with the Apex
+  on Ramp Rally and 0.76-0.83 × on the snowy hairpins, the ice and the Apex's loose tracks), so beating the Elite
+  takes upgrades or a run well under the author time. The opponents' cars don't collide
   with yours and don't react to it.
-- **The Rookie may still be hard for a brand-new player on long tracks**: it takes 1.6 × the author time, slower
-  than bronze (1.3 × since v6.9.0), but it doesn't crash or make mistakes.
+- **The Rookie may be hard for a brand-new player**: it takes 1.4 × the author time since v6.25.0 (1.6 × before),
+  just slower than bronze (1.3 ×), and it doesn't crash or make mistakes.
 - **The faster bronze (v6.9.0) is harder for a new player**: a new career needs a bronze on Rookie Oval (2:39 with
   the Racer, the author time + 30 %) before anything else opens. The e2e `unlock` scenario's deliberately slow
   autopilot (corner grip 13 m/s², 50 m/s at most) makes 2:32.900; v6.8.0's (11 m/s², 40 m/s) made 2:49.750, which
@@ -1622,8 +1628,8 @@ left it open:
 7. **A rally car (v6.24.0, done)** (added by the owner on 2026-11-13: "also add a rally car modelled after the audi
    quattro later"): the Quadra, a boxy 1980s Group B coupe in that style (all-wheel drive, a five-cylinder turbo),
    with a name of its own and no Audi badges. See below.
-8. **The AI**: every level faster, the field closer together, the top level in an upgraded car, longer training so the
-   networks scrape the walls less. Give a field driver the Apex and one the Quadra here (`sim/field.gd` `DRIVERS`).
+8. **The AI (v6.25.0, done)**: every level a step faster, the AI's cars upgraded, the networks trained further, the
+   field closer together, a field driver in the Apex and one in the Quadra. See below.
 9. **A minimap with sectors**: three coloured sectors and the cars as dots in a race; a records page with the best
    time of each sector on each track, with the car and the upgrades it was set with.
 
@@ -1697,6 +1703,42 @@ championship" and the menu half of "redesign the ui to be more streamlined".
 - Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
   Race the AI have no tower (one car, or one ghost).
 
+### Item 8: faster, closer AI opponents (v6.25.0, done)
+
+"Make the AIs in the races more competitive and better". What changed:
+- **Every level a step faster** (`sim/opponents.gd` `LEVELS`, pace × the stock car's author time): Rookie 1.4 (was
+  1.6), Amateur 1.25 (1.4), Pro 1.1 (1.25), Expert 1.0 (1.13), Elite 0.9 (1.0): Elite drives flat out where that is no
+  faster than 0.9 × the author time and is held to about that where it is (53 of 152 pairs). The blurbs moved one
+  medal band up and stay true everywhere (the test checks them): Rookie slower than bronze, Amateur between silver and
+  bronze, Pro between gold and silver, Expert within 1.2 % of the author time, Elite 0.889-0.968 × the author time.
+  Measured against v6.24's stored times every level is 9-14 % faster (Elite 4-12 %).
+- **The AI's car** (`Opponents.UPGRADES` = every part at level 3, `Opponents.spec(car)`): every AI opponent, field
+  driver and cup driver drives it (`ai/opponent_race.gd`, `modes/play_mode.gd` `ai_levels`, `sim/field_race.gd`,
+  `tools/field.gd`). The nitro part does nothing (no nitro in races against the AI). The opponents' files say which
+  upgrades they were measured with (`"upgrades"`); `Opponents.entry` ignores a file made for others. The medal times
+  stay the stock cars'. The car page's tooltips say the AI keep their level 3 car.
+- **Longer training** (`tools/opponents.gd --tune`): every stored network (all had stopped at generation 80, the first
+  check that beat gold) is the seed of a new run in the AI's car (80 cars, the same seed as `--train`, its stored
+  fitness dropped as it was scored in the stock car); every 20 generations the best network drives a whole race and
+  the fastest race is kept; a run stops after 80 generations with no race 0.3 % faster, or 240 generations. Median
+  gain over the stock network in the upgraded car 2.4 %, up to 13 % (4 of 152 kept the old network); the runs ended
+  around generation 180 (at most 320); 2 h 29 min for all 152 on 4 threads, the levels about 25 minutes more.
+- **A closer field** (`sim/field.gd` `PACE`): 1.04, 1.03, 1.02, 1.01 and 1.0 × the level's time with your car (it
+  was 1.08 to 1.0).
+- **Two more drivers** (`Field.DRIVERS`, ten now): Ines Duarte (DUA, the Apex, teal) and Otto Lind (LIN, the Quadra,
+  red). The roster's size changes the shuffle, so every track's and cup's field is drawn anew.
+- Not done: the networks still see only the walls, not other cars (the field's traffic layer is unchanged), and with
+  walls ride they still lean on walls in tight corners; a sixth level was not added (the five levels, their rewards and
+  the cup trophies stay as they were).
+- Tests: `test_ai.gd` checks the new blurbs against the medals on all 152 pairs, the Elite between 0.88 × and the
+  author time, and the AI's car; `test_game.gd` and `test_ui.gd` the AI ghost's car and the upgrade texts.
+- Checked: the headless suite (1,109 checks: sim 159, the others 950; 13 stored races re-run to the millisecond, three
+  whole field races); e2e `field gfx=high` (10: an Elite field on Rookie Oval with Ines Duarte's Apex leading, the
+  field within 2.3 s after a lap and a half, every AI finished), `cup` (16), `modes` (30) and `economy` (22: its
+  author-pace autopilot without nitro, 2:04.450 on Rookie Oval, no longer beats the Elite (1:54.450) or the Expert
+  (2:01.433), so it races the Pro AI there, and the Expert on Seaside Stunts in a Racer the scenario sets to level 3,
+  where it makes the author time).
+
 ### Item 7: the Quadra rally car (v6.24.0, done)
 
 "also add a rally car modelled after the audi quattro later". An eighth car, id `quadra`, $26,000, white with yellow
@@ -1736,8 +1778,8 @@ bands: a boxy 1980s rally coupe in the style of the Group B cars. Its own name, 
 - Checked: the headless suite (1,108 checks: sim 159, the others 949); e2e `menu` (37), `economy` (22, the car page
   with eight cards) and `races tracks=pine-ridge,frozen-lake,rookie-oval cars=quadra` (54: the game's own race ends on
   the author time).
-- Not done, on purpose: no field driver has it yet (item 8 gives one the Quadra and one the Apex and retrains
-  everything); the web version does not have it.
+- Not done, on purpose: no field driver had it (item 8, v6.25.0, gave one the Quadra and one the Apex); the web
+  version does not have it.
 
 ### Item 6: four rally stages (v6.23.0, done)
 

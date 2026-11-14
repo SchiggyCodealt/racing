@@ -130,7 +130,7 @@ static func run_race(job: Dictionary) -> Dictionary:
 		drivers.append(Sensors.AIDriver.new(net, float(lineup[k].cap)))
 	var pnet: NeuralNetwork = Trainer.parse_network_file(job.player_net).net
 	var pdriver := Sensors.AIDriver.new(pnet, float(job.player_cap))
-	var pcar := Car.new(t, t.start_idx, Cars.spec(String(job.car)))
+	var pcar := Car.new(t, t.start_idx, Opponents.spec(String(job.car))) # (v6.25: the AI's car, as the levels were measured)
 	var prace := RaceState.new(t)
 	var f := FieldRace.new(t, lineup, drivers, pcar, prace)
 	var me: FieldRace.Racer = f.racers[f.player_index]

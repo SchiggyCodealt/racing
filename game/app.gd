@@ -552,7 +552,7 @@ func offer_upgrade(car_id: String, part: String) -> void:
 	ui.menu.input = null
 	UiSound.play("ui_confirm")
 	message.ask("Upgrade the %s's %s?" % [cname, String(p.name).to_lower()],
-		"Level %d of %d: %s over the stock car (%s). It costs %s; you have %s, so %s is left. It counts in every race you drive with the %s and when your own AI drives or trains it. Medal times and the AI opponents stay as they are." % [
+		"Level %d of %d: %s over the stock car (%s). It costs %s; you have %s, so %s is left. It counts in every race you drive with the %s and when your own AI drives or trains it. Medal times and the AI opponents (every part at level 3) stay as they are." % [
 			lv + 1, Upgrades.MAX_LEVEL, Upgrades.effect(part, lv + 1), p.what, UiFormat.money(price), UiFormat.money(have), UiFormat.money(have - price), cname],
 		"Buy for %s" % UiFormat.money(price), buy_upgrade.bind(car_id, part))
 

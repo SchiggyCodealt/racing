@@ -89,7 +89,7 @@ func _init() -> void:
 	var cap := UiStyle.label("Upgrades", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
 	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cap.mouse_filter = Control.MOUSE_FILTER_PASS
-	cap.tooltip_text = "Upgrade the picked car, ten levels a part (the last ones dear), bought in order with your money. Medal times and the AI opponents stay as they are (stock cars), so upgrades make medals and wins easier."
+	cap.tooltip_text = "Upgrade the picked car, ten levels a part (the last ones dear), bought in order with your money. Medal times stay the stock car's and the AI opponents keep their own car (every part at level 3), so upgrades make medals and wins easier."
 	var cm := UiStyle.margin([0, 0, UiStyle.S2, 0])
 	cm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cm.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -198,7 +198,7 @@ func refresh() -> void:
 		elif level >= int(p.max):
 			chip.tooltip_text = "%s: %s. Every level bought (%s)." % [p.name, p.what, Upgrades.effect(String(p.id), level)]
 		else:
-			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s Medal times and the AI opponents stay stock." % [
+			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s Medal times stay stock; the AI opponents keep their level 3 car." % [
 				p.name, cname, p.what, now, level + 1, Upgrades.effect(String(p.id), level + 1), UiFormat.money(nxt), UiFormat.money(have),
 				"" if have >= nxt else " %s more to go." % UiFormat.money(nxt - have)]
 	car_desc_name.text = cname

@@ -106,6 +106,12 @@ the **Rally Cup**, runs all four (see [Tracks](#tracks) and [Road surfaces](#roa
 in the physics that had been there since 6.10.0: braking on loose ground at the moment the front wheels went light
 over a crest could break the car's state for good.
 
+Version 6.25.0 makes the **AI opponents faster and closer**: every level is a step faster (the Rookie now at about
+1.4 × the author time, the Expert at about the author time), the Elite drives flat out and beats the author time by
+3-11 %, every AI car has every part at upgrade level 3, the networks were trained further in those cars, a field
+race is 4 % from the slowest car to the fastest instead of 8 %, and two new drivers race the Apex and the Quadra
+(see [Money, points and cars](#money-points-and-cars) and [Race the field](#race-the-field)).
+
 ![The menu: money and career points in the header, 19 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last six tracks, the four rally stages among them, still locked with a padlock and "Bronze on 13" to "Bronze on 18"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
@@ -466,10 +472,15 @@ lists what a run earned and why.
 **The AI opponents.** Pick one in the menu's AI driver block, then **Race the ... AI**: its car drives next to yours
 (see-through: you can drive through it) and you win by finishing ahead of it. Every track and car has its own
 opponents, driven by AI networks shipped with the game (trained on that track with that car; your own network is
-not touched). The levels are the same network held to a lower top speed: Rookie finishes in about 1.6 × the author
-time (slower than bronze), Amateur 1.4 × (a little slower than bronze), Pro 1.25 × (between silver and bronze),
-Expert 1.13 × (between gold and silver) and Elite about the author time (always faster than gold). The menu shows the picked opponent's time on the selected
-track. **My AI** races and watches the picked car's own trained network as before; it pays no AI rewards (medals
+not touched). Since version 6.25.0 every opponent drives its car with every part at upgrade level 3 (see
+[Upgrades](#upgrades)), with a network trained on in that car until it stopped getting faster, and every level is a
+step faster than before. The levels are the same network held to a lower top speed: Rookie finishes in about 1.4 ×
+the author time (slower than bronze; it was 1.6 ×), Amateur 1.25 × (between silver and bronze; was 1.4 ×), Pro 1.1 ×
+(between gold and silver; was 1.25 ×), Expert about the author time (faster than gold; was 1.13 ×) and Elite flat
+out, 3-11 % under the author time (it was held to about the author time in a stock car); where the network is
+faster still (leaning on the walls, up to a quarter under the author time with the Apex on loose ground), Elite is
+held to 0.9 × the author time. The menu shows the
+picked opponent's time on the selected track. **My AI** races and watches the picked car's own trained network as before; it pays no AI rewards (medals
 still pay). Watch the AI shows any opponent drive.
 
 ![Racing the Elite AI on Rookie Oval: its see-through purple car 7 m ahead, the HUD's "VS ELITE AI" line and the gap at the last checkpoint](docs/screenshots/race-ai.png)
@@ -480,11 +491,12 @@ still pay). Watch the AI shows any opponent drive.
 field**: five AI drivers race you on the selected track, with solid cars. Locked tracks and cars you don't own are
 refused as for Drive.
 
-- **The drivers.** Eight drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
-  Nils Haugen and Lena Fox), each with a car and paint of their own; a race takes five of them, the same five every
-  time on the same track and level. Each drives the shipped AI opponent network of its car with a top speed of its
-  own: the last AI on the grid at the level's pace with **your** car (beating it is like beating that AI opponent),
-  the others 2, 4, 6 and 8 % slower, the slowest on pole. A driver whose car can't keep that pace on the track (a
+- **The drivers.** Ten drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
+  Nils Haugen, Lena Fox and, since version 6.25.0, Ines Duarte in an Apex and Otto Lind in a Quadra), each with a car
+  and paint of their own; a race takes five of them, the same five every time on the same track and level. Each
+  drives the shipped AI opponent network of its car, in the AI's car with every part at upgrade level 3, with a top
+  speed of its own: the last AI on the grid at the level's pace with **your** car (beating it is like beating that AI
+  opponent), the others 1, 2, 3 and 4 % slower (8 % in all before version 6.25.0), the slowest on pole. A driver whose car can't keep that pace on the track (a
   Dune on a fast oval) drives your car instead.
 - **The grid.** Two wide and staggered, 10 m between cars, the AI ahead and you last, on the usual start spot, so the
   race is the same distance as Drive: **your time counts for medals, records, your ghost and opening tracks** as in
@@ -663,10 +675,12 @@ $245,480): the Racer at level 7 everywhere costs about one author-and-Elite care
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
 counts too). Every level of every part of every car costs $9,297,500.
 
-- **Medal times and AI opponents stay stock.** The medal times were set by the stock cars and the AI opponents always
-  drive stock cars, so an upgraded car makes medals and wins easier. Each reward is still paid only once.
+- **Medal times stay stock, the AI opponents have their own upgrades.** The medal times were set by the stock cars,
+  so an upgraded car makes medals easier. Since version 6.25.0 the AI opponents always drive their car with every
+  part at level 3, whatever you have bought (before, they drove stock cars), so beating the Elite takes upgrades of
+  your own or a very good run. Each reward is still paid only once.
 - **Where they count:** Drive, Race the AI and, with your own network (My AI), Watch the AI, Race my AI and the
-  training screen all use the car with its upgrades. The AI opponents never do.
+  training screen all use the car with its upgrades. The AI opponents keep their own level 3 car.
 - **Records and ghosts** remember the levels of the run (they are kept in the save file with it); a ghost replays the
   run exactly whatever the car has now, since it stores where the car was. Older records and ghosts count as stock.
 - **reset career** (in the terminal) makes every car stock again.
@@ -1308,7 +1322,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 45 minutes on 3 cores for the eight cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
-| `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
+| `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), `-- --tune` (version 6.25.0) trains every stored network on in the AI's level 3 car until 80 generations bring no race 0.3 % faster (about 2 hours for all 152 on 4 threads; `--skip-tuned` leaves those done), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
 | `godot --headless --path . --script res://tools/corners.gd` | Lists the tight corners of every track (radius, road width, banking) and how the medal autopilot takes them with each car: its lowest speed and its wall contacts per lap there, from the author runs in `data/medals.json` (`-- --tracks=a,b`, `--max-r=40` for corners tighter than 40 m, `--sweep` for the wall contacts over all 50 settings of the medal sweep, as long as the medal sweep: about 16 minutes for five tracks on 3 threads; `--tracks-json=` and `--medals=` read older files, `--json=` writes the numbers). Made for version 6.6.0's corner rework |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
 | `godot --headless --path . --script res://tools/upgrades.gd` | Measures what the upgrades do with the real physics: every car stock and with each part's levels (`tools/car_stats.gd`'s numbers), the grip on dirt and snow with loose grip, and prints the `MEASURED` lines for `sim/upgrades.gd` (the engine's, the tyres' and the weight's levels: about 25 minutes on 4 threads; `--parts=weight` measures only some parts and prints the others as stored, about 9 minutes a part; `-- --check` only compares; `-- --laps` the medal autopilot's best lap times on four tracks stock and upgraded, `--quick` on 10 settings instead of 50, `--tracks=a,b --cars=a,b --sets=W10,all10`) |
@@ -1320,7 +1334,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 Run `tools/medals.gd` after changing the physics, a car, the scoring rules, a track or its laps, then
 `tools/opponents.gd` (the opponents' levels follow the author times; after a change to the physics, a car, the
-sensors or a track's layout, `--train --retrain` the affected networks first), and `tools/car_stats.gd` (then paste
+sensors or a track's layout, `--train --retrain` the affected networks first, then `--tune` them), and `tools/car_stats.gd` (then paste
 its lines into `sim/cars.gd`) and `tools/upgrades.gd` (its `MEASURED` lines into `sim/upgrades.gd`) after changing a
 car or an upgrade. Screenshot and preview scripts
 for the 3D world and the interface are in `tests/visual/`; for the car models: `car_studio.gd` (any car from any

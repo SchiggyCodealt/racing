@@ -60,11 +60,12 @@ extends SceneTree
 ##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow, surfaces_after,
 ##             surfaces_gravel, surfaces_sand, surfaces_ice, surfaces_mud.
 ##   economy   money, points and the car shop (v6.5.0) from a new career: $0 and only the Racer;
-##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting
+##             race the Pro AI on Rookie Oval (the medal autopilot of the author time, starting
 ##             a third of a second late, without nitro (v6.15: none in AI races): the AI car leads, then
-##             loses; v6.8.0: the gold opens Hairpin Valley) and, with tracks 3-12 opened by the
-##             scenario (as bronzes on each would), the Expert AI on Seaside Stunts (the author run
-##             without nitro, a gold: it opens Forest Rally): the finish panel's payout, the
+##             loses; v6.8.0: the gold opens Hairpin Valley; v6.25: the Elite and the Expert are faster
+##             than that run now) and, with tracks 3-12 opened and the Racer upgraded to level 3 by the
+##             scenario (as bronzes and money would), the Expert AI on Seaside Stunts (the author run
+##             without nitro, a gold or better: it opens Forest Rally): the finish panel's payout, the
 ##             money and points on the menu (Forest Rally NEW, the last two tracks locked); the
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
@@ -1502,8 +1503,8 @@ func economy() -> void:
 	check(UiData.money() == 0 and UiData.points() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and money_l.text == "$0" and
 		points_l.text == "0 pts" and money_l.is_visible_in_tree(), "a new career: $0, 0 pts, only the Racer; the header shows them")
 	await pick("rookie-oval", "racer")
-	await click(btns["elite"])
-	check(UiData.opponent() == "elite" and (menu.get("_ghost_btn") as Button).text == "Race the Elite AI", "the Elite chip (clicked) picks the Elite AI")
+	await click(btns["pro"])
+	check(UiData.opponent() == "pro" and (menu.get("_ghost_btn") as Button).text == "Race the Pro AI", "the Pro chip (clicked) picks the Pro AI")
 	# the menu still fits 1280 x 720 with the wallet and the opponent chips
 	var win := Vector2(root.size)
 	var bar := (menu.get("_scroll") as ScrollContainer).get_v_scroll_bar()
@@ -1513,13 +1514,14 @@ func economy() -> void:
 		inside = inside and r.position.y >= 0.0 and r.end.y <= win.y + 0.5 and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and c.is_visible_in_tree()
 	check(win == Vector2(1280, 720) and inside and bar.max_value <= bar.page + 0.5, "1280 x 720: the money, the points, the opponent chips and the race buttons on screen, no scrolling")
 
-	# race the Elite AI on Rookie Oval: start a third of a second late, so its car leads for the shot (v6.15: no
-	# nitro in races against the AI, so the author run's autopilot is 2:04.083 here, the Elite AI 2:05.217)
+	# race the Pro AI on Rookie Oval: start a third of a second late, so its car leads for the shot (v6.15: no
+	# nitro in races against the AI, so the author run's autopilot is 2:04.083 here; v6.25: the Pro AI 2:14.267,
+	# the Expert 2:01.433, the Elite 1:54.450)
 	var money0 := UiData.money()
 	await click(menu.get("_ghost_btn"))
 	var m: Node = app.mode
-	if not check(m != app.menu_mode and m.get("with_ghost") == true and m.get("level") == "elite" and str(app.ui.hud.get("_mode").text).begins_with("VS ELITE AI"),
-			"Race the Elite AI (clicked): %s" % app.ui.hud.get("_mode").text):
+	if not check(m != app.menu_mode and m.get("with_ghost") == true and m.get("level") == "pro" and str(app.ui.hud.get("_mode").text).begins_with("VS PRO AI"),
+			"Race the Pro AI (clicked): %s" % app.ui.hud.get("_mode").text):
 		return
 	var track: BuiltTrack = m.get("track")
 	var run: Dictionary = Medals.medal_times(track, "racer").run
@@ -1531,13 +1533,14 @@ func economy() -> void:
 	fast(true)
 	var gcar: Car = m.get("ghost").car
 	var c: Car = m.get("car")
-	# (the shot when the player has closed in on it: under 22 m behind, from 15 s)
-	await wait_until(func() -> bool: return (m.get("race") as RaceState).time >= 15.0 and gcar.prog > c.prog and \
+	# (the shot when the player is close behind it: under 22 m, from 5 s; v6.25: the Pro AI's level 3 car pulls
+	# away at first and is held to its cap from the first long straight)
+	await wait_until(func() -> bool: return (m.get("race") as RaceState).time >= 5.0 and gcar.prog > c.prog and \
 		Vector3(gcar.x - c.x, gcar.y - c.y, gcar.z - c.z).length() < 22.0 or (m.get("race") as RaceState).time >= 40.0, 120.0)
 	fast(false)
 	await frames(20)
 	var gap := Vector3(gcar.x - c.x, gcar.y - c.y, gcar.z - c.z).length()
-	check(gcar.prog > c.prog and gap < 60.0 and (m.get("ghost_model") as CarModel).visible, "the Elite AI's car leads, %.0f m ahead: %s" % [gap, m.get("ghost_text")])
+	check(gcar.prog > c.prog and gap < 60.0 and (m.get("ghost_model") as CarModel).visible, "the Pro AI's car leads, %.0f m ahead: %s" % [gap, m.get("ghost_text")])
 	await shot("economy_race")
 	fast(true)
 	await wait_until(func() -> bool: return m.get("phase") == "finished", 600.0)
@@ -1547,27 +1550,29 @@ func economy() -> void:
 	var race: RaceState = m.get("race")
 	var fs: Dictionary = m.get("finish_state")
 	var p: Dictionary = fs.get("payout", {})
-	var want := ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro", "ai-expert", "ai-elite"]
+	var want := ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro"]
 	var w := _sum("rookie-oval", want)
 	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
 	check(race.finished and Medals.medal_for(Medals.medal_times(track, "racer"), race.finish_time) == "gold" and p.get("won") == true and ids == want and
 		int(p.money) == w.x and int(p.points) == w.y and UiData.money() == money0 + w.x and app.ui.hud.panel_open,
-		"%s (gold) beats the Elite AI: paid three medals and all five AI levels, %s and %d pts" % [RaceState.format_time(race.finish_time), UiFormat.money(w.x), w.y])
-	check(str(fs.get("lines", [""])[0]).begins_with("Elite AI") and str(fs.get("lines", [""])[0]).contains("you win"), "the finish panel: %s" % fs.get("lines", [""])[0])
+		"%s (gold) beats the Pro AI: paid three medals and three AI levels, %s and %d pts" % [RaceState.format_time(race.finish_time), UiFormat.money(w.x), w.y])
+	check(str(fs.get("lines", [""])[0]).begins_with("Pro AI") and str(fs.get("lines", [""])[0]).contains("you win"), "the finish panel: %s" % fs.get("lines", [""])[0])
 	await shot("economy_finish")
 	await key(KEY_ESCAPE)
 	await frames(10)
 	check(app.mode == app.menu_mode and money_l.text == UiFormat.money(UiData.money()) and str(menu.get("_ai_status_text")).contains("Beaten: paid"),
-		"back on the menu: %s, %s; the Elite AI is paid" % [money_l.text, points_l.text])
+		"back on the menu: %s, %s; the Pro AI is paid" % [money_l.text, points_l.text])
 
 	check(Dictionary(fs.get("unlocked", {})).get("id") == "hairpin-valley" and _texts(app.ui.hud.finish).has("Hairpin Valley unlocked") and
 		not (menu.get("_tiles")[1] as Control).get("locked") and (menu.get("_tiles")[1] as Control).get("is_new"),
 		"the gold opened Hairpin Valley: the finish panel said so, its tile is NEW")
 
 	# the Expert AI on Seaside Stunts (the author run): more money on a later track (v6.8.0: tracks
-	# 3-12 opened here as bronzes on each would; the run then opens Forest Rally)
+	# 3-12 opened here as bronzes on each would; the run then opens Forest Rally). v6.25: the Expert is about
+	# the author time now, so the Racer gets every part at level 3 first (the AI's own car), as money would buy
 	for i in range(2, 12):
 		SaveData.open_track(Tracks.ids()[i])
+	SaveData.set_upgrades("racer", Opponents.UPGRADES)
 	await pick("seaside-stunts", "racer")
 	await click(btns["expert"])
 	var money1 := UiData.money()
@@ -1583,10 +1588,13 @@ func economy() -> void:
 	stop_autopilot()
 	await frames(10)
 	p = (m.get("finish_state") as Dictionary).get("payout", {})
-	want = ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
+	var medal2 := Medals.medal_for(Medals.medal_times(m.get("track"), "racer"), (m.get("race") as RaceState).finish_time)
+	want = (["bronze", "silver", "gold", "author"] if medal2 == "author" else ["bronze", "silver", "gold"]) + ["ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
 	w = _sum("seaside-stunts", want)
 	ids = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
-	check(ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x, "the author run without nitro (gold) beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [UiFormat.money(w.x), w.y])
+	check((medal2 == "gold" or medal2 == "author") and ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x,
+		"the author run without nitro in the level 3 Racer (%s, %s) beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [
+		RaceState.format_time((m.get("race") as RaceState).finish_time), medal2, UiFormat.money(w.x), w.y])
 	check(Dictionary((m.get("finish_state") as Dictionary).get("unlocked", {})).get("id") == "forest-rally", "and opens Forest Rally")
 	await key(KEY_ESCAPE)
 	await frames(30)

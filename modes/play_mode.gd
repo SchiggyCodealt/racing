@@ -38,8 +38,9 @@ extends Node
 ##
 ## Car upgrades (v6.11.0, sim/upgrades.gd): the player's car is the picked car with the levels bought
 ## for it (SaveData.get_upgrades), and so is a car driven by the player's own network (Watch / Race
-## my AI, the training screen's Watch best / Race best). An AI opponent level always drives the
-## stock car, and the medal times are the stock car's. A new best time and its ghost keep the levels
+## my AI, the training screen's Watch best / Race best). An AI opponent level always drives the AI's
+## car (v6.25: Opponents.spec, every part at level 3; it was the stock car), and the medal times are
+## the stock car's. A new best time and its ghost keep the levels
 ## of the run (`up`). `levels` / `ai_levels` are the levels of the player's car and of the AI's.
 ##
 ## Money and points (v6.5.0, sim/economy.gd): at the finish the player's run is paid the medal
@@ -100,7 +101,8 @@ var level := ""
 var cap := INF
 var car_def: Dictionary = {}
 ## (v6.11) the upgrade levels and spec of the main car (the player's, or the watched AI's) and of
-## the AI ghost: the player's levels for the player's car and own network, stock for an AI opponent
+## the AI ghost: the player's levels for the player's car and own network, Opponents.UPGRADES for an
+## AI opponent (v6.25; stock before)
 var levels: PackedInt32Array = Upgrades.stock()
 var car_spec: CarSpec = null
 var ai_levels: PackedInt32Array = Upgrades.stock()
@@ -177,9 +179,9 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	return_to = opts.get("return_to", Callable()) if opts.get("return_to") is Callable else Callable()
 	if not return_to.is_valid():
 		return_to = app.show_menu
-	# the AI ghost / the watched AI: an opponent level drives the stock car, the player's own network
-	# the player's car (its upgrades)
-	ai_levels = SaveData.get_upgrades(String(ai_def.id)) if level == "" else Upgrades.stock()
+	# the AI ghost / the watched AI: an opponent level drives the AI's car (v6.25: Opponents.UPGRADES; it
+	# was the stock car), the player's own network the player's car (its upgrades)
+	ai_levels = SaveData.get_upgrades(String(ai_def.id)) if level == "" else Opponents.UPGRADES
 	ai_spec = Upgrades.spec(String(ai_def.id), ai_levels)
 	levels = SaveData.get_upgrades(String(car_def.id)) if driver == "human" else ai_levels
 	car_spec = Upgrades.spec(String(car_def.id), levels)

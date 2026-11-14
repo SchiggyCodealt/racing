@@ -115,7 +115,7 @@ func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player
 		r.info = e
 		r.slot = k if k < ps else k + 1
 		r.driver = drivers[k]
-		r.car = Car.new(t, t.start_idx, Cars.spec(String(e.car)))
+		r.car = Car.new(t, t.start_idx, Opponents.spec(String(e.car))) # (v6.25: the AI's upgraded car)
 		r.race = RaceState.new(t)
 		racers.append(r)
 	var p := Racer.new()

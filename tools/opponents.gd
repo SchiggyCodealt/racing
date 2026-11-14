@@ -9,6 +9,13 @@ extends SceneTree
 ##       (ai/opponent_race.gd); training stops once that race beats the gold medal (and at
 ##       --max-gens in any case), and the fastest race's network is kept. A retrained track
 ##       loses its levels: run the second step again.
+##   godot --headless --path . --script res://tools/opponents.gd -- --tune [options]
+##       (v6.25) train every stored network on in the AI's car (Opponents.spec): the stored network
+##       and mutated copies of it start the run (same seed as --train); every --every generations
+##       the best network drives a whole race, and the run stops when --patience generations went by
+##       without a race PATIENCE_GAIN faster than the fastest so far (and at --tune-gens more
+##       generations in any case). The fastest race's network is kept (the stored one when nothing
+##       beat it). A tuned track loses its levels: run the levels again.
 ##   godot --headless --path . --script res://tools/opponents.gd -- [options]
 ##       the levels: from Elite down to Rookie, a speed cap is searched so the race takes
 ##       Opponents.LEVELS pace × the car's author time, and at least Opponents.MIN_GAP × the level
@@ -18,7 +25,9 @@ extends SceneTree
 ##                      exits 1 on a difference)
 ## Options: --cars=a,b  --tracks=a,b (only these), --threads=N (FleetSim threads when training,
 ##          race threads otherwise; default 3), --gens=80 --every=20 --max-gens=300, --retrain
-##          (train tracks that already have a network for the current version of the track).
+##          (train tracks that already have a network for the current version of the track),
+##          --tune-gens=240 --patience=80 (--tune), --skip-tuned (--tune: leave tracks tuned already).
+## Every run drives the AI's car (v6.25: Opponents.spec, the car with Opponents.UPGRADES).
 ## Re-run after changing the physics, a car, the sensors, the network or a track (a track whose
 ## signature changed has no opponents until it is trained again: --train --tracks=<id>, then
 ## the levels with --tracks=<id>), and after changing Opponents.LEVELS (the levels only).
@@ -26,11 +35,14 @@ extends SceneTree
 const FORMAT: String = Opponents.FORMAT
 const METHOD: String = "one network per track and car, trained on that track with that car (FleetSim, 80 cars, mutation 0.1, " + \
 	"hidden 12, one lap a run, walls ride, seed 1000 × (car index + 1) + track index) until the best network's whole race " + \
-	"beats the gold medal (checked from generation 80, every 20); each level drives it with a speed cap set so the race takes the level's pace × the author time " + \
-	"(at least 1.04 × the level above; no cap where the network is not faster); times measured with ai/opponent_race.gd " + \
-	"(the game's AI ghost race)"
+	"beats the gold medal (checked from generation 80, every 20), then trained on in the AI's car (every part at upgrade level 3) " + \
+	"until 80 generations bring no race 0.3 % faster (at most 240 more); each level drives it in that car with a speed cap set so " + \
+	"the race takes the level's pace × the stock car's author time (at least 1.04 × the level above; no cap where the network " + \
+	"is not faster); times measured with ai/opponent_race.gd (the game's AI ghost race)"
 ## A level's race is accepted within this share of its target time.
 const TOLERANCE: float = 0.012
+## (--tune) A race counts as faster when it beats the fastest so far by this share.
+const PATIENCE_GAIN: float = 0.003
 
 var _opt: Dictionary = {}
 var _jobs: Array[Dictionary] = []
@@ -56,7 +68,9 @@ func _initialize() -> void:
 			quit(1)
 			return
 	var code: int = 0
-	if _opt.has("train"):
+	if _opt.has("tune"):
+		code = _tune(cars, tracks)
+	elif _opt.has("train"):
 		code = _train(cars, tracks)
 	else:
 		code = _levels(cars, tracks, _opt.has("check"))
@@ -82,7 +96,8 @@ static func read_file(car_id: String) -> Dictionary:
 static func file_text(d: Dictionary) -> String:
 	var lines: PackedStringArray = []
 	lines.append("{")
-	lines.append('"format": %s, "car": %s, "physics": %d,' % [JSON.stringify(FORMAT), JSON.stringify(d.car), Car.PHYSICS_VERSION])
+	lines.append('"format": %s, "car": %s, "physics": %d, "upgrades": %s,' % [JSON.stringify(FORMAT), JSON.stringify(d.car), Car.PHYSICS_VERSION,
+		JSON.stringify(Array(Opponents.UPGRADES))])
 	lines.append('"generated": "by tools/opponents.gd: don\'t edit by hand; re-run it after changing the physics, a car, the sensors, the network or a track",')
 	lines.append('"method": %s,' % JSON.stringify(METHOD))
 	lines.append('"tracks": {')
@@ -158,7 +173,7 @@ static func train_one(t: BuiltTrack, car_id: String, gens: int, every: int, max_
 	var seed: int = seed_of(car_id, t.id)
 	NeuralNetwork.rng.seed = seed
 	var trainer := Trainer.new({tracks = [t], population_size = 80, mutation_rate = 0.1, hidden = [12], laps = 1, walls = "ride", nitro = false,
-		car_id = car_id, native = true, threads = threads})
+		car_id = car_id, native = true, threads = threads, spec = Opponents.spec(car_id)})
 	var medals: Dictionary = Medals.medal_times(t, car_id)
 	var gold: float = float(medals.get("gold", INF))
 	var t0: int = Time.get_ticks_msec()
@@ -192,6 +207,83 @@ static func train_one(t: BuiltTrack, car_id: String, gens: int, every: int, max_
 			net_file[k] = f[k]
 	return {sig = t.signature(), laps = t.laps if t.closed else 1, seed = seed, generation = best.gen, trainSeconds = roundi(secs),
 		network = net_file, levels = {}}
+
+
+# ---------------------------------------------------------------- tuning (v6.25)
+
+func _tune(cars: PackedStringArray, track_ids: PackedStringArray) -> int:
+	var threads: int = int(_opt.get("threads", 3))
+	var every: int = int(_opt.get("every", 20))
+	var more: int = int(_opt.get("tune-gens", 240))
+	var patience: int = int(_opt.get("patience", 80))
+	var t_all: int = Time.get_ticks_msec()
+	for car_id: String in cars:
+		var d: Dictionary = read_file(car_id)
+		for id: String in track_ids:
+			var t: BuiltTrack = Tracks.build(id)
+			var old: Variant = (d.tracks as Dictionary).get(id)
+			if not (old is Dictionary) or not JsMath.same(old.get("sig"), t.signature()):
+				print("%s %s: no network for this version of the track (run --train)" % [car_id, id])
+				continue
+			if _opt.has("skip-tuned") and (old as Dictionary).has("tuned"):
+				print("%s %s: tuned already, skipped" % [car_id, id])
+				continue
+			var e: Dictionary = tune_one(t, car_id, old, every, more, patience, threads)
+			d.tracks[id] = e
+			write_file(d)
+	print("tuning done in %.0f s" % ((Time.get_ticks_msec() - t_all) / 1000.0))
+	return 0
+
+
+## Train track `t`'s stored network (`old`, the file's entry) on in the AI's car; the new entry (the old
+## network when nothing beat its race; its levels cleared either way).
+static func tune_one(t: BuiltTrack, car_id: String, old: Dictionary, every: int, more: int, patience: int, threads: int) -> Dictionary:
+	var seed: int = seed_of(car_id, t.id)
+	NeuralNetwork.rng.seed = seed
+	var parsed: Dictionary = Trainer.parse_network_file(old.network)
+	var first: Dictionary = OpponentRace.run(parsed.net, t, car_id)
+	var meta: Dictionary = (old.network as Dictionary).duplicate()
+	meta.erase("fitness") # (scored in the stock car: the first generation decides)
+	var trainer := Trainer.new({tracks = [t], population_size = 80, mutation_rate = 0.1, hidden = [12], laps = 1, walls = "ride", nitro = false,
+		car_id = car_id, native = true, threads = threads, spec = Opponents.spec(car_id), seed = parsed.net, seed_meta = meta})
+	var g0: int = trainer.generation
+	var t0: int = Time.get_ticks_msec()
+	var best: Dictionary = {time = first.time if first.finished else INF, file = {}, gen = g0}
+	var line: PackedStringArray = ["start %s" % (_fmt(first.time) if first.finished else "dnf")]
+	var last_gain: int = g0
+	var evaluated: float = -INF
+	var next_check: int = g0 + every
+	while true:
+		while trainer.generation < next_check:
+			trainer.step_many(1200)
+		if trainer.best_fitness > evaluated:
+			evaluated = trainer.best_fitness
+			var file: Dictionary = trainer.export_best()
+			var r: Dictionary = OpponentRace.run(Trainer.parse_network_file(file).net, t, car_id)
+			line.append("%d %s" % [trainer.generation, _fmt(r.time) if r.finished else "dnf"])
+			if r.finished and r.time < best.time:
+				if r.time < best.time * (1.0 - PATIENCE_GAIN):
+					last_gain = trainer.generation
+				best = {time = r.time, file = file, gen = trainer.generation}
+		if trainer.generation - g0 >= more or trainer.generation - last_gain >= patience:
+			break
+		next_check += every
+	var secs: float = (Time.get_ticks_msec() - t0) / 1000.0
+	var medals: Dictionary = Medals.medal_times(t, car_id)
+	print("%-8s %-16s %s | kept %s (%.3f × author %s) in %.0f s, %s" % [car_id, t.id, ", ".join(line), _fmt(best.time),
+		best.time / float(medals.get("author", INF)), _fmt(float(medals.get("author", INF))), secs, "native" if trainer.is_native() else "GDSCRIPT"])
+	var e: Dictionary = old.duplicate(true)
+	e.levels = {}
+	e.tuned = {from = g0, generations = trainer.generation - g0, seconds = roundi(secs)}
+	if not (best.file as Dictionary).is_empty():
+		var f: Dictionary = best.file
+		var net_file: Dictionary = {}
+		for k: String in ["format", "version", "sensorVersion", "inputs", "car", "generation", "fitness", "trainedOn", "settings", "bestTimes", "network"]:
+			if f.has(k):
+				net_file[k] = f[k]
+		e.network = net_file
+		e.generation = best.gen
+	return e
 
 
 # ---------------------------------------------------------------- the levels

@@ -3,7 +3,7 @@ extends RefCounted
 ## opponent_race.gd: one AI opponent's whole race, run without the game (v6.5.0).
 ## ------------------------------------------------------------------
 ## Exactly what the game does with the AI car next to you in Race the AI (modes/play_mode.gd,
-## its AI ghost): a standing start at GO, 60 Hz steps of the network driver (ai/sensors.gd
+## its AI ghost): the AI's car (v6.25: Opponents.spec, the car with the AI's upgrades), a standing start at GO, 60 Hz steps of the network driver (ai/sensors.gd
 ## AIDriver, with the level's speed cap), car.step, race.update; walls are ridden (the
 ## opponent never collides with you and is never put out by a wall), and when it makes no
 ## progress for PlayMode.STUCK_TIME seconds it is put back at its last checkpoint, standing. No
@@ -27,7 +27,7 @@ const MAX_TIME: float = 1500.0
 
 static func run(net: NeuralNetwork, track: BuiltTrack, car_id: String, cap: float = INF, max_time: float = MAX_TIME,
 		trace: bool = false) -> Dictionary:
-	var car := Car.new(track, track.start_idx, Cars.spec(car_id))
+	var car := Car.new(track, track.start_idx, Opponents.spec(car_id))
 	car.nitro = 0.0 # (v6.15: no nitro in races against the AI, as in the game)
 	var race := RaceState.new(track)
 	var driver := Sensors.AIDriver.new(net, cap)
