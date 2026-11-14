@@ -7,6 +7,7 @@ extends SceneTree
 ##     --check       measure and compare with the stats stored in sim/cars.gd;
 ##                   exits 1 when one is off by more than its tolerance
 ##     --jobs=N      measure on N threads (default: one per car, at most 4); same numbers
+##     --cars=a,b    only these cars (v6.24)
 ##     --surface=id  measure on another road surface (dirt, snow: sim/surfaces.gd), every
 ##                   synthetic road made of it; prints the table only (v6.3)
 ## tests/test_sim.gd runs the same check (measure_car + stats_mismatch), so the numbers on
@@ -309,6 +310,14 @@ func _initialize() -> void:
 	if surface != "asphalt":
 		print("on %s (every synthetic road)\n" % Surfaces.def(Surfaces.index_of(surface)).name)
 	_ids = Cars.ids()
+	for a: String in args:
+		if a.begins_with("--cars="):
+			# (v6.24) only these cars (tuning a new one)
+			var only: PackedStringArray = []
+			for id: String in a.substr(7).split(",", false):
+				if Cars.has_car(id):
+					only.append(id)
+			_ids = only
 	prepare()
 	threads = mini(threads, _ids.size())
 	if threads <= 1:

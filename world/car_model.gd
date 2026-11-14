@@ -472,6 +472,10 @@ func _lamp_points() -> Array:
 		x = 0.22
 		y = 0.3
 		z = 2.4
+	elif s["lights"] == "square":
+		x = 0.54
+		y = 0.66
+		z = 2.42
 	var a := Shapes.warp_point(s, x, y, z)
 	return [a + Vector3(0, 0, 0.12), Vector3(-a.x, a.y, a.z + 0.12)]
 

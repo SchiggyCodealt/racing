@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-13 (v6.23.0: round 5, item 6 of 9: four rally stages on four new road surfaces, gravel, sand,
+_Last updated: 2026-11-14 (v6.24.0: round 5, item 7 of 9: an eighth car, the Quadra, a boxy 1980s rally coupe with
+all-wheel drive and a five-cylinder turbo (`sim/cars.gd`, `world/car_shapes.gd`, `audio/engine_voice.gd`), with its
+medal times, upgrades and AI opponents;
+v6.23.0: round 5, item 6 of 9: four rally stages on four new road surfaces, gravel, sand,
 ice and mud (`sim/surfaces.gd`, `tools/gen_tracks.gd`, `world/shaders/road_surface.gdshader`, `world/textures.gd`), a
 Rally Cup, and a fix for a not-a-number fault in the physics (braking on loose ground with no load on the front axle);
 v6.22.0: round 5, item 5 of 9: a seventh car, the Apex formula car (`sim/cars.gd`,
@@ -40,7 +43,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.23.0, round 5 under way (6 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages; a ninth item, a Quattro-style rally car, was added on 2026-11-13 and is next); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.24.0, round 5 under way (7 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13; the AI is next, then the minimap with sectors); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -327,7 +330,7 @@ that follows the revs, tyre squeal, gravel and snow crunch, wall hits, nitro, mu
 | Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
 | Car upgrades (v6.11.0): the parts table, upgraded specs, prices, the save file's `career.upgrades` (VERSION 5), the picker's part chips and green bars, the app's ask-first purchase, play and train modes driving the upgraded car (opponents stock), records and ghosts tagged with the levels, the parts on the model, the terminal's `upgrade` / `buy <car> <part>` / `status` row, `tools/upgrades.gd` | done; specs per part / level / car, measured effects, laps, stability (jumps, lane keeping, curve braking on three surfaces), prices and buying, migration and junk, an upgraded ghost replaying exactly, FleetSim parity with upgraded specs, the app, the terminal, the picker and the model are tests; e2e `upgrades` | `sim/upgrades.gd`, `sim/car_spec.gd`, `sim/score.gd`, `sim/save.gd`, `sim/economy.gd`, `sim/replay.gd`, `sim/autopilot.gd`, `ai/trainer.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `ui/part_chip.gd`, `ui/main_menu.gd`, `ui/car_card.gd`, `ui/ui_data.gd`, `game/app.gd`, `game/terminal.gd`, `world/car_build.gd`, `world/car_model.gd`, `world/car_shapes.gd`, `tools/upgrades.gd` |
 | Sound and music (v6.12.0): buses with a limiter, volumes and the background mute (settings), pooled effects, music with cross-fade and ducking, the live engine synthesizer (six characters), a car's loops and one-shots from the sim, the race's cues, the interface's clicks, the shop's cash, the Settings sliders in two columns, the generated effects and music | done; buses, volumes, saving, the mute, every file, pools, the queue, music, the engines (pitch against rpm, levels, gear change, limiter, crackle, turbo, nitro), a car's events and loops, the app's sounds of a race and the shop, the sliders are tests; e2e `audio` under Movie Maker (levels, clipping, pitch against the sim's rpm, cues on time, the mute) | `audio/`, `assets/audio/`, `tools/gen_sounds.py`, `tools/engine_preview.gd`, `ui/volume_bar.gd`, `ui/ui_sound.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/terminal_screen.gd`, `game/app.gd`, `game/message_screen.gd`, `modes/play_mode.gd`, `sim/save.gd`, `ui/ui_data.gd` |
-| Tests: headless suite (1,100 checks as of v6.23.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (1,108 checks as of v6.24.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -1527,8 +1530,8 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
 - **The rally stages (v6.23.0)**: on Frozen Lake the Vortex's author run leans on the snow banks for 24 % of the
   run and the Drifter's for 9 % (the Vortex keeps 33 % of its grip on ice; the autopilot plans with 72 % of that
   and still runs wide), and on Dune Sea the Thunder's and the Vortex's author runs touch the walls for about 16 %.
-  Their medal times there are easier than the other cars'. The Dune is the quickest car on all four stages by 2-8 %:
-  meant (it is the loose-ground car), but it makes the Rally Cup a one-car cup until the rally car (item 7) exists.
+  Their medal times there are easier than the other cars'. Until v6.24.0 the Dune was the quickest car on all four
+  stages by 2-8 %; the Quadra now wins the gravel and the ice stage, the Dune the sand (by 0.1 s) and the mud stage.
   The new textures and sceneries were only ever seen through software rendering.
 - **Surfaces were only seen through software rendering** (llvmpipe): the dirt and snow colours, the border noise,
   the dust and spray density were tuned on its screenshots. The snow spray (v6.4.0: blue-grey `spray` colour in the
@@ -1616,11 +1619,11 @@ left it open:
    loose ground). See below.
 6. **Four rally stages (v6.23.0, done)**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own
    textures and sceneries, and a Rally Cup. See below.
-7. **A rally car** (added by the owner on 2026-11-13: "also add a rally car modelled after the audi quattro later"):
-   a boxy 1980s Group B coupe in that style (all-wheel drive, a five-cylinder turbo), with a name of its own and no
-   Audi badges; built after the rally stages, so the AI retraining of the next item covers it.
+7. **A rally car (v6.24.0, done)** (added by the owner on 2026-11-13: "also add a rally car modelled after the audi
+   quattro later"): the Quadra, a boxy 1980s Group B coupe in that style (all-wheel drive, a five-cylinder turbo),
+   with a name of its own and no Audi badges. See below.
 8. **The AI**: every level faster, the field closer together, the top level in an upgraded car, longer training so the
-   networks scrape the walls less. Give a field driver the Apex (and one the rally car) here.
+   networks scrape the walls less. Give a field driver the Apex and one the Quadra here (`sim/field.gd` `DRIVERS`).
 9. **A minimap with sectors**: three coloured sectors and the cars as dots in a race; a records page with the best
    time of each sector on each track, with the car and the upgrades it was set with.
 
@@ -1693,6 +1696,48 @@ championship" and the menu half of "redesign the ui to be more streamlined".
   `CupTable.rows`. Shots: `field_battle`, `field_podium`, `cup_standings`, `cup_trophy`.
 - Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
   Race the AI have no tower (one car, or one ghost).
+
+### Item 7: the Quadra rally car (v6.24.0, done)
+
+"also add a rally car modelled after the audi quattro later". An eighth car, id `quadra`, $26,000, white with yellow
+bands: a boxy 1980s rally coupe in the style of the Group B cars. Its own name, no badges of a real make.
+- `sim/cars.gd` `DEFS`: 1,090 kg, all-wheel drive with half the drive to each axle (`driveFront = 0.5`), mu 1.53, a
+  five-cylinder turbo (545 N m at 5,000 rpm, little below 2,500: the lag) with six short gears, drag 0.98 (boxy, big
+  wing), dirtGrip 0.84 / snowGrip 0.82 (snow: the most of all; dirt: second to the Dune's 0.97), soft landings like
+  the Drifter's. Measured: 0-100 2.47 s (only the Kestrel is quicker), 0-200 8.93 s, top 244.9 km/h (power-limited;
+  sixth gear would run to 262), 100-0 31.2 m, 1.62 g / 1.52 g on the 30 m / 120 m circles, drift held 0.65 s (all-wheel
+  drive pulls it straight). On dirt / snow: 100-0 27.6 / 27.3 m, 1.33 / 1.30 g.
+- How it was balanced: a first version (mu 1.57, dirtGrip 0.9, 10 % more torque) beat the Dune on every loose track by
+  3-5 % and the Racer on Technical Trial; the stage times follow the engine more than the grip (the Dune has far
+  more grip on dirt, 1.63 g against 1.33 g, and far less power). The shipped one leaves the Dune ahead where the
+  ground is softest and the corners tightest.
+- Author times (`data/medals.json`, `tools/medals.gd -- --tracks=<all 19> --cars=quadra --update`): the quickest car
+  on six tracks (Hairpin Valley, Ramp Rally, Northern Lights, Summit Rush, Pine Ridge, Frozen Lake, by 1.4-7.9 %),
+  second to the Dune on Forest Rally (0.5 %), Dune Sea (0.1 s) and Monsoon Trail (3.0 %), third on Mountain Pass and
+  Seaside Stunts, sixth or seventh on the other eight (0.8 % behind the Racer on Technical Trial, 2.5 s behind it on
+  Rookie Oval). Winners now: Apex 9, Quadra 6, Dune 3, Vortex 1.
+- The model (`world/car_shapes.gd` `"quadra"`): its own slab-sided `tub` (superellipse exponent 9) with
+  `fenders = false`; the box wheel arches, sills, door bands, wing, air dam, bumpers and rally lamps are box parts;
+  dark boxes behind the wheels read as wheel houses. A new `lights` style, `"square"` (two rectangular lamps a side
+  in a black grille, rectangular tail lamps and a reflector band; `world/car_model.gd` `_lamp_points` has its lamp
+  position). Its own mud flaps (`mudflaps = true`), white six-spoke wheels.
+- The sound (`audio/engine_voice.gd` `"quadra"`): five cylinders, even firing with uneven pulse sizes (the warble),
+  the loudest turbo whistle and the most crackle; gain set with `tools/engine_preview.gd` (-17.2 dBFS in the test).
+- Upgrades: `Upgrades.MEASURED.quadra` (`tools/upgrades.gd -- --cars=quadra`). From engine level 7 the top speed
+  stops rising (261.7 km/h: the rev limiter in sixth). Every level of everything for it costs $1,405,500.
+- AI opponents (`data/opponents/quadra.json`): 19 networks, all beat gold at the first check (generation 80), five
+  levels each within the tolerance; training took 17 minutes, the levels 2.
+- Money: the six cars up to the Vortex cost $120,000 now, which a gold + Expert career with one car reaches after 17
+  tracks; the Apex on top ($160,000 in all) is past that career's $144,400 (the test and the README say so).
+- `tools/car_stats.gd` has `--cars=a,b` (measure only those).
+- Tests: the car lists and counts (`test_sim.gd`, `test_ui.gd`, `test_game.gd`), the surface table (the Quadra the
+  best on snow), the loose-ground brakes (the Quadra the shortest on snow, the Dune next), the prices, the upgrade
+  totals, its mud flaps and its engine (`test_world.gd`).
+- Checked: the headless suite (1,108 checks: sim 159, the others 949); e2e `menu` (37), `economy` (22, the car page
+  with eight cards) and `races tracks=pine-ridge,frozen-lake,rookie-oval cars=quadra` (54: the game's own race ends on
+  the author time).
+- Not done, on purpose: no field driver has it yet (item 8 gives one the Quadra and one the Apex and retrains
+  everything); the web version does not have it.
 
 ### Item 6: four rally stages (v6.23.0, done)
 

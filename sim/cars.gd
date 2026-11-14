@@ -16,9 +16,12 @@ extends RefCounted
 ##   apex     (v6.22) open-wheel formula car: the lightest, the most grip and downforce, the
 ##            shortest braking and the sharpest steering; rear-wheel drive; the least grip on
 ##            dirt and snow
+##   quadra   (v6.24) boxy 1980s rally coupe: all-wheel drive (half the drive to each axle), a
+##            five-cylinder turbo, short gears; the most grip on snow and ice, second to the
+##            Dune on dirt, lands jumps softly; draggy, so a modest top speed
 ##
 ## Use:
-##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex"] (picker order)
+##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra"] (picker order)
 ##   Cars.get_car(id)      -> {id, name, price, description, look {color, accent, shape},
 ##                             spec: CarSpec, stats {...}, bars {...}}; unknown ids give the racer
 ##   Cars.spec(id)         -> CarSpec (Car.new(track, idx, Cars.spec(id)))
@@ -184,6 +187,30 @@ const DEFS: Array[Dictionary] = [
 			maxSpeed = 78.9,
 		},
 		stats = {mass = 780, accel100 = 2.58, accel200 = 6.32, top = 283.9, accel200n = 6.2, topNitro = 298, tankTime = 3.5, tankDist = 66, brake100 = 20.7, grip = 2.05, gripFast = 2.42, drift = 1.02},
+	},
+	{
+		id = "quadra", name = "Quadra",
+		price = 26000,
+		description = "Boxy 1980s rally coupe: all-wheel drive and a five-cylinder turbo. Claws out of slow corners on any ground and is the surest car on snow and ice; too draggy for a high top speed.",
+		look = {color = "#f1eee4", accent = "#f2b705", shape = "boxy 1980s rally coupe: slab sides, a flat bonnet, box wheel arches, an upright cabin with thick rear pillars, a big wing on the boot lid, four rally lamps on a deep air dam, white wheels, mud flaps"},
+		changes = {
+			id = "quadra",
+			mass = 1090, inertia = 1450, cgToFront = 1.06, cgToRear = 1.34, cgHeight = 0.5, wheelRadius = 0.34,
+			mu = 1.53, pacB = 12, pacC = 1.95, pacE = 0.95, loadSensitivity = 0.07, dirtGrip = 0.84, snowGrip = 0.82,
+			handbrake = 0.9, handbrakeFast = 0.65,
+			drag = 0.98, downforce = 0.8, aeroFront = 0.45,
+			idleRpm = 1000, redline = 8000, upshiftRpm = 7600, downshiftRpm = 4300, launchRpm = 4600,
+			torque = [[1000, 210], [2500, 340], [3500, 475], [5000, 545], [6500, 520], [7500, 465], [8000, 420]],
+			gears = [3.3, 2.4, 1.85, 1.48, 1.2, 0.98], finalDrive = 4.0, reverseRatio = 3.2,
+			driveFront = 0.5, slideDrive = 0.8,
+			brakeForce = 13200, brakeFront = 0.64,
+			steerLock = 0.78, steerRate = 8, steerRefAccel = 18, steerAssist = 0.6, assistFrom = 0.1,
+			escHandbrakeHold = 2,
+			hardLanding = 9, landingLoss = 0.004, airYawDamp = 1.4,
+			nitroTime = 4.5, nitroForce = 4600, nitroPower = 115000, nitroTop = 73.5, nitroFade = 3,
+			maxSpeed = 68.0,
+		},
+		stats = {mass = 1090, accel100 = 2.47, accel200 = 8.93, top = 244.9, accel200n = 7.58, topNitro = 258.5, tankTime = 4.5, tankDist = 120, brake100 = 31.2, grip = 1.62, gripFast = 1.52, drift = 0.65},
 	},
 ]
 

@@ -176,7 +176,7 @@ func _car_upgrades(t) -> void:
 			var kit = CarBuild.upgrades(id, PackedInt32Array(lv), 1)
 			tri[",".join(lv.map(func(x: int) -> String: return str(x)))] = kit.triangles()
 		var flaps: bool = tri["0,0,0,3"] > 0
-		var want_flaps: bool = not (id in ["drifter", "dune", "apex"])
+		var want_flaps: bool = not (id in ["drifter", "dune", "apex", "quadra"])
 		# (each part adds its own pieces: everything at 3 is the sum of the parts at 3)
 		ok = ok and tri["1,0,0,0"] > 0 and tri["3,0,0,0"] >= tri["1,0,0,0"] and tri["0,1,0,0"] > 0 and tri["0,0,3,0"] > tri["0,0,1,0"] and flaps == want_flaps and \
 			tri["3,3,3,3,3"] == tri["3,0,0,0"] + tri["0,3,0,0"] + tri["0,0,3,0"] + tri["0,0,0,3"] + tri["0,0,0,0,3"] and \
@@ -820,11 +820,12 @@ func _engine_sound(t) -> void:
 	for v: float in E.thunder.intervals:
 		uneven = uneven or absf(v - 1.0) > 0.02
 	t.check(int(E.racer.cylinders) == 6 and int(E.kestrel.cylinders) == 4 and int(E.thunder.cylinders) == 8 and int(E.drifter.cylinders) == 4
-		and int(E.dune.cylinders) == 4 and int(E.vortex.cylinders) == 12 and turbos == ["drifter"] and float(E.dune.rattle) > 0.2
+		and int(E.dune.cylinders) == 4 and int(E.vortex.cylinders) == 12 and turbos == ["drifter", "quadra"] and float(E.dune.rattle) > 0.2
 		and is_equal_approx(float(E.dune.jitter), jit) and uneven and is_equal_approx(float(E.thunder.pipe[0]), pipe_lo)
 		and float(E.vortex.pulse[1]) > float(E.kestrel.pulse[1]) and float(E.thunder.crackle) >= 0.5
-		and int(E.apex.cylinders) == 10 and float(E.apex.pulse[1]) > float(E.vortex.pulse[1]) and float(Cars.spec("apex").redline) > 11000.0,
-		"the characters: Racer a V6, Kestrel a four, Thunder a cross-plane V8 (uneven firing, the deepest pipe, big crackle), Drifter the only turbo, Dune the roughest (rattle, jitter), Vortex a V12, Apex a V10 revving past 11,000 (the brightest)")
+		and int(E.apex.cylinders) == 10 and float(E.apex.pulse[1]) > float(E.vortex.pulse[1]) and float(Cars.spec("apex").redline) > 11000.0
+		and int(E.quadra.cylinders) == 5 and (E.quadra.intervals as Array).size() == 5 and float(E.quadra.turbo) > float(E.drifter.turbo) and float(E.quadra.crackle) > float(E.thunder.crackle),
+		"the characters: Racer a V6, Kestrel a four, Thunder a cross-plane V8 (uneven firing, the deepest pipe, big crackle), Drifter and Quadra the turbos, Dune the roughest (rattle, jitter), Vortex a V12, Apex a V10 revving past 11,000 (the brightest), Quadra a five (the loudest turbo, the most crackle)")
 	t.check(EngineVoice.of("nope") == E.racer and is_equal_approx(EngineVoice.firing_hz(4, 6000.0), 200.0) and is_equal_approx(EngineVoice.firing_hz(8, 3000.0), 200.0),
 		"firing frequency = rpm / 120 × cylinders (4 at 6000 rpm: 200 Hz); an unknown car sounds like the Racer")
 	# pitch, level, gear change: each car at a third and two thirds of its redline, on load

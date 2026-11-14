@@ -1,7 +1,7 @@
-Track Rush 6.23.0 for Windows (64-bit)
+Track Rush 6.24.0 for Windows (64-bit)
 ======================================
 
-A Trackmania-style racer with seven cars, nineteen tracks (seven of them with
+A Trackmania-style racer with eight cars, nineteen tracks (seven of them with
 dirt or packed snow, four of them rally stages on gravel, sand, ice and mud),
 medals, ghosts and an AI driver you train yourself, with any of the cars.
 Medals and wins against five AI opponents (Rookie to Elite) pay money and
@@ -9,18 +9,21 @@ career points, and money buys cars and upgrades. The tracks open one at a
 time: you start with Rookie Oval, and a bronze medal or better on a track,
 with any car, opens the next one for good.
 
-New in 6.23.0: four rally stages, tracks 16 to 19. Point-to-point sprints of
-3.2 to 3.9 km, each on a new road surface with its own texture and scenery:
-Pine Ridge (gravel through a pine forest), Dune Sea (soft sand over desert
-dunes), Frozen Lake (bare ice and packed snow) and Monsoon Trail (deep mud in
-the jungle). Sand and mud drag the car down, ice gives a quarter to a half of
-the grip and hardly slows the car at all. The Dune is the car for all four.
-A sixth championship, the Rally Cup, runs the four stages back to back. The
-stages come after Summit Rush: if you already have a bronze there, Pine Ridge
-is open when you start the game. Also fixed: braking on dirt or snow just as
-the front wheels went light over a crest could break the car.
+New in 6.24.0: an eighth car, the Quadra. A boxy 1980s rally coupe in the
+style of the Group B cars: all-wheel drive, a five-cylinder turbo with short
+gears, box wheel arches, a big wing and four rally lamps. It keeps the most
+grip of all on snow and ice, launches almost as hard as the Kestrel and lands
+jumps softly, but it is draggy (244.9 km/h) and one of the slowest cars on
+plain asphalt. It is the quickest car on Hairpin Valley, Ramp Rally, Northern
+Lights, Summit Rush and the gravel and ice stages; the Dune stays ahead on
+Forest Rally, sand and mud. $26,000, with its own engine sound, medal times,
+upgrades and AI opponents.
 
 Earlier versions, newest first:
+6.23.0  four rally stages, tracks 16 to 19: Pine Ridge (gravel), Dune Sea
+        (sand), Frozen Lake (ice) and Monsoon Trail (mud), point-to-point
+        sprints with their own textures and scenery, and a sixth cup, the
+        Rally Cup; fixed a fault when braking over a crest on loose ground.
 6.22.0  a seventh car, the Apex: an open-wheel formula car with wings, the
         quickest on most asphalt tracks and the slowest on loose ground;
         $40,000, with its own V10 sound, medal times, upgrades and opponents.

@@ -1,7 +1,7 @@
 ## car_shapes.gd
 ## ------------------------------------------------------------------
-## The seven car bodies (carMesh.js SHAPES and its procedural geometry, plus
-## the Dune buggy, the Vortex hypercar and the Apex formula car): one body plan
+## The eight car bodies (carMesh.js SHAPES and its procedural geometry, plus
+## the Dune buggy, the Vortex hypercar, the Apex formula car and the Quadra rally coupe): one body plan
 ## with different proportions and parts per car. world/car_build.gd turns a shape into the
 ## whole skinned car (wheels, suspension, lights, decals, the driver).
 ## Every part is laid out in the racer's frame and then stretched by warp():
@@ -34,7 +34,8 @@
 ##   open      an open cockpit (no canopy over the driver)
 ##   number    the race number on the doors; decal [z, y, radius] of its roundel (racer frame)
 ##   lights    "round" | "strip" (LED strips) | "buggy" (small lamps and a light bar) |
-##             "nose" (a lamp in the nose cone and lights on the rear wing's end plates)
+##             "nose" (a lamp in the nose cone and lights on the rear wing's end plates) |
+##             "square" (v6.24: twin rectangular lamps in a black grille, a reflector band at the back)
 ##   hip, lean, wheel   the driver: hip point [x, z, y] (racer frame), recline (rad), steering
 ##             wheel [z, y, tilt]; tray [z0, z1, half width] the dark cockpit floor; seats [[x, z]]
 ##   suit, helmet, helmet_stripe, visor, gloves, rim, spokes, caliper, cage   colours (0xRRGGBB) and counts
@@ -309,6 +310,74 @@ static func shapes() -> Dictionary:
 			"rim": 0x1b1c20, "spokes": 10, "caliper": 0xe2231a,
 			"decal": [0.95, 0.45, 0.1],
 			"cage": 0x15161a,
+		},
+		# (v6.24) boxy 1980s rally coupe: a slab-sided body of its own with a flat bonnet and a short tail,
+		# box arches over the wheels, an upright cabin with a thick rear pillar, a big wing on the boot lid,
+		# a deep air dam with four rally lamps, mud flaps, white wheels
+		"quadra": {
+			"front": 0.88, "rear": 0.86, "width": 0.98, "height": 1.0, "lift": 0.07, "track": 1.0, "haunch": 1.0,
+			"wheels": [0.35, 0.27, 0.35, 0.27],
+			"fenders": false, "pods": false, "floorW": 0.7, "floorZ": [-2.2, 2.3],
+			"tub": [ST(-2.4, 0, 0.56, 0.68, 0.2, 7), ST(-2.32, 0, 0.58, 0.71, 0.26, 9), ST(-1.7, 0, 0.58, 0.72, 0.27, 9), ST(-0.9, 0, 0.58, 0.72, 0.28, 9),
+				ST(0.0, 0, 0.58, 0.72, 0.28, 9), ST(0.7, 0, 0.575, 0.72, 0.275, 9), ST(1.3, 0, 0.565, 0.72, 0.26, 9), ST(2.0, 0, 0.55, 0.71, 0.24, 9),
+				ST(2.34, 0, 0.54, 0.7, 0.225, 9), ST(2.42, 0, 0.53, 0.67, 0.19, 7)],
+			"glass": [ST(-1.95, 0, 0.88, 0.5, 0.03, 5), ST(-1.5, 0, 1.05, 0.57, 0.19, 5), ST(-1.15, 0, 1.07, 0.6, 0.22, 5), ST(0.15, 0, 1.07, 0.6, 0.22, 5),
+				ST(0.45, 0, 1.03, 0.59, 0.18, 5), ST(0.98, 0, 0.87, 0.55, 0.03, 5)],
+			"mirror": [0.74, 0.97, 0.6],
+			"stripes": [0.0], "stripeW": 0.2, "stripeAccent": true,
+			"exhausts": [[0.48, 0.3, -2.44, 0.07]],
+			"rain": [0.0, 0.92, -2.3],
+			"lights": "square",
+			"parts": [
+				{"mat": "paint", "loft": [ST(-1.5, 0, 1.25, 0.48, 0.015, 6), ST(-1.32, 0, 1.283, 0.6, 0.03, 6), ST(0.15, 0, 1.29, 0.615, 0.03, 6),
+					ST(0.42, 0, 1.275, 0.55, 0.015, 6)]}, # roof
+				{"mat": "paint", "sym": true, "loft": [ST(-1.74, 0.585, 0.93, 0.025, 0.07, 4), ST(-1.5, 0.6, 1.02, 0.025, 0.16, 4),
+					ST(-1.2, 0.605, 1.07, 0.025, 0.215, 4), ST(-1.02, 0.605, 1.07, 0.025, 0.215, 4)]}, # the thick rear pillars ...
+				{"mat": "paint", "box": [0.05, 0.44, 0.09], "at": [0.6, 1.07, -0.5], "sym": true},  # ... and the B-pillars
+				{"mat": "accent", "loft": [ST(-0.75, 0, 1.31, 0.14, 0.012, 4), ST(-0.6, 0, 1.33, 0.19, 0.03, 4), ST(-0.3, 0, 1.335, 0.2, 0.035, 4),
+					ST(-0.22, 0, 1.33, 0.19, 0.03, 4)]}, # roof vent
+				# box arches: a lid over each wheel between a front and a rear face
+				{"mat": "paint", "box": [0.3, 0.13, 1.1], "at": [0.86, 0.755, 1.45], "sym": true},
+				{"mat": "paint", "box": [0.3, 0.44, 0.07], "at": [0.86, 0.6, 1.99], "sym": true},
+				{"mat": "paint", "box": [0.3, 0.44, 0.07], "at": [0.86, 0.6, 0.91], "sym": true},
+				{"mat": "paint", "box": [0.3, 0.13, 1.12], "at": [0.86, 0.755, -1.42], "sym": true},
+				{"mat": "paint", "box": [0.3, 0.44, 0.07], "at": [0.86, 0.6, -0.87], "sym": true},
+				{"mat": "paint", "box": [0.3, 0.44, 0.07], "at": [0.86, 0.6, -1.97], "sym": true},
+				# the dark wheel houses behind the wheels
+				{"mat": "carbon", "box": [0.012, 0.4, 0.98], "at": [0.724, 0.49, 1.45], "sym": true},
+				{"mat": "carbon", "box": [0.012, 0.4, 1.0], "at": [0.724, 0.49, -1.42], "sym": true},
+				# sills between the arches, and the livery's two bands along the doors
+				{"mat": "carbon", "box": [0.1, 0.1, 1.72], "at": [0.76, 0.36, 0.02], "sym": true},
+				{"mat": "accent", "box": [0.012, 0.1, 1.72], "at": [0.724, 0.7, 0.02], "sym": true},
+				{"mat": "carbon", "box": [0.012, 0.04, 1.72], "at": [0.724, 0.615, 0.02], "sym": true},
+				# the wing on the boot lid: main plane, a lip, end plates, two uprights
+				{"mat": "carbon", "wing": [1.5, 0.5, 0.07], "at": [0, 1.08, -1.98], "rx": 0.16},
+				{"mat": "accent", "box": [0.035, 0.24, 0.54], "at": [0.765, 1.05, -2.2], "sym": true},
+				{"mat": "carbon", "box": [0.04, 0.22, 0.26], "at": [0.4, 0.95, -2.16], "sym": true},
+				# the air dam and the bumpers
+				{"mat": "carbon", "box": [1.9, 0.2, 0.22], "at": [0, 0.3, 2.37]},
+				{"mat": "carbon", "box": [1.5, 0.05, 0.3], "at": [0, 0.19, 2.44]},
+				{"mat": "carbon", "box": [1.84, 0.13, 0.1], "at": [0, 0.38, -2.4]},
+				# four rally lamps in front of the grille
+				{"mat": "carbon", "box": [1.14, 0.21, 0.06], "at": [0, 0.45, 2.46]},
+				{"mat": "head", "lamp": [0.088, 0.05], "at": [0.16, 0.45, 2.5], "sym": true},
+				{"mat": "head", "lamp": [0.088, 0.05], "at": [0.42, 0.45, 2.5], "sym": true},
+				# mud flaps behind every wheel
+				{"mat": "accent", "box": [0.28, 0.26, 0.025], "at": [0.86, 0.26, 0.9], "sym": true},
+				{"mat": "accent", "box": [0.28, 0.26, 0.025], "at": [0.86, 0.26, -1.98], "sym": true},
+			],
+			"mudflaps": true,
+			"number": "8", "hip": [0.3, -0.28, 0.36], "lean": 0.24, "wheel": [0.18, 0.9, 0.55],
+			"tray": [-1.5, 0.78, 0.55], "seats": [[0.3, -0.6], [-0.3, -0.6]],
+			"suit": 0xeeeeea, "gloves": 0x202226, "helmet": 0xf4f4f0, "helmet_stripe": 0xf2b705,
+			"rim": 0xf2f2ee, "spokes": 6, "caliper": 0x202226,
+			"decal": [-0.1, 0.5, 0.14],
+			"seams": [[0, 0.62, 0.0, 0.72, 0.3, 0.86], [0, -0.72, 0.0, 0.72, 0.3, 0.86], [0, 1.0, 0.0, 0.6, 0.6, 0.9]],
+			"vents": [[0.34, 1.62, 0.42, 0.13, 6]],
+			"cage": 0x3a3d42,
+			# the roll cage behind the seats (the car's own frame)
+			"tubes": [[0.5, 0.92, -0.72, 0.5, 1.32, -0.72, 0.022, true], [0.5, 1.32, -0.72, -0.5, 1.32, -0.72, 0.022, false],
+				[0.5, 1.32, -0.72, 0.46, 0.96, -1.45, 0.02, true]],
 		},
 	}
 	for id: String in _shapes:
@@ -654,6 +723,11 @@ static func light_geometries(shape: Dictionary, detail := 1) -> Dictionary:
 			head.append(Geo.sphere(0.045, seg, 6).scale(1.0, 0.8, 0.6).translate(s * 0.58, 0.455, 2.36))
 			head.append(Geo.sphere(0.045, seg, 6).scale(1.0, 0.8, 0.6).translate(s * 0.68, 0.45, 2.32))
 			housing.append(box(0.34, 0.09, 0.05, 0, 0, 0).rotate_y(s * 0.3).translate(s * 0.64, 0.46, 2.3))
+		elif style == "square":
+			# (v6.24) the rally coupe: two rectangular lamps a side in a black grille across the nose
+			head.append(box(0.21, 0.105, 0.03, s * 0.54, 0.66, 2.432))
+			head.append(box(0.19, 0.105, 0.03, s * 0.32, 0.66, 2.432))
+			tail.append(box(0.3, 0.1, 0.03, s * 0.5, 0.7, -2.412))
 		else:
 			head.append(Geo.sphere(0.075, seg, 6).scale(1.0, 1.0, 0.5).translate(s * 0.3, 0.42, 2.4))
 			housing.append(Geo.cylinder(0.085, 0.085, 0.07, seg).rotate_x(PI / 2.0).translate(s * 0.3, 0.42, 2.36))
@@ -662,6 +736,9 @@ static func light_geometries(shape: Dictionary, detail := 1) -> Dictionary:
 		tail.append(box(1.96, 0.026, 0.03, 0, 0.66, -2.375)) # full-width LED blade
 		for s in [1.0, -1.0]:
 			tail.append(box(0.04, 0.2, 0.03, s * 0.92, 0.58, -2.36))
+	elif style == "square":
+		housing.append(box(1.36, 0.15, 0.03, 0, 0.66, 2.42))  # the grille
+		tail.append(box(0.66, 0.05, 0.02, 0, 0.7, -2.41))     # the reflector band between the lamps
 	elif style == "round":
 		tail.append(box(1.9, 0.045, 0.03, 0, 0.6, -2.375)) # full-width light blade
 		for s in [1.0, -1.0]:

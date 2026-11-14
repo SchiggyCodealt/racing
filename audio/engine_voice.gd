@@ -100,6 +100,17 @@ const ENGINES := {
 		"turbo": 0.0, "turbo_hz": [0.0, 0.0], "rattle": 0.0, "drive": 2.5, "off": 0.26, "crackle": 0.25,
 		"limiter_hz": 28.0, "gain": 0.77,
 	},
+	# (v6.24) an inline five: a firing every 144 degrees with one pipe louder than its neighbours, which
+	# gives the half-order warble; a big turbo's whistle and plenty of crackle on the overrun
+	"quadra": {
+		"name": "turbo five", "cylinders": 5,
+		"intervals": [1.0, 1.0, 1.0, 1.0, 1.0], "amps": [1.0, 0.8, 0.95, 0.72, 0.9], "jitter": 0.06,
+		"pulse": [400.0, 2300.0], "pipe": [205.0, -0.52, 0.38],
+		"body": [[165.0, 1.5, 1.05], [610.0, 2.4, 0.6], [2100.0, 3.0, 0.24]], "direct": 0.38,
+		"tone": 5600.0, "rough": 0.26, "intake": [0.07, 1400.0], "whine": [0.0, 0.0],
+		"turbo": 1.2, "turbo_hz": [2200.0, 6000.0], "rattle": 0.0, "drive": 2.0, "off": 0.32, "crackle": 0.75,
+		"limiter_hz": 17.0, "gain": 1.1,
+	},
 }
 const DEFAULT := "racer"
 

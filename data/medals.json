@@ -11,7 +11,8 @@
     "drifter": {"author": 124.367, "gold": 132, "silver": 150, "bronze": 162, "run": {"aLat": 22, "lookK": 1.3, "steps": 7462, "wallSteps": 0}},
     "dune": {"author": 129.683, "gold": 138, "silver": 156, "bronze": 169, "run": {"aLat": 22, "lookK": 1.3, "steps": 7781, "wallSteps": 10}},
     "vortex": {"author": 112.25, "gold": 119, "silver": 135, "bronze": 146, "run": {"aLat": 28, "lookK": 1.3, "steps": 6735, "wallSteps": 144}},
-    "apex": {"author": 100.967, "gold": 108, "silver": 122, "bronze": 132, "run": {"aLat": 40, "lookK": 1, "steps": 6058, "wallSteps": 0}}
+    "apex": {"author": 100.967, "gold": 108, "silver": 122, "bronze": 132, "run": {"aLat": 40, "lookK": 1, "steps": 6058, "wallSteps": 0}},
+    "quadra": {"author": 124.367, "gold": 132, "silver": 150, "bronze": 162, "run": {"aLat": 24, "lookK": 1.3, "steps": 7462, "wallSteps": 50}}
   }},
   "hairpin-valley": {"name": "Hairpin Valley", "laps": 3, "sig": "1218:2435|snow492-815", "cars": {
     "racer": {"author": 234.5, "gold": 249, "silver": 282, "bronze": 305, "run": {"aLat": 14, "lookK": 1, "steps": 14070, "wallSteps": 20}},
@@ -20,7 +21,8 @@
     "drifter": {"author": 231.8, "gold": 246, "silver": 279, "bronze": 302, "run": {"aLat": 18, "lookK": 1, "steps": 13908, "wallSteps": 65}},
     "dune": {"author": 228.05, "gold": 242, "silver": 274, "bronze": 297, "run": {"aLat": 18, "lookK": 1, "steps": 13683, "wallSteps": 65}},
     "vortex": {"author": 234.35, "gold": 249, "silver": 282, "bronze": 305, "run": {"aLat": 20, "lookK": 1, "steps": 14061, "wallSteps": 175}},
-    "apex": {"author": 250.8, "gold": 266, "silver": 301, "bronze": 327, "run": {"aLat": 24, "lookK": 1, "steps": 15048, "wallSteps": 119}}
+    "apex": {"author": 250.8, "gold": 266, "silver": 301, "bronze": 327, "run": {"aLat": 24, "lookK": 1, "steps": 15048, "wallSteps": 119}},
+    "quadra": {"author": 223.883, "gold": 238, "silver": 269, "bronze": 292, "run": {"aLat": 16, "lookK": 1, "steps": 13433, "wallSteps": 125}}
   }},
   "ramp-rally": {"name": "Ramp Rally", "laps": 3, "sig": "1187:2374|dirt168-730", "cars": {
     "racer": {"author": 184.15, "gold": 196, "silver": 221, "bronze": 240, "run": {"aLat": 20, "lookK": 1, "steps": 11049, "wallSteps": 11}},
@@ -29,7 +31,8 @@
     "drifter": {"author": 181.817, "gold": 193, "silver": 219, "bronze": 237, "run": {"aLat": 20, "lookK": 1, "steps": 10909, "wallSteps": 60}},
     "dune": {"author": 180.167, "gold": 191, "silver": 217, "bronze": 235, "run": {"aLat": 20, "lookK": 1, "steps": 10810, "wallSteps": 18}},
     "vortex": {"author": 181.833, "gold": 193, "silver": 219, "bronze": 237, "run": {"aLat": 32, "lookK": 1, "steps": 10910, "wallSteps": 226}},
-    "apex": {"author": 190.033, "gold": 202, "silver": 229, "bronze": 248, "run": {"aLat": 40, "lookK": 1, "steps": 11402, "wallSteps": 78}}
+    "apex": {"author": 190.033, "gold": 202, "silver": 229, "bronze": 248, "run": {"aLat": 40, "lookK": 1, "steps": 11402, "wallSteps": 78}},
+    "quadra": {"author": 176.583, "gold": 188, "silver": 212, "bronze": 230, "run": {"aLat": 18, "lookK": 1, "steps": 10595, "wallSteps": 0}}
   }},
   "banked-speedway": {"name": "Banked Speedway", "laps": 3, "sig": "1422:2844", "cars": {
     "racer": {"author": 121.017, "gold": 129, "silver": 146, "bronze": 158, "run": {"aLat": 40, "lookK": 1.3, "steps": 7261, "wallSteps": 0}},
@@ -38,7 +41,8 @@
     "drifter": {"author": 124.017, "gold": 132, "silver": 149, "bronze": 162, "run": {"aLat": 40, "lookK": 1.3, "steps": 7441, "wallSteps": 0}},
     "dune": {"author": 143.15, "gold": 152, "silver": 172, "bronze": 187, "run": {"aLat": 28, "lookK": 1.3, "steps": 8589, "wallSteps": 81}},
     "vortex": {"author": 108.6, "gold": 116, "silver": 131, "bronze": 142, "run": {"aLat": 40, "lookK": 1, "steps": 6516, "wallSteps": 0}},
-    "apex": {"author": 114.55, "gold": 122, "silver": 138, "bronze": 149, "run": {"aLat": 40, "lookK": 0.75, "steps": 6873, "wallSteps": 0}}
+    "apex": {"author": 114.55, "gold": 122, "silver": 138, "bronze": 149, "run": {"aLat": 40, "lookK": 0.75, "steps": 6873, "wallSteps": 0}},
+    "quadra": {"author": 130.85, "gold": 139, "silver": 158, "bronze": 171, "run": {"aLat": 32, "lookK": 1, "steps": 7851, "wallSteps": 0}}
   }},
   "technical-trial": {"name": "Technical Trial", "laps": 3, "sig": "1350:2699", "cars": {
     "racer": {"author": 230.3, "gold": 245, "silver": 277, "bronze": 300, "run": {"aLat": 24, "lookK": 0.75, "steps": 13818, "wallSteps": 59}},
@@ -47,7 +51,8 @@
     "drifter": {"author": 230.067, "gold": 244, "silver": 277, "bronze": 300, "run": {"aLat": 22, "lookK": 0.75, "steps": 13804, "wallSteps": 79}},
     "dune": {"author": 232.117, "gold": 247, "silver": 279, "bronze": 302, "run": {"aLat": 22, "lookK": 0.75, "steps": 13927, "wallSteps": 89}},
     "vortex": {"author": 215.65, "gold": 229, "silver": 259, "bronze": 281, "run": {"aLat": 22, "lookK": 1, "steps": 12939, "wallSteps": 244}},
-    "apex": {"author": 206.417, "gold": 219, "silver": 248, "bronze": 269, "run": {"aLat": 32, "lookK": 0.75, "steps": 12385, "wallSteps": 88}}
+    "apex": {"author": 206.417, "gold": 219, "silver": 248, "bronze": 269, "run": {"aLat": 32, "lookK": 0.75, "steps": 12385, "wallSteps": 88}},
+    "quadra": {"author": 232.117, "gold": 247, "silver": 279, "bronze": 302, "run": {"aLat": 20, "lookK": 0.75, "steps": 13927, "wallSteps": 236}}
   }},
   "grand-marathon": {"name": "Grand Marathon", "laps": 1, "sig": "3746:7491", "cars": {
     "racer": {"author": 150.667, "gold": 160, "silver": 181, "bronze": 196, "run": {"aLat": 26, "lookK": 1, "steps": 9040, "wallSteps": 65}},
@@ -56,7 +61,8 @@
     "drifter": {"author": 152.283, "gold": 162, "silver": 183, "bronze": 198, "run": {"aLat": 28, "lookK": 1, "steps": 9137, "wallSteps": 87}},
     "dune": {"author": 159.033, "gold": 169, "silver": 191, "bronze": 207, "run": {"aLat": 22, "lookK": 1, "steps": 9542, "wallSteps": 67}},
     "vortex": {"author": 139.267, "gold": 148, "silver": 168, "bronze": 182, "run": {"aLat": 32, "lookK": 1, "steps": 8356, "wallSteps": 126}},
-    "apex": {"author": 135.117, "gold": 144, "silver": 163, "bronze": 176, "run": {"aLat": 40, "lookK": 0.75, "steps": 8107, "wallSteps": 75}}
+    "apex": {"author": 135.117, "gold": 144, "silver": 163, "bronze": 176, "run": {"aLat": 40, "lookK": 0.75, "steps": 8107, "wallSteps": 75}},
+    "quadra": {"author": 153.017, "gold": 163, "silver": 184, "bronze": 199, "run": {"aLat": 26, "lookK": 1, "steps": 9181, "wallSteps": 87}}
   }},
   "coastal-gp": {"name": "Coastal GP", "laps": 3, "sig": "1448:2895", "cars": {
     "racer": {"author": 187.95, "gold": 200, "silver": 226, "bronze": 245, "run": {"aLat": 24, "lookK": 1, "steps": 11277, "wallSteps": 25}},
@@ -65,7 +71,8 @@
     "drifter": {"author": 189.533, "gold": 201, "silver": 228, "bronze": 247, "run": {"aLat": 22, "lookK": 1, "steps": 11372, "wallSteps": 29}},
     "dune": {"author": 196.167, "gold": 208, "silver": 236, "bronze": 256, "run": {"aLat": 22, "lookK": 1, "steps": 11770, "wallSteps": 0}},
     "vortex": {"author": 174.9, "gold": 186, "silver": 210, "bronze": 228, "run": {"aLat": 26, "lookK": 1, "steps": 10494, "wallSteps": 89}},
-    "apex": {"author": 163.417, "gold": 174, "silver": 197, "bronze": 213, "run": {"aLat": 40, "lookK": 1, "steps": 9805, "wallSteps": 199}}
+    "apex": {"author": 163.417, "gold": 174, "silver": 197, "bronze": 213, "run": {"aLat": 40, "lookK": 1, "steps": 9805, "wallSteps": 199}},
+    "quadra": {"author": 190.633, "gold": 203, "silver": 229, "bronze": 248, "run": {"aLat": 22, "lookK": 1, "steps": 11438, "wallSteps": 53}}
   }},
   "mountain-pass": {"name": "Mountain Pass", "laps": 1, "sig": "2463:4925|dirt138-400,snow920-1384", "cars": {
     "racer": {"author": 110.917, "gold": 118, "silver": 134, "bronze": 145, "run": {"aLat": 24, "lookK": 1, "steps": 6655, "wallSteps": 11}},
@@ -74,7 +81,8 @@
     "drifter": {"author": 113.333, "gold": 121, "silver": 136, "bronze": 148, "run": {"aLat": 22, "lookK": 0.75, "steps": 6800, "wallSteps": 56}},
     "dune": {"author": 112.583, "gold": 120, "silver": 136, "bronze": 147, "run": {"aLat": 22, "lookK": 1, "steps": 6755, "wallSteps": 8}},
     "vortex": {"author": 108.7, "gold": 116, "silver": 131, "bronze": 142, "run": {"aLat": 32, "lookK": 0.55, "steps": 6522, "wallSteps": 239}},
-    "apex": {"author": 107.317, "gold": 114, "silver": 129, "bronze": 140, "run": {"aLat": 40, "lookK": 1, "steps": 6439, "wallSteps": 124}}
+    "apex": {"author": 107.317, "gold": 114, "silver": 129, "bronze": 140, "run": {"aLat": 40, "lookK": 1, "steps": 6439, "wallSteps": 124}},
+    "quadra": {"author": 110.15, "gold": 117, "silver": 133, "bronze": 144, "run": {"aLat": 22, "lookK": 0.75, "steps": 6609, "wallSteps": 0}}
   }},
   "canyon-run": {"name": "Canyon Run", "laps": 3, "sig": "1448:2896|dirt487-694", "cars": {
     "racer": {"author": 259.75, "gold": 276, "silver": 312, "bronze": 338, "run": {"aLat": 24, "lookK": 1, "steps": 15585, "wallSteps": 342}},
@@ -83,7 +91,8 @@
     "drifter": {"author": 260.967, "gold": 277, "silver": 314, "bronze": 340, "run": {"aLat": 22, "lookK": 1, "steps": 15658, "wallSteps": 315}},
     "dune": {"author": 257.8, "gold": 274, "silver": 310, "bronze": 336, "run": {"aLat": 24, "lookK": 1, "steps": 15468, "wallSteps": 418}},
     "vortex": {"author": 254.083, "gold": 270, "silver": 305, "bronze": 331, "run": {"aLat": 26, "lookK": 0.75, "steps": 15245, "wallSteps": 225}},
-    "apex": {"author": 246.883, "gold": 262, "silver": 297, "bronze": 321, "run": {"aLat": 40, "lookK": 0.75, "steps": 14813, "wallSteps": 129}}
+    "apex": {"author": 246.883, "gold": 262, "silver": 297, "bronze": 321, "run": {"aLat": 40, "lookK": 0.75, "steps": 14813, "wallSteps": 129}},
+    "quadra": {"author": 260.6, "gold": 277, "silver": 313, "bronze": 339, "run": {"aLat": 22, "lookK": 0.75, "steps": 15636, "wallSteps": 217}}
   }},
   "night-highway": {"name": "Night Highway", "laps": 3, "sig": "1558:3117", "cars": {
     "racer": {"author": 195.45, "gold": 208, "silver": 235, "bronze": 255, "run": {"aLat": 22, "lookK": 1, "steps": 11727, "wallSteps": 0}},
@@ -92,7 +101,8 @@
     "drifter": {"author": 196.367, "gold": 209, "silver": 236, "bronze": 256, "run": {"aLat": 22, "lookK": 1, "steps": 11782, "wallSteps": 23}},
     "dune": {"author": 204.583, "gold": 217, "silver": 246, "bronze": 266, "run": {"aLat": 22, "lookK": 1, "steps": 12275, "wallSteps": 0}},
     "vortex": {"author": 178.767, "gold": 190, "silver": 215, "bronze": 233, "run": {"aLat": 22, "lookK": 1, "steps": 10726, "wallSteps": 29}},
-    "apex": {"author": 172.467, "gold": 183, "silver": 207, "bronze": 225, "run": {"aLat": 40, "lookK": 1, "steps": 10348, "wallSteps": 51}}
+    "apex": {"author": 172.467, "gold": 183, "silver": 207, "bronze": 225, "run": {"aLat": 40, "lookK": 1, "steps": 10348, "wallSteps": 51}},
+    "quadra": {"author": 197.367, "gold": 210, "silver": 237, "bronze": 257, "run": {"aLat": 20, "lookK": 1, "steps": 11842, "wallSteps": 33}}
   }},
   "lighthouse-bay": {"name": "Lighthouse Bay", "laps": 3, "sig": "1175:2351", "cars": {
     "racer": {"author": 158.067, "gold": 168, "silver": 190, "bronze": 206, "run": {"aLat": 20, "lookK": 1.3, "steps": 9484, "wallSteps": 81}},
@@ -101,7 +111,8 @@
     "drifter": {"author": 160.817, "gold": 171, "silver": 193, "bronze": 210, "run": {"aLat": 20, "lookK": 1.3, "steps": 9649, "wallSteps": 340}},
     "dune": {"author": 163.533, "gold": 174, "silver": 197, "bronze": 213, "run": {"aLat": 18, "lookK": 1.3, "steps": 9812, "wallSteps": 0}},
     "vortex": {"author": 148.617, "gold": 158, "silver": 179, "bronze": 194, "run": {"aLat": 28, "lookK": 1.3, "steps": 8917, "wallSteps": 375}},
-    "apex": {"author": 127.35, "gold": 135, "silver": 153, "bronze": 166, "run": {"aLat": 32, "lookK": 1, "steps": 7641, "wallSteps": 0}}
+    "apex": {"author": 127.35, "gold": 135, "silver": 153, "bronze": 166, "run": {"aLat": 32, "lookK": 1, "steps": 7641, "wallSteps": 0}},
+    "quadra": {"author": 161.417, "gold": 172, "silver": 194, "bronze": 210, "run": {"aLat": 20, "lookK": 1.3, "steps": 9685, "wallSteps": 482}}
   }},
   "seaside-stunts": {"name": "Seaside Stunts", "laps": 1, "sig": "1654:3306", "cars": {
     "racer": {"author": 68.233, "gold": 73, "silver": 82, "bronze": 89, "run": {"aLat": 28, "lookK": 1.3, "steps": 4094, "wallSteps": 13}},
@@ -110,7 +121,8 @@
     "drifter": {"author": 67.967, "gold": 73, "silver": 82, "bronze": 89, "run": {"aLat": 22, "lookK": 1, "steps": 4078, "wallSteps": 0}},
     "dune": {"author": 70.5, "gold": 75, "silver": 85, "bronze": 92, "run": {"aLat": 22, "lookK": 1.3, "steps": 4230, "wallSteps": 0}},
     "vortex": {"author": 61.433, "gold": 66, "silver": 74, "bronze": 80, "run": {"aLat": 26, "lookK": 1, "steps": 3686, "wallSteps": 0}},
-    "apex": {"author": 58.55, "gold": 63, "silver": 71, "bronze": 77, "run": {"aLat": 40, "lookK": 0.75, "steps": 3513, "wallSteps": 12}}
+    "apex": {"author": 58.55, "gold": 63, "silver": 71, "bronze": 77, "run": {"aLat": 40, "lookK": 0.75, "steps": 3513, "wallSteps": 12}},
+    "quadra": {"author": 67.567, "gold": 72, "silver": 82, "bronze": 88, "run": {"aLat": 24, "lookK": 1, "steps": 4054, "wallSteps": 12}}
   }},
   "forest-rally": {"name": "Forest Rally", "laps": 3, "sig": "1272:2544|dirt126-1242", "cars": {
     "racer": {"author": 199.883, "gold": 212, "silver": 240, "bronze": 260, "run": {"aLat": 24, "lookK": 1.3, "steps": 11993, "wallSteps": 155}},
@@ -119,7 +131,8 @@
     "drifter": {"author": 194.5, "gold": 207, "silver": 234, "bronze": 253, "run": {"aLat": 22, "lookK": 1.3, "steps": 11670, "wallSteps": 135}},
     "dune": {"author": 185.35, "gold": 197, "silver": 223, "bronze": 241, "run": {"aLat": 22, "lookK": 1, "steps": 11121, "wallSteps": 55}},
     "vortex": {"author": 206.683, "gold": 220, "silver": 249, "bronze": 269, "run": {"aLat": 40, "lookK": 1, "steps": 12401, "wallSteps": 789}},
-    "apex": {"author": 228.333, "gold": 243, "silver": 274, "bronze": 297, "run": {"aLat": 32, "lookK": 1.3, "steps": 13700, "wallSteps": 80}}
+    "apex": {"author": 228.333, "gold": 243, "silver": 274, "bronze": 297, "run": {"aLat": 32, "lookK": 1.3, "steps": 13700, "wallSteps": 80}},
+    "quadra": {"author": 186.333, "gold": 198, "silver": 224, "bronze": 243, "run": {"aLat": 22, "lookK": 1, "steps": 11180, "wallSteps": 75}}
   }},
   "northern-lights": {"name": "Northern Lights", "laps": 3, "sig": "1413:2826|snow169-897,snow995-1383", "cars": {
     "racer": {"author": 185.75, "gold": 197, "silver": 223, "bronze": 242, "run": {"aLat": 40, "lookK": 1.3, "steps": 11145, "wallSteps": 1001}},
@@ -128,7 +141,8 @@
     "drifter": {"author": 181.167, "gold": 193, "silver": 218, "bronze": 236, "run": {"aLat": 40, "lookK": 1.3, "steps": 10870, "wallSteps": 909}},
     "dune": {"author": 182.5, "gold": 194, "silver": 219, "bronze": 238, "run": {"aLat": 28, "lookK": 1.3, "steps": 10950, "wallSteps": 56}},
     "vortex": {"author": 196.35, "gold": 209, "silver": 236, "bronze": 256, "run": {"aLat": 40, "lookK": 1.3, "steps": 11781, "wallSteps": 2012}},
-    "apex": {"author": 213.617, "gold": 227, "silver": 257, "bronze": 278, "run": {"aLat": 40, "lookK": 1.3, "steps": 12817, "wallSteps": 326}}
+    "apex": {"author": 213.617, "gold": 227, "silver": 257, "bronze": 278, "run": {"aLat": 40, "lookK": 1.3, "steps": 12817, "wallSteps": 326}},
+    "quadra": {"author": 166.85, "gold": 177, "silver": 201, "bronze": 217, "run": {"aLat": 32, "lookK": 1, "steps": 10011, "wallSteps": 56}}
   }},
   "summit-rush": {"name": "Summit Rush", "laps": 1, "sig": "2335:4668|dirt485-935,snow936-1429,dirt1868-2109", "cars": {
     "racer": {"author": 105.533, "gold": 112, "silver": 127, "bronze": 138, "run": {"aLat": 32, "lookK": 1, "steps": 6332, "wallSteps": 201}},
@@ -137,7 +151,8 @@
     "drifter": {"author": 104.933, "gold": 112, "silver": 126, "bronze": 137, "run": {"aLat": 32, "lookK": 1.3, "steps": 6296, "wallSteps": 179}},
     "dune": {"author": 102.733, "gold": 109, "silver": 124, "bronze": 134, "run": {"aLat": 24, "lookK": 1.3, "steps": 6164, "wallSteps": 80}},
     "vortex": {"author": 106.15, "gold": 113, "silver": 128, "bronze": 138, "run": {"aLat": 40, "lookK": 1, "steps": 6369, "wallSteps": 656}},
-    "apex": {"author": 114.25, "gold": 122, "silver": 138, "bronze": 149, "run": {"aLat": 40, "lookK": 1, "steps": 6855, "wallSteps": 140}}
+    "apex": {"author": 114.25, "gold": 122, "silver": 138, "bronze": 149, "run": {"aLat": 40, "lookK": 1, "steps": 6855, "wallSteps": 140}},
+    "quadra": {"author": 99.333, "gold": 106, "silver": 120, "bronze": 130, "run": {"aLat": 26, "lookK": 1, "steps": 5960, "wallSteps": 59}}
   }},
   "pine-ridge": {"name": "Pine Ridge", "laps": 1, "sig": "1820:3638|gravel78-1624", "cars": {
     "racer": {"author": 81.233, "gold": 87, "silver": 98, "bronze": 106, "run": {"aLat": 26, "lookK": 1.3, "steps": 4874, "wallSteps": 144}},
@@ -146,7 +161,8 @@
     "drifter": {"author": 79.917, "gold": 85, "silver": 96, "bronze": 104, "run": {"aLat": 28, "lookK": 1.3, "steps": 4795, "wallSteps": 211}},
     "dune": {"author": 78.133, "gold": 83, "silver": 94, "bronze": 102, "run": {"aLat": 20, "lookK": 1.3, "steps": 4688, "wallSteps": 75}},
     "vortex": {"author": 82.583, "gold": 88, "silver": 100, "bronze": 108, "run": {"aLat": 40, "lookK": 1.3, "steps": 4955, "wallSteps": 319}},
-    "apex": {"author": 87.217, "gold": 93, "silver": 105, "bronze": 114, "run": {"aLat": 40, "lookK": 1.3, "steps": 5233, "wallSteps": 139}}
+    "apex": {"author": 87.217, "gold": 93, "silver": 105, "bronze": 114, "run": {"aLat": 40, "lookK": 1.3, "steps": 5233, "wallSteps": 139}},
+    "quadra": {"author": 77.017, "gold": 82, "silver": 93, "bronze": 101, "run": {"aLat": 20, "lookK": 1, "steps": 4621, "wallSteps": 30}}
   }},
   "dune-sea": {"name": "Dune Sea", "laps": 1, "sig": "2104:4207|sand74-812,gravel813-1216,sand1217-1902", "cars": {
     "racer": {"author": 91.367, "gold": 97, "silver": 110, "bronze": 119, "run": {"aLat": 32, "lookK": 1.3, "steps": 5482, "wallSteps": 173}},
@@ -155,7 +171,8 @@
     "drifter": {"author": 91.817, "gold": 98, "silver": 111, "bronze": 120, "run": {"aLat": 22, "lookK": 1.3, "steps": 5509, "wallSteps": 187}},
     "dune": {"author": 87.05, "gold": 93, "silver": 105, "bronze": 114, "run": {"aLat": 22, "lookK": 1.3, "steps": 5223, "wallSteps": 68}},
     "vortex": {"author": 93.1, "gold": 99, "silver": 112, "bronze": 122, "run": {"aLat": 40, "lookK": 1.3, "steps": 5586, "wallSteps": 911}},
-    "apex": {"author": 103.183, "gold": 110, "silver": 124, "bronze": 135, "run": {"aLat": 40, "lookK": 1.3, "steps": 6191, "wallSteps": 151}}
+    "apex": {"author": 103.183, "gold": 110, "silver": 124, "bronze": 135, "run": {"aLat": 40, "lookK": 1.3, "steps": 6191, "wallSteps": 151}},
+    "quadra": {"author": 87.15, "gold": 93, "silver": 105, "bronze": 114, "run": {"aLat": 22, "lookK": 1.3, "steps": 5229, "wallSteps": 81}}
   }},
   "frozen-lake": {"name": "Frozen Lake", "laps": 1, "sig": "1751:3501|snow74-168,ice169-673,snow674-1092,ice1093-1525,snow1526-1555", "cars": {
     "racer": {"author": 109.8, "gold": 117, "silver": 132, "bronze": 143, "run": {"aLat": 20, "lookK": 1.3, "steps": 6588, "wallSteps": 237}},
@@ -164,7 +181,8 @@
     "drifter": {"author": 106.683, "gold": 114, "silver": 129, "bronze": 139, "run": {"aLat": 22, "lookK": 0.75, "steps": 6401, "wallSteps": 605}},
     "dune": {"author": 97.65, "gold": 104, "silver": 118, "bronze": 127, "run": {"aLat": 20, "lookK": 1.3, "steps": 5859, "wallSteps": 50}},
     "vortex": {"author": 124.783, "gold": 133, "silver": 150, "bronze": 163, "run": {"aLat": 40, "lookK": 1.3, "steps": 7487, "wallSteps": 1772}},
-    "apex": {"author": 127.933, "gold": 136, "silver": 154, "bronze": 167, "run": {"aLat": 40, "lookK": 1.3, "steps": 7676, "wallSteps": 94}}
+    "apex": {"author": 127.933, "gold": 136, "silver": 154, "bronze": 167, "run": {"aLat": 40, "lookK": 1.3, "steps": 7676, "wallSteps": 94}},
+    "quadra": {"author": 92.4, "gold": 98, "silver": 111, "bronze": 121, "run": {"aLat": 18, "lookK": 1.3, "steps": 5544, "wallSteps": 19}}
   }},
   "monsoon-trail": {"name": "Monsoon Trail", "laps": 1, "sig": "1747:3493|mud68-471,gravel472-781,mud782-1550", "cars": {
     "racer": {"author": 97.433, "gold": 104, "silver": 117, "bronze": 127, "run": {"aLat": 40, "lookK": 1, "steps": 5846, "wallSteps": 280}},
@@ -173,7 +191,8 @@
     "drifter": {"author": 97.633, "gold": 104, "silver": 118, "bronze": 127, "run": {"aLat": 32, "lookK": 1.3, "steps": 5858, "wallSteps": 243}},
     "dune": {"author": 90.533, "gold": 96, "silver": 109, "bronze": 118, "run": {"aLat": 20, "lookK": 1, "steps": 5432, "wallSteps": 104}},
     "vortex": {"author": 103.567, "gold": 110, "silver": 125, "bronze": 135, "run": {"aLat": 40, "lookK": 1, "steps": 6214, "wallSteps": 667}},
-    "apex": {"author": 118.233, "gold": 126, "silver": 142, "bronze": 154, "run": {"aLat": 40, "lookK": 1, "steps": 7094, "wallSteps": 103}}
+    "apex": {"author": 118.233, "gold": 126, "silver": 142, "bronze": 154, "run": {"aLat": 40, "lookK": 1, "steps": 7094, "wallSteps": 103}},
+    "quadra": {"author": 93.267, "gold": 99, "silver": 112, "bronze": 122, "run": {"aLat": 32, "lookK": 1, "steps": 5596, "wallSteps": 221}}
   }}
 }
 }

@@ -95,7 +95,7 @@ func _data(t) -> void:
 	t.check(surf[0] == "Asphalt" and surf[1] == "Asphalt + packed snow" and surf[2] == "Asphalt + dirt" and surf[7] == "Asphalt + dirt + packed snow" and \
 		surf[8] == "Asphalt + dirt" and surf[12] == "Asphalt + dirt" and surf[13] == "Asphalt + packed snow" and surf[14] == "Asphalt + dirt + packed snow" and \
 		surf.count("Asphalt") == 8, "the road surfaces of every track (v6.3, v6.4): %s" % ", ".join(surf))
-	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex"], "cars in picker order: %s" % [UiData.car_ids()])
+	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])
 	t.check(UiData.car_info("nope").id == "racer", "an unknown car gives the racer")
@@ -228,7 +228,7 @@ func _menu_cars(t) -> void:
 		for c: Control in chips:
 			var r := c.get_global_rect()
 			chips_ok = chips_ok and r.size.x >= CarScreen.CHIP_MIN_W - 0.5 and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5
-		t.check(menu.car_page.is_open and cards.size() == 7 and inside and not overlap and cols_ok and all_shown and chips_ok,
+		t.check(menu.car_page.is_open and cards.size() == 8 and inside and not overlap and cols_ok and all_shown and chips_ok,
 			"%dx%d: %d cards, %d a row, inside the window and apart%s; the five part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
 		h.free()
@@ -307,7 +307,7 @@ func _menu_keys(t) -> void:
 	menu.handle_keys(_press(inp, ["KeyC", "Shift+KeyC"]))
 	t.check(UiData.picked_car() == "racer", "Shift+C picks the previous car")
 	menu.handle_keys(_press(inp, ["KeyC", "Shift+KeyC"]))
-	t.check(UiData.picked_car() == "apex", "Shift+C wraps to the last car (the Apex)")
+	t.check(UiData.picked_car() == "quadra", "Shift+C wraps to the last car (the Quadra)")
 	UiData.set_setting("car", "racer")
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)
@@ -838,8 +838,9 @@ func _career(t) -> void:
 			locked.append(c.get("car_id"))
 		if c.get("affordable"):
 			can.append(c.get("car_id"))
-	t.check(locked == ["kestrel", "thunder", "drifter", "dune", "vortex", "apex"] and int(cards[1].get("price")) == 10000 and int(cards[6].get("price")) == 40000 and can.has("kestrel") and can.has("drifter") and
-		not can.has("vortex") and not can.has("apex"), "six cars locked, each with its price (the Kestrel $10,000, the Apex $40,000); with $15,000 the Kestrel and the Drifter are affordable")
+	t.check(locked == ["kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra"] and int(cards[1].get("price")) == 10000 and int(cards[6].get("price")) == 40000 and
+		int(cards[7].get("price")) == 26000 and can.has("kestrel") and can.has("drifter") and not can.has("vortex") and not can.has("apex") and not can.has("quadra"),
+		"seven cars locked, each with its price (the Kestrel $10,000, the Apex $40,000, the Quadra $26,000); with $15,000 the Kestrel and the Drifter are affordable")
 	var drive_btn: Button = menu.car_page.start_btn
 	var lock: Label = menu.car_page.car_lock
 	t.check(drive_btn.text == "START" and not lock.visible and (menu.get("_drive_btn") as Button).text == "TIME TRIAL" and menu.car_page.money_l.text == "$15,000",
