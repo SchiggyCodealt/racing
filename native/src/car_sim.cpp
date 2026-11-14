@@ -892,7 +892,7 @@ void planar_step(CarState &c, const Spec &P, double h) {
 		fx_f = -fx_cap_f;
 	}
 	double fy_cap_f = std::sqrt(maxf(0.0, cap_f * cap_f - fx_f * fx_f));
-	if (ellipse) {
+	if (ellipse && cap_f > 0.0) { // (v6.23) not with an unloaded front axle: 0 / 0
 		double q = fx_f / (c.env_bk * cap_f);
 		fy_cap_f = cap_f * std::sqrt(maxf(0.0, 1.0 - q * q));
 	}

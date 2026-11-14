@@ -19,6 +19,9 @@ extends RefCounted
 ##   Unlocks.open_count()             -> how many of the game's tracks are open
 ##   Unlocks.from_records(save)       -> the tracks a save from before v6.8.0 opens (SaveData's
 ##                                    one-time migration, on the raw save Dictionary)
+##   Unlocks.catch_up(save)           -> (v6.23) the tracks its medals open that are not open yet
+##                                    (SaveData, once whenever the game has more tracks than
+##                                    when the save last ran: career.tracks_known)
 
 ## The medal (or better) on a track that opens the next one.
 const MEDAL: String = "bronze"
@@ -63,6 +66,39 @@ static func lock_text(track_id: String) -> String:
 	if is_open(track_id):
 		return ""
 	return "%s on %s to unlock" % [String(Medals.NAMES[MEDAL]), String(Tracks.def(previous(track_id)).get("name", ""))]
+
+
+## The tracks a save's own best times open that are not open yet: the track after every open
+## track with a best time (current, any car) of bronze or better. For a save that last ran when
+## the game had fewer tracks (v6.23 added four after the finale): a medal won back then on what
+## was the last track opens the first new one, as the finish would have. `save` is the raw save
+## Dictionary (records, career.tracks_open), read only.
+static func catch_up(save: Dictionary) -> PackedStringArray:
+	var ids: PackedStringArray = Tracks.ids()
+	var out: PackedStringArray = []
+	var career: Variant = save.get("career")
+	var open: Array = []
+	if career is Dictionary and (career as Dictionary).get("tracks_open") is Array:
+		open = career.tracks_open
+	var recs: Variant = save.get("records")
+	if not (recs is Dictionary):
+		return out
+	for i: int in ids.size() - 1:
+		var tid: String = ids[i]
+		var nxt: String = ids[i + 1]
+		if open.has(nxt) or out.has(nxt) or not (recs.get(tid) is Dictionary):
+			continue
+		if i > 0 and not (open.has(tid) or out.has(tid)):
+			continue
+		for car: Variant in recs[tid]:
+			var e: Variant = recs[tid][car]
+			var time: Variant = (e as Dictionary).get("time") if e is Dictionary else null
+			if not (time is float or time is int) or not (float(time) > 0.0) or not is_finite(float(time)) or not Cars.has_car(str(car)):
+				continue
+			if earns(Medals.medal_for(Medals.medal_times(Tracks.build(tid), str(car)), float(time))):
+				out.append(nxt)
+				break
+	return out
 
 
 static func open_count() -> int:

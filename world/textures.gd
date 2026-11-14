@@ -1,7 +1,7 @@
 ## textures.gd (procedural textures of web/src/game/trackMesh.js)
 ## ------------------------------------------------------------------
 ## Shared by every track and made once: asphalt (colour, roughness and
-## normal maps), loose ground (dirt and packed snow detail, v6.3), grey detail noise, start-line checker, chevron boards,
+## normal maps), loose ground (dirt and packed snow detail, v6.3; gravel, sand, mud and ice, v6.23), grey detail noise, start-line checker, chevron boards,
 ## sponsor banners, the lamp light pool, sea ripple normals; plus the gate
 ## banner atlas of a track (one row per gate). All mipmapped, repeat where
 ## the JS repeats. Noise comes from FastNoiseLite seamless images (the JS
@@ -141,6 +141,156 @@ static func loose() -> Dictionary:
 	var out := {"map": _tex(Image.create_from_data(S, S, false, Image.FORMAT_RGBA8, cd)), "normal": _tex(nimg)}
 	_cache["loose"] = out
 	return out
+
+
+## The detail texture of a road surface (sim/surfaces.gd `tex`): {map, normal}, 512 px, 7 m a tile.
+## "loose" is loose() (dirt and packed snow); v6.23, the rally stages' own, linear data:
+##   gravel  R crushed stone packed tight (every stone its own shade, lit from one side), G each
+##           stone's hue (0 cool grey .. 1 warm brown), A height; normal: the stones
+##   sand    R wind ripples (about 25 cm apart, wavy, fading in and out) and fine grain, G a slow
+##           hue drift, A height; normal: the ripples
+##   mud     R churned lumps and clods, dark where it is low and wet, G hue, B the wet sheen
+##           (1 in the hollows), A height; normal: the lumps
+##   ice     R cloudy ice with white bubbles, G cracks (1 on a crack: big plates and finer
+##           cracks inside them), B soft patches (where snow lies on it), A fine grain (sparkle);
+##           normal: faint, the cracks
+static func surface(kind: String) -> Dictionary:
+	if kind == "loose" or not ["gravel", "sand", "mud", "ice"].has(kind):
+		return loose()
+	if _cache.has(kind):
+		return _cache[kind]
+	var S := 512
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 61 + kind.hash() % 1000
+	var blot := _noise_image(S, 7.0, 4, 141).get_data()
+	var fine := _noise_image(S, 22.0, 3, 147).get_data()
+	var mid := _noise_image(S, 4.0, 3, 153).get_data()
+	var bpp := blot.size() / (S * S)
+	var lum := PackedFloat32Array()
+	lum.resize(S * S)
+	var hue := PackedFloat32Array()
+	hue.resize(S * S)
+	var gloss := PackedFloat32Array()
+	gloss.resize(S * S)
+	var hgt := PackedFloat32Array()
+	hgt.resize(S * S)
+	var bump := 3.0
+	match kind:
+		"gravel":
+			for k in S * S:
+				var b := blot[k * bpp] / 255.0
+				var f := fine[k * bpp] / 255.0
+				var grain := rng.randf()
+				lum[k] = 0.7 + (b - 0.5) * 0.24 + (f - 0.5) * 0.16 + (grain - 0.5) * 0.24
+				hue[k] = 0.5 + (mid[k * bpp] / 255.0 - 0.5) * 0.7
+				hgt[k] = grain * 0.3 + f * 0.25
+			_stamp_stones(S, rng, 9000, 1.0, 3.4, 2.2, lum, hue, hgt, 0.5, 1.1)
+			bump = 4.0
+		"sand":
+			var warp := _noise_image(S, 3.0, 2, 159).get_data()
+			for k in S * S:
+				var u := float(k % S) / S
+				var v := float(k / S) / S
+				var b := blot[k * bpp] / 255.0
+				var amp := smoothstep(0.25, 0.65, mid[k * bpp] / 255.0)
+				var ph := TAU * (26.0 * v + 5.0 * u) + (warp[k * bpp] / 255.0 - 0.5) * 11.0
+				var r := sin(ph)
+				# (a steeper lee side: the crest sits past the middle)
+				var crest := 0.5 + 0.5 * sin(ph + 0.6 * r)
+				var grain := rng.randf()
+				lum[k] = 0.84 + (crest - 0.5) * 0.16 * amp + (b - 0.5) * 0.1 + (grain - 0.5) * 0.09
+				hue[k] = 0.5 + (b - 0.5) * 0.9
+				hgt[k] = crest * amp * 0.8 + grain * 0.1
+			_stamp_stones(S, rng, 260, 1.0, 2.2, 2.4, lum, hue, hgt, 0.62, 0.9)
+			bump = 2.6
+		"mud":
+			for k in S * S:
+				var b := blot[k * bpp] / 255.0
+				var m := mid[k * bpp] / 255.0
+				var f := fine[k * bpp] / 255.0
+				var h := clampf(0.5 + (b - 0.5) * 1.5 + (m - 0.5) * 0.7, 0.0, 1.0)
+				var grain := rng.randf()
+				lum[k] = (0.66 + h * 0.3 + (f - 0.5) * 0.14 + (grain - 0.5) * 0.08) * lerpf(0.78, 1.0, smoothstep(0.3, 0.6, h))
+				hue[k] = 0.5 + (m - 0.5) * 0.7
+				gloss[k] = 1.0 - smoothstep(0.32, 0.6, h)
+				hgt[k] = h * 1.1 + f * 0.2
+			_stamp_stones(S, rng, 420, 1.2, 3.2, 2.2, lum, hue, hgt, 0.7, 1.0)
+			bump = 3.4
+		"ice":
+			var cell := FastNoiseLite.new()
+			cell.noise_type = FastNoiseLite.TYPE_CELLULAR
+			cell.cellular_return_type = FastNoiseLite.RETURN_DISTANCE2_SUB
+			cell.cellular_jitter = 1.0
+			cell.fractal_type = FastNoiseLite.FRACTAL_NONE
+			cell.domain_warp_enabled = true
+			cell.domain_warp_amplitude = 18.0
+			cell.domain_warp_frequency = 0.02
+			cell.seed = 163
+			cell.frequency = 4.0 / S
+			var plates := cell.get_seamless_image(S, S, false, false, 0.1, false).get_data()
+			cell.seed = 167
+			cell.frequency = 11.0 / S
+			var veins := cell.get_seamless_image(S, S, false, false, 0.1, false).get_data()
+			var cb := plates.size() / (S * S)
+			for k in S * S:
+				var b := blot[k * bpp] / 255.0
+				var f := fine[k * bpp] / 255.0
+				var c := 1.0 - smoothstep(0.0, 0.045, plates[k * cb] / 255.0)
+				var c2 := (1.0 - smoothstep(0.0, 0.05, veins[k * cb] / 255.0)) * smoothstep(0.4, 0.7, b) * 0.55
+				var crack := maxf(c, c2)
+				lum[k] = clampf(0.5 + (b - 0.5) * 1.1 + (f - 0.5) * 0.25, 0.0, 1.0)
+				hue[k] = crack
+				gloss[k] = mid[k * bpp] / 255.0
+				hgt[k] = rng.randf()
+			# bubbles: clusters of small white dots frozen in
+			for n in 90:
+				var cx := rng.randi_range(0, S - 1)
+				var cy := rng.randi_range(0, S - 1)
+				for j in rng.randi_range(4, 16):
+					var k := posmod(cy + int(rng.randfn(0.0, 6.0)), S) * S + posmod(cx + int(rng.randfn(0.0, 6.0)), S)
+					lum[k] = minf(1.0, lum[k] + 0.45)
+			bump = 1.2
+	var cd := PackedByteArray()
+	cd.resize(S * S * 4)
+	for k in S * S:
+		cd[k * 4] = clampi(int(lum[k] * 255.0), 0, 255)
+		cd[k * 4 + 1] = clampi(int(hue[k] * 255.0), 0, 255)
+		cd[k * 4 + 2] = clampi(int(gloss[k] * 255.0), 0, 255)
+		cd[k * 4 + 3] = clampi(int(hgt[k] * 200.0), 0, 255)
+	if kind == "ice":
+		# (its height for the normal: the cracks, a little cloud)
+		for k in S * S:
+			hgt[k] = lum[k] * 0.15 - hue[k] * 0.6
+	var nimg := Image.create_from_data(S, S, false, Image.FORMAT_RF, hgt.to_byte_array())
+	nimg.bump_map_to_normal_map(bump)
+	var out := {"map": _tex(Image.create_from_data(S, S, false, Image.FORMAT_RGBA8, cd)), "normal": _tex(nimg)}
+	_cache[kind] = out
+	return out
+
+
+## Stamps `count` rounded stones of radius r0..r1 px (most small: the spread's power `pw`) into
+## the luminance, hue and height maps, wrapping at the edges: each its own shade (lo..hi) and
+## hue, lighter towards one side like a lit dome.
+static func _stamp_stones(S: int, rng: RandomNumberGenerator, count: int, r0: float, r1: float, pw: float,
+		lum: PackedFloat32Array, hue: PackedFloat32Array, hgt: PackedFloat32Array, lo: float, hi: float) -> void:
+	for n in count:
+		var cx := rng.randi_range(0, S - 1)
+		var cy := rng.randi_range(0, S - 1)
+		var r := r0 + pow(rng.randf(), pw) * (r1 - r0)
+		var tone := rng.randf_range(lo, hi)
+		var h := rng.randf()
+		var top := 0.6 + rng.randf() * 0.6
+		var ri := ceili(r)
+		for dy in range(-ri, ri + 1):
+			for dx in range(-ri, ri + 1):
+				var d2 := float(dx * dx + dy * dy) / (r * r)
+				if d2 > 1.0:
+					continue
+				var k := posmod(cy + dy, S) * S + posmod(cx + dx, S)
+				var dome := sqrt(1.0 - d2)
+				lum[k] = tone * (0.86 + 0.14 * dome) - (0.05 if dx + dy > 0 else -0.04) * (1.0 - dome * 0.5)
+				hue[k] = h
+				hgt[k] = maxf(hgt[k], top * (0.35 + dome * 0.75 * r / 3.0))
 
 
 ## Grey detail noise (multiplies vertex colours of terrain and concrete), linear data.

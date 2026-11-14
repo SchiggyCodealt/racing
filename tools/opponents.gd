@@ -307,6 +307,22 @@ static func make_levels(t: BuiltTrack, car_id: String, e: Dictionary) -> Diction
 				if err <= TOLERANCE * target:
 					break
 				est_target *= target / r.time
+			# (v6.23) a race's time does not always fall as the cap rises: at one speed the network
+			# clips a bank that it misses a little slower or faster (the Apex on Dune Sea: 2:07.5 at
+			# 33 m/s, 2:20.1 at 34, 2:02.4 at 34.5), and the steps above can hop over the cap that
+			# fits. Still off: try the caps around the best one, the nearest first, up to 15 % away.
+			if not best.is_empty() and best.err > TOLERANCE * target:
+				var c0: float = float(best.cap)
+				for i in 24:
+					var cap2: float = _cap(c0 * (1.0 + 0.0125 * float(i / 2 + 1) * (1.0 if i % 2 == 0 else -1.0)))
+					var r2: Dictionary = OpponentRace.run(net, t, car_id, cap2)
+					if not r2.finished:
+						continue
+					var err2: float = absf(r2.time - target)
+					if err2 < best.err:
+						best = {cap = cap2, time = r2.time, err = err2}
+					if best.err <= TOLERANCE * target:
+						break
 		if best.is_empty():
 			notes.append("%s does not finish" % ids[k])
 			ok = false

@@ -165,6 +165,13 @@ static func _all() -> Dictionary:
 		_repair_career(_data)
 		if not (_data.career.get("tracks_open") is Array):
 			_data.career.tracks_open = Array(Unlocks.from_records(_data))
+		# (v6.23) the game has more tracks than when this save last ran (four rally stages came after
+		# the finale): a bronze already won on the track before a new one opens it, once
+		var known: Variant = _data.career.get("tracks_known")
+		if not (known is float or known is int) or int(known) != Tracks.ids().size():
+			for id: String in Unlocks.catch_up(_data):
+				(_data.career.tracks_open as Array).append(id)
+			_data.career.tracks_known = Tracks.ids().size()
 		_data.version = VERSION
 	return _data
 

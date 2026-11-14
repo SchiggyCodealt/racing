@@ -847,7 +847,8 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	elif fx_f < -fx_cap_f:
 		fx_f = -fx_cap_f
 	var fy_cap_f: float = sqrt(maxf(0.0, cap_f * cap_f - fx_f * fx_f))
-	if ellipse:
+	if ellipse and cap_f > 0.0:
+		# (v6.23: not with an unloaded front axle, braking over a crest: 0 / 0 made the whole car not-a-number)
 		var q: float = fx_f / (_env_bk * cap_f)
 		fy_cap_f = cap_f * sqrt(maxf(0.0, 1.0 - q * q))
 	_tc_cut = tc_cut

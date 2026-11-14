@@ -60,7 +60,7 @@ func refresh() -> void:
 				won += 1
 		cells.append({"id": id, "trophy": best, "levels": levels})
 		lines.append("%s: %s" % [Cups.name_of(id), ", ".join(parts) if not parts.is_empty() else "-"])
-	tooltip_text = "Championships (T): three races against the same five AI drivers, points, trophies and a big payout.\nTrophy cabinet (%d of %d):\n%s" % [
+	tooltip_text = "Championships (T): three or four races against the same five AI drivers, points, trophies and a big payout.\nTrophy cabinet (%d of %d):\n%s" % [
 		won, Cups.ids().size() * Opponents.ids().size(), "\n".join(lines)]
 	_cab.queue_redraw()
 

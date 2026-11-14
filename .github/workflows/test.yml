@@ -24,7 +24,11 @@ jobs:
       - name: Import the project
         run: timeout 600 "$GODOT" --headless --path . --import
       - name: Headless tests
-        run: timeout 1500 "$GODOT" --headless --path . --script res://tests/run_tests.gd -- sim ui world game ai
+        run: |
+          set -o pipefail
+          timeout 1500 "$GODOT" --headless --path . --script res://tests/run_tests.gd -- sim ui world game ai 2>&1 | tee "$RUNNER_TEMP/tests.log"
+          # a script error ends a test function early without failing a check: count it as a failure
+          if grep -q "SCRIPT ERROR" "$RUNNER_TEMP/tests.log"; then echo "::error::script error in the tests"; exit 1; fi
 
   # The browser version (web/): its own self-test with Node.
   web-self-test:

@@ -29,7 +29,8 @@ extends SceneTree
 ##   - sprints have 36 m of straight road before the cars' start position and
 ##     250 m of flat, straight run-off after the FINISH line
 ##   - surfaces (v6.3): known ids (sim/surfaces.gd), every stretch other than
-##     asphalt at least 60 m long, and the start grid on asphalt
+##     asphalt at least 60 m long, and the start grid on asphalt; v6.23: at most
+##     two surfaces besides asphalt on one track
 
 const OUT_PATH: String = "res://data/tracks.json"
 
@@ -57,7 +58,8 @@ const RULES: Dictionary = {
 }
 const RUN_IN: float = 36.0
 const RUN_OFF: float = 250.0
-const THEMES: Array[String] = ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland"]
+const THEMES: Array[String] = ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland",
+	"pinewood", "dunes", "frozen", "jungle"]
 const DEGR: float = PI / 180.0
 
 ## The designs, in menu order: {kind, meta, make (Callable), close (closeLoop options), req}
@@ -571,6 +573,146 @@ func _define() -> void:
 			.S(RUN_OFF, {y = 2})), # run-off after the finish line
 		{minLength = 4500, minClimb = 14, kickers = 2})
 
+	# ---- v6.23: four rally stages, point to point on a narrow road, each on a surface of its own
+	# (sim/surfaces.gd: gravel, sand, ice, mud). Asphalt only under the start and the finish.
+
+	# 16 - Pine Ridge: a fast gravel stage through a northern pine forest. Flowing bends taken
+	# sideways, blind crests and two jumps.
+	_sprint({id = "pine-ridge", name = "Pine Ridge", difficulty = 3, width = 12, theme = "pinewood",
+		description = "A fast gravel stage through the pine forest: flowing bends, blind crests and two jumps."},
+		func() -> Turtle: return (Turtle.new({width = 13, y = 3})
+			.S(RUN_IN, {y = 3})
+			.S(120, {y = 3}).width(12, 40)
+			.surface("gravel")
+			.S(60)
+			.R(40, 120, {bank = 4}).hill(200, 2.5)
+			.L(70, 70, {bank = 6})
+			.S(30).kicker({h = 3.5})
+			.R(55, 90, {bank = 5})
+			.L(50, 80, {bank = 5}).climb(160, 9)
+			.R(100, 45, {bank = 8})
+			.hill(220, 2).L(35, 140, {bank = 4})
+			.S(20).kicker({h = 4.5, drop = 2})
+			.L(90, 50, {bank = 8})
+			.R(60, 60, {bank = 6}).climb(180, 4)
+			.SL(40, 70, {bank = 5}, 20)
+			.S(40).hill(200, 3)
+			.R(80, 55, {bank = 8})
+			.L(45, 110, {bank = 4})
+			.S(60, {y = 3})
+			.surface("asphalt")
+			.S(140, {y = 3})
+			.S(RUN_OFF, {y = 3})),
+		{minLength = 3000, kickers = 2})
+
+	# 17 - Dune Sea: soft sand over the dunes, long bends to hold a slide through, and a flat-out
+	# run over the hard gravel of a dry lake bed in the middle.
+	_sprint({id = "dune-sea", name = "Dune Sea", difficulty = 4, width = 13, theme = "dunes",
+		description = "Soft sand over the dunes: long slides, a flat-out dry lake bed and a jump off a dune."},
+		func() -> Turtle: return (Turtle.new({width = 14, y = 4, yaw = PI / 2})
+			.S(RUN_IN, {y = 4})
+			.S(110, {y = 4}).width(13, 40)
+			.surface("sand")
+			.S(50)
+			.L(50, 110, {bank = 6}).hill(220, 4)
+			.R(110, 70, {bank = 10})
+			.climb(160, 10).L(60, 90, {bank = 8})
+			.hill(240, 3).R(40, 150, {bank = 5})
+			.climb(180, 4)
+			# the dry lake bed: hard gravel, flat out
+			.surface("gravel")
+			.S(160).L(25, 220, {bank = 3}).R(25, 220, {bank = 3}).S(120)
+			.S(20).kicker({h = 4})
+			# (a straight in the sand after the landing: a car that lands crooked at 190 km/h gets
+			# room to settle and brake before the right-hander; without it the Drifter spun there)
+			.surface("sand")
+			.S(80)
+			.R(90, 60, {bank = 10})
+			.climb(150, 11).L(140, 50, {bank = 12})
+			.climb(160, 5).R(70, 80, {bank = 8})
+			.hill(200, 3.5).L(50, 100, {bank = 6})
+			.R(30, 160, {bank = 4})
+			.S(60, {y = 4})
+			.surface("asphalt")
+			.S(150, {y = 4})
+			.S(RUN_OFF, {y = 4})),
+		{minLength = 3400, kickers = 1})
+
+	# 18 - Frozen Lake: bare ice out on the lake, long flat bends where the car only just turns,
+	# and packed snow along the shore with a jump off the bank.
+	_sprint({id = "frozen-lake", name = "Frozen Lake", difficulty = 4, width = 14, theme = "frozen",
+		description = "Bare ice out on the lake and packed snow along the shore: brake early and steer with the throttle."},
+		func() -> Turtle: return (Turtle.new({width = 15, y = 2})
+			.S(RUN_IN, {y = 2})
+			.S(110, {y = 2}).width(14, 40)
+			.surface("snow")
+			.S(70).R(45, 90, {bank = 5})
+			# out onto the lake
+			.surface("ice")
+			.S(90)
+			.L(120, 85)
+			.S(70)
+			.R(150, 75)
+			.S(70)
+			.L(150, 75)
+			.S(60)
+			# up onto the shore
+			.surface("snow")
+			.R(75, 60, {bank = 8}).climb(140, 6)
+			.L(60, 50, {bank = 8}).R(60, 50, {bank = 8})
+			.S(20).kicker({h = 3.5, drop = 1.5})
+			.climb(150, 2)
+			# and back onto the ice
+			.surface("ice")
+			.R(100, 100)
+			.S(80)
+			.L(160, 70)
+			.S(60)
+			.R(60, 120)
+			.S(80)
+			.surface("snow")
+			.S(60, {y = 2})
+			.surface("asphalt")
+			.S(140, {y = 2})
+			.S(RUN_OFF, {y = 2})),
+		{minLength = 3000, kickers = 1})
+
+	# 19 - Monsoon Trail: the hardest stage. A narrow jungle track in the rains: deep mud in the
+	# valley, two switchbacks up a firmer gravel climb, a drop off the ridge and more mud home.
+	_sprint({id = "monsoon-trail", name = "Monsoon Trail", difficulty = 5, width = 11, theme = "jungle",
+		description = "A narrow jungle track in the rains: deep mud, switchbacks up a gravel climb and a drop off the ridge."},
+		func() -> Turtle: return (Turtle.new({width = 13, y = 2, yaw = -PI / 2})
+			.S(RUN_IN, {y = 2})
+			.S(100, {y = 2}).width(11, 40)
+			.surface("mud")
+			.S(50).R(60, 60, {bank = 6})
+			.L(100, 40, {bank = 10})
+			.hill(180, 2).R(70, 50, {bank = 8})
+			.S(30).L(30, 90).climb(140, 6.5)
+			# the climb: two switchbacks on firmer ground
+			.surface("gravel")
+			.S(30).width(13, 30).S(20).hairpin("L", 22, {bank = 12}).width(11, 30)
+			.climb(140, 10.5).width(13, 30).S(20).hairpin("R", 22, {bank = 12}).width(11, 30)
+			.climb(140, 13.5)
+			.L(90, 40, {bank = 10})
+			# along the ridge and off it
+			.surface("mud")
+			.hill(200, 1)
+			.R(60, 60, {bank = 8})
+			.S(20).kicker({h = 3.5, drop = 3})
+			.climb(160, 7)
+			.L(50, 70, {bank = 6})
+			.R(130, 38, {bank = 12})
+			.climb(150, 3)
+			.L(80, 45, {bank = 8})
+			.SR(40, 60, {bank = 5}, 15)
+			.R(30, 100)
+			.S(60, {y = 2})
+			.surface("asphalt")
+			.S(140, {y = 2})
+			.S(RUN_OFF, {y = 2})),
+		{minLength = 2800, kickers = 1})
+
 
 ## A design turned into its track definition: {def, f (finish() result), turtle, req}, or {} on an error.
 func _realise(d: Dictionary) -> Dictionary:
@@ -915,6 +1057,8 @@ func _validate(e: Dictionary) -> Dictionary:
 		for k: int in share:
 			if k != Surfaces.ASPHALT:
 				surf_txt.append("%s %.0f%%" % [Surfaces.id(k), 100.0 * share[k] / count])
+		if surf_txt.size() > 2:
+			issues.append("%d surfaces besides asphalt: the road's look carries two (Surfaces.slots)" % surf_txt.size())
 		var a_s: int = tr.start_line - JsMath.roundi(RULES.startAsphalt / seg_len)
 		var b_s: int = tr.start_idx + JsMath.roundi(RULES.startAsphalt / seg_len)
 		for i in range(a_s, b_s + 1):

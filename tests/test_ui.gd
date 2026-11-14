@@ -85,7 +85,7 @@ func _formats(t) -> void:
 func _data(t) -> void:
 	t.section("data adapter and medals (medals.js medalFor / nextMedal)")
 	Fx.save_data_v5()
-	t.check(UiData.track_count() == 15, "15 tracks (%d)" % UiData.track_count())
+	t.check(UiData.track_count() == 19, "19 tracks (%d)" % UiData.track_count())
 	t.check(UiData.track_id(9) == "night-highway" and UiData.track_info(9).name == "Night Highway", "track 10 is Night Highway")
 	var real: bool = not UiData._tracks.is_empty()
 	t.check(real, "tracks come from sim/ (Tracks.build), not the fixture")
@@ -235,9 +235,9 @@ func _menu_cars(t) -> void:
 
 
 func _menu_tracks(t) -> void:
-	t.section("menu track grid: 15 tracks at every window size (v6.4)")
+	t.section("menu track grid: 19 tracks at every window size (v6.4; v6.23: the four stages make a fourth row)")
 	Fx.save_data_v5()
-	# [window, tiles a row]: three rows of five from 1200 px wide, rows of four from 760, three below
+	# [window, tiles a row]: four rows of five (the last one of four) from 1200 px wide, rows of four from 760, three below
 	for case: Array in [[Vector2(1280, 720), 5], [Vector2(1920, 1080), 5], [Vector2(1366, 768), 5], [Vector2(1200, 700), 5],
 			[Vector2(1024, 600), 4], [Vector2(900, 700), 4], [Vector2(700, 900), 3], [Vector2(640, 720), 3]]:
 		var sz: Vector2 = case[0]
@@ -261,7 +261,7 @@ func _menu_tracks(t) -> void:
 		# from 1280 x 720 up every tile is on screen without scrolling (the e2e menu scenario checks the
 		# whole menu with real frames)
 		var on_screen := bottom <= sz.y + 0.5 if sz.x >= 1280 else true
-		t.check(tiles.size() == 15 and menu.columns == int(case[1]) and inside and not overlap and on_screen,
+		t.check(tiles.size() == 19 and menu.columns == int(case[1]) and inside and not overlap and on_screen,
 			"%dx%d: %d tiles, %d a row, inside the window and apart%s" % [sz.x, sz.y, tiles.size(), menu.columns,
 				", every tile on screen (lowest ends at %d px, maps %d px)" % [roundi(bottom), roundi(menu.map_h)] if sz.x >= 1280 else ""])
 		h.free()
@@ -273,7 +273,7 @@ func _menu_keys(t) -> void:
 	var hm := _menu(t)
 	var menu: MainMenu = hm[1]
 	var inp := Fx.FakeInput.new()
-	t.check(menu.selected_track == 9 and menu.columns == 5, "Night Highway selected, five tiles a row at 1280 x 720 (15 tracks: three rows)")
+	t.check(menu.selected_track == 9 and menu.columns == 5, "Night Highway selected, five tiles a row at 1280 x 720 (19 tracks: four rows)")
 	var picked := []
 	menu.track_selected.connect(func(i: int) -> void: picked.append(i))
 	for pair in [["Digit1", 0], ["Digit0", 9], ["Minus", 10], ["Equal", 11], ["Numpad5", 4]]:
@@ -292,11 +292,13 @@ func _menu_keys(t) -> void:
 	t.check(meta.text == "Circuit · 3 laps · 2.37 km a lap · Asphalt + dirt", "the track panel names the road surfaces: \"%s\"" % meta.text)
 	menu.select(7)
 	t.check(meta.text.ends_with("km · Asphalt + dirt + packed snow"), "... and a sprint's: \"%s\"" % meta.text)
-	menu.select(14)
+	menu.select(15)
+	t.check(meta.text.ends_with("km · Asphalt + gravel"), "... and a rally stage's (v6.23): \"%s\"" % meta.text)
+	menu.select(18)
 	menu.handle_keys(_press(inp, ["ArrowRight"]))
-	t.check(menu.selected_track == 0, "ArrowRight from the last track (15) wraps to the first")
+	t.check(menu.selected_track == 0, "ArrowRight from the last track (19) wraps to the first")
 	menu.handle_keys(_press(inp, ["ArrowUp"]))
-	t.check(menu.selected_track == 14, "ArrowUp from the first wraps to the last")
+	t.check(menu.selected_track == 18, "ArrowUp from the first wraps to the last")
 	menu.handle_keys(_press(inp, ["KeyS"]))
 	t.check(menu.selected_track == 0, "S moves on like ArrowDown")
 	UiData.set_setting("car", "racer")
@@ -375,6 +377,8 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_tiles")[14] and menu.selected_track == 14, "down a row: track 15 (Summit Rush, the third row of five)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
+	t.check(menu.pad_target() == menu.get("_tiles")[18] and menu.selected_track == 18, "down again: the fourth row has four tiles (v6.23), so the last one: track 19 (Monsoon Trail)")
+	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_drive_btn"), "down from the bottom row: TIME TRIAL (v6.19: the race buttons)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	var under: Control = menu.pad_target()
@@ -384,13 +388,14 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["PadRB"], true))
 	t.check(UiData.picked_car() == "thunder" and menu.pad_target() == menu.get("_drive_btn"), "RB picks the next car (the records shown), the highlight stays")
 	menu.handle_keys(_press(inp, ["NavLeft"], true))
-	t.check(menu.pad_target() == menu.get("_tiles")[14], "left from the buttons goes back to the tracks")
+	t.check(menu.pad_target() == menu.get("_tiles")[18], "left from the buttons goes back to the tracks")
 	menu.handle_keys(_press(inp, ["NavLeft"], true))
-	t.check(menu.selected_track == 13, "left on the tracks moves to the previous track")
+	t.check(menu.selected_track == 17, "left on the tracks moves to the previous track")
 	menu.handle_keys(_press(inp, ["NavUp"], true))
-	t.check(menu.selected_track == 8, "up a row")
 	menu.handle_keys(_press(inp, ["NavUp"], true))
-	t.check(menu.selected_track == 3, "up a row again: the top row")
+	t.check(menu.selected_track == 7, "up two rows")
+	menu.handle_keys(_press(inp, ["NavUp"], true))
+	t.check(menu.selected_track == 2, "up a row again: the top row")
 	menu.handle_keys(_press(inp, ["NavUp"], true))
 	t.check(menu.pad_target() == menu.get("_controls_btn"), "up from the top row: the Controls button")
 	menu.handle_keys(_press(inp, ["NavLeft"], true))
@@ -402,7 +407,7 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_settings_btn"), "after a screen closes, the first press shows the highlight where it was")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	t.check(menu.pad_target() == menu.get("_tiles")[3], "down from the header: back to the tracks (the tile under the Settings button)")
+	t.check(menu.pad_target() == menu.get("_tiles")[2], "down from the header: back to the tracks (the picked track's tile)")
 	menu.handle_keys(_press(inp, ["PadLB"], true))
 	t.check(UiData.picked_car() == "kestrel", "LB picks the previous car from anywhere")
 	var drives := [0]
@@ -1045,15 +1050,15 @@ func _unlocks(t) -> void:
 	var menu: MainMenu = hm[1]
 	var tiles: Array = menu.get("_tiles")
 	var drive_btn: Button = menu.get("_drive_btn")
-	t.check(UiData.store.career.tracks_open == null and UiData.open_track_count() == 15 and tiles.all(func(x: Control) -> bool: return not x.locked),
+	t.check(UiData.store.career.tracks_open == null and UiData.open_track_count() == 19 and tiles.all(func(x: Control) -> bool: return not x.locked),
 		"the store's default (tests, previews): every track open")
 	UiData.store.career.tracks_open = ["hairpin-valley"]
 	UiData.set_setting("car", "racer")
 	menu.select(0)
-	t.check(UiData.open_track_count() == 2 and not tiles[0].locked and not tiles[1].locked and tiles[2].locked and tiles[14].locked and
-		tiles[2].lock_note == "Bronze on 02" and tiles[14].lock_note == "Bronze on 14" and str(tiles[2].tooltip_text).contains("Locked: bronze on Hairpin Valley opens it") and
+	t.check(UiData.open_track_count() == 2 and not tiles[0].locked and not tiles[1].locked and tiles[2].locked and tiles[14].locked and tiles[18].locked and
+		tiles[2].lock_note == "Bronze on 02" and tiles[14].lock_note == "Bronze on 14" and tiles[15].lock_note == "Bronze on 15" and str(tiles[2].tooltip_text).contains("Locked: bronze on Hairpin Valley opens it") and
 		UiData.track_lock(2) == {"medal": "bronze", "index": 1, "name": "Hairpin Valley"} and UiData.track_lock(1).is_empty(),
-		"Rookie Oval and Hairpin Valley open: tiles 3-15 locked (Ramp Rally: \"%s\", its tooltip says what opens it)" % tiles[2].lock_note)
+		"Rookie Oval and Hairpin Valley open: tiles 3-19 locked (Ramp Rally: \"%s\", its tooltip says what opens it)" % tiles[2].lock_note)
 	var inp := Fx.FakeInput.new()
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)
@@ -1235,8 +1240,8 @@ func _cup_ui(t) -> void:
 	var rows: Array = cs.get("_rows")
 	var start: Button = cs.get("_start_btn")
 	var pr := cs.panel.get_global_rect()
-	t.check(rows.size() == 5 and pr.end.x <= 1280.5 and pr.position.x >= 0.0 and not start.disabled and cs.picked_cup == "rookie" and (cs.get("_level_btns") as Dictionary).size() == 5,
-		"the picker at 1280 x 720: five cup rows and five level chips across the window (%d px wide), START CUP on (every track open), the Rookie Cup picked" % roundi(pr.size.x))
+	t.check(rows.size() == 6 and pr.end.x <= 1280.5 and pr.position.x >= 0.0 and not start.disabled and cs.picked_cup == "rookie" and (cs.get("_level_btns") as Dictionary).size() == 5,
+		"the picker at 1280 x 720: six cup rows (v6.23: the Rally Cup) and five level chips across the window (%d px wide), START CUP on (every track open), the Rookie Cup picked" % roundi(pr.size.x))
 	var tracks0 := String(((rows[0] as Dictionary).tracks as Label).text)
 	t.check(tracks0.contains("Rookie Oval") and tracks0.contains("Hairpin Valley") and tracks0.contains("Ramp Rally"), "a cup row lists its three tracks: \"%s\"" % tracks0)
 	var inp := MenuInput.new()
@@ -1245,11 +1250,11 @@ func _cup_ui(t) -> void:
 	var moved := cs.picked_cup == "asphalt" and cs.picked_level == "expert"
 	cs.handle_keys(_press(inp, ["ArrowUp"]))
 	cs.handle_keys(_press(inp, ["ArrowUp"]))
-	var wrapped := cs.picked_cup == "finale"
+	var wrapped := cs.picked_cup == "rally"
 	var got: Array = []
 	cs.start_cup.connect(func(c: String, l: String) -> void: got.append([c, l]))
 	cs.handle_keys(_press(inp, ["Enter"]))
-	t.check(moved and wrapped and got == [["finale", "expert"]], "keys: down / right pick the next cup and level, up wraps to the Grand Finale, Enter starts it (%s)" % str(got))
+	t.check(moved and wrapped and got == [["rally", "expert"]], "keys: down / right pick the next cup and level, up wraps to the last (the Rally Cup), Enter starts it (%s)" % str(got))
 	cs.handle_keys(_press(inp, ["Escape"]))
 	t.check(not cs.visible, "Esc closes it")
 	# the standings of a cup in progress
@@ -1281,9 +1286,9 @@ func _cup_ui(t) -> void:
 	var cab := CupCabinet.new()
 	var c0: Dictionary = cab.cells[0]
 	var c1: Dictionary = cab.cells[1]
-	t.check(cab.cells.size() == 5 and String(c0.trophy) == "bronze" and c0.levels == ["", "", "gold", "", "bronze"] and String(c1.trophy) == "silver" and
-		cab.tooltip_text.contains("3 of 25") and cab.tooltip_text.contains("Rookie Cup: Pro gold, Elite bronze") and cab.custom_minimum_size.x < 240.0,
-		"the Cups button's cabinet: the Rookie Cup's trophy at its highest level (Elite bronze) with gold and bronze level pips, the Asphalt Cup's silver; tooltip \"3 of 25\" (%d px wide)" % roundi(cab.custom_minimum_size.x))
+	t.check(cab.cells.size() == 6 and String(c0.trophy) == "bronze" and c0.levels == ["", "", "gold", "", "bronze"] and String(c1.trophy) == "silver" and
+		cab.tooltip_text.contains("3 of 30") and cab.tooltip_text.contains("Rookie Cup: Pro gold, Elite bronze") and cab.custom_minimum_size.x < 280.0,
+		"the Cups button's cabinet: the Rookie Cup's trophy at its highest level (Elite bronze) with gold and bronze level pips, the Asphalt Cup's silver; tooltip \"3 of 30\" (%d px wide)" % roundi(cab.custom_minimum_size.x))
 	cab.free()
 	# the trophy moment's panel: the final standings
 	h = _holder(t)

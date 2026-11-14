@@ -436,8 +436,8 @@ class TyreSmoke:
 # =============================================================================
 
 ## Strip pieces behind the rear wheels. Each piece's colour mixes the asphalt mark with the
-## marks of surfaces 1 and 2 of sim/surfaces.gd (custom data .z / .w: their weights), so the
-## marks are dark on asphalt, brown in the dirt and grey-blue in the snow.
+## marks of the track's two surface slots (sim/surfaces.gd slots(); custom data .z / .w: their
+## weights), so the marks are dark on asphalt, brown in the dirt and grey-blue in the snow.
 class SkidMarks:
 	var max := 240
 	var node: MultiMeshInstance3D
@@ -457,6 +457,15 @@ class SkidMarks:
 				mat.set_shader_parameter("color_%d" % slot, Color.html(Surfaces.def(slot).marks))
 		node = CarEffects.pool_node("corners", max, mat, "SkidMarks")
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_mat = mat
+
+	var _mat: ShaderMaterial
+
+	## The mark colours of the surfaces in a track's two slots (Surfaces.slots(); -1: unused).
+	func set_slots(slots: PackedInt32Array) -> void:
+		for k in 2:
+			if slots[k] >= 0:
+				_mat.set_shader_parameter("color_%d" % (k + 1), Color.html(Surfaces.def(slots[k]).marks))
 
 	## A strip piece for wheel w from its last point to p; side vector (sx, sz). tint: the
 	## weights of surfaces 1 and 2 under the wheel; spacing: the shortest piece (m).
@@ -523,6 +532,7 @@ class Spray:
 		kind = p_kind
 		var mat := CarEffects.shader_mat(CarEffects.SMOKE_SHADER)
 		mat.set_shader_parameter("color", color)
+		_mat = mat
 		node = CarEffects.pool_node("disc", max, mat, "Dust" if kind == "dust" else "SnowSpray")
 		node.multimesh.visible_instance_count = max
 		buf.resize(max * CarEffects.FLOATS)
@@ -531,6 +541,11 @@ class Spray:
 		for a in [life, full, s0, al, fl]:
 			a.resize(max)
 		full.fill(1.0)
+
+	var _mat: ShaderMaterial
+
+	func set_color(color: Color) -> void:
+		_mat.set_shader_parameter("color", color)
 
 	## One puff at a wheel (x, y, z) of a car moving at (vx, vz); strength 0..1 (speed, slide).
 	func emit(x: float, y: float, z: float, vx: float, vz: float, strength: float) -> void:

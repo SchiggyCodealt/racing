@@ -24,6 +24,8 @@ extends RefCounted
 const DECEL: float = 11.0 # m/s², the braking the medal autopilot plans with
 static var _BRAKE: PackedFloat64Array = Surfaces.column("brake")
 static var _ABS: PackedFloat64Array = Surfaces.column("abs")
+## (v6.23) the share of its grip on a surface the plan counts on in corners (1 but on ice)
+static var _PLAN: PackedFloat64Array = Surfaces.column("plan", 1.0)
 const NITRO_STEER: float = 0.25 # nitro at full throttle with |steer| below this
 const LOOK_MAX: float = 80.0 # m, the furthest the medal autopilot aims
 ## The medal sweep's two cornering settings (tools/medals.gd).
@@ -94,7 +96,7 @@ func _plan(window: int, span: float, cap: float, straight: float, grip: float, d
 			var gb: float = 0.0
 			for sf in track.surf_n:
 				var w: float = track.surf_w[i * track.surf_n + sf]
-				g += w * spec.surface_grip[sf]
+				g += w * spec.surface_grip[sf] * _PLAN[sf]
 				gb += w * spec.surface_grip[sf] * (_BRAKE[sf] * _ABS[sf] / _ABS[Surfaces.ASPHALT])
 			share[i] = g
 			bshare[i] = gb

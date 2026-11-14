@@ -12,7 +12,8 @@
 ## ground colours, hills / mountains (m) and mountainStyle (peaks | mesa),
 ## accent (barrier panel colours), lamps (lit lamps and gates), scenery
 ## (species names), tuft (grass colours or null); extras: glow (night
-## barrier stripes), skyline (night city), sea (seaside coast), headlights (0..1: how
+## barrier stripes), skyline (night city), sea (seaside coast), posts (v6.23, false: no lamp
+## posts along the road, the rally stages), headlights (0..1: how
 ## much the cars' headlights light the road, world/car_model.gd; none when missing);
 ## v6.4 extras: woods (a forest: {count, spacing, peak, near, open}, more trees close to the road, see
 ## world/track_scenery.gd; none = as before),
@@ -173,9 +174,72 @@ const THEMES := {
 		"scenery": ["larch", "pineLow", "pineHigh", "rockSnow", "bushAutumn"],
 		"tuft": {"color": 0x7d7e3e, "tip": 0xc8b062},
 	},
+	# v6.23 (the rally stages, tracks 16-19)
+	"pinewood": {
+		# a northern summer: tall pine forest with birches, moss and heather, a clear sky with fair-weather clouds
+		"sky": {"zenith": 0x2b6ad0, "horizon": 0xcfe3f2, "below": 0x567a44, "clouds": 0.5, "cloudLit": 0xffffff, "cloudShade": 0xa3b6cc, "haze": 0.45},
+		"sun": {"color": 0xfff2dc, "intensity": 3.3, "elevation": 42.0, "azimuth": 300.0},
+		"hemi": {"sky": 0xd4e8ff, "ground": 0x4f6a3a, "intensity": 0.32},
+		"env": 1.0,
+		"fog": {"color": 0xc6dcea, "near": 300.0, "far": 2800.0},
+		"exposure": 1.0,
+		"bloom": {"strength": 0.22, "radius": 0.45, "threshold": 1.15},
+		"ground": {"a": 0x3f6a2c, "b": 0x56803a, "dry": 0x84864c, "dirt": 0x7c7262, "rock": 0x8b8982, "snow": -1, "far": 0x3c6034},
+		"hills": 11.0, "mountains": 90.0, "mountainStyle": "peaks",
+		"accent": [0xf2c21a, 0xf4f3ee], "lamps": false, "woods": {"count": 1.5, "spacing": 8.0, "peak": 0.9, "near": 80.0, "open": 0.25},
+		"scenery": ["pine", "pineTall", "birchGreen", "bush", "rock"], "posts": false,
+		"tuft": {"color": 0x5f8f3a, "tip": 0xa6bf62},
+	},
+	"dunes": {
+		# the open desert at midday: pale dunes to the horizon, a white-hot sky, a few palms and dry scrub
+		"sky": {"zenith": 0x3d84d2, "horizon": 0xf3e4c6, "below": 0xdbb97f, "clouds": 0.06, "cloudLit": 0xfff8ec, "cloudShade": 0xdcc4a4, "haze": 1.1},
+		"sun": {"color": 0xffe8bc, "intensity": 3.8, "elevation": 58.0, "azimuth": 150.0},
+		"hemi": {"sky": 0xfff0d4, "ground": 0xb89460, "intensity": 0.34},
+		"env": 1.0,
+		"fog": {"color": 0xeedcb8, "near": 170.0, "far": 2200.0},
+		"exposure": 0.93,
+		"bloom": {"strength": 0.2, "radius": 0.45, "threshold": 1.35},
+		"ground": {"a": 0xe0bf86, "b": 0xd6af72, "dry": 0xcba266, "dirt": 0xbb915a, "rock": 0xb07a4c, "snow": -1, "far": 0xdfbb82},
+		"hills": 17.0, "mountains": 60.0, "mountainStyle": "peaks",
+		"accent": [0x1f8fd0, 0xf6efe4], "lamps": false,
+		"scenery": ["shrubDry", "palmOasis", "rockRed", "shrubDry"], "posts": false,
+		"tuft": null,
+	},
+	"frozen": {
+		# a winter morning on a frozen lake: a low, rosy sun, long blue shadows, snowy pines along the shore
+		"sky": {"zenith": 0x3a78c8, "horizon": 0xf6dccc, "below": 0xd5e0ea, "clouds": 0.2, "cloudLit": 0xffeede, "cloudShade": 0xa9b4cc, "haze": 0.7},
+		"sun": {"color": 0xffe0c0, "intensity": 3.0, "elevation": 17.0, "azimuth": 120.0},
+		"hemi": {"sky": 0xd6e4ff, "ground": 0xa8b4c4, "intensity": 0.4},
+		"env": 1.0,
+		"fog": {"color": 0xdfe6f0, "near": 280.0, "far": 2900.0},
+		"exposure": 0.9,
+		"bloom": {"strength": 0.22, "radius": 0.4, "threshold": 1.5},
+		"ground": {"a": 0xe8eef5, "b": 0xdde6ef, "dry": 0xb4c0cc, "dirt": 0x8a929c, "rock": 0x70767e, "snow": 0xf4f7fb, "far": 0xdfe8f1},
+		"hills": 3.0, "mountains": 150.0, "mountainStyle": "peaks",
+		"accent": [0xe8421c, 0xf4f6f8], "lamps": false,
+		"scenery": ["pineSnow", "pineSnow", "rockSnow"], "posts": false,
+		"tuft": null,
+	},
+	"jungle": {
+		# the rainy season: a low grey sky, mist between the trees, everything dark green and dripping
+		"sky": {"zenith": 0x6c7c8a, "horizon": 0xbcc5c6, "below": 0x48583f, "clouds": 0.9, "cloudLit": 0xd9dde0, "cloudShade": 0x6c7781, "haze": 1.4},
+		"sun": {"color": 0xe8eef2, "intensity": 2.1, "elevation": 52.0, "azimuth": 80.0},
+		"hemi": {"sky": 0xc4d0d8, "ground": 0x4a5a3a, "intensity": 0.6},
+		"env": 1.3,
+		"fog": {"color": 0xa9b7b3, "near": 80.0, "far": 1500.0},
+		"exposure": 1.04,
+		"bloom": {"strength": 0.2, "radius": 0.45, "threshold": 1.2},
+		"ground": {"a": 0x2f5a26, "b": 0x437032, "dry": 0x5c6a38, "dirt": 0x5a4230, "rock": 0x5e5a54, "snow": -1, "far": 0x2e4f2c},
+		"hills": 12.0, "mountains": 140.0, "mountainStyle": "peaks",
+		"accent": [0xf08a1c, 0xf2efe6], "lamps": false, "headlights": 0.45,
+		"woods": {"count": 1.6, "spacing": 7.5, "peak": 0.9, "near": 70.0, "open": 0.2},
+		"scenery": ["palmJungle", "treeJungle", "fern", "treeJungle", "rock"], "posts": false,
+		"tuft": {"color": 0x3f7a30, "tip": 0x7fae4a},
+	},
 }
 
-const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland"]
+const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland",
+	"pinewood", "dunes", "frozen", "jungle"]
 
 ## Quality levels (scene.js QUALITY, plus what Godot does with them): render scale
 ## (the web's pixel-ratio cap at 1x DPI), bloom (glow), sun shadow map size and

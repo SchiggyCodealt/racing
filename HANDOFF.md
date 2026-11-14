@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-13 (v6.22.0: round 5, item 5 of 9: a seventh car, the Apex formula car (`sim/cars.gd`,
+_Last updated: 2026-11-13 (v6.23.0: round 5, item 6 of 9: four rally stages on four new road surfaces, gravel, sand,
+ice and mud (`sim/surfaces.gd`, `tools/gen_tracks.gd`, `world/shaders/road_surface.gdshader`, `world/textures.gd`), a
+Rally Cup, and a fix for a not-a-number fault in the physics (braking on loose ground with no load on the front axle);
+v6.22.0: round 5, item 5 of 9: a seventh car, the Apex formula car (`sim/cars.gd`,
 `world/car_shapes.gd`); v6.21.0: round 5, item 4: the weight upgrade, a fifth part (`sim/upgrades.gd`);
 v6.20.0: round 5, item 3 of 8: the F1-style leaderboard: a timing tower on the HUD
 (`ui/timing_tower.gd`) and results / standings tables as rows (`ui/result_row.gd`);
@@ -37,7 +40,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.22.0, round 5 under way (5 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car; a ninth item, a Quattro-style rally car, was added on 2026-11-13); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.23.0, round 5 under way (6 of 9 done: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages; a ninth item, a Quattro-style rally car, was added on 2026-11-13 and is next); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -324,7 +327,7 @@ that follows the revs, tyre squeal, gravel and snow crunch, wall hits, nitro, mu
 | Dirt and snow polish (v6.10.0): the screen overlay and its setting, the loose texture and road shader, the ragged surface changes (`CUSTOM0`, wide weights), the barrier grime shader, wall friction, brake and ABS columns (GDScript, autopilot and FleetSim), the AI opponent's dust; new medal times and AI levels for the seven surface tracks | done; overlay (builds, fades, quality, setting, the middle kept clear, the car ahead), barriers, no ground rumble, brakes against v6.9.0, curve braking, wall scrape, walls cost time, FleetSim parity are tests; e2e `surfaces`, `settings1/2` | `world/screen_grime.gd`, `world/shaders/screen_*.gdshader`, `world/shaders/road_surface.gdshader`, `world/shaders/barrier_grime.gdshader`, `world/textures.gd`, `world/track_mesh.gd`, `sim/surfaces.gd`, `sim/car.gd`, `sim/autopilot.gd`, `native/src/`, `modes/play_mode.gd`, `ui/settings_screen.gd` |
 | Car upgrades (v6.11.0): the parts table, upgraded specs, prices, the save file's `career.upgrades` (VERSION 5), the picker's part chips and green bars, the app's ask-first purchase, play and train modes driving the upgraded car (opponents stock), records and ghosts tagged with the levels, the parts on the model, the terminal's `upgrade` / `buy <car> <part>` / `status` row, `tools/upgrades.gd` | done; specs per part / level / car, measured effects, laps, stability (jumps, lane keeping, curve braking on three surfaces), prices and buying, migration and junk, an upgraded ghost replaying exactly, FleetSim parity with upgraded specs, the app, the terminal, the picker and the model are tests; e2e `upgrades` | `sim/upgrades.gd`, `sim/car_spec.gd`, `sim/score.gd`, `sim/save.gd`, `sim/economy.gd`, `sim/replay.gd`, `sim/autopilot.gd`, `ai/trainer.gd`, `modes/play_mode.gd`, `modes/train_mode.gd`, `ui/part_chip.gd`, `ui/main_menu.gd`, `ui/car_card.gd`, `ui/ui_data.gd`, `game/app.gd`, `game/terminal.gd`, `world/car_build.gd`, `world/car_model.gd`, `world/car_shapes.gd`, `tools/upgrades.gd` |
 | Sound and music (v6.12.0): buses with a limiter, volumes and the background mute (settings), pooled effects, music with cross-fade and ducking, the live engine synthesizer (six characters), a car's loops and one-shots from the sim, the race's cues, the interface's clicks, the shop's cash, the Settings sliders in two columns, the generated effects and music | done; buses, volumes, saving, the mute, every file, pools, the queue, music, the engines (pitch against rpm, levels, gear change, limiter, crackle, turbo, nitro), a car's events and loops, the app's sounds of a race and the shop, the sliders are tests; e2e `audio` under Movie Maker (levels, clipping, pitch against the sim's rpm, cues on time, the mute) | `audio/`, `assets/audio/`, `tools/gen_sounds.py`, `tools/engine_preview.gd`, `ui/volume_bar.gd`, `ui/ui_sound.gd`, `ui/settings_screen.gd`, `ui/main_menu.gd`, `ui/terminal_screen.gd`, `game/app.gd`, `game/message_screen.gd`, `modes/play_mode.gd`, `sim/save.gd`, `ui/ui_data.gd` |
-| Tests: headless suite (929 checks), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
+| Tests: headless suite (1,100 checks as of v6.23.0), end-to-end tests of the real game, CI | done | `tests/`, `.github/workflows/test.yml` |
 | Exports: Windows (`TrackRush.exe` + DLL, zip with a README.txt) and Linux | done (built on Linux; the Windows build was never run on Windows) | `export_presets.cfg`, `build/` (not in git) |
 | README, this file, screenshots | done | `README.md`, `HANDOFF.md`, `docs/screenshots/` |
 | Project licence | open: waiting for the owner to choose one, or none | add `LICENSE` + a README section |
@@ -1521,6 +1524,12 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
 - **The AI does not see the surface**: its inputs are the rays, speed, slip, yaw, aims, corners and (v6.15.0) the
   nitro tank (`SENSOR_VERSION` 3), nothing about the ground; a network learns where the
   dirt is on the tracks it trains on. A Racer network trained on an all-asphalt track brakes too late on snow.
+- **The rally stages (v6.23.0)**: on Frozen Lake the Vortex's author run leans on the snow banks for 24 % of the
+  run and the Drifter's for 9 % (the Vortex keeps 33 % of its grip on ice; the autopilot plans with 72 % of that
+  and still runs wide), and on Dune Sea the Thunder's and the Vortex's author runs touch the walls for about 16 %.
+  Their medal times there are easier than the other cars'. The Dune is the quickest car on all four stages by 2-8 %:
+  meant (it is the loose-ground car), but it makes the Rally Cup a one-car cup until the rally car (item 7) exists.
+  The new textures and sceneries were only ever seen through software rendering.
 - **Surfaces were only seen through software rendering** (llvmpipe): the dirt and snow colours, the border noise,
   the dust and spray density were tuned on its screenshots. The snow spray (v6.4.0: blue-grey `spray` colour in the
   surface table, bigger and denser puffs) shows on the white road there; on a real screen it may need another look.
@@ -1605,7 +1614,8 @@ left it open:
 4. **Weight (v6.21.0, done)**: a fifth upgrade part that makes the car lighter, ten levels like the others. See below.
 5. **A seventh car (v6.22.0, done)**: the Apex, an open-wheel formula car (the most grip, the best brakes, poor on
    loose ground). See below.
-6. **Four rally stages**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own textures, and a Rally Cup.
+6. **Four rally stages (v6.23.0, done)**: point-to-point, on new surfaces (gravel, sand, ice, mud) with their own
+   textures and sceneries, and a Rally Cup. See below.
 7. **A rally car** (added by the owner on 2026-11-13: "also add a rally car modelled after the audi quattro later"):
    a boxy 1980s Group B coupe in that style (all-wheel drive, a five-cylinder turbo), with a name of its own and no
    Audi badges; built after the rally stages, so the AI retraining of the next item covers it.
@@ -1683,6 +1693,85 @@ championship" and the menu half of "redesign the ui to be more streamlined".
   `CupTable.rows`. Shots: `field_battle`, `field_podium`, `cup_standings`, `cup_trophy`.
 - Not done: the tower shows every car (six); with a bigger field it would need a window around you. Time trial and
   Race the AI have no tower (one car, or one ghost).
+
+### Item 6: four rally stages (v6.23.0, done)
+
+"make 4 more maps in a rally stage style with new textures". Tracks 16-19, point-to-point sprints after Summit Rush,
+each on a road surface of its own, with a generated texture, a scenery and no street lamps; a sixth cup runs them.
+
+| # | Stage | Length | Width | Surfaces (share of the road) | Scenery | Features |
+| --- | --- | --- | --- | --- | --- | --- |
+| 16 | Pine Ridge (`pine-ridge`, ★★★) | 3.35 km | 12 m | gravel 85 % | `pinewood` | flowing bends, crests, two jumps |
+| 17 | Dune Sea (`dune-sea`, ★★★★) | 3.92 km | 13 m | sand 68 %, gravel 19 % (a dry lake bed) | `dunes` | long slides, a flat-out lake bed, one jump |
+| 18 | Frozen Lake (`frozen-lake`, ★★★★) | 3.21 km | 14 m | ice 54 %, packed snow 31 % | `frozen` | long flat bends on ice, one jump off the bank |
+| 19 | Monsoon Trail (`monsoon-trail`, ★★★★★) | 3.21 km | 11 m | mud 67 %, gravel 18 % (the climb) | `jungle` | two hairpins, a drop off the ridge |
+
+- **The surface table** (`sim/surfaces.gd` `DEFS`): entries 3-6 are gravel, sand, ice and mud, after asphalt, dirt and
+  packed snow (tracks store the index: add new ones at the end). New keys, all optional: `scale` (the car's grip is
+  its `car_grip` share, dirt or snow, times this, at most 1: gravel 1.06, sand 0.84, mud 0.8 of the dirt share; ice
+  0.78 of the snow share), `plan` (not physics: the share of the grip the autopilot plans corner speeds with; ice
+  0.72), `tex`, `look`, `style`, `slot` (the look, below), `throw` ("clumps" or "puffs": what the tyres throw up;
+  from `dust` without it) and `spray` (its colour). Drag (`roll`): gravel 2.4, sand 4.4, ice 1.2, mud 4.0. Brakes:
+  1.2, 1.34, 1.12, 1.2. Walls: 0.6, 0.75, 2.0 (snow banks that grab), 0.75. A surface with zero weight changes nothing:
+  the 15 older tracks drive bit for bit as before (their medal times and AI opponents are untouched, the tests pin
+  them). FleetSim takes the table as data (`surf_n` and the columns), so the new surfaces needed no change there.
+- **The look: two slots a track.** The road shader still blends asphalt and two other surfaces, but which two is
+  now the track's choice: `Surfaces.slots(track)` gives each used surface its own `slot` when free, else the other
+  (dirt 1 and snow 2 on every older track, so they look as before). `world/track_mesh.gd` writes the two slots'
+  weights into the road's vertices and passes each slot's colour, roughness, relief, look (`kind_n`: 0 earth, 1 snow,
+  2 ice), four `style_n` numbers (earth: wetness, ruts, tint, sheen) and detail texture to
+  `world/shaders/road_surface.gdshader`, which was rewritten around one `look()` function. Where two slots meet
+  with no asphalt near (sand to gravel on Dune Sea) no asphalt shows through. `tools/gen_tracks.gd` refuses a track
+  with more than two surfaces besides asphalt.
+- **Textures** (`world/textures.gd` `Tex.surface(kind)`): gravel, sand, mud and ice are generated at 512 px (R
+  luminance, G hue or the ice's cracks, B sheen or the ice's snow patches, A height); "loose" is the old dirt and snow
+  texture. The dust, the spray, the tyre marks (`SkidMarks.set_slots`) and the screen dirt take their colour from the
+  track's own surfaces (`world/car_model.gd` `_surface_colours`).
+- **Sceneries** (`world/themes.gd`): `pinewood`, `dunes`, `frozen`, `jungle`, with new species in
+  `world/track_scenery.gd` (`pineTall`, `birchGreen`, `palmOasis`, `palmJungle`, `treeJungle`, `fern`) and a new theme
+  key `posts: false` (no street lamps). Music: Overdrive, Dust Devil, Neon Rush, Dust Devil (`audio/sound_bank.gd`).
+  The surface noise follows `dust` (gravel, sand and mud crunch like dirt, ice like snow).
+- **Medal times** (`tools/medals.gd -- --tracks=<the four> --update --jobs=4`, 6 minutes): the Dune is the quickest
+  car on all four (Pine Ridge 1:18.133, Dune Sea 1:27.050, Frozen Lake 1:37.650, Monsoon Trail 1:30.533), the Apex
+  the slowest (1:27.217, 1:43.183, 2:07.933, 1:58.233). On the ice five of the seven author runs touch the banks for
+  under 5 % of the run; the Vortex leans on them for 24 %, the Drifter for 9 % (see Known limitations).
+- **The Rally Cup** (`sim/cups.gd`, id `rally`, the sixth cup): the four stages, so four races (the code never
+  assumed three; the texts did: `ui/cup_screen.gd`, `ui/cup_cabinet.gd`). It pays 2.25 × the Rookie Cup (an Elite win
+  $28,360 and 743 points). The cabinet has 30 trophies (6 cups × 5 levels).
+- **Old saves** (`sim/unlocks.gd` `catch_up`, `sim/save.gd`): the save keeps `career.tracks_known`; when it is not
+  the number of tracks, every track after an open track with a bronze-or-better best time is opened. So a player
+  who had finished the 15 tracks finds Pine Ridge open instead of having to win a bronze on Summit Rush again.
+- **Money**: gold + Expert on every track with one car now earns $144,400 (was $102,000): the five cars up to the
+  Vortex after 15 tracks as before, and the Apex too after all 19. The rally car (item 7) will want a price.
+- **AI opponents**: 28 networks (7 cars × 4 stages, 80 generations each, 40-90 s a network) and their five levels,
+  all within 1.2 % of their targets. The networks beat the author time by 1-9 % (they use the banks), so most Elites
+  are capped. `tools/opponents.gd`'s level search now also tries the caps around its best guess when it is still
+  off: a race's time does not always fall as the cap rises (the Apex on Dune Sea: 2:07.5 at 33 m/s, 2:20.1 at 34,
+  2:02.4 at 34.5), and the search hopped over the cap that fits.
+- **A physics fault fixed** (`sim/car.gd` `_planar_step`, `native/src/car_sim.cpp`; FleetSim is now
+  "trackrush-native 6", all four libraries rebuilt): braking on loose ground uses a friction ellipse (v6.10) whose
+  `fx / (brake grip × front grip)` was 0 / 0 when the front axle carried no load: over a crest sharp enough that
+  the road falls away (`_env_gn` 0) while the car still counts as on the ground and was accelerating a moment
+  before. The whole car state became not-a-number (in the game: a car that vanishes; in FleetSim: a crash of the
+  training, which is how it was found, on Pine Ridge's second jump with the Kestrel, generation 12). The ellipse is
+  now skipped when the front grip is zero; nothing else changes (every stored medal run and opponent time is the
+  same). The fault was there since v6.10.0 on every dirt and snow track.
+- **A hidden test error fixed**: since v6.22.0 `tests/test_sim.gd` `_surfaces` threw a script error (the Apex has
+  no v6.9 braking number) that ended the function without failing a check, so the checks after it in that function
+  did not run and `CarStats.surface` stayed on dirt for the rest of the file. Fixed; CI now also fails on any "SCRIPT ERROR" in the
+  test output (`.github/workflows/test.yml`). When running the tests by hand, grep the log for it.
+- **Dune Sea's jump**: the first layout put a 60 m right-hander 44 m after the landing of a 190 km/h jump; the
+  jump test (a steer key held through the flight) spun the Drifter there. There is now an 80 m straight in the sand
+  after the landing.
+- UI: 19 tiles sit in four rows of five and still fit 1280 x 720 without scrolling (the lowest tile ends at 702 px);
+  the cup picker has six rows.
+- Tests: `test_sim.gd` `_rally_stages` (the table and every car's grip, the stages and their slots, the medal runs,
+  the save catch-up, braking with an unloaded front axle) and the counts everywhere (19 tracks, six cups, 30
+  trophies, the reward and price checks); `test_ui.gd`, `test_game.gd`, `test_ai.gd` (the native version); e2e
+  `menu` (four rows), `surfaces` (now also the four stages with the Racer; 1,100 headless checks in all: sim 159, the others 941), `races`, `cup cup=rally`, `unlock`,
+  `economy`, `field`.
+- Not done, on purpose: the AI opponents on the stages are trained like all the others (they ride the banks; item 8
+  retrains everything); no field driver is tuned for the stages; the new surfaces have no sound of their own.
 
 ### Item 5: a seventh car, the Apex (v6.22.0, done)
 

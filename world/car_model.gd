@@ -134,6 +134,9 @@ var _smoke_acc := 0.0
 var _dust_acc := 0.0
 var _spray_acc := 0.0
 var _spray_wheel := 0
+## the track whose surfaces coloured the spray and the tyre marks (_surface_colours)
+var _fx_track: BuiltTrack = null
+var _spray_col: Dictionary = {"dust": Color(0.62, 0.5, 0.37), "snow": Color(0.95, 0.97, 1.0)}
 var _first := true
 var _fade := 1.0
 var _fist_side := 0
@@ -558,11 +561,12 @@ func update(state: Variant, prev_state: Variant = null, alpha := 1.0, dt := 1.0 
 			else:
 				skids.lift(wi)
 		smoke.update(dt)
-		_loose_spray(car, ground, slip, xf, dt)
+		_loose_spray(car, ground, slip, xf, dt, track if track != null else (_world.track if _world != null else null))
 	elif throws_dust:
 		# (v6.10) an AI opponent's ghost throws up dust and snow too (no smoke or marks)
 		var slip := car.slip if car.has_slip else (0.75 if car.drifting else clampf((absf(car.side_speed) - 4.0) / 6.0, 0.0, 1.0))
-		_loose_spray(car, ground_at(car, track if track != null else (_world.track if _world != null else null)), slip, xf, dt)
+		var tr2: BuiltTrack = track if track != null else (_world.track if _world != null else null)
+		_loose_spray(car, ground_at(car, tr2), slip, xf, dt, tr2)
 
 	# sparks where the car hits or scrapes a wall (ghosts have none)
 	if sparks != null:
@@ -740,9 +744,10 @@ func _road_tilt(car: CarEffects.Pose, track: BuiltTrack) -> Vector2:
 	return Vector2(atan(slope * rel), -track.bank[i] * rel)
 
 
-## The loose ground under a car (v6.3): Vector4(dust, snow, surface 1, surface 2) weights at its
-## sample: what its "dust" kind is (sim/surfaces.gd) and the weights of table entries 1 and 2
-## (the tyre marks' colours). Zero on asphalt or without a track.
+## The loose ground under a car (v6.3): Vector4(dust, clumps, slot 1, slot 2) weights at its
+## sample: how much of it throws dust that hangs and how much throws lumps that fall (snow, ice,
+## mud; Surfaces.throw_of), and the weights of the track's two surface slots (Surfaces.slots: the
+## tyre marks' colours). Zero on asphalt or without a track.
 static func ground_at(car: CarEffects.Pose, tr: BuiltTrack) -> Vector4:
 	if tr == null or tr.surf_w.is_empty() or car.idx < 0:
 		return Vector4.ZERO
@@ -751,18 +756,49 @@ static func ground_at(car: CarEffects.Pose, tr: BuiltTrack) -> Vector4:
 	var out := Vector4.ZERO
 	for s in n:
 		var w := tr.surf_w[i * n + s]
-		var kind: String = Surfaces.def(s).dust
-		if kind == "dust":
+		if w <= 0.0:
+			continue
+		var kind := Surfaces.throw_of(s)
+		if kind == "puffs":
 			out.x += w
-		elif kind == "snow":
+		elif kind == "clumps":
 			out.y += w
-	out.z = tr.surf_w[i * n + 1] if n > 1 else 0.0
-	out.w = tr.surf_w[i * n + 2] if n > 2 else 0.0
+	var sw := Surfaces.slot_weights(tr, i)
+	out.z = sw.x
+	out.w = sw.y
 	return out
 
 
+## The colours of what the track's surfaces throw up and of their tyre marks, set on the pools
+## when the car meets a new track (v6.23: they are the track's own surfaces', not the table's first).
+func _surface_colours(tr: BuiltTrack) -> void:
+	_fx_track = tr
+	_spray_col = {"dust": Color(0.62, 0.5, 0.37), "snow": Color(0.95, 0.97, 1.0)}
+	if tr == null:
+		return
+	var used := tr.surfaces_used()
+	var seen: Dictionary = {}
+	for s in Surfaces.count():
+		var sd: Dictionary = Surfaces.def(s)
+		var kind := Surfaces.throw_of(s)
+		if kind == "" or not used.has(String(sd.id)) or seen.has(kind):
+			continue
+		seen[kind] = true
+		var key := "dust" if kind == "puffs" else "snow"
+		# (v6.4: a surface's own spray colour, e.g. shaded snow that shows on a white road)
+		_spray_col[key] = Color.html(sd.spray) if sd.has("spray") else Color.html(sd.road).lightened(0.38 if key == "dust" else 0.45)
+	if dust != null:
+		dust.set_color(_spray_col["dust"])
+	if spray != null:
+		spray.set_color(_spray_col["snow"])
+	if skids != null:
+		skids.set_slots(Surfaces.slots(tr))
+
+
 ## The dust and snow spray of a car rolling or sliding on loose ground (`ground`: ground_at()).
-func _loose_spray(car: CarEffects.Pose, ground: Vector4, slip: float, xf: Transform3D, dt: float) -> void:
+func _loose_spray(car: CarEffects.Pose, ground: Vector4, slip: float, xf: Transform3D, dt: float, tr: BuiltTrack = null) -> void:
+	if tr != _fx_track:
+		_surface_colours(tr)
 	if car.grounded and ground.x + ground.y > 0.05 and car.speed > 3.0:
 		var strength := clampf(minf(1.0, (car.speed - 3.0) / 35.0) * 0.6 + slip * 0.8, 0.0, 1.0)
 		var rate := (minf(1.0, (car.speed - 3.0) / 35.0) * 30.0 + slip * 30.0) * CarEffects.spark_share
@@ -784,13 +820,7 @@ func _spray_emit(w: float, rate: float, acc: float, kind: String, car: CarEffect
 		return acc
 	var pool := dust if kind == "dust" else spray
 	if pool == null:
-		var col := Color(0.62, 0.5, 0.37) if kind == "dust" else Color(0.95, 0.97, 1.0)
-		for s in Surfaces.count():
-			var sd: Dictionary = Surfaces.def(s)
-			if sd.dust == kind:
-				# (v6.4: a surface's own spray colour, e.g. shaded snow that shows on a white road)
-				col = Color.html(sd.spray) if sd.has("spray") else Color.html(sd.road).lightened(0.38 if kind == "dust" else 0.45)
-				break
+		var col: Color = _spray_col.get(kind, Color(0.62, 0.5, 0.37))
 		pool = CarEffects.Spray.new(kind, col, 128 if kind == "dust" else 96)
 		add_child(pool.node)
 		if kind == "dust":

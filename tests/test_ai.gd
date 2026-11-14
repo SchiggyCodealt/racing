@@ -896,7 +896,7 @@ func _fleet_cars() -> void:
 	t.check(all_same, "every car's spec reaches FleetSim as data, every number the same (%d keys; not read: %s)%s%s" % [
 		Trainer.spec_data(Cars.default_spec()).size() - NOT_READ.size(), ", ".join(NOT_READ),
 		"" if missing.is_empty() else "; missing: " + ", ".join(missing), "" if differ.is_empty() else "; differ: " + ", ".join(differ)])
-	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 5", "the native library is version 5 (v6.15: the nitro tank input, the nitro output and the AI's refills)")
+	t.check(String(ClassDB.instantiate("FleetSim").call("version")) == "trackrush-native 6", "the native library is version 6 (v6.23: braking with an unloaded front axle on loose ground no longer breaks the car's state)")
 	# lockstep, the other five cars on different tracks and rules
 	for c: Array in [["kestrel", "hairpin-valley", "crash"], ["thunder", "banked-speedway", "crash"], ["drifter", "ramp-rally", "crash"],
 			["dune", "rookie-oval", "ride"], ["vortex", "seaside-stunts", "crash"]]:

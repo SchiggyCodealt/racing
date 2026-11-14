@@ -58,6 +58,13 @@ const SPECIES := {
 	"pineLow": {"build": "pine", "scale": [0.75, 1.4], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.04, "light": 0.16, "onSnow": false},
 	"pineHigh": {"build": "pineSnow", "weight": 1.6, "scale": [0.75, 1.45], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.02, "light": 0.1, "onSnow": true},
 	"rockSnow": {"build": "rockSnow", "scale": [0.7, 3.0], "minFlat": 0.45, "tilt": 0.4, "sink": 0.35, "hue": 0.02, "light": 0.12, "receive": true},
+	# v6.23 (the rally stages)
+	"birchGreen": {"build": "birch", "leaf": 0x7fae3e, "weight": 0.7, "scale": [0.8, 1.3], "minFlat": 0.8, "tilt": 0.05, "sink": 0.2, "hue": 0.04, "light": 0.14},
+	"pineTall": {"build": "pine", "weight": 1.2, "scale": [1.3, 1.9], "minFlat": 0.8, "tilt": 0.04, "sink": 0.2, "hue": 0.03, "light": 0.14},
+	"palmOasis": {"build": "palm", "weight": 0.2, "scale": [0.8, 1.25], "minFlat": 0.8, "tilt": 0.05, "sink": 0.15, "hue": 0.04, "light": 0.12},
+	"palmJungle": {"build": "palm", "weight": 0.9, "scale": [0.9, 1.5], "minFlat": 0.8, "tilt": 0.06, "sink": 0.15, "hue": 0.05, "light": 0.14},
+	"treeJungle": {"build": "broadleaf", "leaf": 0x2c6a2e, "weight": 1.3, "scale": [1.0, 1.7], "minFlat": 0.8, "tilt": 0.06, "sink": 0.2, "hue": 0.05, "light": 0.16},
+	"fern": {"build": "bush", "leaf": 0x3a7a34, "weight": 1.4, "scale": [0.6, 1.3], "minFlat": 0.7, "tilt": 0.12, "sink": 0.25, "hue": 0.06, "light": 0.18},
 }
 
 
@@ -75,7 +82,8 @@ static func add_props(node: Node3D, c: TrackCtx) -> void:
 	var step := maxi(14, roundi(46.0 / t.seg_len))
 	var n := 0
 	var k := 6
-	while k < c.segs - 2:
+	# (v6.23: a theme with "posts": false has none: a rally stage out in the wild)
+	while k < c.segs - 2 and bool(theme.get("posts", true)):
 		var i := c.wrap(k)
 		k += step
 		if c.near_gate(i, 6):
@@ -751,7 +759,7 @@ static func species_geometry(sp_name: String, seed: int) -> Geo:
 		"bush":
 			return _bush(seed, leaf if leaf >= 0 else 0x4d8a36)
 		"birch":
-			return _birch(seed)
+			return _birch(seed, leaf if leaf >= 0 else 0xe0b23c)
 		"rockSnow":
 			return _rock(seed, 0x7f838b, true)
 		"rock":
@@ -833,7 +841,7 @@ static func _rock(seed: int, color: int, snow := false) -> Geo:
 
 
 ## (v6.4) A birch: a slim white trunk with dark marks and a light crown of yellow leaves.
-static func _birch(seed: int) -> Geo:
+static func _birch(seed: int, leaf := 0xe0b23c) -> Geo:
 	var b := Geo.new()
 	var rnd := VNoise.Rng.new(seed)
 	var trunk := Geo.cylinder(0.12, 0.2, 6.2, 6, 4).translate(0, 3.1, 0)
@@ -847,7 +855,7 @@ static func _birch(seed: int) -> Geo:
 		var g := Geo.icosahedron(bl.w, 1 if bl.w > 1.2 else 0) # (only the big top blob subdivided: a light tree)
 		displace(g, 0.3 * bl.w, seed + int(floorf(rnd.next() * 100.0)))
 		g.scale(1, 1.25, 1).translate(bl.x, bl.y, bl.z)
-		b.add_geometry(paint(g, 0xe0b23c, 0.6, 4.0, 8.0))
+		b.add_geometry(paint(g, leaf, 0.6, 4.0, 8.0))
 	return b
 
 

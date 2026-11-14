@@ -339,17 +339,21 @@ func _build_road() -> MeshInstance3D:
 	# the tint goes up to ~1.12, over what 8-bit vertex colours hold: scaled down here, up in the material
 	var K := 1.13
 	# dirt and snow (v6.3): their blend weights ride in the green and blue of the vertex colour;
-	# v6.10: CUSTOM0 = (lateral fraction, half width, the wide weights of surfaces 1 and 2)
+	# v6.10: CUSTOM0 = (lateral fraction, half width, the wide weights of surfaces 1 and 2);
+	# v6.23: "1 and 2" are the track's two slots (Surfaces.slots(): any two surfaces of the table)
 	var loose := t.has_surfaces()
 	var S := t.surf_n
+	var slots := Surfaces.slots(t)
+	var s1 := slots[0]
+	var s2 := slots[1]
 	var wide := wide_weights() if loose else PackedFloat32Array()
 	var custom := PackedFloat32Array()
 	for k in rows:
 		var i := c.wrap(k)
 		var s := k * t.seg_len
 		var patch := 0.94 + 0.12 * VNoise.fbm(s * 0.02, 3.7, 2, c.seed + 21)
-		var w1 := t.surf_w[i * S + 1] if loose and S > 1 else 0.0
-		var w2 := t.surf_w[i * S + 2] if loose and S > 2 else 0.0
+		var w1 := t.surf_w[i * S + s1] if loose and s1 >= 0 else 0.0
+		var w2 := t.surf_w[i * S + s2] if loose and s2 >= 0 else 0.0
 		for cc in C:
 			var lat: float = cols[cc] * t.hw[i]
 			var tint: float = wear[cc] * patch / K
@@ -357,7 +361,7 @@ func _build_road() -> MeshInstance3D:
 				Vector2(lat / 7.0, s / 7.0), Color(tint, w1, w2) if loose else Color(tint, tint, tint))
 			tan.append_array([t.nx[i], 0.0, t.nz[i], -1.0])
 			if loose:
-				custom.append_array([cols[cc], t.hw[i], wide[i * S + 1] if S > 1 else 0.0, wide[i * S + 2] if S > 2 else 0.0])
+				custom.append_array([cols[cc], t.hw[i], wide[i * S + s1] if s1 >= 0 else 0.0, wide[i * S + s2] if s2 >= 0 else 0.0])
 	for k in c.segs:
 		for cc in C - 1:
 			var a := k * C + cc
@@ -372,7 +376,7 @@ func _build_road() -> MeshInstance3D:
 	var tex := Tex.asphalt()
 	if loose:
 		arr[Mesh.ARRAY_CUSTOM0] = custom
-		return _road_node(arr, _surface_mat(tex, K), Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+		return _road_node(arr, _surface_mat(tex, K, slots), Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 	var mat := std_mat(Color(K, K, K).linear_to_srgb(), 1.0)
 	mat.albedo_texture = tex["map"]
 	mat.roughness_texture = tex["rough"]
@@ -395,9 +399,10 @@ func _road_node(arr: Array, mat: Material, flags := 0) -> MeshInstance3D:
 	return mi
 
 
-## The road material of a track with dirt or snow: asphalt as the plain road's material
-## draws it, blended with surfaces 1 and 2 of the table (road_surface.gdshader).
-static func _surface_mat(tex: Dictionary, K: float) -> ShaderMaterial:
+## The road material of a track that is not all asphalt: asphalt as the plain road's material
+## draws it, blended with the surfaces in the track's two slots (road_surface.gdshader;
+## Surfaces.slots(): dirt and packed snow on the older tracks).
+static func _surface_mat(tex: Dictionary, K: float, slots: PackedInt32Array = PackedInt32Array([1, 2])) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = SURFACE_SHADER
 	var lt := Tex.loose()
@@ -405,15 +410,21 @@ static func _surface_mat(tex: Dictionary, K: float) -> ShaderMaterial:
 	m.set_shader_parameter("asphalt_rough", tex["rough"])
 	m.set_shader_parameter("asphalt_normal", tex["normal"])
 	m.set_shader_parameter("loose_map", lt["map"])
-	m.set_shader_parameter("loose_normal", lt["normal"])
 	m.set_shader_parameter("tint_scale", K)
 	m.set_shader_parameter("asphalt_normal_scale", 0.55)
-	for slot in [1, 2]:
-		if slot < Surfaces.count():
-			var d: Dictionary = Surfaces.def(slot)
-			m.set_shader_parameter("color_%d" % slot, Color.html(d.road))
-			m.set_shader_parameter("rough_%d" % slot, float(d.rough))
-			m.set_shader_parameter("normal_%d" % slot, float(d.bumps))
+	for k in 2:
+		# (an empty slot keeps the look of the table's entry, with weight 0 everywhere)
+		var d: Dictionary = Surfaces.def(slots[k] if slots[k] >= 0 else k + 1)
+		var st: Dictionary = Tex.surface(String(d.get("tex", "loose")))
+		var style: Array = d.get("style", [0.0, 0.0, 0.0, 0.0])
+		var slot := k + 1
+		m.set_shader_parameter("color_%d" % slot, Color.html(d.road))
+		m.set_shader_parameter("rough_%d" % slot, float(d.rough))
+		m.set_shader_parameter("normal_%d" % slot, float(d.bumps))
+		m.set_shader_parameter("kind_%d" % slot, float(maxi(0, Surfaces.LOOKS.find(String(d.get("look", "earth"))))))
+		m.set_shader_parameter("style_%d" % slot, Vector4(style[0], style[1], style[2], style[3]))
+		m.set_shader_parameter("tex_%d" % slot, st["map"])
+		m.set_shader_parameter("texn_%d" % slot, st["normal"])
 	return m
 
 

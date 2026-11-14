@@ -88,7 +88,7 @@ fs.get_fitness(); fs.get_reasons(); fs.get_deaths(); fs.get_best_lap(); fs.get_b
 fs.get_any_gate()                                # an agent passed a gate this run (the best-times entry)
 fs.get_view_states()                             # every car's pose and effect fields (view_stride() each)
 fs.get_inputs(k); fs.get_rays(k); fs.get_acts(k); fs.get_car_state(k)
-fs.get_spec(); fs.version()                      # the spec as set (tests), "trackrush-native 3"
+fs.get_spec(); fs.version()                      # the spec as set (tests), "trackrush-native 6"
 fs.debug_drive(start_idx, tape, 1.0 / 60.0)      # one car driven by a control tape (tests): its states
 ```
 

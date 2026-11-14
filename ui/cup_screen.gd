@@ -54,7 +54,7 @@ func _init() -> void:
 	close_button.tooltip_text = "Back to the menu (a cup in progress is kept)"
 	_picker = UiStyle.vbox(0)
 	body.add_child(_picker)
-	_intro = UiStyle.label("Three races back to back against the same five AI drivers. You pick your car before every race, so you can change it inside a cup. Each race pays as a field race; points 10-8-6-5-4-3 make the standings, which set the next grid. The top three win trophies; the cup pays by your final place, once per cup, level and place.",
+	_intro = UiStyle.label("Three races back to back (four in the Rally Cup) against the same five AI drivers. You pick your car before every race, so you can change it inside a cup. Each race pays as a field race; points 10-8-6-5-4-3 make the standings, which set the next grid. The top three win trophies; the cup pays by your final place, once per cup, level and place.",
 		"text", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, false, false, 19)
 	_intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_intro.custom_minimum_size.x = 1

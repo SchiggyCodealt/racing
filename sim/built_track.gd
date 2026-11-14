@@ -66,6 +66,8 @@ var phys_kv: PackedFloat32Array = PackedFloat32Array()
 var surface: PackedByteArray = PackedByteArray()
 var surf_w: PackedFloat32Array = PackedFloat32Array()
 var surf_n: int = 0
+## the two surfaces the look carries (Surfaces.slots(), made on first use)
+var slot_cache: PackedInt32Array = PackedInt32Array()
 
 
 ## Sample index wrapped round a circuit / clamped to the ends of a sprint.

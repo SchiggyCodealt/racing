@@ -2,7 +2,7 @@
 
 A Trackmania-style racer, plus a neural-network AI driver that you train yourself with
 neuroevolution and can watch learn in real time. Pick one of 7 cars, chase the medal times on
-15 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
+19 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
 and play with a keyboard or a gamepad.
 
 Version 6.0.0 is the game rebuilt in the [Godot](https://godotengine.org) game engine (version
@@ -94,8 +94,15 @@ Version 6.22.0 adds a seventh car, the **Apex**: an open-wheel formula car with 
 lightest car, with the most grip, the shortest braking and the sharpest steering, and the quickest on nine of the 15
 tracks, but its slick tyres and rear-wheel drive make it the slowest on dirt and snow. It costs $40,000 (see
 [The cars](#the-cars)).
+Version 6.23.0 adds four **rally stages**, each on a road surface of its own with a new texture and a new scenery:
+**Pine Ridge** (gravel through a pine forest), **Dune Sea** (soft sand over desert dunes), **Frozen Lake** (bare ice
+and packed snow) and **Monsoon Trail** (deep mud through the jungle). They are point-to-point sprints of 3.2-3.9 km
+with no street lamps and almost no asphalt, they come after Summit Rush as tracks 16 to 19, and a sixth championship,
+the **Rally Cup**, runs all four (see [Tracks](#tracks) and [Road surfaces](#road-surfaces)). It also fixes a fault
+in the physics that had been there since 6.10.0: braking on loose ground at the moment the front wheels went light
+over a crest could break the car's state for good.
 
-![The menu: money and career points in the header, 15 track tiles with minimaps in three rows (Forest Rally just opened and marked NEW, the last two tracks still locked with a padlock and "Bronze on 13" / "Bronze on 14"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 19 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last six tracks, the four rally stages among them, still locked with a padlock and "Bronze on 13" to "Bronze on 18"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
@@ -364,6 +371,10 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 2:39). Autho
 | Forest Rally | 3:19.883 | 3:16.283 | 3:31.050 | 3:14.500 | 3:05.350 | 3:26.683 | 3:48.333 |
 | Northern Lights | 3:05.750 | 3:05.267 | 3:15.400 | 3:01.167 | 3:02.500 | 3:16.350 | 3:33.617 |
 | Summit Rush | 1:45.533 | 1:45.367 | 1:51.000 | 1:44.933 | 1:42.733 | 1:46.150 | 1:54.250 |
+| Pine Ridge | 1:21.233 | 1:20.583 | 1:25.150 | 1:19.917 | 1:18.133 | 1:22.583 | 1:27.217 |
+| Dune Sea | 1:31.367 | 1:31.350 | 1:35.200 | 1:31.817 | 1:27.050 | 1:33.100 | 1:43.183 |
+| Frozen Lake | 1:49.800 | 1:44.633 | 2:03.817 | 1:46.683 | 1:37.650 | 2:04.783 | 2:07.933 |
+| Monsoon Trail | 1:37.433 | 1:35.033 | 1:45.300 | 1:37.633 | 1:30.533 | 1:43.567 | 1:58.233 |
 
 The times are for the full race you drive (3 laps, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
@@ -376,7 +387,7 @@ is 1.5 × the author time. Hairpin Valley, Ramp Rally,
 Mountain Pass and Canyon Run got dirt or snow in version 6.3.0 and new times, 0.8-37 s slower than before depending on
 the car: see [Road surfaces](#road-surfaces). Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon
 Run got rounder, wider hairpins in version 6.6.0 and new times again: see [Tracks](#tracks). The Dune, the Vortex and
-the Apex, and the three tracks of version 6.4.0, exist only in this version.)
+the Apex, the three tracks of version 6.4.0 and the four stages of version 6.23.0 exist only in this version.)
 
 **The faster bronze (version 6.9.0).** Until version 6.8.0 bronze was 1.5 × the author time; it is 1.3 × now, 13 to
 54 s faster depending on the track and car. The medals your best times hold are worked out from the times when they
@@ -406,11 +417,15 @@ new track's tile says **NEW** until you pick it or leave the menu.
   the training screen needs an open track, Watch best works anywhere.
 - The terminal's `unlock tracks` (or `unlock all`) opens every track at once (see [The terminal](#the-terminal)).
 
-![Hairpin Valley picked in a new career: its tile and the thirteen after it locked (padlock, "Bronze on 01" to "Bronze on 14"), the panel saying a bronze on Rookie Oval opens it and that Watch AI and Train AI work there anyway, the big button reading LOCKED](docs/screenshots/locked.png)
+![Hairpin Valley picked in a new career: its tile and the seventeen after it locked (padlock, "Bronze on 01" to "Bronze on 18"), the panel saying a bronze on Rookie Oval opens it and that Watch AI and Train AI work there anyway, the big button reading LOCKED](docs/screenshots/locked.png)
 
 A save from an earlier version (when every track was open) keeps every track you have a best time on, with any car
 (including best times kept from an older version of a track), and opens the track after every one where a best time
 is bronze or better against today's bronze time.
+
+A save from before version 6.23.0 knows 15 tracks. When the game loads it, the four stages are added after Summit
+Rush: if you already hold a bronze or better there, **Pine Ridge is open** straight away; otherwise it opens with
+your next bronze on Summit Rush. Dune Sea, Frozen Lake and Monsoon Trail then open one after the other as usual.
 
 ### Money, points and cars
 
@@ -427,7 +442,7 @@ lists what a run earned and why.
   the same result again pays nothing (the finish panel says "paid before").
 - A medal pays the medals below it too (a first gold pays bronze, silver and gold), and beating an AI pays the
   easier levels on that track with that car as well (they are slower).
-- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more.
+- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more, track 19 (Monsoon Trail) 180 % more.
 - Each car earns on its own: a gold with the Kestrel pays again after a gold with the Racer.
 
 **The AI opponents.** Pick one in the menu's AI driver block, then **Race the ... AI**: its car drives next to yours
@@ -497,14 +512,14 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 | Price | owned | $10,000 | $14,000 | $18,000 | $22,000 | $30,000 | $40,000 |
 
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
-$13,200 after three (a second car), and $102,000 after all 15, enough for the five cars up to the Vortex ($94,000).
-The Apex ($40,000) takes more: Race the field and the cups pay on top. Silver and the Pro everywhere buy the Kestrel
-after five tracks.
+$13,200 after three (a second car), $102,000 after the first 15, enough for the five cars up to the Vortex ($94,000),
+and $144,400 after all 19 (the four rally stages pay the most), which buys the Apex ($40,000) as well. Race the field
+and the cups pay on top. Silver and the Pro everywhere buy the Kestrel after five tracks.
 
 ### Championships
 
 (Version 6.14.0.) Press **Cups** (next to the **2 Race** heading) or **T** on the menu. A championship is three
-races back to back against the same five AI drivers: the standings after each race set the
+races back to back (four in the Rally Cup) against the same five AI drivers: the standings after each race set the
 next grid, and the final standings give trophies and a big payout. Since version 6.19.0 the car page comes up before
 every race of a cup, showing the car you drove last: pick another car you own and the rest of the cup is driven with
 it (the AI drivers and the standings stay as they are).
@@ -516,9 +531,12 @@ it (the AI drivers and the standings stay as they are).
 | 3 | **Technical Cup** | Lighthouse Bay, Technical Trial, Seaside Stunts | 12 |
 | 4 | **Dirt and Snow Cup** | Forest Rally, Mountain Pass, Canyon Run | 13 |
 | 5 | **Grand Finale** | Northern Lights, Grand Marathon, Summit Rush | 15 |
+| 6 | **Rally Cup** (version 6.23.0) | Pine Ridge, Dune Sea, Frozen Lake, Monsoon Trail | 19 |
 
-Together they cover all 15 tracks, each cup harder than the one before. A cup opens when all three of its tracks are
-open (a locked cup can be picked: it says which tracks are still locked). Pick a cup with ↑ / ↓ and the field's level
+Together they cover all 19 tracks. The first five get harder from one to the next; the Rally Cup comes last and is
+the only one of four races: forest gravel, desert sand, a frozen lake and jungle mud, a different road in every race,
+so the car that wins one stage may struggle on the next (you can change cars between the races). A cup opens when all
+of its tracks are open (a locked cup can be picked: it says which tracks are still locked). Pick a cup with ↑ / ↓ and the field's level
 (**Rookie** to **Elite**) with ← / →, and press **START CUP** (Enter).
 
 - **The races.** Each race is a [field race](#race-the-field) on the cup's next track with its usual pay (medals,
@@ -541,9 +559,9 @@ open (a locked cup can be picked: it says which tracks are still locked). Pick a
 - **Saved as you go.** A cup in progress is kept in the save file after every race: close the game and the Cups button
   opens its standings again.
 
-**The cup's pay** by your final place, on top of the three races' pay (the Rookie Cup at Pro; the levels pay 0.6 ×,
+**The cup's pay** by your final place, on top of the races' own pay (the Rookie Cup at Pro; the levels pay 0.6 ×,
 1 ×, 1.5 ×, 2.1 × and 3 × as for field races, and each later cup a quarter more: an Elite win in the Grand Finale pays
-$25,200 and 660 points):
+$25,200 and 660 points, in the Rally Cup $28,360 and 743 points):
 
 | Final place | 4th | 3rd | 2nd | 1st | 5th, 6th |
 | --- | --- | --- | --- | --- | --- |
@@ -560,7 +578,7 @@ cup in progress).
 
 | The cup picker (the cabinet per cup and level) | The standings between the races |
 | --- | --- |
-| ![The Championships screen over the menu: five cups with their tracks, difficulty bars and a trophy place per level, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1 as F1-style rows: you 1st with 10 points ahead of five AI drivers, P1 to P6 under Rookie and dots for the two races to come, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
+| ![The Championships screen over the menu: six cups with their tracks, difficulty bars and a trophy place per level, the Rally Cup with its four stages picked, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1 as F1-style rows: you 1st with 10 points ahead of five AI drivers, P1 to P6 under Rookie and dots for the two races to come, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
 
 ![The trophy moment after the Rookie Cup: the top three on the podium with gold, silver and bronze trophies, the final standings as F1-style rows with gold, silver and bronze place boxes (you 1st with 30 points) and the cup's pay on the right](docs/screenshots/cup-trophy.png)
 
@@ -693,7 +711,9 @@ it doesn't depend on the frame rate, and an AI trained at Max speed drives exact
 ### Road surfaces
 
 Most of the road is asphalt. Since version 6.3.0 four tracks also have stretches of **dirt** and **packed snow**, and
-the three tracks of version 6.4.0 are mostly dirt or snow.
+the three tracks of version 6.4.0 are mostly dirt or snow. The four rally stages of version 6.23.0 run on four more
+surfaces, **gravel**, **sand**, **ice** and **mud** (see [The rally surfaces](#the-rally-surfaces-version-6230)
+below).
 You see them coming: a brown gravel road or a white one of packed snow, no painted lines or kerbs, and muddy or
 snow-crusted barriers alongside. You also feel them:
 
@@ -704,11 +724,39 @@ snow-crusted barriers alongside. You also feel them:
 | Surface | Grip | Rolling resistance | Slides | Where |
 | --- | --- | --- | --- | --- |
 | Asphalt | all of it | normal | as before | every track |
-| Dirt | 55-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Forest Rally (88 % of a lap), Ramp Rally (47 %), Summit Rush (30 %), Canyon Run (14 %), Mountain Pass (11 %) |
-| Packed snow | 42-72 % | 2.2 × asphalt | as on dirt, on even less grip | Northern Lights (79 %), Hairpin Valley (27 %), Summit Rush (21 %), Mountain Pass (19 %) |
+| Dirt | 45-97 % of the car's tarmac grip, depending on the car | 3 × asphalt | start sooner and are easier to hold | Forest Rally (88 % of a lap), Ramp Rally (47 %), Summit Rush (30 %), Canyon Run (14 %), Mountain Pass (11 %) |
+| Packed snow | 34-72 % | 2.2 × asphalt | as on dirt, on even less grip | Northern Lights (79 %), Frozen Lake (31 %), Hairpin Valley (27 %), Summit Rush (21 %), Mountain Pass (19 %) |
+| Gravel (6.23.0) | 48-100 % | 2.4 × asphalt | as on dirt, with a little more grip | Pine Ridge (85 %), Dune Sea (19 %), Monsoon Trail (18 %) |
+| Sand (6.23.0) | 38-81 % | 4.4 × asphalt | long and slow: the sand drags the car down | Dune Sea (68 %) |
+| Ice (6.23.0) | 27-56 % | 1.2 × asphalt | start at once and go on and on | Frozen Lake (54 %) |
+| Mud (6.23.0) | 36-78 % | 4 × asphalt | as on sand, on a narrower road | Monsoon Trail (67 %) |
 
 Since version 6.10.0 the brakes do more on loose ground (dirt × 1.24, snow × 1.28) with a gentler anti-lock limit, and
 the barriers along it are slidier (wall friction × 0.55 on dirt, × 0.45 on snow).
+
+#### The rally surfaces (version 6.23.0)
+
+| Surface | What you see | Grip kept (Racer / Dune / Apex) | Brakes | Barriers |
+| --- | --- | --- | --- | --- |
+| **Gravel** | grey crushed stone with loose stones of many shades, pale dust behind the car | 74 / 100 / 48 % | × 1.2 | slidier (friction × 0.6) |
+| **Sand** | pale, soft sand with deep wheel ruts, a sand-coloured plume behind the car | 59 / 81 / 38 % | × 1.34 | a little slidier (× 0.75) |
+| **Ice** | clear blue ice with white cracks, dark deep patches and snow blown over it, shiny in the light; the lanes scuffed dull | 43 / 56 / 27 % | × 1.12 | snow banks that grab the car (× 2) |
+| **Mud** | dark, wet earth with ruts and puddles; clumps fly up and the car and the screen get dirty | 56 / 78 / 36 % | × 1.2 | a little slidier (× 0.75) |
+
+- A car has **no grip number of its own** for them: gravel, sand and mud take the car's share on dirt (× 1.06, × 0.84
+  and × 0.8), ice its share on packed snow (× 0.78). So the cars keep their order, the **Dune** is the car for all
+  four (the quickest on every stage), and the **loose grip** upgrade works on all of them.
+- **Sand and mud drag**: rolling resistance is 4.4 × and 4 × that of asphalt, so every car is slower to speed up, has
+  a lower top speed and slows down by itself when you lift. **Ice hardly drags at all** (1.2 ×): only the brakes and
+  the little grip there is slow the car, so brake early and steer with the throttle.
+- **Each stage carries two of the surfaces** besides its asphalt start and finish (Dune Sea: sand and gravel, Frozen
+  Lake: ice and packed snow, Monsoon Trail: mud and gravel; Pine Ridge is all gravel), and the road changes from
+  one to the other without asphalt between them.
+- Every surface has **its own generated texture** (`world/textures.gd`) and one of three looks in the road shader
+  (earth, snow, ice). The dust, the spray, the tyre marks and the dirt on the car take the surface's colour.
+- The frozen lake's banks cost far more speed than a barrier does, so that the walls are never the quick way round
+  on ice. The medal autopilot plans its corners there with 72 % of the grip (a car holds well under its tyres' peak
+  through a long icy bend).
 
 How the physics handles it (`sim/surfaces.gd` holds the table, `sim/car.gd` uses it):
 
@@ -841,6 +889,10 @@ ground, gains little, and its fastest autopilot run came out up to 2 s slower on
 | 13 | Forest Rally | 3 laps | 2.54 km/lap | autumn | dirt, but for the start and finish straight | ★★★ | A rally stage through autumn woods: flowing bends to slide through, crests and two jumps |
 | 14 | Northern Lights | 3 laps | 2.83 km/lap | arctic | packed snow, two asphalt stretches | ★★★★ | Banked snow bowls (20-24°), a jump and long slides at night under the aurora: smooth hands win |
 | 15 | Summit Rush | Sprint | 4.38 km | highland | asphalt, a dirt forest climb, packed snow on the summit, dirt again on the way down | ★★★★★ | The finale: two jumps, sweeping switchbacks up to 18 m, the snow, and a flying descent |
+| 16 | Pine Ridge | Sprint | 3.35 km | pinewood | gravel, but for the start and the finish | ★★★ | A fast gravel stage through the pine forest: flowing bends, blind crests and two jumps |
+| 17 | Dune Sea | Sprint | 3.92 km | dunes | soft sand, a gravel lake bed, asphalt at the start and the finish | ★★★★ | Long slides over the dunes, a flat-out dry lake bed and a jump off a dune |
+| 18 | Frozen Lake | Sprint | 3.21 km | frozen | bare ice out on the lake, packed snow along the shore | ★★★★ | Brake early and steer with the throttle: on the bare ice a car keeps a quarter to a half of its grip, and there is a jump off the bank |
+| 19 | Monsoon Trail | Sprint | 3.21 km | jungle | deep mud, a gravel climb | ★★★★★ | A narrow (11 m) jungle track in the rains: two hairpins up a gravel climb and a drop off the ridge |
 
 #### The reworked corners (version 6.6.0)
 
@@ -879,13 +931,28 @@ maples, birches and pines), **arctic** (a polar night with the northern lights r
 moonlight, lit barriers and headlights) and **highland** (bright and cold: larch and pine forest below, and above it
 snow on the ground beside the snowy road, where the trees carry snow too).
 
+Tracks 16-19 (version 6.23.0) are the **rally stages**: point-to-point sprints on gravel, sand, ice and mud (see
+[The rally surfaces](#the-rally-surfaces-version-6230)), with no street lamps beside the road and a scenery each:
+**pinewood** (a northern summer day in a forest of tall pines and green birches), **dunes** (the open desert at
+midday: pale sand hills in the haze, a few palms and dry scrub), **frozen** (a winter morning on a lake, a low rosy
+sun and snowy pines along the shore) and **jungle** (the rainy season: a low grey sky, mist between palms and
+broad-leaved trees, ferns by the road, headlights on).
+
+| Pine Ridge | Dune Sea |
+| --- | --- |
+| ![Pine Ridge: the Racer in a gravel bend between pines, chevron boards on the outside and checkpoint 5 ahead](docs/screenshots/pine-ridge.png) | ![Dune Sea: the Dune buggy on rippled sand between palms and red rocks](docs/screenshots/dune-sea.png) |
+
+| Frozen Lake | Monsoon Trail |
+| --- | --- |
+| ![Frozen Lake: the Racer on cracked blue ice between snow banks and snowy pines](docs/screenshots/frozen-lake.png) | ![Monsoon Trail: the Dune buggy on wet, rutted mud with puddles under a grey sky, checkpoint 1 ahead](docs/screenshots/monsoon-trail.png) |
+
 | Forest Rally | Northern Lights | Summit Rush |
 | --- | --- | --- |
 | ![The Racer with nitro on Forest Rally's dirt road, dust behind it, autumn oaks, maples, birches and pines beside the road](docs/screenshots/forest-rally.png) | ![The Racer sliding through a snowy bend of Northern Lights at night, blue-grey snow spray behind it, green northern lights in the sky](docs/screenshots/northern-lights.png) | ![The Racer throwing up dust in a dirt switchback of Summit Rush's forest climb, golden larches beside it and the snowy summit road ahead](docs/screenshots/summit-rush.png) |
 
 Roads vary in width (10 to 22 m) and height (up to about 18 m of climb). A map of the first twelve tracks is in
 [web/docs/tracks-overview.svg](web/docs/tracks-overview.svg) (their layouts are the browser version's, except the
-corners reworked in 6.6.0; the browser version has no dirt or snow, and not tracks 13-15).
+corners reworked in 6.6.0; the browser version has no dirt or snow, and not tracks 13-19).
 
 ## Training the AI
 
@@ -1056,7 +1123,8 @@ line drives exactly the same in the game.
 
 The **music** is electronic: a laid-back track on the menus and three race tracks chosen by the track's scenery
 (**Overdrive** on the green and coastal tracks, **Neon Rush** at night, dusk and on the arctic track, **Dust Devil** on
-the desert, canyon, mountain and autumn tracks). The menus click as you move and pick, the shop rings when you buy, the
+the desert, canyon, mountain and autumn tracks; of the rally stages Pine Ridge plays Overdrive, Frozen Lake Neon Rush,
+Dune Sea and Monsoon Trail Dust Devil). The menus click as you move and pick, the shop rings when you buy, the
 terminal's keys click as you type.
 
 **Settings → Audio** has four volumes (**Master**, **Music**, **Effects** and **Engines**, in steps of 10 %; 0 is
@@ -1139,7 +1207,8 @@ best time and splits, the ghost of that run and your best score for every track 
 also the volumes), the
 trained AI network of every car (a save file from version 6.0-6.1 had one network, the Racer's: it stays the Racer's),
 and the career: money, points, the cars you own and their upgrades, the rewards already paid, the tracks medals have
-opened and whether the terminal's `unlock all` opened every track, and (6.14.0) the cup trophies, the cup payouts
+opened (and, since 6.23.0, how many tracks the game had when they were last checked, so tracks added later can open),
+whether the terminal's `unlock all` opened every track, and (6.14.0) the cup trophies, the cup payouts
 and a cup in progress. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
@@ -1196,8 +1265,8 @@ godot --headless --path . --export-release "Windows Desktop" build/windows/Track
 godot --headless --path . --export-release "Linux" build/linux/TrackRush.x86_64
 ```
 
-`tools/release.sh 6.22.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
-project and writes `build/TrackRush-6.22.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
+`tools/release.sh 6.23.0` (bash; `GODOT=/path/to/godot` picks the binary) does all of it from a clean copy of the
+project and writes `build/TrackRush-6.23.0-windows.zip` with `docs/windows-readme.txt` as its `README.txt`.
 
 The Windows build can be made on Linux and the other way round. The Linux build's training library needs a
 recent Linux (glibc 2.38, as in Ubuntu 24.04 or newer); on an older one the game runs and trains in GDScript.
@@ -1212,7 +1281,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 | Command | What it does |
 | --- | --- |
 | `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades, the cups: points, standings, grids, payouts; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop, Race the field, championships) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels, whole AI field races). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `field` (Race the field: the grid, a race, the podium), `cup` (a championship: the cup picker, three races driven by the autopilot, the standings between them, the trophy moment and the cabinet; `races=1` drives only the first race), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip; since 6.23.0 also the four rally stages with the Racer: gravel, sand, ice and mud, `stages=only` runs only them and `stages=0` leaves them out), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `field` (Race the field: the grid, a race, the podium), `cup` (a championship: the cup picker, its races driven by the autopilot, the standings between them, the trophy moment and the cabinet; `cup=rally` picks another cup, `races=1` drives only the first race), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 40 minutes on 3 cores for the seven cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
@@ -1243,18 +1312,23 @@ fleet's). Each file says how to run it. The native training library is built as 
 
 Tracks are designed in `tools/gen_tracks.gd` with a "turtle" (`tools/turtle.gd`) that you drive around with
 commands like `S(200)` (straight), `L(90, 40, {bank = 12})` (left turn, 90°, radius 40 m, 12° banking), hairpins,
-S-bends, climbs, crests and self-sizing kicker ramps; `.surface("dirt")` (or `"snow"`) makes the road from there on
-dirt until `.surface("asphalt")`. Add a `_circuit(...)` or `_sprint(...)` entry there, run
+S-bends, climbs, crests and self-sizing kicker ramps; `.surface("dirt")` (or `"snow"`, `"gravel"`, `"sand"`, `"ice"`,
+`"mud"`) makes the road from there on dirt until `.surface("asphalt")` or the next surface; a track can carry two
+surfaces besides asphalt (the generator refuses a third: the road's look has two slots). Add a `_circuit(...)` or `_sprint(...)` entry there, run
 `tools/gen_tracks.gd` (it refuses a track that breaks the design rules: overlaps, too-tight corners, too-steep
 grades, short landing zones, sprints without a run-off, dirt or snow patches under 60 m or on the start grid) and then
-`tools/medals.gd`. A new surface is an entry in `sim/surfaces.gd` (its grip, rolling resistance and looks; FleetSim
-gets the table as data), a grip-share field in `CarSpec` if each car should differ on it, and a third slot in the road
-shader (`world/shaders/road_surface.gdshader`, which has two: dirt and snow). The menu, minimaps, scenery and
-AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked with
-the mouse, arrows or gamepad, and its grid makes rows as full as it can (15 tracks: three rows of five, which fit a
-1280 x 720 window without scrolling). A track's scenery is a theme in `world/themes.gd` (sky, light, fog, ground
+`tools/medals.gd`. A new surface is an entry in `sim/surfaces.gd` (since 6.23.0 that is all it takes): its physics
+numbers (FleetSim gets the table as data, so the native library needs no rebuild), which of the car's two grip shares
+it uses and its `scale` of it, its colours, a `look` (one of the road shader's three: earth, snow, ice), four `style`
+numbers for that look, the `slot` it likes and a detail texture (`tex`: a generator in `world/textures.gd`
+`surface()`). Add new surfaces at the end of the table (the tracks store their index). The menu, minimaps, scenery
+and AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked
+with the mouse, arrows or gamepad, and its grid makes rows as full as it can (19 tracks: four rows of five, which fit
+a 1280 x 720 window without scrolling). A track added after the others opens for an old save when the track before it
+already has a bronze (`Unlocks.catch_up`, run when the save's `tracks_known` is not the number of tracks). A track's scenery is a theme in `world/themes.gd` (sky, light, fog, ground
 colours, mountains and scenery species, all data; since 6.4.0 also `woods` for a forest close to the road,
-`sky.aurora` for the northern lights and `ground.roadSnow` for snowy land beside snowy road); add its name to
+`sky.aurora` for the northern lights and `ground.roadSnow` for snowy land beside snowy road; since 6.23.0 `posts:
+false` for a road without street lamps); add its name to
 `THEMES` in `tools/gen_tracks.gd`. The tests in `tests/test_sim.gd` check every track against the design rules and
 that the tracks, their signatures and their medal times stay exactly as they are (the five tracks reworked in 6.6.0
 against what their corners must be now). To rework a corner of an existing track, shorten the straights next to it by

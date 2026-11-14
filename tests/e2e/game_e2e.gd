@@ -33,8 +33,8 @@ extends SceneTree
 ##             network for the car (Load network's code path) before watching it (screenshots
 ##             of a trained AI). Shots: cars_menu_none, cars_train_form, cars_train, cars_train_cars
 ##             (the run view scrolled to its Car tiles), cars_menu_ready, cars_watch.
-##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15 by the arrows and
-##             the pad's three rows of tiles; the menu fits 1280 x 720 without scrolling), Controls
+##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15, v6.23: 16-19 by the arrows and
+##             the pad's rows of tiles; the menu fits 1280 x 720 without scrolling), Controls
 ##             and Settings screens.
 ##   settings1 / settings2   change settings with the keyboard on the Settings screen (v6.12: also
 ##             the Music volume and the background mute, with a shot of the Audio section); the second
@@ -52,7 +52,13 @@ extends SceneTree
 ##             splashes the screen (world/screen_grime.gd: never in the middle, the camera does not
 ##             rumble), gone again soon after the dirt ends; Hairpin Valley with the Racer: snow
 ##             spray, grey-blue marks and snow and frost on the screen.
-##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow, surfaces_after.
+##             v6.23: the four rally stages with the Racer (stages=0 leaves them out, stages=only
+##             runs only them): the panel's
+##             surface lines, and on gravel, sand, ice and mud what the tyres throw up, the tyre
+##             marks' colour (the stage's own two slots) and the screen (mud messes it up, gravel,
+##             sand and ice only lightly).
+##             Shots: surfaces_menu, surfaces_transition, surfaces_dirt, surfaces_snow, surfaces_after,
+##             surfaces_gravel, surfaces_sand, surfaces_ice, surfaces_mud.
 ##   economy   money, points and the car shop (v6.5.0) from a new career: $0 and only the Racer;
 ##             race the Elite AI on Rookie Oval (the medal autopilot of the author time, starting
 ##             a third of a second late, without nitro (v6.15: none in AI races): the AI car leads, then
@@ -63,7 +69,7 @@ extends SceneTree
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
 ##   unlock    the tracks open one at a time (v6.8.0) from a new career: only Rookie Oval is open,
-##             14 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
+##             18 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
 ##             reads LOCKED, the menu fits 1280 x 720); Enter (Drive) and Race the Rookie AI are
 ##             refused with a message; Watch the Rookie AI and Train the AI work there; a bronze on
 ##             Rookie Oval (a slow autopilot, 50 m/s at most: 2:32.900 against bronze 2:39 and
@@ -746,8 +752,8 @@ func menu_nav() -> void:
 	check(menu.selected_track == 1, "↑ previous track")
 	await key(KEY_EQUAL)
 	check(menu.selected_track == 11, "= picks track 12")
-	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen
-	for want in [12, 13, 14]:
+	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too)
+	for want in [12, 13, 14, 15, 16, 17, 18]:
 		await key(KEY_RIGHT)
 		check(menu.selected_track == want, "→ track %d (%s)" % [want + 1, Tracks.build(Tracks.ids()[want]).name])
 	await key(KEY_RIGHT)
@@ -805,9 +811,9 @@ func menu_nav() -> void:
 	inp.press("PadB")
 	await frames(2)
 	check(not menu.controls.visible, "pad B closes Controls")
-	# down the three rows of tiles to the race buttons; B goes back
+	# down the rows of tiles (v6.23: four of them) to the race buttons; B goes back
 	var rows_seen := {menu.selected_track / maxi(1, menu.columns): true}
-	for i in 5:
+	for i in 6:
 		inp.pad_active = true
 		inp.press("NavDown")
 		await frames(2)
@@ -815,7 +821,7 @@ func menu_nav() -> void:
 			break
 		rows_seen[menu.selected_track / maxi(1, menu.columns)] = true
 	var at: Control = menu.pad_target()
-	check(at == menu.get("_drive_btn") and rows_seen.size() == 3,
+	check(at == menu.get("_drive_btn") and rows_seen.size() == 4,
 		"pad: down through the %d rows of tiles reaches TIME TRIAL (%s)" % [rows_seen.size(), at.name if at else "none"])
 	inp.pad_active = true
 	inp.press("PadB")
@@ -857,7 +863,7 @@ func menu_nav() -> void:
 	auto_start = true
 	await pad_button(JOY_BUTTON_START)
 	check(app.mode == app.menu_mode, "pad Menu: back to the menu")
-	check(n == 15, "15 tracks")
+	check(n == 19, "19 tracks")
 
 
 # ---------------------------------------------------------------- settings
@@ -995,14 +1001,28 @@ func train_shot(tag: String) -> void:
 
 func surfaces() -> void:
 	var meta: Label = app.ui.menu.get("_td_meta")
-	for want: Array in [["rookie-oval", "Asphalt"], ["mountain-pass", "Asphalt + dirt + packed snow"], ["ramp-rally", "Asphalt + dirt"]]:
-		await pick(want[0], "dune")
-		await frames(4)
-		check(meta.text.ends_with(" · " + want[1]), "the track panel names the surfaces of %s: \"%s\"" % [want[0], meta.text])
-	await frames(20)
-	await shot("surfaces_menu")
-	await _surface_drive("ramp-rally", "dune", "dirt", true)
-	await _surface_drive("hairpin-valley", "racer", "snow", false)
+	var stages := str(opts.get("stages", "1"))
+	if stages != "only":
+		for want: Array in [["rookie-oval", "Asphalt"], ["mountain-pass", "Asphalt + dirt + packed snow"], ["ramp-rally", "Asphalt + dirt"]]:
+			await pick(want[0], "dune")
+			await frames(4)
+			check(meta.text.ends_with(" · " + want[1]), "the track panel names the surfaces of %s: \"%s\"" % [want[0], meta.text])
+		await frames(20)
+		await shot("surfaces_menu")
+		await _surface_drive("ramp-rally", "dune", "dirt", true)
+		await _surface_drive("hairpin-valley", "racer", "snow", false)
+	# v6.23: the rally stages' surfaces with the Racer, made to slide with the handbrake where it
+	# has not slid by itself 120-600 m into the surface; stages=0 leaves them out, stages=only runs only them (with gfx=high the whole
+	# scenario takes over 15 minutes in software rendering)
+	if stages != "0":
+		for want: Array in [["pine-ridge", "Asphalt + gravel"], ["dune-sea", "Asphalt + gravel + sand"], ["frozen-lake", "Asphalt + packed snow + ice"], ["monsoon-trail", "Asphalt + gravel + mud"]]:
+			await pick(want[0], "dune")
+			await frames(4)
+			check(meta.text.ends_with(" · " + want[1]), "the track panel names the surfaces of %s: \"%s\"" % [want[0], meta.text])
+		await _surface_drive("pine-ridge", "racer", "gravel", false, 60, true)
+		await _surface_drive("dune-sea", "racer", "sand", false, 300, true) # (it slides by itself 550 m into the sand)
+		await _surface_drive("frozen-lake", "racer", "ice", false, 100, true)
+		await _surface_drive("monsoon-trail", "racer", "mud", false, 100, true)
 
 
 ## Drive (medal autopilot) to the first stretch of `sid` on track `tid` with car `cid`: the tyres
@@ -1010,7 +1030,7 @@ func surfaces() -> void:
 ## colour, and mud (or snow) splashes the screen, outside its middle (v6.10, in place of the
 ## camera's rumble). transition: a shot just before the border too, and the screen clean again on
 ## the asphalt after the stretch.
-func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> void:
+func _surface_drive(tid: String, cid: String, sid: String, transition: bool, reach: int = 160, flick: bool = false) -> void:
 	var tag := "%s / %s" % [tid, cid]
 	await pick(tid, cid)
 	await key(KEY_ENTER)
@@ -1036,28 +1056,50 @@ func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> 
 	await wait_until(func() -> bool: return c.idx >= first - 70, 300.0)
 	fast(false) # (the last stretch at normal speed: a fast frame could jump the border)
 	await wait_until(func() -> bool: return c.idx >= first - 8, 300.0)
-	var pool: CarEffects.Spray = model.dust if sid == "dirt" else model.spray
-	check(pool == null or pool.alive == 0, "%s: on asphalt (sample %d) the tyres throw up no %s" % [tag, c.idx, "dust" if sid == "dirt" else "snow"])
+	# (v6.23) what the surface throws up (dust puffs or clumps of snow / mud), its slot in the road's
+	# look (the tyre marks' colour) and what lands on the screen (mud for "dust" surfaces, else snow)
+	var puffs: bool = Surfaces.throw_of(si) == "puffs"
+	var muddy: bool = String(Surfaces.def(si).dust) == "dust"
+	var what: String = "dust" if puffs else ("mud" if muddy else "snow")
+	var pool: CarEffects.Spray = model.dust if puffs else model.spray
+	# (v6.23: only where asphalt comes before the stretch; Frozen Lake's ice follows packed snow)
+	if track.surface[maxi(0, first - 8)] == Surfaces.ASPHALT:
+		check(pool == null or pool.alive == 0, "%s: on asphalt (sample %d) the tyres throw up no %s" % [tag, c.idx, what])
 	if transition:
 		await shot("surfaces_transition")
 	# into the stretch, then a moment sliding on it (or the last of it)
 	await wait_until(func() -> bool: return c.idx >= first + 30 and c.idx < last - 10, 60.0)
-	await wait_until(func() -> bool: return c.slip > 0.35 or c.idx >= mini(last - 10, first + 160), 40.0)
+	# (reach: how far into the stretch to wait for a slide, in samples of 2 m)
+	await wait_until(func() -> bool: return c.slip > 0.35 or c.idx >= mini(last - 10, first + reach), 40.0 if reach <= 160 else 240.0)
+	var flicked: bool = flick and c.slip <= 0.35
+	if flicked:
+		# (v6.23) the medal autopilot does not slide early on the stages (it plans inside the grip):
+		# a pull of the handbrake with some steering makes the car slide, as a player would
+		var feed: Callable = app.input.feed
+		app.input.feed = func(_speed: float) -> void:
+			app.input.pad_steer = 0.7
+			app.input.pad_throttle = 0.6
+			app.input.pad_brake = 0.0
+			app.input.held["handbrake"] = true
+		await game_seconds(0.6) # (game time: in software rendering a frame can take a second)
+		app.input.held.erase("handbrake")
+		app.input.feed = feed
 	# the most puffs alive over 12 frames, against 8 at full emission scaled by the graphics quality's
 	# share (CarEffects.spark_share: low emits 30 %, about 8 puffs alive here with random lives, so one
 	# frame's count against 8 was a coin flip; v6.9.0)
 	var most := 0
 	for k in 12:
 		await frames(1)
-		pool = model.dust if sid == "dirt" else model.spray
+		pool = model.dust if puffs else model.spray
 		most = maxi(most, pool.alive if pool != null else 0)
 	var need: int = maxi(3, ceili(8.0 * CarEffects.spark_share))
-	var slot := model.skids.newest_tint.x if si == 1 else model.skids.newest_tint.y
+	var slot := model.skids.newest_tint.x if Surfaces.slots(track)[0] == si else model.skids.newest_tint.y
 	check(pool != null and most >= need and pool.node.visible, "%s: on the %s (sample %d, %.0f km/h, slip %.2f) the tyres throw up %s: up to %d puffs alive over 12 frames (at least %d at this quality's %d %% emission; pool %d)" % [
-		tag, sid, c.idx, c.speed * 3.6, c.slip, "dust" if sid == "dirt" else "snow", most, need, roundi(CarEffects.spark_share * 100.0), pool.max if pool != null else 0])
+		tag, sid, c.idx, c.speed * 3.6, c.slip, what, most, need, roundi(CarEffects.spark_share * 100.0), pool.max if pool != null else 0])
 	check(model.skids.used > 0 and slot > 0.9, "%s: the newest tyre mark has the %s's colour (weight %.2f)" % [tag, sid, slot])
 	var g: ScreenGrime = m.get("grime")
-	var kind := 0 if sid == "dirt" else 1
+	var kind := 0 if muddy else 1
+	var messy: bool = float(Surfaces.def(si).get("grime", 1.0)) >= 0.8
 	var splats := 0
 	var inside := 0
 	if g != null:
@@ -1066,11 +1108,14 @@ func _surface_drive(tid: String, cid: String, sid: String, transition: bool) -> 
 			inside += 1 if g.keep_metric(b.pos, g.reach(b)) < 0.999 else 0
 	var layer := 0.0
 	if g != null:
-		layer = g.film if sid == "dirt" else g.frost
-	check(g != null and g.visible and splats >= 3 and layer > 0.1 and inside == 0,
-		"%s: %s on the screen: %d splats, %s %.2f, none in the middle" % [tag, "mud" if sid == "dirt" else "snow", splats, "film" if sid == "dirt" else "frost", layer])
+		layer = g.film if muddy else g.frost
+	# (gravel, sand and ice dirty the screen far less than dirt, mud and snow: there only "none in the middle")
+	check(g != null and g.visible and (splats >= 3 and layer > 0.1 or not messy) and inside == 0,
+		"%s: %s on the screen: %d splats, %s %.2f, none in the middle%s" % [tag, "mud" if muddy else "snow", splats, "film" if muddy else "frost", layer, "" if messy else " (a light surface: %.0f %% of the mess)" % (float(Surfaces.def(si).grime) * 100.0)])
 	# (a shake now can only be a wall's)
-	check(cam.shake == 0.0 or cam.trauma > 0.0 or cam.rumble > 0.01, "%s: the camera does not rumble on the %s (shake %.3f)" % [tag, sid, cam.shake])
+	# (not after a handbrake slide: it can end on a bank or over a crest, and a landing shakes too)
+	if not flicked:
+		check(cam.shake == 0.0 or cam.trauma > 0.0 or cam.rumble > 0.01, "%s: the camera does not rumble on the %s (shake %.3f)" % [tag, sid, cam.shake])
 	await shot("surfaces_" + sid)
 	if transition and g != null:
 		# past the stretch: the screen clears on the asphalt
@@ -1332,7 +1377,7 @@ func cup_run() -> void:
 	await pick(tracks[0], "racer")
 	var r := cab.get_global_rect()
 	var fit := _menu_fits(menu)
-	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 25") and fit == "",
+	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 30") and fit == "",
 		"the menu: the Cups button with an empty cabinet on screen (%.0f,%.0f %.0fx%.0f); the menu fits 1280 x 720 %s" % [r.position.x, r.position.y, r.size.x, r.size.y, fit])
 	await shot("cup_menu")
 	await key(KEY_T)
@@ -1841,8 +1886,8 @@ func unlock() -> void:
 	var msg: Label = app.message.get("_text")
 	menu.select_opponent("rookie")
 	var locked := tiles.filter(func(x: Control) -> bool: return x.get("locked")).size()
-	check(UiData.open_track_count() == 1 and locked == 14 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14",
-		"a new career: only Rookie Oval is open, 14 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
+	check(UiData.open_track_count() == 1 and locked == 18 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18",
+		"a new career: only Rookie Oval is open, 18 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
 	await frames(10)
 	await shot("unlock_menu")
 	# the keys still pick a locked track
