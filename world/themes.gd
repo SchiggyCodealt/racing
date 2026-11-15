@@ -15,6 +15,8 @@
 ## barrier stripes), skyline (night city), sea (seaside coast), posts (v6.23, false: no lamp
 ## posts along the road, the rally stages), headlights (0..1: how
 ## much the cars' headlights light the road, world/car_model.gd; none when missing);
+## v6.28 extra: town (houses along the streets: {near, far} m from the road edge, at most max of
+## them, h [min, max] m tall, facade colours and a roof colour; world/track_scenery.gd);
 ## v6.4 extras: woods (a forest: {count, spacing, peak, near, open}, more trees close to the road, see
 ## world/track_scenery.gd; none = as before),
 ## sky.aurora (0..1: the northern lights, with auroraColor and auroraEdge for the
@@ -236,10 +238,61 @@ const THEMES := {
 		"scenery": ["palmJungle", "treeJungle", "fern", "treeJungle", "rock"], "posts": false,
 		"tuft": {"color": 0x3f7a30, "tip": 0x7fae4a},
 	},
+	# v6.28 (the grand-prix circuits, tracks 20-22)
+	"riviera": {
+		# a Mediterranean afternoon: a deep blue sky, the sea, pastel houses along the streets (town),
+		# palms and steep hills behind
+		"sky": {"zenith": 0x1f66cf, "horizon": 0xcfe4f4, "below": 0x2a6d92, "clouds": 0.12, "cloudLit": 0xffffff, "cloudShade": 0xb0c2d4, "haze": 0.55},
+		"sun": {"color": 0xfff0d6, "intensity": 3.5, "elevation": 50.0, "azimuth": 200.0},
+		"hemi": {"sky": 0xd8ecff, "ground": 0xb7a07a, "intensity": 0.32},
+		"env": 1.0,
+		"fog": {"color": 0xcbe1f0, "near": 380.0, "far": 3300.0},
+		"exposure": 0.98,
+		"bloom": {"strength": 0.22, "radius": 0.45, "threshold": 1.2},
+		"ground": {"a": 0xa09a8c, "b": 0xb3ab98, "dry": 0x8f9a5c, "dirt": 0x8c867a, "rock": 0xa49a88, "snow": -1, "far": 0x14465f},
+		"hills": 12.0, "mountains": 170.0, "mountainStyle": "peaks",
+		"accent": [0xd8262e, 0xf4f4f2], "lamps": false,
+		"sea": {"level": 1.0, "water": 0x1a6a96, "deep": 0x103e62, "shallow": 0x4fb3c0, "sand": 0xd8cdb4},
+		"town": {"near": 7.0, "far": 210.0, "max": 420, "h": [9.0, 34.0], "roof": 0xb4583c,
+			"facades": [0xf0c48a, 0xe8a888, 0xf3d68a, 0xf6efe2, 0xdc8f6e, 0xeccaa2, 0xd3dcb6, 0xf4b98e]},
+		"scenery": ["palm", "bushCoast", "palm", "broadleaf"],
+		"tuft": null,
+	},
+	"parkland": {
+		# an English summer day on an old airfield: big fair-weather clouds, flat green fields, hedges and copses
+		"sky": {"zenith": 0x3168c4, "horizon": 0xd2e0ec, "below": 0x6a8a4c, "clouds": 0.62, "cloudLit": 0xffffff, "cloudShade": 0x99a9bc, "haze": 0.6},
+		"sun": {"color": 0xfff1dc, "intensity": 3.1, "elevation": 47.0, "azimuth": 160.0},
+		"hemi": {"sky": 0xd6e6f8, "ground": 0x5a703c, "intensity": 0.34},
+		"env": 1.0,
+		"fog": {"color": 0xc8d8e6, "near": 330.0, "far": 3200.0},
+		"exposure": 1.0,
+		"bloom": {"strength": 0.22, "radius": 0.45, "threshold": 1.15},
+		"ground": {"a": 0x4f8034, "b": 0x67923f, "dry": 0x8e9452, "dirt": 0x7f6c4e, "rock": 0x8a877e, "snow": -1, "far": 0x5e8642},
+		"hills": 3.0, "mountains": 45.0, "mountainStyle": "peaks",
+		"accent": [0x1f5fbf, 0xf3f5f8], "lamps": false,
+		"scenery": ["broadleaf", "bush", "broadleaf", "birchGreen", "bush"],
+		"tuft": {"color": 0x6a9a3c, "tip": 0xa9c266},
+	},
+	"styria": {
+		# high summer in the Styrian hills: green meadows, dark spruce woods on the slopes, the Alps behind
+		"sky": {"zenith": 0x2560c4, "horizon": 0xd0e2f2, "below": 0x5f7f4a, "clouds": 0.4, "cloudLit": 0xffffff, "cloudShade": 0xa2b2c6, "haze": 0.45},
+		"sun": {"color": 0xfff3de, "intensity": 3.3, "elevation": 44.0, "azimuth": 230.0},
+		"hemi": {"sky": 0xd6e8ff, "ground": 0x56703e, "intensity": 0.3},
+		"env": 1.0,
+		"fog": {"color": 0xc6daec, "near": 340.0, "far": 3300.0},
+		"exposure": 0.98,
+		"bloom": {"strength": 0.2, "radius": 0.45, "threshold": 1.2},
+		"ground": {"a": 0x4c7c30, "b": 0x5f8c38, "dry": 0x8a8a4e, "dirt": 0x6e5e46, "rock": 0x80807a, "snow": 0xf0f4f8, "far": 0x4a7038},
+		"hills": 16.0, "mountains": 280.0, "mountainStyle": "peaks",
+		"accent": [0xe8501c, 0xf4f3ee], "lamps": false,
+		"woods": {"count": 1.2, "spacing": 9.0, "peak": 0.6, "near": 140.0, "open": 0.45},
+		"scenery": ["pine", "pineTall", "pine", "broadleaf", "rock"],
+		"tuft": {"color": 0x5e9238, "tip": 0xa4c25e},
+	},
 }
 
 const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland",
-	"pinewood", "dunes", "frozen", "jungle"]
+	"pinewood", "dunes", "frozen", "jungle", "riviera", "parkland", "styria"]
 
 ## Quality levels (scene.js QUALITY, plus what Godot does with them): render scale
 ## (the web's pixel-ratio cap at 1x DPI), bloom (glow), sun shadow map size and

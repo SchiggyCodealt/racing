@@ -21,6 +21,7 @@ const Tex = preload("res://world/textures.gd")
 const TrackCtx = preload("res://world/track_ctx.gd")
 const POOL_SHADER = preload("res://world/shaders/lamp_pool.gdshader")
 const SKYLINE_SHADER = preload("res://world/shaders/skyline.gdshader")
+const TOWN_SHADER = preload("res://world/shaders/town.gdshader")
 
 const BARRIER_H := TrackCtx.BARRIER_H
 const BARRIER_W := TrackCtx.BARRIER_W
@@ -403,6 +404,8 @@ static func add_scenery(node: Node3D, c: TrackCtx) -> void:
 			sum_p += p
 		z += spacing
 	var thin := minf(1.0, max_total * 0.97 / maxf(1.0, sum_p))
+	plan_town(c)
+	var houses := _town_grid(c.town)
 	var has_water: bool = terrain.has_water
 	var water_y: float = terrain.water_y
 	var base: float = terrain.base
@@ -413,6 +416,8 @@ static func add_scenery(node: Node3D, c: TrackCtx) -> void:
 		var r := rnd.next()
 		if r > p or total >= max_total:
 			continue
+		if not houses.is_empty() and _in_town(houses, c.town, jx, jz, 3.0):
+			continue  # (v6.28) not inside a house
 		var flat: float = terrain.flatness(jx, jz)
 		# pick a species: noise decides the local mix
 		var pick := VNoise.vnoise(jx * 0.01, jz * 0.01, seed + 41) * 0.6 + rnd.next() * 0.4
@@ -671,6 +676,127 @@ static func add_set_pieces(node: Node3D, c: TrackCtx) -> void:
 		sm.shader = SKYLINE_SHADER
 		sm.set_shader_parameter("facade", Themes.col(0x1b2130))
 		_instanced(node, Geo.box(1, 1, 1).translate(0, 0.5, 0).to_mesh(sm, false, false), xfs, "skyline")
+
+
+	if not c.town.is_empty():
+		# (v6.28) the town's houses: boxes with a facade colour each; windows, shutters and shop fronts
+		# are drawn by the material (town.gdshader)
+		var houses: Array = c.town.duplicate()
+		houses.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return _hash(a["x"], a["z"]) < _hash(b["x"], b["z"]))
+		var xfs: Array = []
+		var cols: Array = []
+		for hs: Dictionary in houses:
+			var b := Basis(Vector3.UP, float(hs["yaw"])) * Basis.from_scale(Vector3(hs["d"], hs["h"], hs["w"])) # z along the road
+			xfs.append(Transform3D(b, Vector3(hs["x"], hs["y"], hs["z"])))
+			cols.append(hs["col"])
+		var tm := ShaderMaterial.new()
+		tm.shader = TOWN_SHADER
+		tm.set_shader_parameter("roof", Themes.col(int((theme["town"] as Dictionary).get("roof", 0xb4583c))))
+		var mmi := _multimesh(Geo.box(1, 1, 1).translate(0, 0.5, 0).to_mesh(tm, false, false), xfs, cols, "town")
+		node.add_child(mmi)
+		(node.get("detail_nodes") as Array).append({"node": mmi, "full": xfs.size(), "kind": "scenery"})
+
+
+## (v6.28) Plans the theme's town once (c.town): houses on both sides of the road, between town.near
+## and town.far m from its edge (most of them close), turned square to the road, never on the road,
+## in the sea, on a pad or (much) inside another house.
+static func plan_town(c: TrackCtx) -> void:
+	var spec: Dictionary = c.theme.get("town", {})
+	if spec.is_empty() or not c.town.is_empty():
+		return
+	var terrain = c.terrain
+	var t := c.track
+	var rnd := VNoise.Rng.new(c.seed ^ 0x70c4)
+	var near := float(spec.get("near", 8.0))
+	var far := float(spec.get("far", 200.0))
+	var mx := int(spec.get("max", 300))
+	var hr: Array = spec.get("h", [9.0, 30.0])
+	var facades: Array = spec.get("facades", [0xf0e0c0])
+	var has_water: bool = terrain.has_water
+	var grid := {}
+	var tries := 0
+	while tries < mx * 30 and c.town.size() < mx:
+		tries += 1
+		var i := mini(t.count - 1, int(rnd.next() * t.count))
+		var side := -1.0 if rnd.next() < 0.5 else 1.0
+		var w := 12.0 + rnd.next() * 18.0 # along the road
+		var d := 10.0 + rnd.next() * 12.0 # away from it
+		var u := rnd.next()
+		var e0 := near + (far - near) * u * u
+		var off := side * (t.hw[i] + BARRIER_W + e0 + d / 2.0)
+		var x := t.px[i] + t.nx[i] * off
+		var z := t.pz[i] + t.nz[i] * off
+		var yaw := atan2(t.tx[i], t.tz[i])
+		var ax := Vector2(cos(yaw), -sin(yaw)) * (d / 2.0) # the box's local x (across the road) in the world
+		var az := Vector2(sin(yaw), cos(yaw)) * (w / 2.0) # and its local z (along it)
+		var ok := true
+		var y := INF
+		for q: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1), Vector2(0, 0), Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+			var px := x + ax.x * q.x + az.x * q.y
+			var pz := z + ax.y * q.x + az.y * q.y
+			if terrain.edge_dist(px, pz) < near * 0.5:
+				ok = false
+				break
+			var gy: float = terrain.height_at(px, pz)
+			if has_water and (gy < terrain.water_y + 0.6 or terrain.sea_at(px, pz) > 0.01):
+				ok = false
+				break
+			y = minf(y, gy)
+		if not ok:
+			continue
+		var r := 0.5 * sqrt(w * w + d * d)
+		for pad: Dictionary in c.pads:
+			for pp: Vector2 in pad["pts"]:
+				if Vector2(x, z).distance_to(pp) < float(pad["r"]) + r:
+					ok = false
+					break
+			if not ok:
+				break
+		if not ok:
+			continue
+		var key := Vector2i(floori(x / 60.0), floori(z / 60.0))
+		for gx in range(key.x - 1, key.x + 2):
+			for gz in range(key.y - 1, key.y + 2):
+				for k: int in grid.get(Vector2i(gx, gz), []):
+					var o: Dictionary = c.town[k]
+					if Vector2(x, z).distance_to(Vector2(o["x"], o["z"])) < 0.7 * (r + float(o["r"])):
+						ok = false
+		if not ok:
+			continue
+		var hh := float(hr[0]) + (float(hr[1]) - float(hr[0])) * rnd.next() * rnd.next()
+		if not grid.has(key):
+			grid[key] = []
+		grid[key].append(c.town.size())
+		c.town.append({"x": x, "y": y - 1.5, "z": z, "w": w, "d": d, "h": hh + 1.5, "yaw": yaw, "r": r,
+			"col": Themes.lin(int(facades[int(rnd.next() * facades.size()) % facades.size()]))})
+
+
+## A spatial hash of the town's houses (60 m cells -> indices).
+static func _town_grid(town: Array) -> Dictionary:
+	var g := {}
+	for k in town.size():
+		var key := Vector2i(floori(float(town[k]["x"]) / 60.0), floori(float(town[k]["z"]) / 60.0))
+		if not g.has(key):
+			g[key] = []
+		g[key].append(k)
+	return g
+
+
+## Whether (x, z) is inside (or within pad m of) a house of the town.
+static func _in_town(grid: Dictionary, town: Array, x: float, z: float, pad: float) -> bool:
+	var key := Vector2i(floori(x / 60.0), floori(z / 60.0))
+	for gx in range(key.x - 1, key.x + 2):
+		for gz in range(key.y - 1, key.y + 2):
+			for k: int in grid.get(Vector2i(gx, gz), []):
+				var o: Dictionary = town[k]
+				var yaw := float(o["yaw"])
+				var dx := x - float(o["x"])
+				var dz := z - float(o["z"])
+				var lx := dx * cos(yaw) - dz * sin(yaw)
+				var lz := dx * sin(yaw) + dz * cos(yaw)
+				if absf(lx) < float(o["d"]) / 2.0 + pad and absf(lz) < float(o["w"]) / 2.0 + pad:
+					return true
+	return false
 
 
 static func _instanced(node: Node3D, mesh: Mesh, xfs: Array, node_name: String) -> void:

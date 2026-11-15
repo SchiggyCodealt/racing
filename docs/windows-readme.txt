@@ -1,26 +1,29 @@
-Track Rush 6.27.0 for Windows (64-bit)
+Track Rush 6.28.0 for Windows (64-bit)
 ======================================
 
-A Trackmania-style racer with eight cars, nineteen tracks (seven of them with
-dirt or packed snow, four of them rally stages on gravel, sand, ice and mud),
-medals, ghosts and an AI driver you train yourself, with any of the cars.
-Medals and wins against five AI opponents (Rookie to Elite) pay money and
-career points, and money buys cars and upgrades. The tracks open one at a
-time: you start with Rookie Oval, and a bronze medal or better on a track,
-with any car, opens the next one for good.
+A Trackmania-style racer with eight cars, twenty-two tracks (seven of them
+with dirt or packed snow, four of them rally stages on gravel, sand, ice and
+mud, three of them real grand-prix circuits), medals, ghosts and an AI driver
+you train yourself, with any of the cars. Medals and wins against five AI
+opponents (Rookie to Elite) pay money and career points, and money buys cars
+and upgrades. The tracks open one at a time: you start with Rookie Oval, and
+a bronze medal or better on a track, with any car, opens the next one for
+good.
 
-New in 6.27.0: no more barriers on the eleven tracks with dirt, snow,
-gravel, sand, ice or mud. Orange cones stand along both edges instead, and
-beside the road there is a run-off you can drive on, up to 10 m wide. It
-works like a gravel trap (little grip, a lot of drag), so cutting across
-it or running wide costs time. Each cone you knock over adds 0.5 s to your
-time and spoils the clean-driving combo. The AI opponents on those tracks
-learned to race without walls and the medal times were measured again.
-The checkpoint gates and the CP counter are gone (the checkpoints still
-count), the minimap moved to the top left and the timing tower to the top
-right, above your place, best time and medal.
+New in 6.28.0: three real grand-prix circuits after Monsoon Trail, traced
+from the real ones at their real lengths. Monaco (3.35 km) runs between walls
+through a pastel harbour town, up to the Casino, round the Grand Hotel
+hairpin and along the sea; Silverstone (5.85 km) is the fast airfield
+circuit in English fields; Spielberg (4.28 km, the Austrian circuit) climbs
+a Styrian hillside to a hairpin and sweeps back down. Two laps each, medal
+times and AI opponents for every car, and a seventh championship, the Grand
+Prix Cup (Silverstone, Spielberg, then Monaco).
 
 Earlier versions, newest first:
+6.27.0  no barriers on the eleven tracks with loose ground: cones along
+        both edges (0.5 s each knocked over) and a gravel-trap run-off;
+        no checkpoint gates or CP counter; the minimap at the top left and
+        the timing tower at the top right.
 6.26.0  a minimap with three sectors, S1 to S3, in the way of the F1 games:
         the sector you are in, the ones done this lap (green when the
         fastest yet) and every car as a dot; on the menu, R (or Records)
@@ -116,5 +119,30 @@ the save file keeps them in its "archive" section. Medals and AI wins already
 paid stay paid.
 Nothing is written next to the game. To uninstall, delete this folder (and
 that save folder if you want your records gone too).
+
+Credits
+-------
+The shapes of Monaco, Silverstone and Spielberg are traced from the circuit
+centre lines of bacinger/f1-circuits (github.com/bacinger/f1-circuits):
+
+  MIT License, Copyright (c) 2019-2025 Tomislav Bacinger
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the "Software"),
+  to deal in the Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  and/or sell copies of the Software, and to permit persons to whom the
+  Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+  DEALINGS IN THE SOFTWARE.
 
 More: README.md in the game's repository.

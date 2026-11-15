@@ -10,9 +10,10 @@ extends RefCounted
 ## trophies (gold, silver, bronze) and the cup pays by your place (sim/economy.gd CUP_PLACES, once per
 ## cup, level and place). sim/cup_run.gd keeps one cup in progress.
 ## Data-driven: CUPS is the list: five cups of three, rising in difficulty (the tracks' mean difficulty
-## 2.0, 2.7, 3.7, 4.0, 4.7), and the Rally Cup of four (v6.23; 4.0), every track in exactly one. A cup
-## opens when every one of its tracks is open (sim/unlocks.gd: they open one at a time, in menu order),
-## so they open in this order too: with track 3, 10, 12, 13, 15 and 19.
+## 2.0, 2.7, 3.7, 4.0, 4.7), the Rally Cup of four (v6.23; 4.0) and the Grand Prix Cup (v6.28; 3.7),
+## every track in exactly one. A cup opens when every one of its tracks is open (sim/unlocks.gd: they
+## open one at a time, in menu order), so they open in this order too: with track 3, 10, 12, 13, 15, 19
+## and 22.
 ##
 ##   Cups.ids() -> cup ids, easiest first;  Cups.cup(id) -> {id, name, tracks, blurb} ({} unknown)
 ##   Cups.index_of(id), Cups.name_of(id), Cups.tracks_of(id)
@@ -41,6 +42,9 @@ const CUPS: Array[Dictionary] = [
 	# v6.23: the four rally stages, point to point, each on a surface of its own
 	{id = "rally", name = "Rally Cup", tracks = ["pine-ridge", "dune-sea", "frozen-lake", "monsoon-trail"],
 		blurb = "Four rally stages: forest gravel, desert sand, a frozen lake and jungle mud."},
+	# v6.28: the three real grand-prix circuits, Monaco last
+	{id = "grand-prix", name = "Grand Prix Cup", tracks = ["silverstone", "spielberg", "monaco"],
+		blurb = "Three real grand-prix circuits: Silverstone, the Austrian hills and the Monaco streets."},
 ]
 ## Points per finishing place, 1st first (places further back score nothing).
 const POINTS: PackedInt32Array = [10, 8, 6, 5, 4, 3]

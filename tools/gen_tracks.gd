@@ -59,7 +59,7 @@ const RULES: Dictionary = {
 const RUN_IN: float = 36.0
 const RUN_OFF: float = 250.0
 const THEMES: Array[String] = ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland",
-	"pinewood", "dunes", "frozen", "jungle"]
+	"pinewood", "dunes", "frozen", "jungle", "riviera", "parkland", "styria"]
 const DEGR: float = PI / 180.0
 
 ## The designs, in menu order: {kind, meta, make (Callable), close (closeLoop options), req}
@@ -713,6 +713,117 @@ func _define() -> void:
 			.S(RUN_OFF, {y = 2})),
 		{minLength = 2800, kickers = 1})
 
+	# v6.28 - three real grand-prix circuits (tracks 20-22). Their shapes are traced from the
+	# centre lines of bacinger/f1-circuits (MIT licence, (c) Tomislav Bacinger; see the README):
+	# each line was split into straights and turns, and the lengths and radii fitted to the real
+	# one (within about 10 m on average). The start heading is the real one, so north is up on
+	# the minimap. Heights are scaled down into the 0-18 m the physics allows; names are places.
+	# Real lap lengths make long laps, so these three run two laps each (about 3-4.5 min).
+	# 20 - Monaco: the harbour streets, walls on both sides and the slowest hairpin of all.
+	_circuit({id = "monaco", name = "Monaco", difficulty = 5, width = 12, theme = "riviera",
+		description = "The real harbour street circuit: walls on both sides, the Casino climb, the tightest hairpin, the quayside.",
+		laps = 2},
+		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 12, y = 2, yaw = deg_to_rad(-154.0)})
+			.S(a, {y = 2})                           # the pit straight
+			.R(43, 280)
+			.L(14, 82).R(66, 15, {bank = 2})         # Sainte Devote
+			.R(15, 42)
+			.L(11, 338, {y = 5})                     # up Beau Rivage
+			.R(10, 541, {y = 10})
+			.L(19, 92, {y = 12}).R(17, 211, {y = 15})
+			.L(126, 67, {bank = 4, y = 17})          # Massenet
+			.S(16, {y = 17})
+			.R(80, 30, {bank = 2, y = 17})           # Casino Square
+			.S(161, {y = 15})
+			.R(136, 23, {y = 14})                    # Mirabeau
+			.L(24, 34).S(38, {y = 12})
+			.L(184, 10.5, {y = 11})                  # the Grand Hotel hairpin
+			.S(13).R(11, 73).R(92, 15, {y = 8})      # Mirabeau Bas
+			.S(36, {y = 7})
+			.R(114, 23, {y = 5})                     # Portier
+			.R(80, 370, {bank = 3, y = 5})           # the tunnel bend (no roof drawn)
+			.L(49, 15).R(73, 16).L(21, 44, {y = 3})  # the harbour chicane
+			.S(b, {y = 2})                           # along the quay
+			.L(53, 20)                               # Tabac
+			.L(32, 123)
+			.L(46, 25).R(38, 29)                     # the swimming pool
+			.S(109)
+			.R(51, 14).S(6).L(55, 17)
+			.L(48, 109)
+			.R(126, 20)                              # Rascasse
+			.R(30, 50)
+			.R(68, 15)                               # Antony Noghes
+			.L(19, 52).R(11, 136)
+			.S(42, {y = 2})),
+		{a0 = 89, b0 = 218, minA = 86, minB = 100},
+		{minLength = 3000, kickers = 0})
+
+	# 21 - Silverstone: the old airfield, two long straights and the fast sweepers.
+	_circuit({id = "silverstone", name = "Silverstone", difficulty = 3, width = 16, theme = "parkland",
+		description = "The real airfield circuit: fast sweepers through Maggotts and Becketts, two long straights and the Loop.",
+		laps = 2},
+		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 16, y = 3, yaw = deg_to_rad(145.0)})
+			.S(a, {y = 3})                           # the Hamilton Straight
+			.R(54, 47, {bank = 3})                   # Abbey
+			.R(10, 147).L(6, 388)
+			.L(40, 80, {bank = 2, y = 3})            # Farm
+			.S(187)
+			.R(18, 50).R(88, 22, {bank = 2}).R(5, 366, {y = 2})  # Village
+			.L(6, 70).L(130, 24, {bank = 3})         # the Loop
+			.L(27, 150).L(50, 36, {y = 2})           # Aintree
+			.S(b, {y = 5})                           # the Wellington Straight
+			.L(120, 45, {bank = 3})                  # Brooklands
+			.L(5, 297).R(193, 49, {bank = 4, y = 5}) # Luffield
+			.R(8, 684).R(58, 165, {bank = 3, y = 4}) # Woodcote
+			.S(342, {y = 4})                         # the National Straight
+			.R(82, 132, {bank = 4})                  # Copse
+			.R(13, 1456, {y = 6})
+			.L(27, 135, {bank = 4})                  # Maggotts
+			.R(49, 40, {bank = 4})                   # Becketts
+			.S(68).L(56, 51, {bank = 3})
+			.R(95, 95, {bank = 4})                   # Chapel
+			.S(42).L(32, 53, {y = 6})
+			.S(682, {y = 4})                         # the Hangar Straight
+			.R(127, 88, {bank = 5})                  # Stowe
+			.L(19, 276, {y = 3}).S(182)
+			.L(88, 16)                               # Vale
+			.R(82, 17).R(37, 146).R(47, 30, {bank = 2})  # Club
+			.S(50, {y = 3})),
+		{a0 = 368, b0 = 632, minA = 200, minB = 300},
+		{minLength = 5000, kickers = 0})
+
+	# 22 - Spielberg: a short, fast lap up and down a hillside in Styria.
+	_circuit({id = "spielberg", name = "Spielberg", difficulty = 3, width = 15, theme = "styria",
+		description = "The real Austrian circuit on a Styrian hillside: a long climb to a tight hairpin, then fast sweepers down.",
+		laps = 2},
+		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 15, y = 3, yaw = deg_to_rad(-75.0)})
+			.S(a, {y = 3})                           # the start straight
+			.R(77, 22, {bank = 3})                   # turn 1
+			.L(8, 113, {y = 5})
+			.S(57)
+			.R(11, 1916, {y = 11})                   # the climb
+			.L(20, 456, {y = 15})
+			.S(b, {y = 18})
+			.R(126, 16, {y = 18})                    # the hairpin at the top
+			.R(20, 720, {y = 17})
+			.L(8, 2776, {y = 15})
+			.R(119, 29, {bank = 4, y = 14})          # down the hill
+			.R(67, 163, {bank = 4, y = 11})
+			.S(132, {y = 10})
+			.L(125, 70, {bank = 5, y = 9})           # the two lefts
+			.L(5, 1026)
+			.L(104, 55, {bank = 5, y = 7})
+			.L(6, 145)
+			.R(50, 126, {bank = 4, y = 6})
+			.S(440, {y = 4})
+			.R(73, 51, {bank = 5})                   # the last two rights
+			.R(5, 900)
+			.R(75, 22, {bank = 3})
+			.R(13, 320, {y = 3})
+			.S(299, {y = 3})),
+		{a0 = 298, b0 = 166, minA = 150, minB = 80},
+		{minLength = 4000, kickers = 0})
+
 
 ## A design turned into its track definition: {def, f (finish() result), turtle, req}, or {} on an error.
 func _realise(d: Dictionary) -> Dictionary:
@@ -739,7 +850,7 @@ func _realise(d: Dictionary) -> Dictionary:
 		description = meta.description, type = d.kind,
 	}
 	if d.kind == "circuit":
-		def.laps = 3
+		def.laps = int(meta.get("laps", 3)) # (v6.28: the grand-prix circuits run 2)
 	else:
 		def.startAt = RUN_IN
 		def.runOff = RUN_OFF

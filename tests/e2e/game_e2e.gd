@@ -33,7 +33,7 @@ extends SceneTree
 ##             network for the car (Load network's code path) before watching it (screenshots
 ##             of a trained AI). Shots: cars_menu_none, cars_train_form, cars_train, cars_train_cars
 ##             (the run view scrolled to its Car tiles), cars_menu_ready, cars_watch.
-##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15, v6.23: 16-19 by the arrows and
+##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15, v6.23: 16-19, v6.28: 20-22 by the arrows and
 ##             the pad's rows of tiles; the menu fits 1280 x 720 without scrolling), Controls
 ##             and Settings screens.
 ##   settings1 / settings2   change settings with the keyboard on the Settings screen (v6.12: also
@@ -70,7 +70,7 @@ extends SceneTree
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
 ##   unlock    the tracks open one at a time (v6.8.0) from a new career: only Rookie Oval is open,
-##             18 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
+##             21 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
 ##             reads LOCKED, the menu fits 1280 x 720); Enter (Drive) and Race the Rookie AI are
 ##             refused with a message; Watch the Rookie AI and Train the AI work there; a bronze on
 ##             Rookie Oval (a slow autopilot, 50 m/s at most: 2:32.900 against bronze 2:39 and
@@ -755,8 +755,8 @@ func menu_nav() -> void:
 	check(menu.selected_track == 1, "↑ previous track")
 	await key(KEY_EQUAL)
 	check(menu.selected_track == 11, "= picks track 12")
-	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too)
-	for want in [12, 13, 14, 15, 16, 17, 18]:
+	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too, v6.28: 20-22)
+	for want in range(12, n):
 		await key(KEY_RIGHT)
 		check(menu.selected_track == want, "→ track %d (%s)" % [want + 1, Tracks.build(Tracks.ids()[want]).name])
 	await key(KEY_RIGHT)
@@ -866,7 +866,7 @@ func menu_nav() -> void:
 	auto_start = true
 	await pad_button(JOY_BUTTON_START)
 	check(app.mode == app.menu_mode, "pad Menu: back to the menu")
-	check(n == 19, "19 tracks")
+	check(n == 22, "22 tracks")
 
 
 # ---------------------------------------------------------------- settings
@@ -1477,7 +1477,7 @@ func cup_run() -> void:
 	await pick(tracks[0], "racer")
 	var r := cab.get_global_rect()
 	var fit := _menu_fits(menu)
-	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 30") and fit == "",
+	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 35") and fit == "",
 		"the menu: the Cups button with an empty cabinet on screen (%.0f,%.0f %.0fx%.0f); the menu fits 1280 x 720 %s" % [r.position.x, r.position.y, r.size.x, r.size.y, fit])
 	await shot("cup_menu")
 	await key(KEY_T)
@@ -1993,8 +1993,8 @@ func unlock() -> void:
 	var msg: Label = app.message.get("_text")
 	menu.select_opponent("rookie")
 	var locked := tiles.filter(func(x: Control) -> bool: return x.get("locked")).size()
-	check(UiData.open_track_count() == 1 and locked == 18 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18",
-		"a new career: only Rookie Oval is open, 18 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
+	check(UiData.open_track_count() == 1 and locked == 21 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18" and tiles[21].lock_note == "Bronze on 21",
+		"a new career: only Rookie Oval is open, 21 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
 	await frames(10)
 	await shot("unlock_menu")
 	# the keys still pick a locked track

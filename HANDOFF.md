@@ -4,7 +4,11 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-14 (v6.27.0: round 6, item 1 of 3: no barriers on the 11 tracks with loose ground: cones
+_Last updated: 2026-11-15 (v6.28.0: round 6, item 2 of 3: three real grand-prix circuits as tracks 20-22, Monaco,
+Silverstone and Spielberg (the Red Bull Ring, named by its town), traced from bacinger/f1-circuits (MIT, `data/CREDITS.md`)
+into turtle programs in `tools/gen_tracks.gd`; two laps each (`laps` in a design); three themes (`riviera` with a
+`town` of houses, `world/shaders/town.gdshader`; `parkland`; `styria`); the Grand Prix Cup; medal times and AI opponents;
+v6.27.0: round 6, item 1 of 3: no barriers on the 11 tracks with loose ground: cones
 (`sim/cones.gd`, 0.5 s each) and a gravel-trap run-off (`sim/car.gd` `VERGE_*`), the medal times and those tracks' AI
 networks redone; checkpoint gates and the CP counter gone, minimap top left, timing tower top right;
 v6.26.0: round 5, item 9 of 9, the last: a minimap with three sectors on the race screen
@@ -53,7 +57,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.27.0, round 6 item 1 of 3 done (cones and run-off instead of barriers on loose tracks, the HUD moves); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.28.0, round 6 items 1-2 of 3 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg); item 3 (a Le Mans prototype) next; round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1621,10 +1625,51 @@ and medals" (folded into item 1).
 The order (the owner was told; each is pushed when done) and the defaults chosen:
 
 1. **Cones and the HUD (v6.27.0, done)**: see below.
-2. **Monaco, Silverstone and the Red Bull Ring (v6.28.0)**: the real layouts traced from public maps, named by the
-   place, no sponsor or brand logos.
+2. **Monaco, Silverstone and the Red Bull Ring (v6.28.0, done)**: see below; the Red Bull Ring is called Spielberg.
 3. **A Le Mans prototype (v6.29.0)**: modelled in code like the other cars (`world/car_shapes.gd`; no downloaded
    models, their licences are unclear), with a name of its own and no Porsche badges.
+
+### Item 2: Monaco, Silverstone and Spielberg (v6.28.0, done)
+
+What changed:
+- **The layouts** (`tools/gen_tracks.gd`, after Monsoon Trail): turtle programs like every other track, fitted to
+  the centre lines of [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) (`mc-1929`, `gb-1948`,
+  `at-1969`; MIT, © 2019-2025 Tomislav Bacinger: the notice is in `data/CREDITS.md`, the README's licence section and
+  `docs/windows-readme.txt`, which goes into the zip). How: the GeoJSON lon/lat projected to metres (x east, z south,
+  so the start heading is the real one and north is up on the minimap), resampled at 1 m, smoothed (Gaussian, 8 m),
+  the heading profile split by Douglas-Peucker (4-7°) into straights and turns, small bends merged, and the straight
+  lengths and radii fitted by Gauss-Newton (arc-length then nearest-point distance) with the angles fixed to whole
+  degrees summing to -360. The scripts are not in the repo (Python with numpy); redoing it means repeating that, or
+  editing the turtle programs by hand like any other track. Deviation from the real line after `close_loop`:
+  Monaco 8.6 m mean (27 m worst, the pit straight, made straight for the 80 m start rule, and the swimming pool),
+  Silverstone 7.1 (22), Spielberg 3.3 (9). Lengths 3348 / 5846 / 4283 m (real 3337 / 5891 / 4318).
+- **Rules met as they are**: Monaco 12 m wide with the Grand Hotel hairpin at r 10.5 (R - hw = 4.5, the rule is 4) and
+  2.4 m to spare between the walls of separate parts (clearance +1.7); heights scaled into 0-18 m (Monaco 2-17,
+  Silverstone 2-6, Spielberg 3-18). All asphalt, so walls (`open_edges` false).
+- **Two laps** (`laps` in a design's meta, default 3; `_realise` wrote 3 for every circuit before): real laps take
+  the medal autopilot about 1:40 (Monaco), 2:13 (Silverstone) and 1:35 (Spielberg).
+- **Themes** (`world/themes.gd`): `riviera` (sea to the side the coast planner picks, south-east here; warm grey
+  paved ground, no grass tufts, palms; and the new `town` extra), `parkland` (flat, broadleaf copses, big clouds),
+  `styria` (green hills, spruce woods, snow on the far peaks). Music: neon, overdrive, dust (`audio/sound_bank.gd`).
+- **The town** (`world/track_scenery.gd` `plan_town`, drawn in `add_set_pieces`; `TrackCtx.town`): up to `max`
+  boxes on both sides of the road, square to it, `near`-`far` m beyond the edge (more of them close), not on the road
+  (edge distance at nine points), in the sea, on a pad or mostly inside another; trees keep 3 m clear of them
+  (`_in_town` on a 60 m spatial hash). One MultiMesh with a facade colour per house; `world/shaders/town.gdshader`
+  draws the windows, shutters, shop fronts and roofs in metres on each face. Thinned by the quality level like the
+  rest of the scenery.
+- **Order and unlocks**: tracks 20-22 in the order asked (Monaco, Silverstone, Spielberg), each opened by a bronze on
+  the one before; an old save gets them by the usual catch-up (`tracks_known`). **Cups**: the seventh, the Grand Prix
+  Cup (Silverstone, Spielberg, Monaco), opens with track 22 (`sim/cups.gd`). To fit seven cups in 720 px the cup
+  rows' vertical padding went from 8 to 4 px and the intro text is two lines (`ui/cup_screen.gd`); 35 trophies.
+- **Medals** (`tools/medals.gd -- --tracks=monaco,silverstone,spielberg --update`, 11 min on 4 threads): Racer author
+  3:20.017 / 4:25.533 / 3:11.667; the Apex fastest (3:04.5 / 3:48.6 / 2:52.6), the Dune slowest.
+- **The AI**: the 24 networks trained (`--train`, 21 min; flat out 0.85-0.94 × author already), tuned in the level 3
+  car (`--tune`, 41 min; 0.845-0.932 × author), then the levels (3 min): every level within 2 % of its target, the
+  Elite capped at about 0.9 × author on most pairs, so no pair needed `V627_LOOSE`. Monaco's 10.5 m hairpin is fine.
+- **Money**: the three pay the most (track 22: +210 %), so gold + Expert everywhere now earns $180,400 per car and
+  buys the Apex too after 21 tracks (it could not before); the prices test and the README say so.
+- Not done: Monaco's tunnel has no roof (the bend is there, open to the sky); no pit lanes; the circuits' famous
+  corner names are only in comments.
 
 ### Item 1: cones, run-off and the HUD moves (v6.27.0, done)
 
