@@ -2913,8 +2913,10 @@ func _upgrades() -> void:
 		var w10: Dictionary = m.weight[top - 1]
 		# (the Apex, v6.22, is at its tyres' limit off the line and under braking from 100 km/h, where a
 		# lighter car gains nothing: its level 10 is 10 % quicker to 200 km/h and stops 2 % shorter)
+		# (the Sarthe, v6.29, brakes close to its tyres' limit already: its level 10 stops 6 % shorter)
 		var tyre_bound: bool = id == "apex"
-		ok = ok and float(w10.accel200) < float(base.accel200) * (0.92 if tyre_bound else 0.86) and float(w10.brake100) < float(base.brake100) * (0.99 if tyre_bound else 0.9)
+		var brake_bound: bool = tyre_bound or id == "sarthe"
+		ok = ok and float(w10.accel200) < float(base.accel200) * (0.92 if tyre_bound else 0.86) and float(w10.brake100) < float(base.brake100) * (0.99 if brake_bound else 0.9)
 		var st5: Dictionary = Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 5]))
 		var st55: Dictionary = Upgrades.stats(id, PackedInt32Array([5, 0, 0, 0, 5]))
 		ok = ok and float(st5.mass) == roundf(float(base.mass) * (1.0 - 0.03 * 4.5)) and absf(float(st5.accel200) - float(m.weight[4].accel200)) < 1e-9 and \
