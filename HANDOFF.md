@@ -1660,6 +1660,13 @@ What changed:
 - **Order and unlocks**: tracks 20-22 in the order asked (Monaco, Silverstone, Spielberg), each opened by a bronze on
   the one before; an old save gets them by the usual catch-up (`tracks_known`). **Cups**: the seventh, the Grand Prix
   Cup (Silverstone, Spielberg, Monaco), opens with track 22 (`sim/cups.gd`).
+- **Medals** (`tools/medals.gd -- --tracks=monaco,silverstone,spielberg --update`, 11 min on 4 threads): Racer author
+  3:20.017 / 4:25.533 / 3:11.667; the Apex fastest (3:04.5 / 3:48.6 / 2:52.6), the Dune slowest.
+- **The AI**: the 24 networks trained (`--train`, 21 min; flat out 0.85-0.94 × author already), tuned in the level 3
+  car (`--tune`, 41 min; 0.845-0.932 × author), then the levels (3 min): every level within 2 % of its target, the
+  Elite capped at about 0.9 × author on most pairs, so no pair needed `V627_LOOSE`. Monaco's 10.5 m hairpin is fine.
+- **Money**: the three pay the most (track 22: +210 %), so gold + Expert everywhere now earns $180,400 per car and
+  buys the Apex too after 21 tracks (it could not before); the prices test and the README say so.
 - Not done: Monaco's tunnel has no roof (the bend is there, open to the sky); no pit lanes; the circuits' famous
   corner names are only in comments.
 

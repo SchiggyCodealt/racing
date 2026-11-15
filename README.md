@@ -1045,6 +1045,10 @@ the Alps behind. Real laps are long (the medal autopilot takes about 1:40 a lap 
 the three run two laps each. They come after Monsoon Trail, open one after the other with a bronze as usual, and make
 the seventh championship, the **Grand Prix Cup** (Silverstone, Spielberg, then Monaco).
 
+| Monaco | Silverstone | Spielberg |
+| --- | --- | --- |
+| ![Monaco: the red Racer climbing a curving street between barriers with red and white kerb boards, pastel houses with rows of windows on both sides](docs/screenshots/monaco.png) | ![Silverstone: the Racer on a wide, flat straight between barriers with blue boards, green fields and copses on both sides](docs/screenshots/silverstone.png) | ![Spielberg: the Racer on the start straight between barriers, spruce woods and green hills, snowy Alps behind](docs/screenshots/spielberg.png) |
+
 #### The reworked corners (version 6.6.0)
 
 Version 6.6.0 opened up the corners that caught cars out the most on five tracks. Every hairpin (a turn of about
