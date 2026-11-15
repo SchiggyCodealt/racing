@@ -452,6 +452,9 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 2:39). Autho
 | Dune Sea | 1:33.383 | 1:31.433 | 1:42.650 | 1:32.033 | 1:28.917 | 1:43.417 | 1:48.450 | 1:27.367 |
 | Frozen Lake | 1:51.650 | 1:45.983 | 2:42.550 | 1:48.567 | 1:38.050 | 2:08.800 | 2:11.817 | 1:34.750 |
 | Monsoon Trail | 1:41.733 | 1:38.283 | 2:08.550 | 1:45.683 | 1:35.033 | 1:52.500 | 2:01.350 | 1:43.133 |
+| Monaco | 3:20.017 | 3:18.717 | 3:21.483 | 3:19.917 | 3:24.083 | 3:07.983 | 3:04.533 | 3:18.183 |
+| Silverstone | 4:25.533 | 4:26.683 | 4:26.300 | 4:27.033 | 4:34.983 | 4:05.133 | 3:48.633 | 4:28.867 |
+| Spielberg | 3:11.667 | 3:14.317 | 3:12.367 | 3:12.633 | 3:20.033 | 2:56.000 | 2:52.550 | 3:12.733 |
 
 The times are for the full race you drive (3 laps, 2 on the grand-prix circuits, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
@@ -464,8 +467,8 @@ is 1.5 × the author time. Hairpin Valley, Ramp Rally,
 Mountain Pass and Canyon Run got dirt or snow in version 6.3.0 and new times, 0.8-37 s slower than before depending on
 the car: see [Road surfaces](#road-surfaces). Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon
 Run got rounder, wider hairpins in version 6.6.0 and new times again: see [Tracks](#tracks). The Dune, the Vortex,
-the Apex and the Quadra, the three tracks of version 6.4.0 and the four stages of version 6.23.0 exist only in this
-version.)
+the Apex and the Quadra, the three tracks of version 6.4.0, the four stages of version 6.23.0 and the three grand-prix
+circuits of version 6.28.0 exist only in this version.)
 
 **The faster bronze (version 6.9.0).** Until version 6.8.0 bronze was 1.5 × the author time; it is 1.3 × now, 13 to
 54 s faster depending on the track and car. The medals your best times hold are worked out from the times when they
