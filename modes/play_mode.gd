@@ -159,6 +159,10 @@ var sector_top := PackedFloat64Array()
 var sector_cells: Array = []
 var sector_hold := -1.0
 var sectors_saved := true
+## (v6.27) the cones along a track without barriers (sim/cones.gd; null on a track with walls), one set
+## for every car of the race: a knocked cone stays down until a restart and costs the car that knocked
+## it Cones.PENALTY s (RaceState.penalize); the world (world/track_mesh.gd) throws it aside
+var cones: Cones = null
 ## Physics steps and wall-clock time spent in them (the e2e runs measure the script cost).
 var steps_run := 0
 var step_usec := 0
@@ -199,6 +203,7 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	car_spec = Upgrades.spec(String(car_def.id), levels)
 	var sp: CarSpec = car_spec
 	_rev_spec = {"idle_rpm": sp.idle_rpm, "redline": sp.redline, "upshift_rpm": sp.upshift_rpm}
+	cones = Cones.new(track) if track.open_edges else null
 
 
 func enter() -> void:
@@ -292,6 +297,11 @@ func restart() -> void:
 		car.nitro = 0.0 # (v6.15: no nitro in races against the AI)
 	race = RaceState.new(track)
 	_new_sectors()
+	if cones != null: # (v6.27) every cone standing again
+		cones.reset()
+		var tn: Object = app.world.track_node
+		if tn != null:
+			tn.call("reset_cones")
 	_place_start()
 	record = SaveData.get_record(track.id, car_def.id) # your best with this car
 	medal_target = _aim_for() # fixed for the run: the HUD ticks it at the finish if won
@@ -312,6 +322,8 @@ func restart() -> void:
 	if with_ghost:
 		ghost = {"car": Car.new(track, track.start_idx, ai_spec), "race": RaceState.new(track), "ai": AiLink.driver(net, cap)}
 		ghost.watch = _new_watch(ghost.car, 0.0)
+		# (v6.27) its own cones, so its race is the one OpponentRace measures (the world shows its knocks)
+		ghost.cones = Cones.new(track) if track.open_edges else null
 		(ghost.car as Car).nitro = 0.0 # (v6.15: no nitro in races against the AI, the AI's neither)
 		(ghost.ai as Object).set("refill", false)
 	watch = _new_watch(car, 0.0)
@@ -428,6 +440,7 @@ func _race_step(dt: float) -> void:
 	else:
 		c = _drive(dt)
 	car.step(track, c, dt)
+	_cone_hits(car, race, driver == "human")
 	if phase == "race":
 		var events := race.update(car, dt)
 		if score != null:
@@ -447,11 +460,46 @@ func _race_step(dt: float) -> void:
 		var grace: RaceState = ghost.race
 		var gc: Car.Controls = roll_out(gcar, track, _coast) if grace.finished else ghost.ai.call("drive", track, gcar, grace)
 		gcar.step(track, gc, dt)
+		_cone_hits(gcar, grace, false, ghost.cones)
 		grace.update(gcar, dt)
 		if not grace.finished and is_stuck(ghost.watch, gcar, grace):
 			respawn_car(gcar, grace, track, false)
 			ghost.watch = _new_watch(gcar, grace.time)
 			_store_pose(_prev.ghost, gcar)
+
+
+## (v6.27) The cones car `c` knocked over in its last step: each costs its race Cones.PENALTY s (none
+## once it has finished) and the world throws it aside (unless it is down already). `mine`: the player's
+## car, which gets the style score's event (a popup "Cone +0.5 s") and a knock. `own`: the car's own
+## cones instead of the race's (the AI ghost's).
+func _cone_hits(c: Car, r: RaceState, mine: bool, own: Cones = null) -> void:
+	var pool: Cones = own if own != null else cones
+	if pool == null:
+		return
+	var ks := pool.hit(c)
+	if ks.is_empty():
+		return
+	var was_on := not r.finished
+	var tn: Object = app.world.track_node
+	for k in ks:
+		r.penalize(Cones.PENALTY)
+		if tn != null:
+			tn.call("knock_cone", k, c.vx, c.vz)
+	if mine and was_on:
+		_cone_score(ks.size())
+
+
+## (v6.27) The player knocked `count` cones over: the style score's event (the run is no longer clean;
+## its popup says "Cone +0.5 s") and a knock.
+func _cone_score(count: int) -> void:
+	if score != null:
+		_add_score_events(score.cones(count, count * Cones.PENALTY))
+	app.audio.play("hit_light", {"db": -6.0})
+
+
+## "0.5", "1", "1.5": a penalty in seconds, short.
+static func _secs(v: float) -> String:
+	return str(snappedf(v, 0.1)).trim_suffix(".0")
 
 
 ## The main car's controls for this step: the player's input (watch_mode.gd: the AI).
@@ -473,7 +521,7 @@ func _on_gate(ev: Dictionary) -> void:
 	var delta: Variant = float(ev.time) - float(best) if best != null else null
 	var label: String
 	if ev.kind == "cp":
-		label = "CP %d" % (int(gate.cp) + 1)
+		label = "SPLIT %d" % (int(gate.cp) + 1) # (v6.27: "CP %d" before; no checkpoint gates or counter now)
 		app.audio.play("checkpoint")
 	elif ev.kind == "lap":
 		label = "LAP %d" % (int(gate.lap) + 1)
@@ -528,12 +576,26 @@ func _on_finish() -> void:
 		s.medal = _medal_line(t, null)
 		if not record.is_empty():
 			s.best = {"car": car_def.name, "time": record.time}
+	_cone_line(s, race)
 	if race.lap_times.size() > 1:
 		s.laps = Array(race.lap_times)
 	s.pad = app.input.pad_connected # name the gamepad buttons too
 	finish_state = s
 	app.ui.hud.show_panel(s)
 	_finish_sounds(s)
+
+
+## (v6.27) On a track with cones, the finish panel's line on them: how many the run knocked over and
+## the time they added (the time shown includes it).
+func _cone_line(s: Dictionary, r: RaceState) -> void:
+	if cones == null:
+		return
+	var l: Array = s.get("lines", [])
+	if r.penalties == 0:
+		l.append("No cones knocked over")
+	else:
+		l.append("%d cone%s knocked over: +%s s (in the time)" % [r.penalties, "" if r.penalties == 1 else "s", _secs(r.penalty)])
+	s.lines = l
 
 
 ## The run's payout (and, racing the AI car, the line saying who won, in `s`).
@@ -858,8 +920,6 @@ func _render_hud(dt: float) -> void:
 		"time": race.finish_time if race.finished else race.time,
 		"lap": race.lap(),
 		"laps": race.laps,
-		"cp": race.cp_per_lap - 1 if race.finished else mini(race.cp_in_lap(), race.cp_per_lap - 1),
-		"cps": race.cp_per_lap - 1,
 		"sprint": not track.closed,
 		"speed": car.speed,
 		"gear": car.gear,

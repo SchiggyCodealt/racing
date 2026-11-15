@@ -383,6 +383,7 @@ static func make_levels(t: BuiltTrack, car_id: String, e: Dictionary) -> Diction
 		var lv: Dictionary = Opponents.level(ids[k])
 		var target: float = maxf(float(lv.pace) * author, above * Opponents.MIN_GAP)
 		var best: Dictionary = {}
+		var runs: Array[Vector2] = [] # (v6.27) every finished capped race: (cap, time)
 		if top.time >= target * (1.0 - TOLERANCE):
 			best = {cap = null, time = top.time, err = absf(top.time - target)}
 		else:
@@ -393,8 +394,9 @@ static func make_levels(t: BuiltTrack, car_id: String, e: Dictionary) -> Diction
 				if not r.finished:
 					est_target *= 0.97 # (too slow to finish: aim a little faster)
 					continue
+				runs.append(Vector2(cap, r.time))
 				var err: float = absf(r.time - target)
-				if best.is_empty() or err < best.err:
+				if _better(r.time, err, best, above):
 					best = {cap = cap, time = r.time, err = err}
 				if err <= TOLERANCE * target:
 					break
@@ -410,9 +412,39 @@ static func make_levels(t: BuiltTrack, car_id: String, e: Dictionary) -> Diction
 					var r2: Dictionary = OpponentRace.run(net, t, car_id, cap2)
 					if not r2.finished:
 						continue
+					runs.append(Vector2(cap2, r2.time))
 					var err2: float = absf(r2.time - target)
-					if err2 < best.err:
+					if _better(r2.time, err2, best, above):
 						best = {cap = cap2, time = r2.time, err = err2}
+					if best.err <= TOLERANCE * target:
+						break
+			# (v6.27) still off: halve the gap between the highest cap whose race was slower than the
+			# target and the lowest above it whose race was faster (with cones and a run-off a capped
+			# network can knock cones or run wide where it never does flat out, so the race time is
+			# far from what its flat-out speeds predict and the steps above miss)
+			if not best.is_empty() and best.err > TOLERANCE * target:
+				var lo: float = -1.0
+				for v: Vector2 in runs:
+					if v.y > target and v.x > lo:
+						lo = v.x
+				var hi: float = top.top
+				for v: Vector2 in runs:
+					if v.y < target and v.x > lo and v.x < hi:
+						hi = v.x
+				for i in 12:
+					if lo < 0.0 or hi - lo < 0.05:
+						break
+					var cap3: float = _cap(0.5 * (lo + hi))
+					var r3: Dictionary = OpponentRace.run(net, t, car_id, cap3)
+					if not r3.finished or r3.time > target:
+						lo = cap3
+					else:
+						hi = cap3
+					if not r3.finished:
+						continue
+					var err3: float = absf(r3.time - target)
+					if _better(r3.time, err3, best, above):
+						best = {cap = cap3, time = r3.time, err = err3}
 					if best.err <= TOLERANCE * target:
 						break
 		if best.is_empty():
@@ -427,6 +459,18 @@ static func make_levels(t: BuiltTrack, car_id: String, e: Dictionary) -> Diction
 		levels[ids[k]] = {cap = best.cap, time = _ms(best.time)}
 		above = best.time
 	return {ok = ok, levels = levels, note = ", ".join(notes)}
+
+
+## (v6.27) Whether a race of `time` (`err` from the target) beats `best` for a level: one slower than
+## the level above (`above`, 0 for the fastest) beats one that is not, then the smaller error.
+static func _better(time: float, err: float, best: Dictionary, above: float) -> bool:
+	if best.is_empty():
+		return true
+	var ok_new: bool = above <= 0.0 or time > above
+	var ok_old: bool = above <= 0.0 or float(best.time) > above
+	if ok_new != ok_old:
+		return ok_new
+	return err < float(best.err)
 
 
 ## The cap whose estimated race time (OpponentRace.estimate) is `target`: bisection between

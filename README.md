@@ -85,6 +85,7 @@ the field or a cup), and the **car comes last**, on its own page with its upgrad
 championship that page comes up before every race, so **you can change cars inside a cup**. The menu itself is
 tidier for it: bigger track tiles, one block of race buttons, the AI's tools in one small row.
 Version 6.20.0 gives the races a leaderboard in the way of the F1 games: a **timing tower** on the left of the screen
+(at the top right since 6.27.0)
 (place in a box, the car's colour, the driver's three-letter code, the gap to the leader) whose rows slide when the
 order changes, and results and championship tables drawn as the same rows (see [Race the field](#race-the-field)).
 Version 6.21.0 adds a fifth upgrade, **weight**: every level makes the car 3 % lighter (level 10 about a fifth), so
@@ -117,6 +118,15 @@ F1 games: the minimap at the bottom right shows the track with the sector you ar
 when they are the fastest yet) and every car as a dot, with the sector times under it. The menu's new **Records**
 button (or **R**) lists the fastest time through each sector of every track, by any car, with the car and its
 upgrades (see [The minimap and sector records](#the-minimap-and-sector-records)).
+
+Version 6.27.0 takes the **barriers away on the eleven tracks with dirt, snow, gravel, sand, ice or mud**: orange
+**cones** stand along both edges instead, and beside the road there is a **run-off** you can drive on, up to 10 m wide,
+of the track's loose ground. Each cone you knock over adds **0.5 s** to your time (the finish panel counts them) and
+spoils the clean-driving combo; knocked cones fly off and stay down until a restart. The AI opponents on those tracks
+were trained again without walls to lean on, and the medal times measured again. The checkpoint gates are gone (only
+the start and finish gates stand; the checkpoints still count, and their split times read "SPLIT 1", "SPLIT 2") and
+so is the CP counter; the **minimap** moved to the **top left**, under the lap plate, and the field race's **timing
+tower** to the **top right**, above your place, best time and medal (see [Cones and run-off](#cones-and-run-off)).
 
 ![The menu: money and career points in the header, 19 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last six tracks, the four rally stages among them, still locked with a padlock and "Bronze on 13" to "Bronze on 18"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
@@ -199,8 +209,8 @@ On the menu:
 | Mouse | | Click a track tile or a car card to pick it, double-click to drive straight away |
 
 Each run starts with a 3-2-1-GO countdown. Circuits are 3 laps, and a lap only counts when you pass
-every checkpoint in order. At each checkpoint you see your split time compared with your best run
-(green = faster, red = slower). Sprints have a long straight after the finish line, so you can brake
+every checkpoint in order. At each checkpoint you see your split time ("SPLIT 2"; since 6.27.0 the checkpoints have
+no gates you can see) compared with your best run (green = faster, red = slower). Sprints have a long straight after the finish line, so you can brake
 to a stop. When you finish, the finish panel shows your time, the medal it earned, how far you are
 from the next medal, your points with their breakdown, and the lap times; **R** races again and
 **Esc** goes back to the menu.
@@ -258,8 +268,8 @@ There are eight cars. Each handles differently and has its own best times, ghost
 - **Dune** (green): an open buggy on big tyres. Soft and forgiving: strong grip in slow corners, traction on all
   four wheels, gentle slides that are easy to catch and soft landings, but the lowest top speed, so it is the slowest
   car on tarmac. On dirt it keeps far more grip than any other car (97 % of it; 72 % on snow, where only the Quadra
-  keeps more), which makes it the quickest car on Forest Rally and on the sand and the mud stage (Dune Sea, Monsoon
-  Trail). It is the easiest car to drive cleanly.
+  keeps more), which makes it the quickest car on Forest Rally, Hairpin Valley, Canyon Run and the mud stage (Monsoon
+  Trail), and second to the Quadra on the sand stage (Dune Sea). It is the easiest car to drive cleanly.
 - **Vortex** (orange): a mid-engine hypercar. The most power, the highest top speed and strong grip at speed,
   but light and twitchy at the limit, and its nitro tank lasts only 3 s. In the medal autopilot's hands it is second
   only to the Apex on the tracks with little or no loose road, and still the quickest on Banked Speedway; on dirt and
@@ -280,9 +290,10 @@ There are eight cars. Each handles differently and has its own best times, ghost
   any ground and only the Kestrel launches harder. It keeps 84 % of its grip on dirt and 82 % on snow, the most of
   any car there, stops the shortest on snow and lands jumps softly. It is draggy and its top speed is low
   (244.9 km/h), and with all-wheel drive it pulls itself straight, so drifts are short. In the medal autopilot's hands
-  it is the quickest car on Hairpin Valley, Ramp Rally, Northern Lights, Summit Rush, Pine Ridge and Frozen Lake (by 1
-  to 8 %) and second to the Dune on Forest Rally, Dune Sea and Monsoon Trail; on the all-asphalt tracks it is about
-  level with the Racer on the twisty ones and sixth or seventh of the eight overall. It costs $26,000.
+  it is the quickest car on Ramp Rally, Northern Lights, Summit Rush, Pine Ridge, Dune Sea and Frozen Lake (by 2 to
+  7 %) and second to the Dune on Forest Rally (since version 6.27.0, without the barriers to lean on, the Dune is
+  quicker on Hairpin Valley and Monsoon Trail too); on the all-asphalt tracks it is about level with the Racer on the
+  twisty ones and sixth or seventh of the eight overall. It costs $26,000.
 
 | Car | Mass | 0-100 km/h | 0-200 km/h (with nitro) | Top speed (with nitro) | Nitro tank | 100-0 km/h | Cornering grip, 30 m / 120 m circle | Drift held |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -366,7 +377,7 @@ Drifts, jumps and close calls only count on new road: after a respawn (or if you
 the stretch you have already driven scores none of them again until you are past the furthest point you had
 reached. The score never goes below zero.
 
-The score sits under the lap and checkpoint counters with the combo next to it. A line below shows the drift,
+The score sits under the lap plate and the minimap, with the combo next to it. A line below shows the drift,
 jump or wall contact going on right now, and short notes pop up for every gain and loss. The finish panel shows
 the total, the breakdown and how much nitro the points earned. Your **best score is saved for each track and
 car** and shown in the menu's track panel. Clean driving pays most: one wall hit costs the combo and the clean
@@ -379,7 +390,8 @@ the F1 games: on a circuit from the start line to a third of the lap, to two thi
 from the start to the finish the same way. Each sector is timed as you cross its end, so the three sectors of a lap
 add up to the lap time (the first sector of a race starts at GO, from a standstill; later laps start it at full speed).
 
-During a race the **minimap** at the bottom right, above the nitro gauge, shows the track from above with the sector
+During a race the **minimap** at the top left, under the lap plate (at the bottom right before 6.27.0), shows the
+track from above with the sector
 you are driving in yellow, the sectors you have done this lap in green (the fastest time through that sector so far,
 by any car) or white (slower), and the ones still to come in grey. Your car is the yellow dot with a dark rim, the
 others (the AI's ghost, or the field) are dots in their colours. Under the map are the lap's sector times: green for
@@ -398,7 +410,7 @@ when the physics or the track changes, and **Reset all progress** clears them.
 
 | The minimap during a race | The sector records |
 | --- | --- |
-| ![Driving on Night Highway: at the bottom right, above the nitro gauge, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come](docs/screenshots/minimap.png) | ![The Sector records screen over the menu: a row for every track with its small map and yellow sector marks, the S1, S2 and S3 records with the car and its upgrades under each time, and the ideal lap](docs/screenshots/sector-records.png) |
+| ![Driving on Night Highway: at the top left, under the lap plate, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come; the split time SPLIT 6 under the race clock](docs/screenshots/minimap.png) | ![The Sector records screen over the menu: a row for every track with its small map and yellow sector marks, the S1, S2 and S3 records with the car and its upgrades under each time, and the ideal lap](docs/screenshots/sector-records.png) |
 
 ### Medals
 
@@ -415,24 +427,24 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 2:39). Autho
 | Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex | Apex | Quadra |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 | 2:09.683 | 1:52.250 | 1:40.967 | 2:04.367 |
-| Hairpin Valley | 3:54.500 | 3:48.600 | 4:07.400 | 3:51.800 | 3:48.050 | 3:54.350 | 4:10.800 | 3:43.883 |
-| Ramp Rally | 3:04.150 | 3:02.933 | 3:10.350 | 3:01.817 | 3:00.167 | 3:01.833 | 3:10.033 | 2:56.583 |
+| Hairpin Valley | 4:10.050 | 3:50.200 | 4:56.700 | 4:01.650 | 3:48.300 | 4:11.517 | 4:13.083 | 4:18.933 |
+| Ramp Rally | 3:03.800 | 3:04.050 | 3:15.700 | 3:08.717 | 3:00.333 | 3:15.700 | 3:14.283 | 2:56.583 |
 | Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 | 2:23.150 | 1:48.600 | 1:54.550 | 2:10.850 |
 | Technical Trial | 3:50.300 | 3:46.467 | 3:52.567 | 3:50.067 | 3:52.117 | 3:35.650 | 3:26.417 | 3:52.117 |
 | Grand Marathon | 2:30.667 | 2:33.000 | 2:29.483 | 2:32.283 | 2:39.033 | 2:19.267 | 2:15.117 | 2:33.017 |
 | Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 | 3:16.167 | 2:54.900 | 2:43.417 | 3:10.633 |
-| Mountain Pass | 1:50.917 | 1:50.533 | 1:55.267 | 1:53.333 | 1:52.583 | 1:48.700 | 1:47.317 | 1:50.150 |
-| Canyon Run | 4:19.750 | 4:16.083 | 4:29.383 | 4:20.967 | 4:17.800 | 4:14.083 | 4:06.883 | 4:20.600 |
+| Mountain Pass | 1:51.350 | 1:50.533 | 1:57.333 | 1:52.867 | 1:53.317 | 1:49.600 | 1:49.717 | 1:50.150 |
+| Canyon Run | 4:34.333 | 4:32.617 | 4:59.633 | 4:37.133 | 4:30.383 | 4:42.083 | 4:34.550 | 4:44.717 |
 | Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 | 2:52.467 | 3:17.367 |
 | Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 | 2:07.350 | 2:41.417 |
 | Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 | 0:58.550 | 1:07.567 |
-| Forest Rally | 3:19.883 | 3:16.283 | 3:31.050 | 3:14.500 | 3:05.350 | 3:26.683 | 3:48.333 | 3:06.333 |
-| Northern Lights | 3:05.750 | 3:05.267 | 3:15.400 | 3:01.167 | 3:02.500 | 3:16.350 | 3:33.617 | 2:46.850 |
-| Summit Rush | 1:45.533 | 1:45.367 | 1:51.000 | 1:44.933 | 1:42.733 | 1:46.150 | 1:54.250 | 1:39.333 |
-| Pine Ridge | 1:21.233 | 1:20.583 | 1:25.150 | 1:19.917 | 1:18.133 | 1:22.583 | 1:27.217 | 1:17.017 |
-| Dune Sea | 1:31.367 | 1:31.350 | 1:35.200 | 1:31.817 | 1:27.050 | 1:33.100 | 1:43.183 | 1:27.150 |
-| Frozen Lake | 1:49.800 | 1:44.633 | 2:03.817 | 1:46.683 | 1:37.650 | 2:04.783 | 2:07.933 | 1:32.400 |
-| Monsoon Trail | 1:37.433 | 1:35.033 | 1:45.300 | 1:37.633 | 1:30.533 | 1:43.567 | 1:58.233 | 1:33.267 |
+| Forest Rally | 3:20.733 | 3:17.283 | 3:38.517 | 3:17.983 | 3:06.533 | 3:39.583 | 3:51.150 | 3:07.050 |
+| Northern Lights | 3:17.083 | 3:09.183 | 3:41.067 | 3:09.700 | 3:02.917 | 3:41.917 | 3:41.800 | 2:51.283 |
+| Summit Rush | 1:50.650 | 1:49.300 | 2:02.200 | 1:49.267 | 1:45.067 | 2:01.183 | 2:03.683 | 1:41.800 |
+| Pine Ridge | 1:21.883 | 1:22.950 | 1:31.900 | 1:22.400 | 1:18.900 | 1:29.850 | 1:32.800 | 1:16.733 |
+| Dune Sea | 1:33.383 | 1:31.433 | 1:42.650 | 1:32.033 | 1:28.917 | 1:43.417 | 1:48.450 | 1:27.367 |
+| Frozen Lake | 1:51.650 | 1:45.983 | 2:42.550 | 1:48.567 | 1:38.050 | 2:08.800 | 2:11.817 | 1:34.750 |
+| Monsoon Trail | 1:41.733 | 1:38.283 | 2:08.550 | 1:45.683 | 1:35.033 | 1:52.500 | 2:01.350 | 1:43.133 |
 
 The times are for the full race you drive (3 laps, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
@@ -542,8 +554,9 @@ refused as for Drive.
   room, and an AI stuck or facing the wrong way for a few seconds is put back on the road (it can't be hit for a
   second after). Contacts only exist in this mode: Drive, Race the AI, the ghosts, training and the medal times are
   exactly as before.
-- **The HUD** shows your place (P3/6) and the car ahead and behind with the gap in seconds at the top right, and
-  since version 6.20.0 the **timing tower** on the left, under the lap plate, in the way of the F1 games: the lap,
+- **The HUD** shows at the top right the **timing tower** (since version 6.20.0; until 6.27.0 on the left, under the
+  lap plate) and under it your place (P3/6) and the car ahead and behind with the gap in seconds. The tower is laid
+  out in the way of the F1 games: the lap,
   then one row per car in race order with the place in a box (yours yellow, on a lighter row), the car's colour, the
   driver's three-letter code and the **gap to the leader** ("Leader" for the first, +1.23, +12.3 from ten seconds,
   OUT for a car that gave up). When the order changes the rows slide to their new places, and a car that gained or
@@ -568,7 +581,7 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 
 | Mid-race (an Elite field on Rookie Oval) | The podium and the finish panel |
 | --- | --- |
-| ![Race the field on Rookie Oval against an Elite field: the pack ahead on the first straight; on the left the timing tower (LAP 1/3, FOX the leader, the others with their gaps, a green and a red arrow where two cars just swapped places, your row 6th in yellow), at the top right P6/6 and the car ahead](docs/screenshots/field-race.png) | ![The podium on the start straight (You, Nils Haugen, Kai Ostrom) with the finish panel on the right: 1st of 6, the finishing order as F1-style rows with car, time and gap to the winner, the gold medal and the place rewards, $4,600 and 160 points; the timing tower on the left with a chequered square on every finished car](docs/screenshots/field-podium.png) |
+| ![Race the field on Rookie Oval against an Elite field on lap 2: at the top right the timing tower (LAP 2/3, DUA the leader, the others with their gaps, your row 6th in yellow) and under it P6/6 with the car ahead, your best and the bronze time; the minimap at the top left with every car as a dot](docs/screenshots/field-race.png) | ![The podium on the start straight (Ines Duarte in the Apex, Rico Vance, Ada Brandt) with the finish panel on the right, over the timing tower: 6th of 6, the finishing order as F1-style rows with car, time and gap to the winner, a gold medal and a new personal best, $1,600 and 70 points](docs/screenshots/field-podium.png) |
 
 **The car shop.** Choose a race, pick a locked car on the car page and press START (it reads BUY): it asks first, then the car is yours for good.
 
@@ -783,8 +796,8 @@ Most of the road is asphalt. Since version 6.3.0 four tracks also have stretches
 the three tracks of version 6.4.0 are mostly dirt or snow. The four rally stages of version 6.23.0 run on four more
 surfaces, **gravel**, **sand**, **ice** and **mud** (see [The rally surfaces](#the-rally-surfaces-version-6230)
 below).
-You see them coming: a brown gravel road or a white one of packed snow, no painted lines or kerbs, and muddy or
-snow-crusted barriers alongside. You also feel them:
+You see them coming: a brown gravel road or a white one of packed snow, no painted lines or kerbs, and (since
+version 6.27.0) cones and a run-off alongside instead of muddy or snow-crusted barriers. You also feel them:
 
 | The Dune throwing up dust on Ramp Rally's dirt | The Racer sliding on Hairpin Valley's packed snow |
 | --- | --- |
@@ -940,6 +953,37 @@ little easier or harder to beat now), and so do tracks opened and rewards paid. 
 
 (Mostly faster: braking later and sliding along walls saves time. The Dune, which already braked best on loose
 ground, gains little, and its fastest autopilot run came out up to 2 s slower on four tracks.)
+
+### Cones and run-off
+
+Since version 6.27.0 the eleven tracks with loose ground (every track with dirt, snow, gravel, sand, ice or mud:
+Hairpin Valley, Ramp Rally, Mountain Pass, Canyon Run, Forest Rally, Northern Lights, Summit Rush and the four rally
+stages) have **no barriers**. Instead:
+
+- **Cones** stand 0.45 m beyond both edges of the road, every 12 m on the straights and closer in the bends (down to
+  5 m in a tight one): 400 to 930 on a track. Touch one and it flies off the way you hit it, tumbles and stays down
+  for the rest of the race; a restart stands them all up again. **Each cone adds 0.5 s** to your race time, which the
+  time on the screen and every split include, and it spoils the clean-driving combo like a wall contact, but costs no
+  points. A popup says what it cost ("Cone +0.5 s", "3 cones +1.5 s") and the finish panel counts them ("4 cones
+  knocked over: +2 s (in the time)"). Every car in the race knocks the same cones, the AI's too.
+- Beyond them is a **run-off** of the track's loose ground (snow, dirt, gravel, sand or mud), up to **10 m** wide where
+  no other road is near: from the road's edge it slopes down to the level of the land around in 1.5 to 6 m, then
+  stays flat. It works like a gravel trap: half of that surface's grip and a drag of about 0.4 g (a car coasting
+  from 108 km/h is down to 68 km/h in 2 s; on the road it would still do 95), so cutting across it or running wide
+  costs more time than it saves, even before the cones. Below 29 km/h the drag eases off, so you can always drive
+  back out, even on ice. At its far end the car is held back softly (no wall hit, no sparks); the camera follows you
+  out.
+- At the very ends of a sprint's road, behind the start and past the finish, the old walls still stop the car. A
+  track definition can keep all its barriers with `"edges": "walls"`. The lamp posts, banners and arrow boards that
+  stood on the barriers are gone with them; the grandstand moved back beyond the run-off.
+- The AI opponents on these tracks were **trained again** without the walls (`tools/opponents.gd --train --retrain`):
+  in training a car that goes out over the cone line pays one cone's penalty, so the networks learn to stay on the
+  road, and their races (with real cones) set the levels. The medal times were measured again with the cones.
+- Your records, ghosts, medals and trained networks on these tracks stay: the tracks are the same roads.
+
+| Cones instead of barriers | Off the road |
+| --- | --- |
+| ![The start of Pine Ridge with the Racer on the asphalt: orange cones stand along both edges where the barriers used to be, a grey run-off beside the road and the grandstand set back beyond it; the minimap at the top left](docs/screenshots/cones.png) | ![The Racer out on the run-off of Pine Ridge, kicking up dust on the grey gravel beside the road, the cone line along the gravel road on the right](docs/screenshots/runoff.png) |
 
 ### Tracks
 

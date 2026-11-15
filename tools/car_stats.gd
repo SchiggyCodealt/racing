@@ -66,6 +66,7 @@ static func _build(key: String, d: Dictionary) -> BuiltTrack:
 	if not _roads.has(k):
 		if surface != "asphalt":
 			d.surfaces = [[surface, 0, (d.points as Array).size()]]
+		d.edges = "walls" # (v6.27) a test rig: barriers on every surface
 		_roads[k] = Tracks.build_def(d)
 	return _roads[k]
 

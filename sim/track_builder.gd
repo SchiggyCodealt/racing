@@ -35,6 +35,8 @@ extends RefCounted
 ## builder behind it and works on any definition Dictionary.
 
 const SAMPLE_SPACING: float = 2.0 # metres between centre-line samples
+## (v6.27) open edges: the most a car may go beyond the road edge (the terrain is flat 12 m out)
+const RUNOFF: float = 10.0
 ## Road grades (rise/run) steeper than this only appear on kicker ramps and their landings.
 const KICKER_GRADE: float = 0.12
 const DEG: float = PI / 180.0
@@ -175,7 +177,103 @@ static func build_track(def: Dictionary) -> BuiltTrack:
 	t.start_line = 0 if closed else maxi(0, t.start_idx - 6)
 	t.kickers = find_kickers(t)
 	t.grid = Collision.build_wall_grid(t)
+	_build_edges(t, def)
 	return t
+
+
+## (v6.27) The ground beside the road (side_y, for every track) and, on a track with open edges
+## (every track with loose surfaces unless def.edges is "walls"), the run-off: its surface and how
+## far beyond each edge a car may go (RUNOFF m, or half the way to the next road edge out there,
+## less a metre: the inside of a hairpin, a road running alongside).
+static func _build_edges(t: BuiltTrack, def: Dictionary) -> void:
+	var n: int = t.count
+	# the terrain level next to the road (world/track_ctx.gd G): the lowest road edge, eroded and
+	# blurred with the same radius (so never above the road), 0.35 m under it
+	# (open edges: radius 4 samples, 0.25 m under, so the ground hugs the road and the run-off is no
+	# ditch; behind barriers 30 samples, 0.35 m, as since v1)
+	t.open_edges = t.has_surfaces() and String(def.get("edges", "cones")) != "walls"
+	var low := PackedFloat32Array()
+	low.resize(n)
+	for i in n:
+		low[i] = t.py[i] - t.hw[i] * absf(tan(t.bank[i]))
+	var r: int = 4 if t.open_edges else 30
+	var g: PackedFloat32Array = blur(erode(low, r, t.closed), r, t.closed)
+	for i in n:
+		g[i] -= 0.25 if t.open_edges else 0.35
+	t.side_y = g
+	if not t.open_edges:
+		return
+	# the run-off's surface: the commonest loose surface of the road
+	var tally := PackedInt32Array()
+	tally.resize(Surfaces.count())
+	for i in n:
+		tally[t.surface[i]] += 1
+	var best: int = -1
+	for si in tally.size():
+		if si != Surfaces.ASPHALT and tally[si] > 0 and (best < 0 or tally[si] > tally[best]):
+			best = si
+	t.verge = best
+	var ro := PackedFloat32Array()
+	ro.resize(n * 2)
+	for i in n:
+		for o in 2:
+			var side: float = 1.0 if o == 0 else -1.0
+			var ox: float = t.px[i] + t.nx[i] * (t.hw[i] + 0.05) * side
+			var oz: float = t.pz[i] + t.nz[i] * (t.hw[i] + 0.05) * side
+			var d: float = Collision.raycast(t.grid, ox, oz, t.nx[i] * side, t.nz[i] * side, 2.0 * RUNOFF + 2.0)
+			ro[i * 2 + o] = clampf(d * 0.5 - 1.0, 0.0, RUNOFF)
+	# no sudden steps along the road: the smallest within 4 samples (8 m)
+	var out := PackedFloat32Array()
+	out.resize(n * 2)
+	for i in n:
+		for o in 2:
+			var m: float = RUNOFF
+			for k in range(-4, 5):
+				var j: int = i + k
+				if t.closed:
+					j = posmod(j, t.N)
+				elif j < 0 or j >= n:
+					continue
+				m = minf(m, ro[j * 2 + o])
+			out[i * 2 + o] = m
+	t.runoff = out
+
+
+static func erode(a: PackedFloat32Array, r: int, cl: bool) -> PackedFloat32Array:
+	var n := a.size()
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in n:
+		var m := INF
+		for k in range(-r, r + 1):
+			var j := i + k
+			if cl:
+				j = posmod(j, n)
+			elif j < 0 or j >= n:
+				continue
+			if a[j] < m:
+				m = a[j]
+		out[i] = m
+	return out
+
+
+static func blur(a: PackedFloat32Array, r: int, cl: bool) -> PackedFloat32Array:
+	var n := a.size()
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in n:
+		var s := 0.0
+		var c := 0
+		for k in range(-r, r + 1):
+			var j := i + k
+			if cl:
+				j = posmod(j, n)
+			elif j < 0 or j >= n:
+				continue
+			s += a[j]
+			c += 1
+		out[i] = s / c
+	return out
 
 
 ## The surface of every sample and the smoothed blend weights from def.surfaces (see the header).

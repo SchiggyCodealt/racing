@@ -146,6 +146,7 @@ func _race_step(dt: float) -> void:
 	race_step += 1
 	var c: Car.Controls = roll_out(car, track, _coast) if phase == "finished" else _drive(dt)
 	var events := field.step(dt, c)
+	_field_cones()
 	if phase == "race":
 		if score != null:
 			_add_score_events(score.update(car, race, dt))
@@ -159,6 +160,22 @@ func _race_step(dt: float) -> void:
 	for k in lineup.size():
 		if field.racers[k].respawn_step == field.steps:
 			_store_pose(_ai_prev[k], field.racers[k].car)
+
+
+## (v6.27) The cones the field knocked over this step: thrown aside, and the player's get the note.
+func _field_cones() -> void:
+	if field.knocked.is_empty():
+		return
+	var tn: Object = app.world.track_node
+	var mine := 0
+	for kv: Vector2i in field.knocked:
+		var c: Car = field.racers[kv.y].car
+		if tn != null:
+			tn.call("knock_cone", kv.x, c.vx, c.vz)
+		if kv.y == field.player_index:
+			mine += 1
+	if mine > 0 and phase == "race":
+		_cone_score(mine)
 
 
 ## The contacts of this step, heard where they happened.

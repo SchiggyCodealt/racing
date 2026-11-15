@@ -1,8 +1,9 @@
 class_name RaceMinimap
 extends PanelContainer
-## race_minimap.gd (v6.26.0): the HUD's minimap, at the bottom right above the nitro gauge: the track
-## from above in its three sectors (sim/sectors.gd), the cars as dots, and under it the sector times of
-## the lap being driven, in the way of the F1 games.
+## race_minimap.gd (v6.26.0): the HUD's minimap, at the top left under the lap plate (since v6.27; at
+## the bottom right above the nitro gauge before): the track from above in its three sectors
+## (sim/sectors.gd), the cars as dots, and under it the sector times of the lap being driven, in the
+## way of the F1 games.
 ## ------------------------------------------------------------------
 ## The map is the track's centre line turned a quarter when it is taller than wide (as the menu's
 ## track tiles: a rotation, never a mirror), fitted into MAP_SIZE. Each sector is drawn in the colour of

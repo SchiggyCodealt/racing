@@ -752,7 +752,7 @@ func _hud(t) -> void:
 	var s := Fx.hud_drive()
 	hud.update(s, 0.016)
 	_settle(h)
-	t.check(hud.get("_time").text == "0:57.533" and hud.get("_lap_val").text == "1/3" and hud.get("_cp_val").text == "6/7", "time, lap and checkpoint")
+	t.check(hud.get("_time").text == "0:57.533" and hud.get("_lap_val").text == "1/3" and hud.get("_cp_val") == null, "time and lap (v6.27: no checkpoint counter)")
 	t.check(hud.get("_speed").text == "154" and hud.get("_points").text == "10,000" and hud.get("_combo_l").text == "x5", "speed, score, combo")
 	t.check(hud.get("_medal_plate").visible and hud.get("_medal_val").text == "3:28.000", "the next medal under the best time")
 	var w0: float = hud.get("_time").get_combined_minimum_size().x
@@ -1156,13 +1156,15 @@ func _field_ui(t) -> void:
 	var ft := hud.field_text
 	t.check(off and plate.visible and ft == PackedStringArray(["P3/6", "ahead VAN 0.85", "behind PAR 1.24", "1 BRA Leader", "2 VAN +2.56", "3 YOU +3.41", "4 PAR +4.65", "5 REY +15.9", "6 OST OUT"]),
 		"the HUD: no field block in Drive; in a field race P3/6, the cars ahead and behind with their gaps, the timing tower's rows with the gaps to the leader (+15.9 past 10 s, an out car): %s" % " | ".join(ft))
-	# (v6.20) the timing tower: on the left under the lap plate, one row per car, yours marked
+	# (v6.20; v6.27 top right) the timing tower: above the place, best time and medal, one row per car, yours marked
 	var tower: TimingTower = hud.get("_tower")
-	var lap_plate: Control = hud.get("_race_plate")
+	var best_plate: Control = hud.get("_best_plate")
+	var place_plate: Control = hud.get("_field_plate")
 	var tr := tower.get_global_rect()
-	t.check(tower.visible and tower.rows.size() == 6 and bool(tower.rows[2].me) and tower.head.begins_with("Lap ") and tr.position.x < 80.0 and
-		tr.position.y >= lap_plate.get_global_rect().end.y - 0.5 and tr.end.y < 720.0 and is_equal_approx(tr.size.x, TimingTower.WIDTH),
-		"the timing tower: six rows on the left under the lap plate (\"%s\", %d x %d px at y %d), your row marked" % [tower.head, roundi(tr.size.x), roundi(tr.size.y), roundi(tr.position.y)])
+	t.check(tower.visible and tower.rows.size() == 6 and bool(tower.rows[2].me) and tower.head.begins_with("Lap ") and tr.end.x > 1200.0 and
+		tr.end.x <= 1280.0 and tr.position.y < 40.0 and tr.end.y <= place_plate.get_global_rect().position.y + 0.5 and
+		place_plate.get_global_rect().end.y <= best_plate.get_global_rect().position.y + 0.5 and is_equal_approx(tr.size.x, TimingTower.WIDTH),
+		"the timing tower: six rows at the top right above the place and the best time (\"%s\", %d x %d px at x %d), your row marked" % [tower.head, roundi(tr.size.x), roundi(tr.size.y), roundi(tr.position.x)])
 	t.check(TimingTower.gap_text(0.004) == "+0.00" and TimingTower.gap_text(9.994) == "+9.99" and TimingTower.gap_text(12.34) == "+12.3" and
 		TimingTower.leader_gaps([{"gap": null}, {"gap": 0.7}, {"gap": 3.0}]) == PackedFloat64Array([0.0, 0.7, 3.0]) and TimingTower.leader_gaps([]).is_empty(),
 		"tower gaps: to the leader (+0.00, +9.99, +12.3 from ten seconds); leading yourself they are the gaps to you")
@@ -1339,9 +1341,11 @@ func _sectors_ui(t) -> void:
 	hud.update(s, 0.016)
 	_settle(h)
 	var r := hud.minimap.get_global_rect()
+	var lap_r: Rect2 = (hud.get("_race_plate") as Control).get_global_rect()
+	var score_r: Rect2 = (hud.get("_score_plate") as Control).get_global_rect()
 	t.check(hidden_without and hud.minimap.visible and hud.minimap.lines == PackedStringArray(["S1 24.512 best", "S2 20.000 now", "S3 — next"]) and
-		r.end.x <= 1280.0 and r.end.y <= 720.0 and r.position.x > 900.0,
-		"the minimap shows only with a state, bottom right (%s): S1 green 24.512, S2 being driven with the record 20.000 in grey, S3 still to come" % [r])
+		r.position.x < 80.0 and r.position.y >= lap_r.end.y - 0.5 and r.end.y <= score_r.position.y + 0.5 and r.end.y < 400.0,
+		"the minimap shows only with a state, top left under the lap plate (%s): S1 green 24.512, S2 being driven with the record 20.000 in grey, S3 still to come" % [r])
 	hud.show_panel(Fx.panel_finish())
 	var off_panel: bool = not hud.minimap.visible
 	hud.hide_panel()

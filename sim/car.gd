@@ -66,6 +66,15 @@ const SKIN: float = 0.03
 ## m above the car's base where wall_y puts a contact (bumper height)
 const WALL_Y: float = 0.45
 const U_MIN: float = 1.5
+## (v6.27) open edges: the run-off's surface takes over across this many metres around the road
+## edge; out there it drags like a gravel trap: the rolling resistance VERGE_ROLL × the car's
+## roll_resist (about 0.4 g, whatever the surface) from VERGE_V m/s up, in proportion below (never
+## under the surface's own, so a car can always crawl back out), and the grip is this share of the
+## run-off surface's
+const VERGE_BLEND: float = 1.0
+const VERGE_ROLL: float = 30.0
+const VERGE_V: float = 8.0
+const VERGE_GRIP: float = 0.5
 
 ## The JS names of the car state, in createCar's order (to_state / from_state).
 const STATE_KEYS: PackedStringArray = [
@@ -206,6 +215,7 @@ var _mx_b: float = 1.0
 var _mx_a: float = 0.97
 var _mx_w: float = 1.0
 var _mx_pure: bool = true
+var _mx_off: float = 0.0     # (v6.27) the run-off's share under the car (open edges)
 # scratch (the JS module's `scratch`, `contact`, `attTmp`), one per car
 var _loc: Collision.Loc = Collision.Loc.new()
 var _contact: Collision.Contact = Collision.Contact.new()
@@ -493,6 +503,12 @@ func _surface_mix(P: CarSpec, track: BuiltTrack) -> void:
 		return
 	var cos_t: float = sin(yaw) * -_nz + cos(yaw) * _nx # heading against the road's tangent
 	var p0: float = idx + _t
+	# (v6.27) open edges: off the road the run-off's surface takes over across a metre around the edge
+	var off: float = 0.0
+	if track.open_edges:
+		off = ((lat if lat > 0.0 else -lat) - _hw + 0.5) / VERGE_BLEND
+		off = 0.0 if off < 0.0 else (1.0 if off > 1.0 else off)
+	_mx_off = off
 	_axle_mix(P, track, p0 + (P.cg_to_front * cos_t) / track.seg_len)
 	var pure_f: bool = _mx_pure
 	_env_gf = _mx_g
@@ -549,9 +565,13 @@ func _axle_mix(P: CarSpec, track: BuiltTrack, p: float) -> void:
 	var ab: float = 0.0
 	var wl: float = 0.0
 	var a0: float = 0.0
+	var off: float = _mx_off
+	var vg: int = track.verge
 	for s in S:
 		var wa: float = W[k * S + s]
 		var w: float = wa + (W[j * S + s] - wa) * f
+		if off > 0.0:
+			w = w * (1.0 - off) + (off if s == vg else 0.0)
 		if s == 0:
 			a0 = w
 		g += w * G[s]
@@ -562,9 +582,12 @@ func _axle_mix(P: CarSpec, track: BuiltTrack, p: float) -> void:
 		ab += w * _S_ABS[s]
 		wl += w * _S_WALL[s]
 	_mx_pure = a0 == 1.0
-	_mx_g = g
+	_mx_g = g * (1.0 - (1.0 - VERGE_GRIP) * off)
 	_mx_k = st
-	_mx_r = r
+	var vr: float = VERGE_ROLL * minf(speed / VERGE_V, 1.0) # (the speed of the last step)
+	if vr < r:
+		vr = r
+	_mx_r = r + (vr - r) * off
 	_mx_e = e
 	_mx_b = bk
 	_mx_a = ab
@@ -1006,6 +1029,21 @@ func _walls(P: CarSpec, track: BuiltTrack, h: float) -> Collision.Loc:
 	_nz = loc.nz
 	_hw = loc.hw
 	var near_end: bool = not track.closed and (loc.idx < 4 or loc.idx > track.seg_count - 5)
+	if track.open_edges and not near_end:
+		# (v6.27) no barriers: only the far end of the run-off holds the car, softly (as the
+		# safety net below: a bounded nudge back, the speed out through it taken away)
+		var sgn0: float = 1.0 if loc.lat > 0.0 else -1.0
+		var over: float = absf(loc.lat) - loc.hw - track.runoff_at(loc.idx, loc.t, sgn0)
+		if over <= 0.0:
+			return loc
+		var nudge: float = over if over < 0.5 else 0.5
+		x -= loc.nx * nudge * sgn0
+		z -= loc.nz * nudge * sgn0
+		var vn0: float = (vx * loc.nx + vz * loc.nz) * sgn0
+		if vn0 > 0.0:
+			vx -= loc.nx * vn0 * sgn0
+			vz -= loc.nz * vn0 * sgn0
+		return Collision.locate_near(track, x, z, idx, _loc)
 	var reach: float = P.half_length + 1.5
 	if not near_end and absf(loc.lat) < loc.hw - reach:
 		return loc
@@ -1199,6 +1237,13 @@ static func _road_height_at(track: BuiltTrack, p: float, lat_at: float) -> float
 	var j: int = (k + 1) % track.N if track.closed else k + 1
 	var py: float = track.py[k] + (track.py[j] - track.py[k]) * t
 	var bk: float = track.bank[k] + (track.bank[j] - track.bank[k]) * t
+	if track.open_edges:
+		var hw: float = track.hw[k] + (track.hw[j] - track.hw[k]) * t
+		var e: float = (lat_at if lat_at > 0.0 else -lat_at) - hw
+		if e > 0.0:
+			var gy: float = track.side_y[k] + (track.side_y[j] - track.side_y[k]) * t
+			var edge: float = py - (hw if lat_at > 0.0 else -hw) * tan(bk)
+			return edge + (gy - edge) * Collision.off_slope(edge - gy, e)
 	return py - lat_at * tan(bk)
 
 

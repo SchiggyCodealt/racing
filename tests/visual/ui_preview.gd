@@ -258,7 +258,7 @@ func _hud_screens() -> void:
 		s.pad = true
 		s.ghost_text = "Ghost on (Y)"
 		s.countdown = "GO!"
-		s.split = {"label": "CP 6", "time": 57.533, "delta": -0.412}
+		s.split = {"label": "SPLIT 6", "time": 57.533, "delta": -0.412}
 		s.pops = Fx.pops()
 		hud.update(s, 0.016)
 		for i in 3:

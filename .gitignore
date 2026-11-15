@@ -10,3 +10,10 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+
+# the native library's build tree (native/README.md)
+native/godot-cpp/
+native/src/*.o
+native/src/*.os
+native/src/*.obj
+native/.sconsign*.dblite

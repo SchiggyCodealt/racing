@@ -3,7 +3,7 @@ extends Control
 ## race_hud.gd
 ## ------------------------------------------------------------------
 ## The in-race heads-up display (web/src/ui/hud.js, v5 look): the track and car line, the
-## race time, lap and checkpoint plates, the score with its combo chip, the drift / jump /
+## race time, the lap plate (v6.27: no checkpoint counter), the score with its combo chip, the drift / jump /
 ## wall contact building up, popups for every point won or lost, best time, the next medal
 ## (crossed out once missed, ticked when won), ghost notes, the countdown, split popups, the
 ## nitro gauge, speed, gear and rev bar, key-cap hints (keyboard or gamepad names), the
@@ -14,7 +14,7 @@ extends Control
 ##   set_mode(text)          "Night Highway · Racer", "WATCHING AI · …", "VS AI GHOST · …"
 ##   set_keys(keys, pad)     [[key, what, pad button or ""], ...] bottom left
 ##   update(state, dt)       every frame; state (hud.js update's s, snake_case):
-##       time, lap, laps, cp, cps, sprint, speed (m/s), gear, rpm, spec {idle_rpm, redline,
+##       time, lap, laps, sprint, speed (m/s), gear, rpm, spec {idle_rpm, redline,
 ##       upshift_rpm}, nitro (0..1 or null: no gauge), nitro_off (v6.15: true in a race against the
 ##       AI: "No nitro in AI races" where the gauge was), boosting, score {total, mult, live:
 ##       {kind: "drift"|"air"|"wall", time, points} or null} or null (no score), best (s or
@@ -27,9 +27,11 @@ extends Control
 ## v6.13.0, Race the field: state.field {pos, of, rows: [{code, name, color, gap (s against you: - ahead,
 ## + behind; null for you), me, finished, dnf}], ahead / behind: {code, gap} or {}} (FieldRace.board)
 ## shows a block at the top right: your place (P3/6) and the gaps to the cars ahead and behind; and
-## (v6.20.0) the standings as a timing tower on the left, under the lap plate (ui/timing_tower.gd, in
-## the F1 games' way: place boxes, colours, codes, gaps to the leader). Absent: both hide.
-## v6.26.0, the minimap (ui/race_minimap.gd) at the bottom right: set_minimap(track) once per race, then
+## (v6.20.0) the standings as a timing tower (ui/timing_tower.gd, in the F1 games' way: place boxes,
+## colours, codes, gaps to the leader), since v6.27 at the top right above the place, best time and
+## medal (it was on the left). Absent: both hide.
+## v6.26.0, the minimap (ui/race_minimap.gd), since v6.27 at the top left under the lap plate (it was at
+## the bottom right): set_minimap(track) once per race, then
 ## state.minimap {sector, cells, records, cars} (see RaceMinimap.show_state) every frame; absent: hidden. It
 ## hides on the phone-sized HUD, in short windows and under the finish panel.
 ## Score events: {kind, text, points, mult, combo_lost} (score.js events: "Clean checkpoint"
@@ -66,7 +68,6 @@ var _left: VBoxContainer
 var _race_plate: PanelContainer
 var _lap_lbl: Label
 var _lap_val: Label
-var _cp_val: Label
 var _score_plate: PanelContainer
 var _points: Label
 var _combo: PanelContainer
@@ -171,16 +172,14 @@ func _build() -> void:
 	_lap_lbl = UiStyle.caption("Lap", UiStyle.TEXT_2, UiStyle.FS_S)
 	_lap_val = UiStyle.label("", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.0, false, false, false, 26)
 	race.add_child(UiStyle.baseline_row([_lap_lbl, _lap_val], UiStyle.S2))
-	_cp_val = UiStyle.label("", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.0, false, false, false, 26)
-	race.add_child(UiStyle.baseline_row([UiStyle.caption("CP", UiStyle.TEXT_2, UiStyle.FS_S), _cp_val], UiStyle.S2))
 	_race_plate.add_child(race)
 	_race_plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_left.add_child(_race_plate)
-	# (v6.20) a field race's standings: the timing tower
-	_tower = TimingTower.new()
-	_tower.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	_tower.visible = false
-	_left.add_child(_tower)
+	# (v6.26; v6.27 top left, under the lap plate) the minimap with the sector times
+	minimap = RaceMinimap.new()
+	minimap.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	minimap.visible = false
+	_left.add_child(minimap)
 	_score_plate = _plate([UiStyle.S3, UiStyle.S1, UiStyle.S3, UiStyle.S1])
 	_score_plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var srow2 := UiStyle.hbox(UiStyle.S3)
@@ -221,6 +220,12 @@ func _build() -> void:
 	# right: (the field race) your place and the standings, best, the medal to aim for, ghost notes
 	_right = UiStyle.vbox(UiStyle.S2)
 	add_child(_right)
+	# (v6.20; v6.27 top right, above the place, best time and medal) a field race's standings: the
+	# timing tower
+	_tower = TimingTower.new()
+	_tower.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_tower.visible = false
+	_right.add_child(_tower)
 	_build_field()
 	_best_plate = _plate([UiStyle.S3, UiStyle.S1, UiStyle.S3, UiStyle.S1])
 	_best_plate.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -262,10 +267,6 @@ func _build() -> void:
 	_ghost_l = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_2, 0.0, false, false, false, 18)
 	_ghost_plate.add_child(_ghost_l)
 	_right.add_child(_ghost_plate)
-	# (v6.26) bottom right, above the nitro: the minimap with the sector times
-	minimap = RaceMinimap.new()
-	minimap.visible = false
-	add_child(minimap)
 	# bottom right: nitro, speed, gear and revs
 	_nitro = NitroGauge.new()
 	add_child(_nitro)
@@ -366,7 +367,7 @@ func _update_field(f: Variant, head: String = "") -> void:
 		(side[1] as Control).visible = txt != ""
 		(side[2] as Control).visible = txt != ""
 		out.append("%s %s" % [side[0], txt])
-	# the standings: the timing tower on the left (not on the phone-sized HUD, nor under the finish panel)
+	# the standings: the timing tower at the top right (not on the phone-sized HUD, nor under the finish panel)
 	_tower.show_board(f, head)
 	_tower.visible = not _narrow and not _tower_hidden
 	out.append_array(_tower.lines)
@@ -435,7 +436,6 @@ func update(s: Dictionary, dt: float) -> void:
 	_lap_lbl.text = "Sprint" if sprint else "Lap"
 	_lap_val.text = "" if sprint else "%d/%d" % [int(s.get("lap", 1)), int(s.get("laps", 1))]
 	_lap_val.get_parent().visible = not sprint # (its baseline holder)
-	_cp_val.text = "%d/%d" % [int(s.get("cp", 0)), int(s.get("cps", 0))]
 	var kmh := roundi(float(s.get("speed", 0.0)) * 3.6)
 	if kmh != _kmh:
 		_kmh = kmh
@@ -445,7 +445,7 @@ func update(s: Dictionary, dt: float) -> void:
 	_ghost_l.text = gt
 	_ghost_plate.visible = gt != ""
 	_update_medal(s.get("medal"), float(s.get("time", 0.0)), bool(s.get("finished", false)))
-	_update_field(s.get("field"), ("CP %s" % _cp_val.text) if sprint else "Lap %s" % _lap_val.text)
+	_update_field(s.get("field"), "Sprint" if sprint else "Lap %s" % _lap_val.text)
 	var mm: Variant = s.get("minimap")
 	_minimap_on = mm is Dictionary and not (mm as Dictionary).is_empty()
 	if _minimap_on:
@@ -596,7 +596,7 @@ func score_pops(events: Array) -> void:
 	for ev in events:
 		var pts := int(ev.get("points", 0))
 		var kind := str(ev.get("kind", ""))
-		var bad := pts < 0 or kind == "wall" or kind == "respawn"
+		var bad := pts < 0 or kind == "wall" or kind == "respawn" or kind == "cone"
 		var plate := UiStyle.plate([UiStyle.S3, 3, UiStyle.S3, 3])
 		var stripe := kind == "lap" or kind == "run" # (lap and run bonuses: an accent edge)
 		var p := UiStyle.panel(plate)
@@ -662,7 +662,7 @@ func countdown(text: String) -> void:
 	_countdown.visible = true
 
 
-## Split popup at a checkpoint: "CP 3  1:02.345" and the delta to the best run (or null).
+## Split popup at a checkpoint: "SPLIT 3  1:02.345" (v6.27; "CP 3" before) and the delta to the best run (or null).
 func split(label: String, time: float, delta: Variant) -> void:
 	_split_time.text = "%s  %s" % [label, UiFormat.time(time)]
 	if delta == null:
@@ -726,14 +726,12 @@ func _apply_panel_visibility() -> void:
 	var left_w := 0.0 # (every part's width, hidden or not, so hiding them doesn't change the answer)
 	for c in [_race_plate, _score_plate, _pops_box]:
 		left_w = maxf(left_w, c.get_combined_minimum_size().x)
-	if not _tower.rows.is_empty():
-		left_w = maxf(left_w, TimingTower.WIDTH)
 	var left_end := _left.position.x + left_w + UiStyle.S2
 	var covers_left := panel_open and fr.position.x < left_end
 	var covers_right := panel_open and fr.end.x > _right.position.x - UiStyle.S2 and fr.position.y < _right.position.y + _right.size.y
 	var narrow_hide := panel_open and (_narrow or covers_left)
 	_pops_box.visible = not narrow_hide
-	_tower_hidden = narrow_hide
+	_tower_hidden = panel_open # (the finish panel shows the standings)
 	_tower.visible = not _tower.rows.is_empty() and not _narrow and not _tower_hidden
 	_right.visible = not (panel_open and (_narrow or covers_right or _tiny))
 	# (the split goes under a tall panel: hidden then, the panel shows the time)
@@ -800,7 +798,6 @@ func _layout() -> void:
 	_pin(_nitro_off, 1, 1, x, 125 if not narrow else 89, Vector2(nw, 16))
 	_pin(_speed_row, 1, 1, x, 54 if not narrow else 44)
 	_pin(_rev, 1, 1, x, UiStyle.S5 if not narrow else UiStyle.S3, Vector2(nw, 26))
-	_pin(minimap, 1, 1, x, 125 + 16 + UiStyle.S3)
 	_pin(_keys, 0, 1, x, UiStyle.S5 if not narrow else 64, Vector2(w * 0.45 if narrow else w - 2 * x - 260, 0))
 	_pin(watch_panel, 0, 1, x if not narrow else 8, 64 if not narrow else 96, Vector2(minf(430.0, 0.4 * w), minf(300.0, 0.38 * h)))
 	_pin(_countdown, 0.5, 0.34, 0, 0)
@@ -842,7 +839,7 @@ func _restyle() -> void:
 	UiStyle.style_label(_speed, "display_bold", 40 if n else UiStyle.FS_SPEED, UiStyle.TEXT, 0.0, false, false, false, 40 if n else UiStyle.FS_SPEED)
 	UiStyle.add_shadow(_speed, Color(0, 0, 0, 0.45), 2, 8)
 	UiStyle.style_label(_countdown, "display_bold", 96 if n else UiStyle.FS_COUNT, UiStyle.ACCENT, 0.0, false, false, false, 96 if n else UiStyle.FS_COUNT)
-	for l in [_lap_val, _cp_val, _best_val, _medal_val]:
+	for l in [_lap_val, _best_val, _medal_val]:
 		UiStyle.style_label(l, "display_bold", UiStyle.FS_M if n else UiStyle.FS_L, l.get_theme_color("font_color"), 0.0, false, false, false, 21 if n else 26)
 	UiStyle.style_label(_points, "display_bold", UiStyle.FS_L if n else UiStyle.FS_XL, _points.get_theme_color("font_color"), 0.0, false, false, false, roundf((UiStyle.FS_L if n else UiStyle.FS_XL) * 1.1))
 	_points.custom_minimum_size.x = roundf(2.2 * (UiStyle.FS_L if n else UiStyle.FS_XL))

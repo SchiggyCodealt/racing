@@ -174,15 +174,20 @@ func _place(c: CarEffects.Pose, t: BuiltTrack) -> void:
 	var p := Vector3(c.x - hx * dist, y + height, c.z - hz * dist)
 	if t != null and c.idx >= 0:
 		var loc := Collision.locate(t, p.x, p.z, c.idx, _loc)
+		# inside the barriers; (v6.27) on a track without them, inside the run-off (a little beyond it)
 		var lim := loc.hw + 1.0
+		if t.open_edges:
+			lim = loc.hw + t.runoff_at(loc.idx, loc.t, signf(loc.lat)) + 1.5
 		if absf(loc.lat) > lim:
 			var push := absf(loc.lat) - lim
 			var s := signf(loc.lat)
 			p.x -= loc.nx * s * push
 			p.z -= loc.nz * s * push
-		# road height under the camera (clamped to the road, i.e. barrier height beyond it)
-		var lat := clampf(loc.lat, -loc.hw, loc.hw)
-		var ground := loc.ground_y + (loc.lat - lat) * tan(loc.bank) + (1.1 if absf(loc.lat) > loc.hw else 0.0)
+		var ground := loc.ground_y
+		if not t.open_edges:
+			# road height under the camera (clamped to the road, i.e. barrier height beyond it)
+			var lat := clampf(loc.lat, -loc.hw, loc.hw)
+			ground = loc.ground_y + (loc.lat - lat) * tan(loc.bank) + (1.1 if absf(loc.lat) > loc.hw else 0.0)
 		p.y = maxf(p.y, ground + 1.6)
 	look = Vector3(c.x + hx * 4.5, y + 1.3, c.z + hz * 4.5)
 	transform = Transform3D(Basis.looking_at(look - p, Vector3.UP), p)

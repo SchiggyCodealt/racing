@@ -29,14 +29,17 @@ extends RefCounted
 ##    (no more than replayGap m behind the furthest point reached).
 ##  - Clean lap: cleanLap; clean run: cleanRun at the finish. Penalties never take
 ##    the score below zero.
+##  - (v6.27) A knocked-over cone (cones(), on a track without barriers) spoils like a wall contact
+##    (the combo, the section, the lap, the run, a drift or jump building up) but costs no points:
+##    it costs time (Cones.PENALTY s on the race clock).
 ## Nitro: every point banked refills 1 / pointsPerTank of a tank (car.add_nitro; × the car's
 ## CarSpec.nitro_refill, v6.11's nitro upgrade: 1 for a stock car);
 ## respawns and the points banked at the finish refill nothing.
 ## SCORE_RULES tags stored best scores: bump it when the rules or numbers change.
 ##
 ## Events: {kind, points, text} plus kind "cp": mult; "drift" / "air": time;
-## "wall": impact; combo_lost on wall and respawn events. Kinds: cp, drift, air,
-## close, lap, run (points > 0); wall, respawn (points <= 0); driftLost, airLost (0).
+## "wall": impact; combo_lost on wall, respawn and cone events. Kinds: cp, drift, air,
+## close, lap, run (points > 0); wall, respawn (points <= 0); driftLost, airLost, cone (0).
 
 const SCORE_RULES: int = 1
 const DEG: float = PI / 180.0
@@ -153,7 +156,7 @@ func reset() -> void:
 		points[k] = 0.0
 	counts = {
 		gates = 0, clean_gates = 0, best_mult = 1, laps = 0, clean_laps = 0, drifts = 0, best_drift = 0.0,
-		airs = 0, best_air = 0.0, close_calls = 0, wall_hits = 0, respawns = 0,
+		airs = 0, best_air = 0.0, close_calls = 0, wall_hits = 0, respawns = 0, cones = 0,
 	}
 	nitro = 0.0
 	nitro_earned = 0.0
@@ -299,6 +302,21 @@ func respawn() -> Array[Dictionary]:
 	var combo_lost: bool = _spoil()
 	flight = null # the car is back on the road
 	_penalty("respawns", SCORE.respawnPoints, {kind = "respawn", text = "Respawn", combo_lost = combo_lost})
+	var out: Array[Dictionary] = _out
+	_out = []
+	return out
+
+
+## (v6.27) The car knocked `n` cones over, costing `secs` s: the run is no longer clean (see the
+## header). Returns the event ("Cone +0.5 s", "3 cones +1.5 s" · combo lost).
+func cones(n: int, secs: float) -> Array[Dictionary]:
+	if finished or n <= 0:
+		return []
+	_out = []
+	counts.cones += n
+	var combo_lost: bool = _spoil()
+	var s := str(snappedf(secs, 0.1)).trim_suffix(".0")
+	_emit({kind = "cone", points = 0, text = ("Cone +%s s" % s) if n == 1 else ("%d cones +%s s" % [n, s]), combo_lost = combo_lost})
 	var out: Array[Dictionary] = _out
 	_out = []
 	return out

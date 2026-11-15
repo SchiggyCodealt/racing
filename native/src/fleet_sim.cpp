@@ -36,6 +36,9 @@ constexpr int OUTPUT_COUNT = 3; // steer, throttle, nitro (v6.15)
 // ScoreState.SCORE (sim/score.gd): the points that refill an AI car's nitro tank (Sensors.NitroRefill)
 constexpr int CP_POINTS = 500, COMBO_MAX = 5;
 constexpr double CLEAN_LAP = 2000.0, POINTS_PER_TANK = 16000.0;
+// (v6.27) Trainer.OFF_LINE (Cones.EDGE + Cones.RADIUS) and Cones.PENALTY
+constexpr double OFF_LINE = 0.45 + 0.25;
+constexpr double CONE_PENALTY = 0.5;
 constexpr double SENSOR_ANGLES[NR] = { 90, 60, 35, 15, 0, -15, -35, -60, -90 };
 constexpr double SENSOR_RANGE = 100.0;
 constexpr double AIM_BASE = 10.0, AIM_TIME = 0.6, AIM_FAR = 2.5;
@@ -315,6 +318,10 @@ void FleetSim::set_track(const Dictionary &d) {
 	t.surf_brake = doubles(d.get("surf_brake", Variant()));
 	t.surf_abs = doubles(d.get("surf_abs", Variant()));
 	t.surf_wall = doubles(d.get("surf_wall", Variant()));
+	t.open_edges = (bool)d.get("open_edges", false);
+	t.side_y = doubles(d.get("side_y", Variant()));
+	t.runoff = doubles(d.get("runoff", Variant()));
+	t.verge = (int)(int64_t)d.get("verge", 0);
 	t.cell = num(d, "grid_cell", 12.0);
 	t.min_x = num(d, "grid_min_x", 0.0);
 	t.min_z = num(d, "grid_min_z", 0.0);
@@ -350,6 +357,10 @@ void FleetSim::set_track(const Dictionary &d) {
 			ERR_PRINT("FleetSim.set_track: the road surface tables do not match");
 			have_track = false;
 		}
+	}
+	if (t.open_edges && (t.side_y.size() != n || t.runoff.size() != 2 * n)) {
+		ERR_PRINT("FleetSim.set_track: the open edges' tables do not match");
+		have_track = false;
 	}
 	run_over = true;
 }
@@ -604,6 +615,14 @@ void FleetSim::step_agent(Agent &a, int k, double dt, double now, double cutoff,
 	sense(a);
 	drive(k, a);
 	car_step(car, spec, track, a.ctrl, dt);
+	if (track.open_edges) {
+		// (v6.27) Trainer.step: out over the cone line costs one cone's penalty (RaceState.penalize)
+		bool off_now = std::fabs(car.lat) - car.hw > OFF_LINE - spec.radius;
+		if (off_now && !a.off && !a.race_finished) {
+			a.race_time += CONE_PENALTY;
+		}
+		a.off = off_now;
+	}
 	// RaceState.update(): timer, gates in order, lap and finish times
 	bool events = false;
 	const int gate0 = a.next_gate;

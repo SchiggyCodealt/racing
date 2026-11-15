@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-14 (v6.26.0: round 5, item 9 of 9, the last: a minimap with three sectors on the race screen
+_Last updated: 2026-11-14 (v6.27.0: round 6, item 1 of 3: no barriers on the 11 tracks with loose ground: cones
+(`sim/cones.gd`, 0.5 s each) and a gravel-trap run-off (`sim/car.gd` `VERGE_*`), the medal times and those tracks' AI
+networks redone; checkpoint gates and the CP counter gone, minimap top left, timing tower top right;
+v6.26.0: round 5, item 9 of 9, the last: a minimap with three sectors on the race screen
 (`sim/sectors.gd`, `ui/race_minimap.gd`) and a Sector records screen on the menu (`ui/records_screen.gd`, R) with the
 fastest time of every sector of every track, the car and its upgrades (`SaveData.get_sectors` / `submit_sectors`);
 v6.25.0: round 5, item 8 of 9: faster, closer AI opponents: every level a step faster
@@ -50,7 +53,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.26.0, round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.27.0, round 6 item 1 of 3 done (cones and run-off instead of barriers on loose tracks, the HUD moves); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1605,6 +1608,67 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
+
+## Round 6: cones, three circuits, a Le Mans car (v6.27.0 on)
+
+Asked on 2026-11-14: "in all maps which include offroad and bad terrain remove the barriers and add cones or road
+indicator which can be knocked over so you could go off course, it should come with a small penalty. / add the f1
+monaco gp and silverstone and the redbull ring to the game / add a lemans style car like the porsche 919, if you can
+use premade models which you can find online"; and 12 minutes later: "also remove the physical checkpoint blocks
+remove the cp counter and move the minimap to the top left and move the leaderboar to the top right above the times
+and medals" (folded into item 1).
+
+The order (the owner was told; each is pushed when done) and the defaults chosen:
+
+1. **Cones and the HUD (v6.27.0, done)**: see below.
+2. **Monaco, Silverstone and the Red Bull Ring (v6.28.0)**: the real layouts traced from public maps, named by the
+   place, no sponsor or brand logos.
+3. **A Le Mans prototype (v6.29.0)**: modelled in code like the other cars (`world/car_shapes.gd`; no downloaded
+   models, their licences are unclear), with a name of its own and no Porsche badges.
+
+### Item 1: cones, run-off and the HUD moves (v6.27.0, done)
+
+What changed:
+- **Open edges** (`sim/built_track.gd` `open_edges`, `side_y`, `runoff`, `verge`; `sim/track_builder.gd`
+  `_build_edges`): every track with loose surfaces (`has_surfaces()`) unless its definition says `"edges": "walls"`.
+  The signature is the same as before, so records, ghosts, medals and networks saved on these tracks stay valid
+  (a deliberate choice: the roads are the same; a wall-riding record may now be hard to beat). Beside the road a
+  run-off up to `TrackBuilder.RUNOFF` (10 m) a side, cut short where another road is near (raycast), its ground
+  sloping from the road edge down to `side_y` (`Collision.off_slope`), then flat; `locate_near` gives that ground
+  and fades the bank. The sprint ends keep their walls; at the run-off's far end `Car._walls` holds the car softly.
+- **The run-off is a gravel trap** (`sim/car.gd` `VERGE_*`, mirrored in `native/src/car_sim.cpp`): the verge surface
+  blends in across 1 m at the edge; grip × 0.5; rolling resistance 30 × roll_resist (about 0.4 g) from 8 m/s up and in
+  proportion below (never under the surface's own). Tried first: × 0.9 grip / × 1.6 roll and × 0.6 / × 3: the medal
+  autopilot and the trained AI cut corners across the run-off and won (the AI drove 83 % of Frozen Lake off the road).
+  A flat 0.4 g with no easing left a car stuck on the ice run-off (0.1 m/s after 10 s of full throttle).
+- **Cones** (`sim/cones.gd`, pure logic; `world/track_mesh.gd` draws them as a MultiMesh and throws knocked ones):
+  0.45 m beyond each edge, 12 m apart on straights, down to 5 m in tight bends; a car's capsule knocks one; each costs
+  `Cones.PENALTY` (0.5 s) through `RaceState.penalize` (the clock, splits and finish all carry it) and spoils the
+  score combo (`ScoreState.cones`, no points lost). Every play mode keeps one set per race shared by all cars
+  (`modes/play_mode.gd` `_cone_hits`, `modes/field_mode.gd` `_field_cones`, `sim/field_race.gd`), the AI ghost has
+  its own; the medal autopilot (`Autopilot.drive_race`) and `ai/opponent_race.gd` knock them too.
+- **Medals** (`tools/medals.gd`): the sweep now picks the fastest run on the clock (cone penalties included; it picked
+  by steps before), and records `run.cones` on open tracks. Re-measured for the 11 tracks.
+- **The AI** (`ai/trainer.gd` `OFF_LINE`, `native/src/fleet_sim.cpp`): in training a car pays one cone penalty each
+  time it goes out over the cone line; the 88 networks of the 11 tracks were trained again
+  (`tools/opponents.gd --train --retrain`, 47 min), the 64 whose Elite came out slower than 0.92 × author trained on
+  (`--tune`), the 8 slowest again with `--tune-gens=480 --patience=200` (Thunder / Ramp Rally and Racer / Hairpin Valley
+  retrained with `--gens=240` / `300` first), then the levels (48 min). Elite median 0.93 × author (0.90 before, with
+  the walls); 6 pairs still run flat out at 1.003-1.052 × author, and 12 pairs in all keep looser bounds in
+  `tests/test_ai.gd` (`V627_LOOSE`). A slowed network can now run wide and knock cones where it never does flat out,
+  so a capped race is far from what the flat-out speeds predict: the level search (`make_levels`) now also halves the
+  gap between the caps either side of the target, and prefers a race slower than the level above
+  (`_better`). Some networks finish only at a few caps (the Apex on Summit Rush: most caps end stuck in the run-off);
+  the stored caps are the ones that finish.
+- **HUD** (`ui/race_hud.gd`): the CP counter is gone; the minimap sits top left under the lap plate, the timing tower
+  top right above place / best / medal. **Gates**: only the start and finish gates are built (`world/track_mesh.gd`);
+  the checkpoints still count. Lamp posts, chevrons and banners are not placed on open edges
+  (`world/track_scenery.gd`); the grandstand stands back beyond the run-off (`world/track_ctx.gd`); the chase camera
+  follows the ground out there (`world/chase_camera.gd`).
+- Tests: `tests/test_sim.gd` `_open_edges` (which tracks, the run-off ground, cones, the penalty and score); the wall
+  checks run on the same tracks with `"edges": "walls"` (`walled()`); `tests/test_world.gd` (gates, run-off and cone
+  meshes), `tests/test_ui.gd` (tower top right, minimap top left), `tests/test_ai.gd` (FleetSim parity on walled and
+  open runs); e2e scenario `cones` (`tests/e2e/game_e2e.gd` `cones_run`).
 
 ## Round 5: nine items (v6.18.0 on)
 

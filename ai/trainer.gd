@@ -96,6 +96,11 @@ const REASONS: PackedStringArray = ["", "finished", "wall", "backwards", "stalle
 
 
 ## One car of the run in progress.
+## (v6.27) Where the cones stand on a track without barriers, out from the road's edge (m) to their far
+## side: a car whose capsule reaches past it is out over the cone line (training's stand-in for cones).
+const OFF_LINE: float = Cones.EDGE + Cones.RADIUS
+
+
 class Agent:
 	var index: int = 0
 	var net: NeuralNetwork
@@ -114,6 +119,8 @@ class Agent:
 	var rays := PackedFloat32Array()
 	var death_reason: String = ""
 	var touched_wall: bool = false
+	## (v6.27) on a track without barriers: the car is out over the cone line (see OFF_LINE)
+	var off: bool = false
 	## (v6.15) the nitro tank's refills from clean gates (Sensors.NitroRefill)
 	var refills := Sensors.NitroRefill.new()
 
@@ -335,6 +342,7 @@ static func track_data(t: BuiltTrack, laps: int) -> Dictionary:
 		surf_w = t.surf_w, surf_n = t.surf_n, surf_roll = Surfaces.column("roll"), surf_stiff = Surfaces.column("stiffness"),
 		surf_esc = Surfaces.column("esc"), surf_brake = Surfaces.column("brake"), surf_abs = Surfaces.column("abs"),
 		surf_wall = Surfaces.column("wall"),
+		open_edges = t.open_edges, side_y = t.side_y, runoff = t.runoff, verge = t.verge, # (v6.27)
 		grid_cell = g.cell, grid_min_x = g.min_x, grid_min_z = g.min_z, grid_cols = g.cols, grid_rows = g.rows,
 		grid_seg_d = g.seg_d, grid_inward = g.inward, grid_cell_start = g.cell_start, grid_cell_segs = g.cell_segs,
 		grid_seg_cell = g.seg_cell,
@@ -485,6 +493,13 @@ func step(dt: float) -> void:
 		Sensors.sense(t, car, a.inputs, a.rays)
 		Sensors.drive_network(a.net, a.inputs, _mirrored, _ctrl)
 		car.step(t, _ctrl, dt)
+		if t.open_edges:
+			# (v6.27) training has no cones: each time the car goes out over the cone line it pays one
+			# cone's penalty (Cones.PENALTY s on its clock), so the AI learns to stay on the road
+			var off_now: bool = absf(car.lat) - car._hw > OFF_LINE - car.spec.radius
+			if off_now and not a.off:
+				a.race.penalize(Cones.PENALTY)
+			a.off = off_now
 		var events: Array[Dictionary] = a.race.update(car, dt)
 		if cfg.nitro:
 			a.refills.update(car, a.race, t.closed) # (v6.15: the nitro tank refills from clean gates)

@@ -77,6 +77,11 @@ struct Track {
 	// surface table's physics columns (sim/surfaces.gd: roll, stiffness, esc; v6.10: brake, abs, wall)
 	std::vector<double> surf_w, surf_roll, surf_stiff, surf_esc, surf_brake, surf_abs, surf_wall;
 	int surf_n = 0;
+	// (v6.27) open edges (BuiltTrack.open_edges): no barriers, a run-off beside the road down to side_y,
+	// runoff m wide (2 a sample: left, right), its surface verge
+	bool open_edges = false;
+	std::vector<double> side_y, runoff;
+	int verge = 0;
 	// wall grid (collision.gd WallGrid)
 	double cell = 12.0, min_x = 0.0, min_z = 0.0;
 	int cols = 0, rows = 0;
@@ -147,6 +152,7 @@ struct CarState {
 	double env_bk = 1.0, env_abs = 0.97, env_wall = 1.0; // (v6.10) brakes, ABS share, wall friction
 	double mx_g = 1.0, mx_k = 1.0, mx_r = 1.0, mx_e = 1.0, mx_b = 1.0, mx_a = 0.97, mx_w = 1.0;
 	bool mx_pure = true;
+	double mx_off = 0.0; // (v6.27) car.gd _mx_off: the run-off's share under the car (open edges)
 	// scratch (car.gd _loc, _contact, _att_pitch, _att_roll)
 	Loc loc;
 	Contact contact;

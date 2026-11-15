@@ -147,7 +147,8 @@ const STUCK_STEPS: int = 180 # 3 s without gaining 3 samples (~6 m): stuck, the 
 ## from a standing start at GO with a full tank, burning nitro on the straights with the
 ## style score's refills (nitro false: no nitro, no score); `spec` (v6.11): another spec of that
 ## car instead of the stock one (an upgraded car, tools/upgrades.gd). Returns {finished, time, steps,
-## wall (steps touching a wall), laps, score (points), burned, refilled (nitro, in tanks)}.
+## wall (steps touching a wall), laps, score (points), burned, refilled (nitro, in tanks), cones (v6.27:
+## how many it knocked over on a track without barriers; their penalty is in the time)}.
 static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = Cars.DEFAULT_CAR, nitro: bool = true, spec: CarSpec = null) -> Dictionary:
 	var dt: float = 1.0 / 60.0
 	var car := Car.new(t, -1, spec if spec != null else Cars.spec(car_id))
@@ -159,11 +160,18 @@ static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = C
 	var best: float = car.prog
 	var gained: int = 0
 	var burned: float = 0.0
+	var cones: Cones = Cones.new(t) if t.open_edges else null
 	while not race.finished and steps < MAX_STEPS and steps - gained <= STUCK_STEPS:
 		var tank: float = car.nitro
 		car.step(t, pilot.drive(car), dt)
 		if car.nitro < tank:
 			burned += tank - car.nitro
+		if cones != null:
+			var ks := cones.hit(car)
+			for c in ks:
+				race.penalize(Cones.PENALTY)
+			if score != null and not ks.is_empty() and not race.finished:
+				score.cones(ks.size(), ks.size() * Cones.PENALTY) # (as in Drive: the run is no longer clean)
 		race.update(car, dt)
 		if score != null:
 			score.update(car, race, dt) # after race.update, as in Drive: banked points refill the tank
@@ -176,4 +184,5 @@ static func drive_race(t: BuiltTrack, a_lat: float, k: float, car_id: String = C
 	return {
 		finished = race.finished, time = race.finish_time, steps = steps, wall = wall, laps = race.laps,
 		score = score.total if score != null else 0.0, burned = burned, refilled = score.nitro if score != null else 0.0,
+		cones = race.penalties,
 	}
