@@ -85,6 +85,8 @@ const V623_STAGES: Dictionary = {
 	"frozen-lake": ["Asphalt + packed snow + ice", 4, "frozen", ["ice", "snow"]],
 	"monsoon-trail": ["Asphalt + gravel + mud", 5, "jungle", ["gravel", "mud"]],
 }
+## The grand-prix circuits of v6.28, in menu order (20-22): all asphalt, new (no older version)
+const V628_CIRCUITS: PackedStringArray = ["monaco", "silverstone", "spielberg"]
 ## The tracks of v6.4, in menu order (13-15): [surfaces, difficulty, race type]
 const V64_TRACKS: Dictionary = {
 	"forest-rally": ["Asphalt + dirt", 3, "circuit"],
@@ -517,11 +519,11 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	var kept_bad: PackedStringArray = []
 	for id: String in ids:
 		var same: bool = String(texts.get(id, "")).sha256_text() == String((V65_KEPT.get(id, ["?"]) as Array)[0])
-		if V623_STAGES.has(id):
+		if V623_STAGES.has(id) or V628_CIRCUITS.has(id):
 			continue # (newer than v6.5: nothing to compare with; their signatures are pinned below)
 		if same != V65_KEPT.has(id) or V65_KEPT.has(id) == V66_REWORKED.has(id):
 			kept_bad.append(id)
-	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() + V623_STAGES.size() == ids.size(),
+	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() + V623_STAGES.size() + V628_CIRCUITS.size() == ids.size(),
 		"the %d tracks v6.6 did not rework are bit for bit as in v6.5 (their tracks.json text); the %d reworked ones (%s) are not%s" % [
 			V65_KEPT.size(), V66_REWORKED.size(), ", ".join(V66_REWORKED.keys()), "" if kept_bad.is_empty() else ": wrong " + ", ".join(kept_bad)])
 	# signatures: the kept ones unchanged (the browser's layouts = v6.2's), the reworked ones new
@@ -530,7 +532,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	for id: String in ids:
 		var tr: BuiltTrack = by_id(id)
 		var legacy: String = Tracks.legacy_signature(id)
-		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == (V64_TRACKS.has(id) or V623_STAGES.has(id))
+		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == (V64_TRACKS.has(id) or V623_STAGES.has(id) or V628_CIRCUITS.has(id))
 		if V66_REWORKED.has(id):
 			ok = ok and tr.layout_signature() != legacy and tr.signature() != String(V65_SIGS[id]) and \
 				Tracks.build_web(id).layout_signature() == legacy
@@ -539,7 +541,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 		if not ok:
 			bad_sigs.append("%s %s" % [id, Tracks.signature(id)])
 	t.check(bad_sigs.is_empty() and SIGS.size() == ids.size(),
-		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4 and the 4 stages of v6.23 as made%s" % [
+		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4, the 4 stages of v6.23 and the 3 circuits of v6.28 as made%s" % [
 			"" if bad_sigs.is_empty() else ": wrong " + ", ".join(bad_sigs)])
 	# medal times: the kept tracks' unchanged (data/medals.json), the reworked and v6.4 ones for every car
 	var md: Dictionary = Medals.data().get("tracks", {})
@@ -977,7 +979,7 @@ func _surfaces() -> void:
 	for tr: BuiltTrack in tracks:
 		var summary: String = Surfaces.summary(tr)
 		var legacy: String = Tracks.legacy_signature(tr.id)
-		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and (V64_TRACKS.has(tr.id) or V623_STAGES.has(tr.id)))) and \
+		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and (V64_TRACKS.has(tr.id) or V623_STAGES.has(tr.id) or V628_CIRCUITS.has(tr.id)))) and \
 			(tr.signature() == tr.layout_signature()) == (not tr.has_surfaces()) and Tracks.signature(tr.id) == tr.signature()
 		ok = ok and summary == String(want.get(tr.id, "Asphalt")) and sig_ok
 		if tr.has_surfaces():
@@ -1000,7 +1002,7 @@ func _surfaces() -> void:
 				parts.append("%s %d%%" % [Surfaces.id(k), roundi(float(shares[k]) * 100.0)])
 			ok = ok and sums_ok and step_max <= 1.0 / (2 * Surfaces.BLEND + 1) + 1e-5 and grid_ok
 			lines.append("%s: %s (%s)" % [tr.name, ", ".join(parts), tr.signature().get_slice("|", 1)])
-	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4, the 4 stages of v6.23), the other %d all asphalt; the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
+	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4, the 4 stages of v6.23), the other %d all asphalt (the 3 circuits of v6.28 among them); the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
 		lines.size(), tracks.size() - lines.size(), 2 * Surfaces.BLEND + 1, roundi((2 * Surfaces.BLEND + 1) * 2.0), "; ".join(lines)])
 
 	# asphalt is the old physics: on Ramp Rally the racer drives bit for bit as on the all-asphalt

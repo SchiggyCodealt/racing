@@ -70,7 +70,7 @@ extends SceneTree
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
 ##   unlock    the tracks open one at a time (v6.8.0) from a new career: only Rookie Oval is open,
-##             18 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
+##             21 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
 ##             reads LOCKED, the menu fits 1280 x 720); Enter (Drive) and Race the Rookie AI are
 ##             refused with a message; Watch the Rookie AI and Train the AI work there; a bronze on
 ##             Rookie Oval (a slow autopilot, 50 m/s at most: 2:32.900 against bronze 2:39 and
@@ -1993,8 +1993,8 @@ func unlock() -> void:
 	var msg: Label = app.message.get("_text")
 	menu.select_opponent("rookie")
 	var locked := tiles.filter(func(x: Control) -> bool: return x.get("locked")).size()
-	check(UiData.open_track_count() == 1 and locked == 18 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18",
-		"a new career: only Rookie Oval is open, 18 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
+	check(UiData.open_track_count() == 1 and locked == 21 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18" and tiles[21].lock_note == "Bronze on 21",
+		"a new career: only Rookie Oval is open, 21 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
 	await frames(10)
 	await shot("unlock_menu")
 	# the keys still pick a locked track

@@ -135,7 +135,7 @@ the Austrian circuit on a Styrian hillside). Each has a scenery of its own, two 
 every car, and together they make a seventh championship, the **Grand Prix Cup** (see
 [The grand-prix circuits](#the-grand-prix-circuits-version-6280)).
 
-![The menu: money and career points in the header, 19 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last six tracks, the four rally stages among them, still locked with a padlock and "Bronze on 13" to "Bronze on 18"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |

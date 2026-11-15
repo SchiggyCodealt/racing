@@ -845,9 +845,9 @@ func _app_unlock(t, app: GameApp) -> void:
 	menu.select_opponent("rookie")
 	menu.select(1)
 	var locked := tiles.filter(func(x: Control) -> bool: return x.locked).size()
-	t.check(not tiles[0].locked and locked == 18 and tiles[1].lock_note == "Bronze on 01" and tiles[2].lock_note == "Bronze on 02" and
+	t.check(not tiles[0].locked and locked == 21 and tiles[1].lock_note == "Bronze on 01" and tiles[2].lock_note == "Bronze on 02" and
 		str(tiles[1].tooltip_text).contains("bronze on Rookie Oval opens it") and UiData.open_track_count() == 1,
-		"a new career: only Rookie Oval is open; 18 tiles locked (Hairpin Valley: %s)" % tiles[1].lock_note)
+		"a new career: only Rookie Oval is open; 21 tiles locked (Hairpin Valley: %s)" % tiles[1].lock_note)
 	var lock_note: Control = menu.get("_td_lock")
 	var lock_text: String = (menu.get("_td_lock_text") as RichTextLabel).get_parsed_text()
 	t.check(menu.selected_track == 1 and lock_note.visible and lock_text.contains("Locked: win bronze or better on Rookie Oval") and
