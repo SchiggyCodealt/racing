@@ -239,7 +239,7 @@ trophy cabinet and opens the championships, and the **Records** button beside it
 button lists the rest, and the **Settings** button opens the settings.
 
 **The car page** opens when you have chosen a race (a button, Enter, a double-click on a track tile, START CUP or a
-cup's next race). Its first line says what is about to start. It shows the eight cars, the picked car's upgrades and
+cup's next race). Its first line says what is about to start. It shows the nine cars, the picked car's upgrades and
 description, your money and **START**. A car you don't own shows a padlock and its price, and START reads **BUY
 $10,000** (or **LOCKED** when your money is short). Esc goes back without starting. Watch AI and Train AI start
 directly, with the car that is picked.
@@ -260,7 +260,7 @@ the last thing you used, the key hints show its buttons.
 
 ### The cars
 
-There are eight cars. Each handles differently and has its own best times, ghosts, medals and best scores.
+There are nine cars. Each handles differently and has its own best times, ghosts, medals and best scores.
 
 - **Racer** (red, the default): the all-rounder. Quick, grippy and stable, never far off the pace anywhere.
 - **Kestrel** (yellow): light and nimble. Strong grip, short braking and the quickest launch, but a low
@@ -312,6 +312,7 @@ There are eight cars. Each handles differently and has its own best times, ghost
 | Vortex | 1,150 kg | 2.57 s | 6.22 s (5.47 s) | 321.4 km/h (338.1) | 3 s | 28.8 m | 1.68 g / 1.75 g | 1.22 s |
 | Apex | 780 kg | 2.58 s | 6.32 s (6.20 s) | 283.9 km/h (298.0) | 3.5 s | 20.7 m | 2.05 g / 2.42 g | 1.02 s |
 | Quadra | 1,090 kg | 2.47 s | 8.93 s (7.58 s) | 244.9 km/h (258.5) | 4.5 s | 31.2 m | 1.62 g / 1.52 g | 0.65 s |
+| Sarthe | 950 kg | 2.50 s | 5.82 s (4.40 s) | 335.9 km/h (346.2) | 6 s | 23.7 m | 1.86 g / 2.34 g | 0.93 s |
 
 ![The Apex on Coastal GP at dusk: a white formula car with red wings and a red stripe down its nose, open wheels on black wishbones, the driver in a yellow helmet turning in, the lamp in the nose lit](docs/screenshots/apex.png)
 
@@ -325,8 +326,8 @@ brakes and accelerates less (see [Road surfaces](#road-surfaces)). On the 120 m 
 stronger engine or less weight does).
 
 **Picking a car:** choose a race first; the car page then shows the cars. Click a car card (a double-click starts
-straight away), use the arrows, **C** / **Shift+C**, or **RB** / **LB** on a gamepad. The eight cards sit four to a row
-(two or three in a narrower window); under them are the picked car's upgrades (see [Upgrades](#upgrades)) and its description.
+straight away), use the arrows, **C** / **Shift+C**, or **RB** / **LB** on a gamepad. The nine cards sit three to a row
+(two in a narrower window); under them are the picked car's upgrades (see [Upgrades](#upgrades)) and its description.
 The choice is remembered, and C / Shift+C on the menu changes it too (the menu's records follow it).
 A new player owns only the Racer: the other cards show a padlock and the car's price, and their stats stay
 readable. With a locked car picked, START reads **BUY $10,000** (or **LOCKED** when your money is short) and buys it
@@ -548,8 +549,9 @@ still pay). Watch the AI shows any opponent drive.
 field**: five AI drivers race you on the selected track, with solid cars. Locked tracks and cars you don't own are
 refused as for Drive.
 
-- **The drivers.** Ten drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
-  Nils Haugen, Lena Fox and, since version 6.25.0, Ines Duarte in an Apex and Otto Lind in a Quadra), each with a car
+- **The drivers.** Eleven drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
+  Nils Haugen, Lena Fox, since version 6.25.0 Ines Duarte in an Apex and Otto Lind in a Quadra, and since 6.29.0 Mila
+  Achterberg in a Sarthe), each with a car
   and paint of their own; a race takes five of them, the same five every time on the same track and level. Each
   drives the shipped AI opponent network of its car, in the AI's car with every part at upgrade level 3, with a top
   speed of its own: the last AI on the grid at the level's pace with **your** car (beating it is like beating that AI
@@ -889,6 +891,7 @@ What that does to each car (measured with `tools/car_stats.gd --surface=dirt` an
 | Vortex | 55 % / 42 % | 28.8 / 37.2 / 47.1 m (42.4 / 55.2) | 1.68 / 0.89 / 0.67 g | 315.8 / 320.3 km/h (321.4) | 3.10 / 3.35 s |
 | Apex (6.22.0) | 45 % / 34 % | 20.7 / 37.9 / 48.3 m | 2.05 / 0.79 / 0.58 g | 268.5 / 274.7 km/h (283.9) | none (the test driver can't hold one) |
 | Quadra (6.24.0) | 84 % / 82 % | 31.2 / 27.6 / 27.3 m | 1.62 / 1.33 / 1.30 g | 238.1 / 240.8 km/h (244.9) | 0.92 / 0.93 s |
+| Sarthe (6.29.0) | 50 % / 38 % | 23.7 / 37.8 / 48.1 m | 1.86 / 0.86 / 0.65 g | 309.2 / 319.5 km/h (335.9) | 0.73 s / none |
 
 Why these tracks:
 
@@ -1265,8 +1268,9 @@ line drives exactly the same in the game.
   Each car has its own engine: the **Racer** a smooth race V6, the **Kestrel** a light, high-revving four with a loud
   intake, the **Thunder** a deep cross-plane V8 that burbles, the **Drifter** a turbo four whose turbo whistles as it
   spools and **hisses (blow-off) when you lift**, the **Dune** a rough, rattly air-cooled buggy engine, the
-  **Vortex** a high-pitched V12 scream, the **Apex** a shrieking V10 that revs to 11,500 and the **Quadra** a
-  warbling five-cylinder with the loudest turbo whistle and the most crackle when you lift.
+  **Vortex** a high-pitched V12 scream, the **Apex** a shrieking V10 that revs to 11,500, the **Quadra** a
+  warbling five-cylinder with the loudest turbo whistle and the most crackle when you lift, and the **Sarthe** a
+  muffled, uneven turbo V4 under the rising whine of its electric motor.
 - **The tyres and the ground**: squeal on asphalt when the tyres slide (louder the harder they slide), gravel crunch
   and hiss on dirt and crunching snow on snow (with your speed and slide), road roar, and **wind** rising with speed.
 - **Hits**: a wall hit is light, medium or heavy by how fast you hit it, scraping along a barrier grinds, a landing
@@ -1503,7 +1507,7 @@ game/                   the game shell: modes, threaded track loading, quality, 
                         keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages, the terminal's
                         commands (terminal.gd: one table of commands)
 modes/                  menu, play (Drive, Race the AI), field (Race the field), watch (Watch the AI) and train (the training screen)
-sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the eight cars,
+sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the nine cars,
                         collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
                         points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd),
                         car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs), Race the
