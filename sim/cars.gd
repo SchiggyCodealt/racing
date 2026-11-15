@@ -19,9 +19,13 @@ extends RefCounted
 ##   quadra   (v6.24) boxy 1980s rally coupe: all-wheel drive (half the drive to each axle), a
 ##            five-cylinder turbo, short gears; the most grip on snow and ice, second to the
 ##            Dune on dirt, lands jumps softly; draggy, so a modest top speed
+##   sarthe   (v6.29) closed-cockpit Le Mans prototype: a hybrid driving all four wheels (30 % to the
+##            front axle), the highest top speed and the quickest to 200 km/h, a boost tank as big as
+##            the Thunder's (6 s), downforce second only to the Apex; long and heavy in hairpins, poor on
+##            dirt and snow
 ##
 ## Use:
-##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra"] (picker order)
+##   Cars.ids()            -> ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra", "sarthe"] (picker order)
 ##   Cars.get_car(id)      -> {id, name, price, description, look {color, accent, shape},
 ##                             spec: CarSpec, stats {...}, bars {...}}; unknown ids give the racer
 ##   Cars.spec(id)         -> CarSpec (Car.new(track, idx, Cars.spec(id)))
@@ -211,6 +215,29 @@ const DEFS: Array[Dictionary] = [
 			maxSpeed = 68.0,
 		},
 		stats = {mass = 1090, accel100 = 2.47, accel200 = 8.93, top = 244.9, accel200n = 7.58, topNitro = 258.5, tankTime = 4.5, tankDist = 120, brake100 = 31.2, grip = 1.62, gripFast = 1.52, drift = 0.65},
+	},
+	{
+		id = "sarthe", name = "Sarthe",
+		price = 50000,
+		description = "Le Mans prototype: a hybrid that drives all four wheels, the highest top speed and the biggest boost, glued down by its aero at speed. Long and heavy in hairpins, and lost on dirt and snow.",
+		look = {color = "#24272e", accent = "#c6f432", shape = "closed-cockpit endurance prototype: long, low and wide, tall front wheel arches, a narrow bubble cockpit, a shark fin down the tail to a wide rear wing, slim LED lights"},
+		changes = {
+			id = "sarthe",
+			mass = 950, inertia = 1300, cgToFront = 1.42, cgToRear = 1.48, cgHeight = 0.3, wheelRadius = 0.35,
+			mu = 1.6, loadSensitivity = 0.07, dirtGrip = 0.5, snowGrip = 0.38,
+			handbrake = 0.75, handbrakeFast = 0.5,
+			drag = 0.47, downforce = 2.6, aeroFront = 0.44,
+			idleRpm = 1200, redline = 9000, upshiftRpm = 8600, downshiftRpm = 5200, launchRpm = 4400,
+			torque = [[1000, 300], [3000, 430], [5000, 560], [6500, 590], [8000, 570], [8600, 545], [9000, 515]],
+			gears = [2.7, 2.12, 1.74, 1.45, 1.23, 1.05], finalDrive = 3.0, reverseRatio = 3.0, shiftTime = 0.06,
+			driveFront = 0.3, slideDrive = 1.6,
+			brakeForce = 15000, brakeFront = 0.6,
+			steerLock = 0.62, steerRate = 9, steerRefAccel = 24, steerAssist = 0.5,
+			escGain = 7, escMoment = 4000,
+			nitroTime = 6, nitroForce = 3800, nitroPower = 120000, nitroTop = 97, nitroFade = 3,
+			maxSpeed = 93.3,
+		},
+		stats = {mass = 950, accel100 = 2.5, accel200 = 5.82, top = 335.9, accel200n = 4.4, topNitro = 346.2, tankTime = 6, tankDist = 231, brake100 = 23.7, grip = 1.86, gripFast = 2.34, drift = 0.93},
 	},
 ]
 
