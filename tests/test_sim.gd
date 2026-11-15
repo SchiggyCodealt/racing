@@ -557,7 +557,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 		# 1.5 ×, so that bronze is put back first; everything else is compared as it is)
 		var entry: Dictionary = (md.get(id, {}) as Dictionary).duplicate(true)
 		for c: String in (entry.get("cars", {}) as Dictionary).keys():
-			if c in ["apex", "quadra"]: # (cars added since, v6.22 and v6.24: not in v6.5's entry)
+			if c in ["apex", "quadra", "sarthe"]: # (cars added since, v6.22, v6.24 and v6.29: not in v6.5's entry)
 				(entry.cars as Dictionary).erase(c)
 				continue
 			var e: Dictionary = entry.cars[c]
@@ -1248,7 +1248,7 @@ func _cars_and_nitro() -> void:
 		return s
 	var plain: Dictionary = lap_state.call(0)
 	var same: bool = plain == lap_state.call(1) and plain == lap_state.call(2)
-	var ids_ok: bool = ids.size() == 8
+	var ids_ok: bool = ids.size() == 9
 	for id: String in ids:
 		ids_ok = ids_ok and Cars.spec(id).id == id
 	t.check(Cars.get_car("nope").id == "racer" and Car.new().spec == Cars.default_spec() and Cars.spec("racer") == Cars.default_spec() and \
@@ -2754,10 +2754,10 @@ func _career() -> void:
 	clean.call()
 
 	# the prices: a player who drives well (gold medals, which also beat the Expert AI at 1.13 x the
-	# author time) can buy a second car after three tracks and, with the Quadra of v6.24, the six up
-	# to the Vortex after 17 of the 22; the Apex (the dearest) on top as well only after 21 of them
-	# (v6.28: the three grand-prix circuits pay the most; before them it took the Elite AI, a second
-	# car's medals, field races or cups)
+	# author time) can buy a second car after three tracks, the six up to the Vortex after 17 of the 22
+	# and the Apex too after 21 (v6.28: the three grand-prix circuits pay the most); the Sarthe of v6.29
+	# (the dearest) on top takes more than one car's gold + Expert career (the Elite AI, a second car's
+	# medals, field races or cups)
 	var prices: Array = []
 	var total: int = 0
 	for id: String in Cars.ids():
@@ -2767,16 +2767,17 @@ func _career() -> void:
 	prices.sort()
 	var dearest: int = prices[prices.size() - 1]
 	total -= dearest
+	var six: int = total - Economy.price("apex")
 	var good: PackedInt32Array = Economy.career({medal = "gold", ai = "expert"})
 	var fair: PackedInt32Array = Economy.career({medal = "silver", ai = "pro"})
 	var n: int = good.size()
 	var elite: PackedInt32Array = Economy.career({medal = "author", ai = "elite"})
-	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("apex") and good[1] < prices[0] and good[2] >= prices[0] and n == 22 and good[15] < total and \
-		good[16] >= total and good[19] < total + dearest and good[20] >= total + dearest and elite[18] >= total + dearest and fair[3] < prices[0] and fair[4] >= prices[0]
-	t.check(ok, "prices (%s; the six up to the Vortex $%s, the Apex on top): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after 16 and $%s after 17 (those six), $%s after 20 and $%s after 21 (the Apex too, $%s in all), $%s after all %d; author + Elite: $%s after 19; silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
-		", ".join(PackedStringArray(prices.map(func(v: int) -> String: return UiFormat.money(v)))), UiFormat.points(total), UiFormat.points(good[1]),
-		UiFormat.points(good[2]), UiFormat.points(good[15]), UiFormat.points(good[16]), UiFormat.points(good[19]), UiFormat.points(good[20]), UiFormat.points(total + dearest),
-		UiFormat.points(good[n - 1]), n, UiFormat.points(elite[18]),
+	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("sarthe") and good[1] < prices[0] and good[2] >= prices[0] and n == 22 and good[15] < six and \
+		good[16] >= six and good[19] < total and good[20] >= total and good[n - 1] < total + dearest and elite[n - 1] >= total + dearest and fair[3] < prices[0] and fair[4] >= prices[0]
+	t.check(ok, "prices (%s; the six up to the Vortex $%s, with the Apex $%s, the Sarthe on top): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after 16 and $%s after 17 (those six), $%s after 20 and $%s after 21 (the Apex too) and $%s after all %d (short of the Sarthe, $%s in all; author + Elite earns $%s); silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
+		", ".join(PackedStringArray(prices.map(func(v: int) -> String: return UiFormat.money(v)))), UiFormat.points(six), UiFormat.points(total), UiFormat.points(good[1]),
+		UiFormat.points(good[2]), UiFormat.points(good[15]), UiFormat.points(good[16]), UiFormat.points(good[19]), UiFormat.points(good[20]),
+		UiFormat.points(good[n - 1]), n, UiFormat.points(total + dearest), UiFormat.points(elite[n - 1]),
 		UiFormat.points(fair[4]), UiFormat.points(fair[n - 1])])
 
 
@@ -3011,7 +3012,7 @@ func _upgrades() -> void:
 	var best: PackedInt32Array = Economy.career({medal = "author", ai = "elite"})
 	var one_good: int = good[good.size() - 1]
 	var one_best: int = best[best.size() - 1]
-	# levels 1-3 cost what they did in v6.11-6.15 ($248,200 for the six cars of then, $341,800 with the Apex, $402,650 with the Quadra); a Racer at 7 everywhere is
+	# levels 1-3 cost what they did in v6.11-6.15 ($248,200 for the six cars of then, $341,800 with the Apex, $402,650 with the Quadra, $519,700 with the Sarthe); a Racer at 7 everywhere is
 	# about one and a half author + Elite careers with it (v6.21: five parts), levels 8-10 of it more than that again (a late-career goal)
 	var racer7: int = 0
 	var racer810: int = 0
@@ -3020,7 +3021,7 @@ func _upgrades() -> void:
 			racer7 += Upgrades.price("racer", pid, k)
 		for k in range(8, top + 1):
 			racer810 += Upgrades.price("racer", pid, k)
-	ok = ok and low3 == 402650 and racer7 > one_good and racer7 < one_best * 1.6 and racer810 > one_best and total > (one_best * ids.size()) * 2
+	ok = ok and low3 == 519700 and racer7 > one_good and racer7 < one_best * 1.6 and racer810 > one_best and total > (one_best * ids.size()) * 2
 	t.check(ok, "prices rise every level, steeply from level 4, and follow the car's price: levels 1-3 of everything cost %s (as before v6.16); every level of every part of every car %s (%s) against %s for the cars; a gold + Expert career with one car earns %s, author + Elite %s; the Racer at level 7 everywhere costs %s, its levels 8-10 %s more (%.1f author + Elite careers)" % [
 		UiFormat.money(low3), UiFormat.money(total), ", ".join(rows), UiFormat.money(cars_total), UiFormat.money(one_good), UiFormat.money(one_best),
 		UiFormat.money(racer7), UiFormat.money(racer810), float(racer810) / one_best])

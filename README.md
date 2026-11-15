@@ -729,12 +729,12 @@ run out), so the last engine levels mostly add acceleration.
 | Quadra | $3,250 / $6,500 / $11,400 ... $60,150 / $74,750 / $91,000 | $2,600 ... $72,800 | $1,550 ... $43,700 | $1,950 ... $54,600 | $2,850 ... $80,100 | $556,100 | $849,400 | $1,405,500 |
 
 Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 of the four older parts cost what they
-did before version 6.16.0 ($248,200 for the six cars of that version, $402,650 for today's eight; $525,600 with the weight); from there each level's price rises by more than the one before
+did before version 6.16.0 ($248,200 for the six cars of that version, $519,700 for today's nine; $678,400 with the weight); from there each level's price rises by more than the one before
 (level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
 wins gold and beats the Expert on every track earns $180,400 per car driven (author and the Elite everywhere
 $306,680): the Racer at level 7 everywhere costs a little less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
-counts too). Every level of every part of every car costs $9,297,500.
+counts too). Every level of every part of every car costs $12,000,200.
 
 - **Medal times stay stock, the AI opponents have their own upgrades.** The medal times were set by the stock cars,
   so an upgraded car makes medals easier. Since version 6.25.0 the AI opponents always drive their car with every
