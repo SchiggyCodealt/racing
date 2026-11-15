@@ -111,6 +111,18 @@ const ENGINES := {
 		"turbo": 1.2, "turbo_hz": [2200.0, 6000.0], "rattle": 0.0, "drive": 2.0, "off": 0.32, "crackle": 0.75,
 		"limiter_hz": 17.0, "gain": 1.1,
 	},
+	# (v6.29) the Le Mans hybrid: a small turbo V4 with an uneven beat (two pairs of firings close
+	# together), a muffled, flat exhaust, a turbo whistle, and the electric motor's whine on load,
+	# which carries most of the sound's character at speed; little crackle
+	"sarthe": {
+		"name": "hybrid turbo V4", "cylinders": 4,
+		"intervals": [0.82, 1.18, 0.82, 1.18], "amps": [1.0, 0.86, 0.96, 0.84], "jitter": 0.04,
+		"pulse": [380.0, 2400.0], "pipe": [240.0, -0.45, 0.42],
+		"body": [[180.0, 1.4, 0.95], [780.0, 2.3, 0.55], [2600.0, 3.0, 0.2]], "direct": 0.32,
+		"tone": 7000.0, "rough": 0.14, "intake": [0.09, 1800.0], "whine": [0.03, 11.0],
+		"turbo": 0.8, "turbo_hz": [2600.0, 7000.0], "rattle": 0.0, "drive": 1.8, "off": 0.24, "crackle": 0.12,
+		"limiter_hz": 20.0, "gain": 1.45,
+	},
 }
 const DEFAULT := "racer"
 

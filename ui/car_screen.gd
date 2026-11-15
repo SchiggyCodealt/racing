@@ -5,7 +5,7 @@ extends "res://ui/dialog_screen.gd"
 ## before every race of a cup, so the car can change inside a championship.
 ## - A line saying what is about to start (`event_text`, set by the menu).
 ## - The car cards (ui/car_card.gd: side view, name, top speed, mass, five bars with the upgrades in
-##   green; a car you don't own shows a padlock and its price). Three a row, four from seven cars.
+##   green; a car you don't own shows a padlock and its price). Three a row, four for seven or eight cars (v6.29: three again for nine).
 ## - The picked car's upgrades (ui/part_chip.gd: level and the next level's price; a chip buys that
 ##   level, the game asks first) and its description line.
 ## - Your money, and START: it reads BUY and the price for a car you don't own (the game asks first),
@@ -345,7 +345,7 @@ func _handle_pad(inp: Object) -> void:
 func _on_layout(w: float) -> void:
 	var inner := inner_width(w)
 	var n := cards.size()
-	var cols := 3 if n <= 6 else 4
+	var cols := 3 if n <= 6 or n == 9 else 4 # (v6.29: nine cars, three rows of three)
 	if inner < 760.0:
 		cols = 2
 	cars_grid.columns = cols

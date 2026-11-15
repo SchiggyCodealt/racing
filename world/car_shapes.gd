@@ -1,7 +1,7 @@
 ## car_shapes.gd
 ## ------------------------------------------------------------------
-## The eight car bodies (carMesh.js SHAPES and its procedural geometry, plus
-## the Dune buggy, the Vortex hypercar, the Apex formula car and the Quadra rally coupe): one body plan
+## The nine car bodies (carMesh.js SHAPES and its procedural geometry, plus the Dune buggy, the
+## Vortex hypercar, the Apex formula car, the Quadra rally coupe and the Sarthe prototype): one body plan
 ## with different proportions and parts per car. world/car_build.gd turns a shape into the
 ## whole skinned car (wheels, suspension, lights, decals, the driver).
 ## Every part is laid out in the racer's frame and then stretched by warp():
@@ -378,6 +378,51 @@ static func shapes() -> Dictionary:
 			# the roll cage behind the seats (the car's own frame)
 			"tubes": [[0.5, 0.92, -0.72, 0.5, 1.32, -0.72, 0.022, true], [0.5, 1.32, -0.72, -0.5, 1.32, -0.72, 0.022, false],
 				[0.5, 1.32, -0.72, 0.46, 0.96, -1.45, 0.02, true]],
+		},
+		# (v6.29) closed-cockpit Le Mans prototype: long, low and wide, a flat nose sunk between tall front
+		# arches, a narrow bubble cockpit with a painted roof, a shark fin down the tail to a wide wing on
+		# swan necks, a splitter and a diffuser, slim LED lights; graphite paint with lime details
+		"sarthe": {
+			"front": 1.1, "rear": 1.14, "width": 1.06, "height": 0.92, "lift": -0.02, "track": 1.0, "haunch": 1.06,
+			"wheels": [0.36, 0.31, 0.37, 0.36],
+			"tub": [ST(-2.4, 0, 0.5, 0.56, 0.2), ST(-2.2, 0, 0.53, 0.62, 0.25), ST(-1.6, 0, 0.54, 0.66, 0.28), ST(-0.9, 0, 0.5, 0.66, 0.28),
+				ST(0.0, 0, 0.44, 0.64, 0.25), ST(0.7, 0, 0.38, 0.62, 0.2), ST(1.3, 0, 0.32, 0.6, 0.15), ST(1.9, 0, 0.27, 0.58, 0.1, 4.5),
+				ST(2.3, 0, 0.23, 0.52, 0.07, 4), ST(2.47, 0, 0.21, 0.4, 0.045, 3)],
+			"glass": [ST(-0.95, 0, 0.78, 0.18, 0.04, 3), ST(-0.7, 0, 0.84, 0.3, 0.13, 3), ST(-0.3, 0, 0.88, 0.34, 0.2, 3),
+				ST(0.2, 0, 0.86, 0.34, 0.19, 3), ST(0.62, 0, 0.77, 0.28, 0.11, 3), ST(0.95, 0, 0.66, 0.14, 0.03, 3)],
+			"mirror": [0.74, 0.74, 0.62],
+			"stripes": [0.0], "stripeW": 0.05, "stripeAccent": true,
+			"exhausts": [[0.0, 0.8, -2.36, 0.06]],
+			"rain": [0.0, 0.42, -2.42],
+			"lights": "strip",
+			"parts": [
+				# the painted roof over the back of the bubble (the windscreen stays glass)
+				{"mat": "paint", "loft": [ST(-0.98, 0, 0.83, 0.16, 0.02, 3), ST(-0.72, 0, 0.98, 0.29, 0.04, 3), ST(-0.3, 0, 1.06, 0.33, 0.04, 3),
+					ST(-0.02, 0, 1.06, 0.32, 0.035, 3), ST(0.12, 0, 1.04, 0.28, 0.02, 3)]},
+				# the shark fin from the roof down the engine cover to the wing
+				{"mat": "paint", "loft": [ST(-0.85, 0, 1.02, 0.014, 0.05, 4), ST(-1.25, 0, 1.0, 0.014, 0.13, 4), ST(-1.7, 0, 1.0, 0.014, 0.19, 4),
+					ST(-2.05, 0, 1.0, 0.014, 0.21, 4), ST(-2.2, 0, 1.0, 0.014, 0.12, 4)]},
+				# the wing: main plane and a flap between tall end plates, on two swan necks
+				{"mat": "carbon", "wing": [1.9, 0.36, 0.06], "at": [0, 1.18, -1.96], "rx": 0.1},
+				{"mat": "carbon", "wing": [1.9, 0.16, 0.04], "at": [0, 1.24, -2.28], "rx": 0.4},
+				{"mat": "accent", "box": [0.03, 0.38, 0.56], "at": [0.965, 1.08, -2.16], "sym": true},
+				{"mat": "carbon", "box": [0.035, 0.36, 0.14], "at": [0.36, 1.02, -2.02], "sym": true},
+				# splitter, canards and the diffuser
+				{"mat": "carbon", "box": [2.0, 0.03, 0.4], "at": [0, 0.1, 2.32]},
+				{"mat": "accent", "box": [0.02, 0.05, 0.38], "at": [0.6, 0.13, 2.32], "sym": true},
+				{"mat": "carbon", "box": [0.05, 0.09, 0.3], "at": [0.97, 0.3, 2.16], "sym": true},
+				{"mat": "carbon", "box": [1.7, 0.26, 0.36], "at": [0, 0.26, -2.26]},
+				# louvres on top of the front arches, the lime band along the sills
+				{"mat": "carbon", "box": [0.3, 0.012, 0.4], "at": [0.8, 0.81, 1.5], "sym": true},
+				{"mat": "accent", "box": [0.02, 0.06, 1.5], "at": [0.97, 0.3, -0.1], "sym": true},
+			],
+			"number": "24", "hip": [0.0, -0.1, 0.2], "lean": 0.56, "wheel": [0.25, 0.7, 0.4],
+			"tray": [-0.9, 0.9, 0.3],
+			"suit": 0x24272e, "gloves": 0xc6f432, "helmet": 0xc6f432, "helmet_stripe": 0x24272e, "visor": 0x10161f,
+			"rim": 0x1b1c20, "spokes": 10, "caliper": 0xc6f432,
+			"decal": [-0.05, 0.42, 0.15],
+			"seams": [[0, 0.75, 0.55, 1.2, 0.2, 0.72], [0, -0.6, 0.55, 1.2, 0.2, 0.78], [0, -1.3, 0.0, 0.55, 0.6, 1.0]],
+			"vents": [[0.3, -1.45, 0.4, 0.1, 6]],
 		},
 	}
 	for id: String in _shapes:

@@ -81,6 +81,8 @@ static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Col
 	const TOP := 1.72
 	var k := minf(r.size.x / (Z1 - Z0), r.size.y / TOP)
 	var o := r.position + (r.size - Vector2(Z1 - Z0, TOP) * k) * 0.5
+	if paint.get_luminance() < 0.2: # (v6.29: a near-black body, the Sarthe's, a little lighter, or it vanishes into the card)
+		paint = paint.lerp(Color("#8c93a0"), 0.35)
 	var fills := {"paint": paint, "accent": accent, "glass": Color("#2a3b52"), "carbon": Color("#121418"), "head": Color("#fff3d6")}
 	for part in profile.get("parts", []):
 		var src: PackedVector2Array = part.pts

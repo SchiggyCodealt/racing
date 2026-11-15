@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-15 (v6.28.0: round 6, item 2 of 3: three real grand-prix circuits as tracks 20-22, Monaco,
+_Last updated: 2026-11-15 (v6.29.0: round 6, item 3 of 3, the last: a ninth car, the Sarthe, a Le Mans prototype
+(`sim/cars.gd`, `world/car_shapes.gd`, `audio/engine_voice.gd`), $50,000, with medal times, upgrades, AI opponents and a
+field driver; the car page three cards to a row;
+v6.28.0: round 6, item 2 of 3: three real grand-prix circuits as tracks 20-22, Monaco,
 Silverstone and Spielberg (the Red Bull Ring, named by its town), traced from bacinger/f1-circuits (MIT, `data/CREDITS.md`)
 into turtle programs in `tools/gen_tracks.gd`; two laps each (`laps` in a design); three themes (`riviera` with a
 `town` of houses, `world/shaders/town.gdshader`; `parkland`; `styria`); the Grand Prix Cup; medal times and AI opponents;
@@ -57,7 +60,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.28.0, round 6 items 1-2 of 3 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg); item 3 (a Le Mans prototype) next; round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.29.0, round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1626,8 +1629,58 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
 
 1. **Cones and the HUD (v6.27.0, done)**: see below.
 2. **Monaco, Silverstone and the Red Bull Ring (v6.28.0, done)**: see below; the Red Bull Ring is called Spielberg.
-3. **A Le Mans prototype (v6.29.0)**: modelled in code like the other cars (`world/car_shapes.gd`; no downloaded
-   models, their licences are unclear), with a name of its own and no Porsche badges.
+3. **A Le Mans prototype (v6.29.0, done)**: see below; modelled in code like the other cars (`world/car_shapes.gd`;
+   no downloaded models, their licences are unclear), named the Sarthe, with no Porsche badges.
+
+### Item 3: the Sarthe, a Le Mans prototype (v6.29.0, done)
+
+A ninth car, id `sarthe`, $50,000 (the dearest), black with lime: a closed-cockpit endurance prototype in the style of
+the hybrid Le Mans cars, named after the region of the 24-hour race. Its own name and no badges of a real make.
+- `sim/cars.gd` `DEFS`: 950 kg, a hybrid with 30 % of the drive to the front axle (`driveFront = 0.3`), mu 1.6,
+  downforce 2.6 (second to the Apex), drag 0.47, a revvy engine to 9,000 rpm (590 N m peak) with six gears, a 6 s
+  boost (3,800 N, 120 kW), dirtGrip 0.5 / snowGrip 0.38 (slick tyres). Measured: 0-100 2.50 s, 0-200 5.82 s (the
+  quickest), top 335.9 km/h (the highest), 100-0 23.7 m (second to the Apex), 1.86 g / 2.34 g on the 30 m / 120 m
+  circles, drift held 0.93 s. On dirt / snow: 100-0 37.8 / 48.1 m, 0.86 / 0.65 g.
+- How it was balanced: a first version (more torque, launchRpm 5,000, drag 0.46, downforce 2.2) did 0-100 in 2.10 s
+  and 0-200 in 5.07 s, far ahead of everything; the shipped one is the quickest to 200 and at top speed but
+  launches like the others and brakes behind the Apex.
+- Author times (`tools/medals.gd -- --tracks=<all 22> --cars=sarthe --update --jobs=4`, 11 minutes): the quickest car
+  on eight tracks (Rookie Oval, Banked Speedway, Grand Marathon, Night Highway, Seaside Stunts, Monaco, Silverstone,
+  Spielberg) by 1.0-2.7 %, second to the Apex on Technical Trial, Coastal GP (1.0 %) and Lighthouse Bay (6.0 %) and to
+  the Dune on Canyon Run (0.3 %), sixth to ninth where the road is loose (last on Northern Lights, 31 % behind the
+  Quadra). Winners now: Sarthe 8, Quadra 6, Dune 4, Apex 3, Vortex 1. The README's car texts for the Vortex, the Apex
+  and the Quadra were brought up to date with that.
+- The model (`world/car_shapes.gd` `"sarthe"`): its own low-nose `tub`, a narrow glass bubble, painted lofts for the
+  roof and a shark fin, a carbon wing with a flap on swan necks, lime end plates, splitter, canards, diffuser, arch
+  louvres, a lime sill band and nose stripe, LED strip lamps (`lights = "strip"`), number 24, ten-spoke dark rims.
+  `tests/visual/world_preview.gd` has a `cam=front` (three-quarter view) to look at a car's nose.
+- The sound (`audio/engine_voice.gd` `"sarthe"`): a turbo V4 with uneven firing intervals, an electric whine that
+  rises with the revs, little crackle; gain 1.45 to match the others' loudness (`tools/engine_preview.gd`).
+- Upgrades: `Upgrades.MEASURED.sarthe` (`tools/upgrades.gd -- --cars=sarthe`); every level of everything for it costs
+  $2,702,700; levels 1-3 of the four older parts for the nine cars $519,700 ($678,400 with the weight).
+- A driver: Mila Achterberg (ACH) in a Sarthe (`sim/field.gd`), the eleventh.
+- The car page (`ui/car_screen.gd`): nine cards three to a row (four to a row only for 7-8 cars), two in a narrow window.
+- Money: every car together costs $210,000, more than a gold + Expert career's $180,400 (the prices test says so).
+- Tests: car lists and counts, the car page's columns and keyboard and pad moves with three columns (`test_ui.gd`),
+  prices, upgrade totals, the turbo cars and the Sarthe's engine (`test_world.gd`), nine rows and the shop
+  (`test_game.gd`), nine car chips (`test_ai.gd`).
+- AI opponents (`data/opponents/sarthe.json`, `tools/opponents.gd --cars=sarthe`): trained (16 minutes; all 22 beat gold
+  at the first check), tuned in the level 3 car (34 minutes; Elite flat out 0.82-0.95 × author), levels (22 minutes).
+  Two tracks needed more: on Hairpin Valley the Expert came out 5.5 % fast (retrained with `--gens=240`, tuned, levels:
+  all within 2 %); on Northern Lights the Sarthe's slick tyres on snow make the network take the corners wide through
+  the run-off, and slowed by a speed cap between about 34 and 80 m/s it ran into the run-off slower and crawled there
+  at 7 m/s (the gravel trap's drag beats its traction on snow), taking 400-550 s against 187 s flat out. Of networks
+  trained to 100, 140, 180, 240 and 300 generations (`--retrain --gens=N`, each tuned, then raced at caps from 24 to
+  75 m/s with a scratch script) only the generation 100 one gives every level: it is shipped, every level within 2 %.
+  Frozen Lake's Expert is 3.4 % off, so `sarthe/frozen-lake` joined `V627_LOOSE` in `tests/test_ai.gd`.
+- Checked: the headless suite (sim 178, ui 269, world, game and ai 185, all passing; the weight part's braking check
+  allows the Sarthe the Apex's bound, since its brakes are near the tyres' limit and level 10 stops only 6 % shorter);
+  e2e `menu` (40), `economy` (22, the car page with nine cards, `docs/screenshots/car-page.png`) and
+  `races tracks=seaside-stunts,rookie-oval,monaco cars=sarthe` (54).
+- The car cards draw a near-black body a little lighter (`ui/widgets.gd` `silhouette`), or the Sarthe vanished into
+  the card; the 3D model keeps its black.
+- Not done: the web version does not have it; a player who runs wide on snow in it crawls through the run-off too
+  (the respawn key gets out faster).
 
 ### Item 2: Monaco, Silverstone and Spielberg (v6.28.0, done)
 

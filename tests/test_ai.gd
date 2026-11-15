@@ -31,10 +31,11 @@ const FIXTURE := "res://tests/fixtures/ai_web_network.json"
 ## the Expert just under it), or slowing it down makes it run wide and knock cones so a level's
 ## time is a few % off its target. They are held to looser bounds (Elite at most 1.06 × author,
 ## Expert at most 1.09 × author, each level slower than the one above and within 10 % of its
-## target); every other pair keeps the strict ones.
+## target); every other pair keeps the strict ones. (v6.29: the Sarthe on Frozen Lake, its Expert
+## 3.4 % off.)
 const V627_LOOSE := ["racer/hairpin-valley", "kestrel/mountain-pass", "kestrel/northern-lights", "thunder/ramp-rally",
 	"thunder/forest-rally", "drifter/northern-lights", "dune/hairpin-valley", "dune/frozen-lake", "vortex/frozen-lake",
-	"vortex/monsoon-trail", "apex/summit-rush", "quadra/monsoon-trail"]
+	"vortex/monsoon-trail", "apex/summit-rush", "quadra/monsoon-trail", "sarthe/frozen-lake"]
 const TrainModeScript := preload("res://modes/train_mode.gd")
 
 ## The browser version (web/, node) driving the fixture network from each track's start:
@@ -1133,8 +1134,8 @@ func _train_screen_cars() -> void:
 	mode.enter()
 	var d: Control = mode.get("dash")
 	var s: Object = TrainModeScript.session
-	t.check(d.car_chips.size() == 8 and d.run_chips.size() == 8 and d.car == "kestrel" and d.car_chips[1].selected and not d.car_chips[0].selected,
-		"the form has eight car tiles, the menu's car (the Kestrel) picked")
+	t.check(d.car_chips.size() == 9 and d.run_chips.size() == 9 and d.car == "kestrel" and d.car_chips[1].selected and not d.car_chips[0].selected,
+		"the form has nine car tiles, the menu's car (the Kestrel) picked")
 	t.check(String(d.seed_info.text).contains("none yet for the Kestrel") and d.seed_check.disabled,
 		"no saved Kestrel network: Continue from saved network is off (%s)" % d.seed_info.text)
 	d.press(d.car_chips[2]) # Thunder

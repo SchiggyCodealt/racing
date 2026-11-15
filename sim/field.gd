@@ -51,6 +51,8 @@ const DRIVERS: Array[Dictionary] = [
 	# (v6.25) the Apex and the Quadra get drivers too
 	{id = "duarte", name = "Ines Duarte", code = "DUA", car = "apex", color = "#00a19b"},
 	{id = "lind", name = "Otto Lind", code = "LIN", car = "quadra", color = "#c1121f"},
+	# (v6.29) and the Sarthe
+	{id = "achterberg", name = "Mila Achterberg", code = "ACH", car = "sarthe", color = "#f4f1e8"},
 ]
 ## Each AI grid slot's pace (pole first) × the level's finish time with the player's car. (v6.25: a
 ## closer field, 4 % from first to last; it was 8 %.)

@@ -8,11 +8,12 @@ extends SceneTree
 ##   track     track id (Tracks.ids()), default rookie-oval
 ##   theme     override the track's theme (meadow desert alpine canyon dusk night seaside autumn arctic highland)
 ##   quality   high | medium | low
-##   cam       chase (behind the car) | overview (training) | orbit (menu) | side (low, beside the car)
+##   cam       chase (behind the car) | overview (training) | orbit (menu) | side (low, beside the car) |
+##             front (v6.29: three-quarters from the front)
 ##             | free (pos=x,y,z look=x,y,z)
 ##   at        where the car stands: a fraction of the lap (0..1) or a sample index (>= 1)
 ##   lat       metres left of the centre line
-##   car       racer | kestrel | thunder | drifter | none
+##   car       any car id (sim/cars.gd) | none
 ##   ghost     1: a ghost car 6 m ahead
 ##   fleet     N: an AI fleet of N cars over the lap (the first one viewed), rays=1: its sensor rays
 ##   boost     1: nitro on
@@ -142,6 +143,14 @@ func _initialize() -> void:
 				cam.fov = 50.0
 				var eye := p + side * 7.0 + fwd * 3.0 + Vector3(0, 1.6, 0)
 				cam.global_transform = Transform3D(Basis.looking_at(p + Vector3(0, 0.7, 0) - eye, Vector3.UP), eye)
+			"front":
+				# (v6.29) a three-quarter view from in front of the car
+				var p := Vector3(state["x"], y, state["z"])
+				var side := Vector3(track.nx[i], 0, track.nz[i])
+				var fwd := Vector3(sin(yaw), 0, cos(yaw))
+				cam.fov = 45.0
+				var eye := p + side * 4.2 + fwd * 5.6 + Vector3(0, 1.7, 0)
+				cam.global_transform = Transform3D(Basis.looking_at(p + Vector3(0, 0.6, 0) - eye, Vector3.UP), eye)
 			"free":
 				var pp: PackedStringArray = String(o.get("pos", "0,50,0")).split(",")
 				var ll: PackedStringArray = String(o.get("look", "0,0,100")).split(",")

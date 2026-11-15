@@ -135,6 +135,13 @@ the Austrian circuit on a Styrian hillside). Each has a scenery of its own, two 
 every car, and together they make a seventh championship, the **Grand Prix Cup** (see
 [The grand-prix circuits](#the-grand-prix-circuits-version-6280)).
 
+Version 6.29.0 adds a ninth car, the **Sarthe**: a closed-cockpit Le Mans prototype in the style of the hybrid
+endurance cars, with a name of its own (the region of the 24-hour race) and no badges of a real make. It has the
+highest top speed of all, the quickest run to 200 km/h and wings that grip harder the faster it goes, and it is the
+quickest car on eight tracks, the three grand-prix circuits among them, but long in hairpins and lost on dirt and snow.
+It costs $50,000, the dearest car, and has its own engine sound, upgrades, AI opponents and a new driver in the field
+races; the car page now shows three cards to a row (see [The cars](#the-cars)).
+
 ![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
@@ -239,12 +246,12 @@ trophy cabinet and opens the championships, and the **Records** button beside it
 button lists the rest, and the **Settings** button opens the settings.
 
 **The car page** opens when you have chosen a race (a button, Enter, a double-click on a track tile, START CUP or a
-cup's next race). Its first line says what is about to start. It shows the eight cars, the picked car's upgrades and
+cup's next race). Its first line says what is about to start. It shows the nine cars, the picked car's upgrades and
 description, your money and **START**. A car you don't own shows a padlock and its price, and START reads **BUY
 $10,000** (or **LOCKED** when your money is short). Esc goes back without starting. Watch AI and Train AI start
 directly, with the car that is picked.
 
-![The car page after choosing a time trial on Seaside Stunts: eight car cards four to a row with their stat bars, seven of them locked with a padlock and a price (the Apex $40,000, the Quadra $26,000), the Kestrel picked, its upgrade chips and description, $14,000 and the button reading BUY $10,000](docs/screenshots/car-page.png)
+![The car page after choosing a time trial on Seaside Stunts: nine car cards three to a row with their stat bars, eight of them locked with a padlock and a price (the Apex $40,000, the Quadra $26,000, the Sarthe $50,000), the Kestrel picked, its upgrade chips and description, $13,820 and the button reading BUY $10,000](docs/screenshots/car-page.png)
 
 **Drifting:** pull the handbrake (Space) into a corner to make the rear step out, then countersteer
 and use the throttle to hold the slide. Braking hard while turning only tightens the line a little.
@@ -260,7 +267,7 @@ the last thing you used, the key hints show its buttons.
 
 ### The cars
 
-There are eight cars. Each handles differently and has its own best times, ghosts, medals and best scores.
+There are nine cars. Each handles differently and has its own best times, ghosts, medals and best scores.
 
 - **Racer** (red, the default): the all-rounder. Quick, grippy and stable, never far off the pace anywhere.
 - **Kestrel** (yellow): light and nimble. Strong grip, short braking and the quickest launch, but a low
@@ -277,20 +284,20 @@ There are eight cars. Each handles differently and has its own best times, ghost
   car on tarmac. On dirt it keeps far more grip than any other car (97 % of it; 72 % on snow, where only the Quadra
   keeps more), which makes it the quickest car on Forest Rally, Hairpin Valley, Canyon Run and the mud stage (Monsoon
   Trail), and second to the Quadra on the sand stage (Dune Sea). It is the easiest car to drive cleanly.
-- **Vortex** (orange): a mid-engine hypercar. The most power, the highest top speed and strong grip at speed,
-  but light and twitchy at the limit, and its nitro tank lasts only 3 s. In the medal autopilot's hands it is second
-  only to the Apex on the tracks with little or no loose road, and still the quickest on Banked Speedway; on dirt and
-  snow it keeps little of its grip. In your hands it rewards precise driving.
-- **Apex** (white and red, version 6.22.0): an open-wheel formula car with front and rear wings, and the dearest
-  car ($40,000). At 780 kg it is the lightest, with the most grip (2.05 g in a slow corner), the shortest braking
+- **Vortex** (orange): a mid-engine hypercar. The most power, the highest top speed of the first eight cars and strong grip at
+  speed, but light and twitchy at the limit, and its nitro tank lasts only 3 s. In the medal autopilot's hands it is
+  third, behind the Sarthe and the Apex, on most tracks with little or no loose road, second to the Sarthe on Banked
+  Speedway and the quickest on Mountain Pass (by 0.1 s); on dirt and snow it keeps little of its grip. In your hands it rewards precise driving.
+- **Apex** (white and red, version 6.22.0): an open-wheel formula car with front and rear wings, the dearest
+  car until the Sarthe ($40,000). At 780 kg it is the lightest, with the most grip (2.05 g in a slow corner), the shortest braking
   (20.7 m from 100 km/h) and the sharpest steering, and its wings press it onto the road harder the faster it goes
   (2.42 g on a 120 m circle, where the next best car holds 1.75 g). Off the line its rear tyres are already at their
   limit, so its nitro is for the straights: from 150 km/h three seconds of it add 20 km/h.
   Its top speed is middling (the wings drag), so the Vortex still beats it on Banked Speedway. It has rear-wheel
   drive and slick tyres: on dirt and snow it keeps the least grip of all (45 % and 34 %) and needs 7 s to reach
-  100 km/h on dirt. In the medal autopilot's hands it is the quickest car on nine tracks (every all-asphalt track but
-  Banked Speedway, plus Mountain Pass and Canyon Run) by 1 to 14 %, and the slowest on Hairpin Valley, Forest Rally,
-  Northern Lights and Summit Rush by 10 to 23 %.
+  100 km/h on dirt. In the medal autopilot's hands it is the quickest car on Technical Trial, Coastal GP and Lighthouse
+  Bay (by 1 to 6 %), second to the Sarthe on the other all-asphalt tracks but Banked Speedway, and the slowest on Forest
+  Rally, Summit Rush, Pine Ridge and Dune Sea, 21 to 24 % behind.
 - **Quadra** (white and yellow, version 6.24.0): a boxy 1980s rally coupe in the style of the Group B cars: slab
   sides, box wheel arches, a big wing on the boot lid and four rally lamps on the air dam. All four wheels are
   driven, half the drive to each axle, by a five-cylinder turbo with short gears, so it claws out of slow corners on
@@ -300,7 +307,19 @@ There are eight cars. Each handles differently and has its own best times, ghost
   it is the quickest car on Ramp Rally, Northern Lights, Summit Rush, Pine Ridge, Dune Sea and Frozen Lake (by 2 to
   7 %) and second to the Dune on Forest Rally (since version 6.27.0, without the barriers to lean on, the Dune is
   quicker on Hairpin Valley and Monsoon Trail too); on the all-asphalt tracks it is about level with the Racer on the
-  twisty ones and sixth or seventh of the eight overall. It costs $26,000.
+  twisty ones and seventh or eighth of the nine overall. It costs $26,000.
+- **Sarthe** (black and lime, version 6.29.0): a closed-cockpit Le Mans prototype, named after the French region
+  where the 24-hour race is run; its own design, with no badges of a real make. Long, low and wide, with tall front
+  wheel arches, a bubble cockpit and a shark fin down to a wide rear wing. A hybrid: the engine drives the rear wheels
+  and an electric motor the front ones (30 % of the drive), so it has the highest top speed of all (335.9 km/h),
+  reaches 200 km/h quicker than any other car (5.82 s) and its boost lasts 6 s, as long as the Thunder's. Its wings
+  press it down harder the faster it goes (2.34 g on the 120 m circle, second only to the Apex), and it stops almost
+  as short (23.7 m from 100 km/h). It is long, so it is slow to turn into hairpins, and on its slick tyres it keeps
+  half its grip on dirt and 38 % on snow. In the medal autopilot's hands it is the quickest car on eight tracks
+  (Rookie Oval, Banked Speedway, Grand Marathon, Night Highway, Seaside Stunts and the three grand-prix circuits) by
+  1 to 2.7 %, second to the Apex on the other three all-asphalt tracks and to the Dune on Canyon Run, and sixth to
+  ninth on the tracks with the most loose road (last on Northern Lights, 31 % behind the Quadra). It costs $50,000,
+  the dearest car.
 
 | Car | Mass | 0-100 km/h | 0-200 km/h (with nitro) | Top speed (with nitro) | Nitro tank | 100-0 km/h | Cornering grip, 30 m / 120 m circle | Drift held |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -312,10 +331,13 @@ There are eight cars. Each handles differently and has its own best times, ghost
 | Vortex | 1,150 kg | 2.57 s | 6.22 s (5.47 s) | 321.4 km/h (338.1) | 3 s | 28.8 m | 1.68 g / 1.75 g | 1.22 s |
 | Apex | 780 kg | 2.58 s | 6.32 s (6.20 s) | 283.9 km/h (298.0) | 3.5 s | 20.7 m | 2.05 g / 2.42 g | 1.02 s |
 | Quadra | 1,090 kg | 2.47 s | 8.93 s (7.58 s) | 244.9 km/h (258.5) | 4.5 s | 31.2 m | 1.62 g / 1.52 g | 0.65 s |
+| Sarthe | 950 kg | 2.50 s | 5.82 s (4.40 s) | 335.9 km/h (346.2) | 6 s | 23.7 m | 1.86 g / 2.34 g | 0.93 s |
 
 ![The Apex on Coastal GP at dusk: a white formula car with red wings and a red stripe down its nose, open wheels on black wishbones, the driver in a yellow helmet turning in, the lamp in the nose lit](docs/screenshots/apex.png)
 
 ![The Quadra on the gravel of Pine Ridge, from the side: a white, boxy rally coupe with a yellow band along the doors and down the bonnet, box wheel arches over white wheels, yellow mud flaps, a big wing on the boot lid and rally lamps at the front](docs/screenshots/quadra.png)
+
+![The Sarthe on Spielberg with snowy peaks behind, from the front: a long, low black endurance prototype with tall front wheel arches and slim lamps, a lime stripe down the nose, a narrow glass bubble cockpit, a shark fin down the tail to a wide rear wing with lime end plates, and the number 24 on its side](docs/screenshots/sarthe.png)
 
 The numbers are measured with the game's own physics (`tools/car_stats.gd`, see [Tests and tools](#tests-and-tools)).
 "Drift held" is how long a keyboard driver typically keeps a handbrake slide going. The car page shows the same
@@ -325,8 +347,8 @@ brakes and accelerates less (see [Road surfaces](#road-surfaces)). On the 120 m 
 stronger engine or less weight does).
 
 **Picking a car:** choose a race first; the car page then shows the cars. Click a car card (a double-click starts
-straight away), use the arrows, **C** / **Shift+C**, or **RB** / **LB** on a gamepad. The eight cards sit four to a row
-(two or three in a narrower window); under them are the picked car's upgrades (see [Upgrades](#upgrades)) and its description.
+straight away), use the arrows, **C** / **Shift+C**, or **RB** / **LB** on a gamepad. The nine cards sit three to a row
+(two in a narrower window); under them are the picked car's upgrades (see [Upgrades](#upgrades)) and its description.
 The choice is remembered, and C / Shift+C on the menu changes it too (the menu's records follow it).
 A new player owns only the Racer: the other cards show a padlock and the car's price, and their stats stay
 readable. With a locked car picked, START reads **BUY $10,000** (or **LOCKED** when your money is short) and buys it
@@ -335,7 +357,7 @@ each car has its own AI network (see [Training the AI](#training-the-ai)).
 
 **The models.** Every car is drawn in detail: tyres with tread grooves, spoked rims in the car's own style, brake
 discs and calipers, suspension arms (with coil springs on the Dune and push rods on the Apex) that you can see working, head and tail lights,
-mirrors, vents, panel lines, wings and exhausts, and its race number on the doors (on the nose of the Apex). The Quadra has square lamps in a black grille, four round rally lamps, mud flaps and white wheels. The wheels spin with the car's
+mirrors, vents, panel lines, wings and exhausts, and its race number on the doors (on the nose of the Apex). The Quadra has square lamps in a black grille, four round rally lamps, mud flaps and white wheels. The Sarthe has slim LED strips for lamps, a bubble cockpit, a shark fin down to its rear wing, canards and a diffuser. The wheels spin with the car's
 speed and the front ones steer; the body squats when you accelerate, dives under braking, leans out of corners and
 sinks onto its springs when it lands, while the wheels stay on the road (and hang down in the air). The Vortex's
 rear wing tilts up as an air brake. A driver sits in every car: the steering wheel turns with the front wheels and
@@ -431,30 +453,30 @@ are from the next.
 Gold, silver and bronze are 6 %, 20 % and 30 % slower than the author time, rounded up to a whole second (for
 example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 2:39). Author times:
 
-| Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex | Apex | Quadra |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 | 2:09.683 | 1:52.250 | 1:40.967 | 2:04.367 |
-| Hairpin Valley | 4:10.050 | 3:50.200 | 4:56.700 | 4:01.650 | 3:48.300 | 4:11.517 | 4:13.083 | 4:18.933 |
-| Ramp Rally | 3:03.800 | 3:04.050 | 3:15.700 | 3:08.717 | 3:00.333 | 3:15.700 | 3:14.283 | 2:56.583 |
-| Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 | 2:23.150 | 1:48.600 | 1:54.550 | 2:10.850 |
-| Technical Trial | 3:50.300 | 3:46.467 | 3:52.567 | 3:50.067 | 3:52.117 | 3:35.650 | 3:26.417 | 3:52.117 |
-| Grand Marathon | 2:30.667 | 2:33.000 | 2:29.483 | 2:32.283 | 2:39.033 | 2:19.267 | 2:15.117 | 2:33.017 |
-| Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 | 3:16.167 | 2:54.900 | 2:43.417 | 3:10.633 |
-| Mountain Pass | 1:51.350 | 1:50.533 | 1:57.333 | 1:52.867 | 1:53.317 | 1:49.600 | 1:49.717 | 1:50.150 |
-| Canyon Run | 4:34.333 | 4:32.617 | 4:59.633 | 4:37.133 | 4:30.383 | 4:42.083 | 4:34.550 | 4:44.717 |
-| Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 | 2:52.467 | 3:17.367 |
-| Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 | 2:07.350 | 2:41.417 |
-| Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 | 0:58.550 | 1:07.567 |
-| Forest Rally | 3:20.733 | 3:17.283 | 3:38.517 | 3:17.983 | 3:06.533 | 3:39.583 | 3:51.150 | 3:07.050 |
-| Northern Lights | 3:17.083 | 3:09.183 | 3:41.067 | 3:09.700 | 3:02.917 | 3:41.917 | 3:41.800 | 2:51.283 |
-| Summit Rush | 1:50.650 | 1:49.300 | 2:02.200 | 1:49.267 | 1:45.067 | 2:01.183 | 2:03.683 | 1:41.800 |
-| Pine Ridge | 1:21.883 | 1:22.950 | 1:31.900 | 1:22.400 | 1:18.900 | 1:29.850 | 1:32.800 | 1:16.733 |
-| Dune Sea | 1:33.383 | 1:31.433 | 1:42.650 | 1:32.033 | 1:28.917 | 1:43.417 | 1:48.450 | 1:27.367 |
-| Frozen Lake | 1:51.650 | 1:45.983 | 2:42.550 | 1:48.567 | 1:38.050 | 2:08.800 | 2:11.817 | 1:34.750 |
-| Monsoon Trail | 1:41.733 | 1:38.283 | 2:08.550 | 1:45.683 | 1:35.033 | 1:52.500 | 2:01.350 | 1:43.133 |
-| Monaco | 3:20.017 | 3:18.717 | 3:21.483 | 3:19.917 | 3:24.083 | 3:07.983 | 3:04.533 | 3:18.183 |
-| Silverstone | 4:25.533 | 4:26.683 | 4:26.300 | 4:27.033 | 4:34.983 | 4:05.133 | 3:48.633 | 4:28.867 |
-| Spielberg | 3:11.667 | 3:14.317 | 3:12.367 | 3:12.633 | 3:20.033 | 2:56.000 | 2:52.550 | 3:12.733 |
+| Track | Racer | Kestrel | Thunder | Drifter | Dune | Vortex | Apex | Quadra | Sarthe |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Rookie Oval | 2:01.867 | 2:05.550 | 2:01.867 | 2:04.367 | 2:09.683 | 1:52.250 | 1:40.967 | 2:04.367 | 1:39.250 |
+| Hairpin Valley | 4:10.050 | 3:50.200 | 4:56.700 | 4:01.650 | 3:48.300 | 4:11.517 | 4:13.083 | 4:18.933 | 4:07.567 |
+| Ramp Rally | 3:03.800 | 3:04.050 | 3:15.700 | 3:08.717 | 3:00.333 | 3:15.700 | 3:14.283 | 2:56.583 | 3:04.917 |
+| Banked Speedway | 2:01.017 | 2:17.317 | 1:55.450 | 2:04.017 | 2:23.150 | 1:48.600 | 1:54.550 | 2:10.850 | 1:46.333 |
+| Technical Trial | 3:50.300 | 3:46.467 | 3:52.567 | 3:50.067 | 3:52.117 | 3:35.650 | 3:26.417 | 3:52.117 | 3:28.500 |
+| Grand Marathon | 2:30.667 | 2:33.000 | 2:29.483 | 2:32.283 | 2:39.033 | 2:19.267 | 2:15.117 | 2:33.017 | 2:12.250 |
+| Coastal GP | 3:07.950 | 3:09.750 | 3:13.283 | 3:09.533 | 3:16.167 | 2:54.900 | 2:43.417 | 3:10.633 | 2:45.050 |
+| Mountain Pass | 1:51.350 | 1:50.533 | 1:57.333 | 1:52.867 | 1:53.317 | 1:49.600 | 1:49.717 | 1:50.150 | 1:52.267 |
+| Canyon Run | 4:34.333 | 4:32.617 | 4:59.633 | 4:37.133 | 4:30.383 | 4:42.083 | 4:34.550 | 4:44.717 | 4:31.233 |
+| Night Highway | 3:15.450 | 3:19.050 | 3:15.050 | 3:16.367 | 3:24.583 | 2:58.767 | 2:52.467 | 3:17.367 | 2:49.550 |
+| Lighthouse Bay | 2:38.067 | 2:37.433 | 2:40.467 | 2:40.817 | 2:43.533 | 2:28.617 | 2:07.350 | 2:41.417 | 2:14.950 |
+| Seaside Stunts | 1:08.233 | 1:09.650 | 1:08.617 | 1:07.967 | 1:10.500 | 1:01.433 | 0:58.550 | 1:07.567 | 0:57.200 |
+| Forest Rally | 3:20.733 | 3:17.283 | 3:38.517 | 3:17.983 | 3:06.533 | 3:39.583 | 3:51.150 | 3:07.050 | 3:41.767 |
+| Northern Lights | 3:17.083 | 3:09.183 | 3:41.067 | 3:09.700 | 3:02.917 | 3:41.917 | 3:41.800 | 2:51.283 | 3:44.467 |
+| Summit Rush | 1:50.650 | 1:49.300 | 2:02.200 | 1:49.267 | 1:45.067 | 2:01.183 | 2:03.683 | 1:41.800 | 2:01.617 |
+| Pine Ridge | 1:21.883 | 1:22.950 | 1:31.900 | 1:22.400 | 1:18.900 | 1:29.850 | 1:32.800 | 1:16.733 | 1:28.333 |
+| Dune Sea | 1:33.383 | 1:31.433 | 1:42.650 | 1:32.033 | 1:28.917 | 1:43.417 | 1:48.450 | 1:27.367 | 1:44.800 |
+| Frozen Lake | 1:51.650 | 1:45.983 | 2:42.550 | 1:48.567 | 1:38.050 | 2:08.800 | 2:11.817 | 1:34.750 | 2:12.500 |
+| Monsoon Trail | 1:41.733 | 1:38.283 | 2:08.550 | 1:45.683 | 1:35.033 | 1:52.500 | 2:01.350 | 1:43.133 | 1:58.517 |
+| Monaco | 3:20.017 | 3:18.717 | 3:21.483 | 3:19.917 | 3:24.083 | 3:07.983 | 3:04.533 | 3:18.183 | 3:01.550 |
+| Silverstone | 4:25.533 | 4:26.683 | 4:26.300 | 4:27.033 | 4:34.983 | 4:05.133 | 3:48.633 | 4:28.867 | 3:46.300 |
+| Spielberg | 3:11.667 | 3:14.317 | 3:12.367 | 3:12.633 | 3:20.033 | 2:56.000 | 2:52.550 | 3:12.733 | 2:47.950 |
 
 The times are for the full race you drive (3 laps, 2 on the grand-prix circuits, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
@@ -467,7 +489,7 @@ is 1.5 × the author time. Hairpin Valley, Ramp Rally,
 Mountain Pass and Canyon Run got dirt or snow in version 6.3.0 and new times, 0.8-37 s slower than before depending on
 the car: see [Road surfaces](#road-surfaces). Hairpin Valley, Technical Trial, Grand Marathon, Mountain Pass and Canyon
 Run got rounder, wider hairpins in version 6.6.0 and new times again: see [Tracks](#tracks). The Dune, the Vortex,
-the Apex and the Quadra, the three tracks of version 6.4.0, the four stages of version 6.23.0 and the three grand-prix
+the Apex, the Quadra, the Sarthe, the three tracks of version 6.4.0, the four stages of version 6.23.0 and the three grand-prix
 circuits of version 6.28.0 exist only in this version.)
 
 **The faster bronze (version 6.9.0).** Until version 6.8.0 bronze was 1.5 × the author time; it is 1.3 × now, 13 to
@@ -548,8 +570,9 @@ still pay). Watch the AI shows any opponent drive.
 field**: five AI drivers race you on the selected track, with solid cars. Locked tracks and cars you don't own are
 refused as for Drive.
 
-- **The drivers.** Ten drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
-  Nils Haugen, Lena Fox and, since version 6.25.0, Ines Duarte in an Apex and Otto Lind in a Quadra), each with a car
+- **The drivers.** Eleven drivers take turns (Ada Brandt, Rico Vance, Juno Park, Sol Reyes, Kai Ostrom, Tess Moreau,
+  Nils Haugen, Lena Fox, since version 6.25.0 Ines Duarte in an Apex and Otto Lind in a Quadra, and since 6.29.0 Mila
+  Achterberg in a Sarthe), each with a car
   and paint of their own; a race takes five of them, the same five every time on the same track and level. Each
   drives the shipped AI opponent network of its car, in the AI's car with every part at upgrade level 3, with a top
   speed of its own: the last AI on the grid at the level's pace with **your** car (beating it is like beating that AI
@@ -595,16 +618,18 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 
 **The car shop.** Choose a race, pick a locked car on the car page and press START (it reads BUY): it asks first, then the car is yours for good.
 
-| Car | Racer | Kestrel | Drifter | Dune | Thunder | Quadra | Vortex | Apex |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Price | owned | $10,000 | $14,000 | $18,000 | $22,000 | $26,000 | $30,000 | $40,000 |
+| Car | Racer | Kestrel | Drifter | Dune | Thunder | Quadra | Vortex | Apex | Sarthe |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Price | owned | $10,000 | $14,000 | $18,000 | $22,000 | $26,000 | $30,000 | $40,000 | $50,000 |
 
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
 $13,200 after three (a second car), $122,400 after 17, enough for the six cars up to the Vortex ($120,000), and
 $144,400 after 19 (the four rally stages pay well). The Apex ($40,000) on top of those comes after 21 of the 22
 ($168,000; the three grand-prix circuits of version 6.28.0 pay the most, $180,400 after all 22), or sooner with the Elite
 AI and author times (a career of those earns $306,680), a second car's medals, Race the field or the cups, which all pay
-as well. Silver and the Pro everywhere buy the Kestrel after five tracks.
+as well. The Sarthe ($50,000, version 6.29.0) is the dearest: every car together costs $210,000, more than one gold
+and Expert career, so the last car needs money from a second car, the AI races or the cups. Silver and the Pro
+everywhere buy the Kestrel after five tracks.
 
 ### Championships
 
@@ -727,14 +752,15 @@ run out), so the last engine levels mostly add acceleration.
 | Vortex | $3,750 / $7,500 / $13,150 ... $69,400 / $86,250 / $105,000 | $3,000 ... $84,000 | $1,800 ... $50,400 | $2,250 ... $63,000 | $3,300 ... $92,400 | $641,700 | $980,000 | $1,621,700 |
 | Apex | $5,000 / $10,000 / $17,500 ... $92,500 / $115,000 / $140,000 | $4,000 ... $112,000 | $2,400 ... $67,200 | $3,000 ... $84,000 | $4,400 ... $123,200 | $855,400 | $1,306,600 | $2,162,000 |
 | Quadra | $3,250 / $6,500 / $11,400 ... $60,150 / $74,750 / $91,000 | $2,600 ... $72,800 | $1,550 ... $43,700 | $1,950 ... $54,600 | $2,850 ... $80,100 | $556,100 | $849,400 | $1,405,500 |
+| Sarthe | $6,250 / $12,500 / $21,900 ... $115,650 / $143,750 / $175,000 | $5,000 ... $140,000 | $3,000 ... $84,000 | $3,750 ... $105,000 | $5,500 ... $154,000 | $1,069,400 | $1,633,300 | $2,702,700 |
 
 Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 of the four older parts cost what they
-did before version 6.16.0 ($248,200 for the six cars of that version, $402,650 for today's eight; $525,600 with the weight); from there each level's price rises by more than the one before
+did before version 6.16.0 ($248,200 for the six cars of that version, $519,700 for today's nine; $678,400 with the weight); from there each level's price rises by more than the one before
 (level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
 wins gold and beats the Expert on every track earns $180,400 per car driven (author and the Elite everywhere
 $306,680): the Racer at level 7 everywhere costs a little less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
-counts too). Every level of every part of every car costs $9,297,500.
+counts too). Every level of every part of every car costs $12,000,200.
 
 - **Medal times stay stock, the AI opponents have their own upgrades.** The medal times were set by the stock cars,
   so an upgraded car makes medals easier. Since version 6.25.0 the AI opponents always drive their car with every
@@ -889,6 +915,7 @@ What that does to each car (measured with `tools/car_stats.gd --surface=dirt` an
 | Vortex | 55 % / 42 % | 28.8 / 37.2 / 47.1 m (42.4 / 55.2) | 1.68 / 0.89 / 0.67 g | 315.8 / 320.3 km/h (321.4) | 3.10 / 3.35 s |
 | Apex (6.22.0) | 45 % / 34 % | 20.7 / 37.9 / 48.3 m | 2.05 / 0.79 / 0.58 g | 268.5 / 274.7 km/h (283.9) | none (the test driver can't hold one) |
 | Quadra (6.24.0) | 84 % / 82 % | 31.2 / 27.6 / 27.3 m | 1.62 / 1.33 / 1.30 g | 238.1 / 240.8 km/h (244.9) | 0.92 / 0.93 s |
+| Sarthe (6.29.0) | 50 % / 38 % | 23.7 / 37.8 / 48.1 m | 1.86 / 0.86 / 0.65 g | 309.2 / 319.5 km/h (335.9) | 0.73 s / none |
 
 Why these tracks:
 
@@ -1265,8 +1292,9 @@ line drives exactly the same in the game.
   Each car has its own engine: the **Racer** a smooth race V6, the **Kestrel** a light, high-revving four with a loud
   intake, the **Thunder** a deep cross-plane V8 that burbles, the **Drifter** a turbo four whose turbo whistles as it
   spools and **hisses (blow-off) when you lift**, the **Dune** a rough, rattly air-cooled buggy engine, the
-  **Vortex** a high-pitched V12 scream, the **Apex** a shrieking V10 that revs to 11,500 and the **Quadra** a
-  warbling five-cylinder with the loudest turbo whistle and the most crackle when you lift.
+  **Vortex** a high-pitched V12 scream, the **Apex** a shrieking V10 that revs to 11,500, the **Quadra** a
+  warbling five-cylinder with the loudest turbo whistle and the most crackle when you lift, and the **Sarthe** a
+  muffled, uneven turbo V4 under the rising whine of its electric motor.
 - **The tyres and the ground**: squeal on asphalt when the tyres slide (louder the harder they slide), gravel crunch
   and hiss on dirt and crunching snow on snow (with your speed and slide), road roar, and **wind** rising with speed.
 - **Hits**: a wall hit is light, medium or heavy by how fast you hit it, scraping along a barrier grinds, a landing
@@ -1440,7 +1468,7 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 | `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip; since 6.23.0 also the four rally stages with the Racer: gravel, sand, ice and mud, `stages=only` runs only them and `stages=0` leaves them out), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `field` (Race the field: the grid, a race, the podium), `cup` (a championship: the cup picker, its races driven by the autopilot, the standings between them, the trophy moment and the cabinet; `cup=rally` picks another cup, `races=1` drives only the first race), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
-| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 45 minutes on 3 cores for the eight cars (`-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
+| `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 45 minutes on 3 cores for eight cars (one car on all 22 tracks: 11 minutes on 4 threads; `-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
 | `godot --headless --path . --script res://tools/opponents.gd` | The AI opponents in `data/opponents/`: `-- --train` trains a network per track and car with FleetSim (about 70 minutes for all 90 on 3 threads; `--cars=a,b --tracks=a,b` for some, `--retrain` to replace), `-- --tune` (version 6.25.0) trains every stored network on in the AI's level 3 car until 80 generations bring no race 0.3 % faster (about 2 hours for all 152 on 4 threads; `--skip-tuned` leaves those done), then without `--train` it sets each level's speed cap and stores its race time (about 15 minutes); `-- --check` re-runs every stored race and compares the times |
 | `godot --headless --path . --script res://tools/corners.gd` | Lists the tight corners of every track (radius, road width, banking) and how the medal autopilot takes them with each car: its lowest speed and its wall contacts per lap there, from the author runs in `data/medals.json` (`-- --tracks=a,b`, `--max-r=40` for corners tighter than 40 m, `--sweep` for the wall contacts over all 50 settings of the medal sweep, as long as the medal sweep: about 16 minutes for five tracks on 3 threads; `--tracks-json=` and `--medals=` read older files, `--json=` writes the numbers). Made for version 6.6.0's corner rework |
 | `godot --headless --path . --script res://tools/car_stats.gd` | Measures every car's stats with the real physics and prints the `stats` lines for `sim/cars.gd` (`-- --check` only compares; about a minute; `-- --surface=dirt` or `snow` measures the cars on that surface instead, the numbers in [Road surfaces](#road-surfaces)) |
@@ -1503,7 +1531,7 @@ game/                   the game shell: modes, threaded track loading, quality, 
                         keyboard and gamepad (input.gd), the AI link (ai_link.gd), messages, the terminal's
                         commands (terminal.gd: one table of commands)
 modes/                  menu, play (Drive, Race the AI), field (Race the field), watch (Watch the AI) and train (the training screen)
-sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the eight cars,
+sim/                    game logic without any graphics: tracks, road surfaces, car physics and nitro, the nine cars,
                         collisions, race timing, points, ghosts, medals, the save file, the autopilot, money and
                         points (economy.gd: the reward table and the shop), the AI opponents' levels (opponents.gd),
                         car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs), Race the
