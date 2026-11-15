@@ -1664,7 +1664,23 @@ the hybrid Le Mans cars, named after the region of the 24-hour race. Its own nam
 - Tests: car lists and counts, the car page's columns and keyboard and pad moves with three columns (`test_ui.gd`),
   prices, upgrade totals, the turbo cars and the Sarthe's engine (`test_world.gd`), nine rows and the shop
   (`test_game.gd`), nine car chips (`test_ai.gd`).
-AI_PLACEHOLDER
+- AI opponents (`data/opponents/sarthe.json`, `tools/opponents.gd --cars=sarthe`): trained (16 minutes; all 22 beat gold
+  at the first check), tuned in the level 3 car (34 minutes; Elite flat out 0.82-0.95 × author), levels (22 minutes).
+  Two tracks needed more: on Hairpin Valley the Expert came out 5.5 % fast (retrained with `--gens=240`, tuned, levels:
+  all within 2 %); on Northern Lights the Sarthe's slick tyres on snow make the network take the corners wide through
+  the run-off, and slowed by a speed cap between about 34 and 80 m/s it ran into the run-off slower and crawled there
+  at 7 m/s (the gravel trap's drag beats its traction on snow), taking 400-550 s against 187 s flat out. Of networks
+  trained to 100, 140, 180, 240 and 300 generations (`--retrain --gens=N`, each tuned, then raced at caps from 24 to
+  75 m/s with a scratch script) only the generation 100 one gives every level: it is shipped, every level within 2 %.
+  Frozen Lake's Expert is 3.4 % off, so `sarthe/frozen-lake` joined `V627_LOOSE` in `tests/test_ai.gd`.
+- Checked: the headless suite (sim 178, ui 269, world, game and ai 185, all passing; the weight part's braking check
+  allows the Sarthe the Apex's bound, since its brakes are near the tyres' limit and level 10 stops only 6 % shorter);
+  e2e `menu` (40), `economy` (22, the car page with nine cards, `docs/screenshots/car-page.png`) and
+  `races tracks=seaside-stunts,rookie-oval,monaco cars=sarthe` (54).
+- The car cards draw a near-black body a little lighter (`ui/widgets.gd` `silhouette`), or the Sarthe vanished into
+  the card; the 3D model keeps its black.
+- Not done: the web version does not have it; a player who runs wide on snow in it crawls through the run-off too
+  (the respawn key gets out faster).
 
 ### Item 2: Monaco, Silverstone and Spielberg (v6.28.0, done)
 

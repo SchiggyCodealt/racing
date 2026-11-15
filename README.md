@@ -251,7 +251,7 @@ description, your money and **START**. A car you don't own shows a padlock and i
 $10,000** (or **LOCKED** when your money is short). Esc goes back without starting. Watch AI and Train AI start
 directly, with the car that is picked.
 
-![The car page after choosing a time trial on Seaside Stunts: eight car cards four to a row with their stat bars, seven of them locked with a padlock and a price (the Apex $40,000, the Quadra $26,000), the Kestrel picked, its upgrade chips and description, $14,000 and the button reading BUY $10,000](docs/screenshots/car-page.png)
+![The car page after choosing a time trial on Seaside Stunts: nine car cards three to a row with their stat bars, eight of them locked with a padlock and a price (the Apex $40,000, the Quadra $26,000, the Sarthe $50,000), the Kestrel picked, its upgrade chips and description, $13,820 and the button reading BUY $10,000](docs/screenshots/car-page.png)
 
 **Drifting:** pull the handbrake (Space) into a corner to make the rear step out, then countersteer
 and use the throttle to hold the slide. Braking hard while turning only tightens the line a little.
