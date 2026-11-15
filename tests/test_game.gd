@@ -271,7 +271,7 @@ func _app(t) -> void:
 	var music_db := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
 	t.check(is_equal_approx(music_db, GameAudio.volume_db(0.3)), "a saved volume applies from the start (music 30%%: %.1f dB)" % music_db)
 	UiData.set_setting("vol_music", 0.7) # (the app applies it)
-	t.check(app.tracks.size() == 19 and app.world.track == app.tracks[0], "19 tracks, the first one shown")
+	t.check(app.tracks.size() == 22 and app.world.track == app.tracks[0], "22 tracks, the first one shown")
 	t.check(app.ui.input == app.input and app.ui.menu.input == app.input, "the interface reads the game's input")
 	# (the player's own network first: the opponent "My AI"; the AI levels are checked in _app_career)
 	app.ui.menu.select_opponent(UiData.MY_AI)
@@ -682,8 +682,8 @@ func _app_cup(t, app: GameApp) -> void:
 	app.input.press("KeyT")
 	menu.handle_keys(app.input)
 	var picker_ok := cups.visible and not cups.is_standings and cups.picked_cup == "rookie" and (cups.get("_start_btn") as Button).disabled
-	t.check(empty_cab and cab.text == "" and cab.tooltip_text.contains("0 of 30") and picker_ok,
-		"the menu's Cups button shows an empty cabinet (6 cups, 0 of 30 trophies); T opens the cup picker: the Rookie Cup picked but locked (START off) on a new career")
+	t.check(empty_cab and cab.text == "" and cab.tooltip_text.contains("0 of 35") and picker_ok,
+		"the menu's Cups button shows an empty cabinet (7 cups, 0 of 35 trophies); T opens the cup picker: the Rookie Cup picked but locked (START off) on a new career")
 	app.start_cup("rookie", "pro")
 	t.check(app.mode == app.menu_mode and app.cup == null and app.message.visible and msg.text.contains("Hairpin Valley"), "a locked cup is refused, naming the tracks still locked")
 	app.message.close()
@@ -1453,7 +1453,7 @@ func _terminal(t) -> void:
 	r = term.run("status")
 	var st: String = text_of.call(r)
 	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(8 of 8)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
-		st.contains("1 of 19 tracks") and st.contains("Tracks | all 19 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
+		st.contains("1 of 22 tracks") and st.contains("Tracks | all 22 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
 		"status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag (the gold opened Hairpin Valley for good, unannounced: it was open)")
 	# v6.14.0: cup (the trophy cabinet; a place set without racing, nothing paid)
 	var money_c := SaveData.get_money()
@@ -1465,8 +1465,8 @@ func _terminal(t) -> void:
 	var cab_ok: bool = text_of.call(rc3).contains("Rookie Cup | Pro gold") and text_of.call(rc3).contains("Grand Finale | Elite 4th") and text_of.call(rc3).contains("Asphalt Cup | -")
 	st = text_of.call(term.run("status"))
 	t.check(rc1.changed and text_of.call(rc1).contains("a gold trophy") and rc2.changed and SaveData.cup_place("finale", "elite") == 4 and cab_ok and bad_ok and
-		st.contains("Cups | 1 of 30 trophies") and SaveData.get_money() == money_c and SaveData.cup_paid().is_empty(),
-		"cup rookie pro 1 records a gold, Cup Finale elite 4 a 4th (no trophy), cup lists the cabinet, status counts 1 of 30; bad cups, levels, places error; nothing paid")
+		st.contains("Cups | 1 of 35 trophies") and SaveData.get_money() == money_c and SaveData.cup_paid().is_empty(),
+		"cup rookie pro 1 records a gold, Cup Finale elite 4 a 4th (no trophy), cup lists the cabinet, status counts 1 of 35; bad cups, levels, places error; nothing paid")
 	term.run("cup rookie pro 0")
 	term.run("cup finale elite 0")
 	t.check(SaveData.cup_trophies().is_empty(), "cup <cup> <level> 0 takes a place away")
@@ -1503,7 +1503,7 @@ func _terminal(t) -> void:
 	t.check(r.changed and SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and not SaveData.tracks_unlocked() and
 		not SaveData.get_record("rookie-oval", "racer").is_empty(), "reset career confirm: $0, only the Racer, the flag off; the records stay")
 	st = text_of.call(term.run("status"))
-	t.check(Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally") and st.contains("Tracks | 2 of 19 open; next: Ramp Rally (bronze on Hairpin Valley)"),
+	t.check(Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally") and st.contains("Tracks | 2 of 22 open; next: Ramp Rally (bronze on Hairpin Valley)"),
 		"after the reset the track the gold opened stays open, those the flag opened lock again: %s" % st.get_slice("Tracks | ", 1))
 	# clear, exit
 	r = term.run("clear")

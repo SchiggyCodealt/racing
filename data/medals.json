@@ -193,6 +193,36 @@
     "vortex": {"author": 112.5, "gold": 120, "silver": 135, "bronze": 147, "run": {"aLat": 14, "lookK": 1.3, "steps": 6750, "wallSteps": 0}},
     "apex": {"author": 121.35, "gold": 129, "silver": 146, "bronze": 158, "run": {"aLat": 20, "lookK": 1.3, "steps": 7281, "wallSteps": 0}},
     "quadra": {"author": 103.133, "gold": 110, "silver": 124, "bronze": 135, "run": {"aLat": 14, "lookK": 1, "steps": 5768, "wallSteps": 0}}
+  }},
+  "monaco": {"name": "Monaco", "laps": 2, "sig": "1674:3348", "cars": {
+    "racer": {"author": 200.017, "gold": 213, "silver": 241, "bronze": 261, "run": {"aLat": 28, "lookK": 0.75, "steps": 12001, "wallSteps": 118}},
+    "kestrel": {"author": 198.717, "gold": 211, "silver": 239, "bronze": 259, "run": {"aLat": 28, "lookK": 0.75, "steps": 11923, "wallSteps": 120}},
+    "thunder": {"author": 201.483, "gold": 214, "silver": 242, "bronze": 262, "run": {"aLat": 40, "lookK": 1, "steps": 12089, "wallSteps": 408}},
+    "drifter": {"author": 199.917, "gold": 212, "silver": 240, "bronze": 260, "run": {"aLat": 28, "lookK": 0.75, "steps": 11995, "wallSteps": 165}},
+    "dune": {"author": 204.083, "gold": 217, "silver": 245, "bronze": 266, "run": {"aLat": 24, "lookK": 0.75, "steps": 12245, "wallSteps": 113}},
+    "vortex": {"author": 187.983, "gold": 200, "silver": 226, "bronze": 245, "run": {"aLat": 32, "lookK": 0.75, "steps": 11279, "wallSteps": 287}},
+    "apex": {"author": 184.533, "gold": 196, "silver": 222, "bronze": 240, "run": {"aLat": 40, "lookK": 0.75, "steps": 11072, "wallSteps": 295}},
+    "quadra": {"author": 198.183, "gold": 211, "silver": 238, "bronze": 258, "run": {"aLat": 26, "lookK": 0.75, "steps": 11891, "wallSteps": 228}}
+  }},
+  "silverstone": {"name": "Silverstone", "laps": 2, "sig": "2923:5846", "cars": {
+    "racer": {"author": 265.533, "gold": 282, "silver": 319, "bronze": 346, "run": {"aLat": 20, "lookK": 1, "steps": 15932, "wallSteps": 74}},
+    "kestrel": {"author": 266.683, "gold": 283, "silver": 321, "bronze": 347, "run": {"aLat": 20, "lookK": 1, "steps": 16001, "wallSteps": 10}},
+    "thunder": {"author": 266.3, "gold": 283, "silver": 320, "bronze": 347, "run": {"aLat": 24, "lookK": 1.3, "steps": 15978, "wallSteps": 380}},
+    "drifter": {"author": 267.033, "gold": 284, "silver": 321, "bronze": 348, "run": {"aLat": 18, "lookK": 1, "steps": 16022, "wallSteps": 18}},
+    "dune": {"author": 274.983, "gold": 292, "silver": 330, "bronze": 358, "run": {"aLat": 18, "lookK": 1, "steps": 16499, "wallSteps": 19}},
+    "vortex": {"author": 245.133, "gold": 260, "silver": 295, "bronze": 319, "run": {"aLat": 26, "lookK": 1, "steps": 14708, "wallSteps": 205}},
+    "apex": {"author": 228.633, "gold": 243, "silver": 275, "bronze": 298, "run": {"aLat": 40, "lookK": 1, "steps": 13718, "wallSteps": 211}},
+    "quadra": {"author": 268.867, "gold": 285, "silver": 323, "bronze": 350, "run": {"aLat": 18, "lookK": 1, "steps": 16132, "wallSteps": 23}}
+  }},
+  "spielberg": {"name": "Spielberg", "laps": 2, "sig": "2142:4283", "cars": {
+    "racer": {"author": 191.667, "gold": 204, "silver": 230, "bronze": 250, "run": {"aLat": 20, "lookK": 1, "steps": 11500, "wallSteps": 18}},
+    "kestrel": {"author": 194.317, "gold": 206, "silver": 234, "bronze": 253, "run": {"aLat": 20, "lookK": 1, "steps": 11659, "wallSteps": 13}},
+    "thunder": {"author": 192.367, "gold": 204, "silver": 231, "bronze": 251, "run": {"aLat": 18, "lookK": 1, "steps": 11542, "wallSteps": 38}},
+    "drifter": {"author": 192.633, "gold": 205, "silver": 232, "bronze": 251, "run": {"aLat": 20, "lookK": 1, "steps": 11558, "wallSteps": 83}},
+    "dune": {"author": 200.033, "gold": 213, "silver": 241, "bronze": 261, "run": {"aLat": 20, "lookK": 1, "steps": 12002, "wallSteps": 37}},
+    "vortex": {"author": 176, "gold": 187, "silver": 212, "bronze": 229, "run": {"aLat": 28, "lookK": 1, "steps": 10560, "wallSteps": 80}},
+    "apex": {"author": 172.55, "gold": 183, "silver": 208, "bronze": 225, "run": {"aLat": 32, "lookK": 1, "steps": 10353, "wallSteps": 155}},
+    "quadra": {"author": 192.733, "gold": 205, "silver": 232, "bronze": 251, "run": {"aLat": 18, "lookK": 1, "steps": 11564, "wallSteps": 53}}
   }}
 }
 }

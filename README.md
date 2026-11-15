@@ -2,7 +2,7 @@
 
 A Trackmania-style racer, plus a neural-network AI driver that you train yourself with
 neuroevolution and can watch learn in real time. Pick one of 8 cars, chase the medal times on
-19 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
+22 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
 and play with a keyboard or a gamepad.
 
 Version 6.0.0 is the game rebuilt in the [Godot](https://godotengine.org) game engine (version
@@ -127,6 +127,13 @@ were trained again without walls to lean on, and the medal times measured again.
 the start and finish gates stand; the checkpoints still count, and their split times read "SPLIT 1", "SPLIT 2") and
 so is the CP counter; the **minimap** moved to the **top left**, under the lap plate, and the field race's **timing
 tower** to the **top right**, above your place, best time and medal (see [Cones and run-off](#cones-and-run-off)).
+
+Version 6.28.0 adds three **real grand-prix circuits** as tracks 20 to 22, traced from the real ones at their real
+lengths: **Monaco** (3.35 km, between walls through a pastel harbour town, up to the Casino and round the tightest
+hairpin in the game), **Silverstone** (5.85 km, the fast airfield circuit in English fields) and **Spielberg** (4.28 km,
+the Austrian circuit on a Styrian hillside). Each has a scenery of its own, two laps, medal times and AI opponents for
+every car, and together they make a seventh championship, the **Grand Prix Cup** (see
+[The grand-prix circuits](#the-grand-prix-circuits-version-6280)).
 
 ![The menu: money and career points in the header, 19 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last six tracks, the four rally stages among them, still locked with a padlock and "Bronze on 13" to "Bronze on 18"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
@@ -446,7 +453,7 @@ example the Racer's Rookie Oval medals are 2:01.867, 2:10, 2:27 and 2:39). Autho
 | Frozen Lake | 1:51.650 | 1:45.983 | 2:42.550 | 1:48.567 | 1:38.050 | 2:08.800 | 2:11.817 | 1:34.750 |
 | Monsoon Trail | 1:41.733 | 1:38.283 | 2:08.550 | 1:45.683 | 1:35.033 | 1:52.500 | 2:01.350 | 1:43.133 |
 
-The times are for the full race you drive (3 laps, or the whole sprint), from a standing start with a full
+The times are for the full race you drive (3 laps, 2 on the grand-prix circuits, or the whole sprint), from a standing start with a full
 nitro tank. The author time is the fastest of 50 runs of a simple autopilot with different cornering
 settings, driving each car with the same physics as you: it burns nitro on the straights and its points
 refill the tank as yours do (`tools/medals.gd`, see [Tests and tools](#tests-and-tools)). The autopilot only
@@ -513,7 +520,7 @@ lists what a run earned and why.
   the same result again pays nothing (the finish panel says "paid before").
 - A medal pays the medals below it too (a first gold pays bronze, silver and gold), and beating an AI pays the
   easier levels on that track with that car as well (they are slower).
-- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more, track 19 (Monsoon Trail) 180 % more.
+- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more, track 19 (Monsoon Trail) 180 % more, track 22 (Spielberg) 210 % more.
 - Each car earns on its own: a gold with the Kestrel pays again after a gold with the Racer.
 
 **The AI opponents.** Pick one in the menu's AI driver block, then **Race the ... AI**: its car drives next to yours
@@ -591,9 +598,10 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
 $13,200 after three (a second car), $122,400 after 17, enough for the six cars up to the Vortex ($120,000), and
-$144,400 after all 19 (the four rally stages pay the most). The Apex ($40,000) on top of those takes a little more:
-the Elite AI and author times (a career of those earns $245,480), a second car's medals, Race the field or the cups,
-which all pay as well. Silver and the Pro everywhere buy the Kestrel after five tracks.
+$144,400 after 19 (the four rally stages pay well). The Apex ($40,000) on top of those comes after 21 of the 22
+($168,000; the three grand-prix circuits of version 6.28.0 pay the most, $180,400 after all 22), or sooner with the Elite
+AI and author times (a career of those earns $306,680), a second car's medals, Race the field or the cups, which all pay
+as well. Silver and the Pro everywhere buy the Kestrel after five tracks.
 
 ### Championships
 
@@ -611,10 +619,12 @@ it (the AI drivers and the standings stay as they are).
 | 4 | **Dirt and Snow Cup** | Forest Rally, Mountain Pass, Canyon Run | 13 |
 | 5 | **Grand Finale** | Northern Lights, Grand Marathon, Summit Rush | 15 |
 | 6 | **Rally Cup** (version 6.23.0) | Pine Ridge, Dune Sea, Frozen Lake, Monsoon Trail | 19 |
+| 7 | **Grand Prix Cup** (version 6.28.0) | Silverstone, Spielberg, Monaco | 22 |
 
-Together they cover all 19 tracks. The first five get harder from one to the next; the Rally Cup comes last and is
-the only one of four races: forest gravel, desert sand, a frozen lake and jungle mud, a different road in every race,
-so the car that wins one stage may struggle on the next (you can change cars between the races). A cup opens when all
+Together they cover all 22 tracks. The first five get harder from one to the next; the Rally Cup comes after them and
+is the only one of four races: forest gravel, desert sand, a frozen lake and jungle mud, a different road in every race,
+so the car that wins one stage may struggle on the next (you can change cars between the races). The Grand Prix Cup
+comes last: the three real circuits, two laps each, ending in the Monaco streets. A cup opens when all
 of its tracks are open (a locked cup can be picked: it says which tracks are still locked). Pick a cup with ↑ / ↓ and the field's level
 (**Rookie** to **Elite**) with ← / →, and press **START CUP** (Enter).
 
@@ -718,8 +728,8 @@ run out), so the last engine levels mostly add acceleration.
 Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 of the four older parts cost what they
 did before version 6.16.0 ($248,200 for the six cars of that version, $402,650 for today's eight; $525,600 with the weight); from there each level's price rises by more than the one before
 (level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
-wins gold and beats the Expert on every track earns $144,400 per car driven (author and the Elite everywhere
-$245,480): the Racer at level 7 everywhere costs about one author-and-Elite career with it ($256,500), and its levels
+wins gold and beats the Expert on every track earns $180,400 per car driven (author and the Elite everywhere
+$306,680): the Racer at level 7 everywhere costs a little less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
 counts too). Every level of every part of every car costs $9,297,500.
 
@@ -1008,6 +1018,29 @@ stages) have **no barriers**. Instead:
 | 17 | Dune Sea | Sprint | 3.92 km | dunes | soft sand, a gravel lake bed, asphalt at the start and the finish | ★★★★ | Long slides over the dunes, a flat-out dry lake bed and a jump off a dune |
 | 18 | Frozen Lake | Sprint | 3.21 km | frozen | bare ice out on the lake, packed snow along the shore | ★★★★ | Brake early and steer with the throttle: on the bare ice a car keeps a quarter to a half of its grip, and there is a jump off the bank |
 | 19 | Monsoon Trail | Sprint | 3.21 km | jungle | deep mud, a gravel climb | ★★★★★ | A narrow (11 m) jungle track in the rains: two hairpins up a gravel climb and a drop off the ridge |
+| 20 | Monaco | 2 laps | 3.35 km/lap | riviera | asphalt | ★★★★★ | The real harbour street circuit, 12 m wide between walls: the climb to the Casino, the Grand Hotel hairpin (10.5 m), the long bend along the sea and the swimming pool |
+| 21 | Silverstone | 2 laps | 5.85 km/lap | parkland | asphalt | ★★★ | The real airfield circuit: Copse, the Maggotts-Becketts sweepers, the Hangar and Wellington straights, the Loop |
+| 22 | Spielberg | 2 laps | 4.28 km/lap | styria | asphalt | ★★★ | The real Austrian circuit: a long climb to the hairpin at the top (18 m up), then fast sweepers down the hill |
+
+#### The grand-prix circuits (version 6.28.0)
+
+Monaco, Silverstone and Spielberg (the circuit called the Red Bull Ring; the game names it by its town, as it keeps
+sponsors' names and logos out) are the real circuits. Their shapes are traced from the centre lines of the
+[bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) data set (MIT licence, © Tomislav Bacinger): each line
+was split into straights and turns, and the lengths and radii were fitted until the track sits within about 10 m of the
+real one on average (Monaco 9 m, Silverstone 7 m, Spielberg 3 m); `tools/gen_tracks.gd` has the result as turtle
+programs, like every other track. The laps are the real length (3.35, 5.85 and 4.28 km against 3.34, 5.89 and
+4.32 km) and start on the real start straight in the real direction, so north is up on the minimap. The physics allows
+heights of 0-18 m only, so the climbs are lower than the real ones: Monaco rises 15 m from Sainte Devote to the
+Casino, Spielberg 15 m from turn 1 to the hairpin. The corners are the real ones too, which makes Monaco the tightest
+track in the game: 12 m between the walls and a hairpin of 10.5 m.
+
+Each has a scenery of its own: Monaco a pastel town that lines both sides of the streets (the houses are boxes drawn
+with windows, shutters and shop fronts, `world/shaders/town.gdshader`), the sea to the south-east with boats, and palms;
+Silverstone flat green English fields with copses and fair-weather clouds; Spielberg green hills with spruce woods and
+the Alps behind. Real laps are long (the medal autopilot takes about 1:40 a lap at Monaco and 2:13 at Silverstone), so
+the three run two laps each. They come after Monsoon Trail, open one after the other with a bronze as usual, and make
+the seventh championship, the **Grand Prix Cup** (Silverstone, Spielberg, then Monaco).
 
 #### The reworked corners (version 6.6.0)
 
@@ -1439,12 +1472,13 @@ it uses and its `scale` of it, its colours, a `look` (one of the road shader's t
 numbers for that look, the `slot` it likes and a detail texture (`tex`: a generator in `world/textures.gd`
 `surface()`). Add new surfaces at the end of the table (the tracks store their index). The menu, minimaps, scenery
 and AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked
-with the mouse, arrows or gamepad, and its grid makes rows as full as it can (19 tracks: four rows of five, which fit
-a 1280 x 720 window without scrolling). A track added after the others opens for an old save when the track before it
+with the mouse, arrows or gamepad, and its grid makes rows as full as it can (22 tracks: four rows of six, which fit
+a 1280 x 720 window without scrolling). A circuit runs 3 laps unless its design sets `laps` (6.28.0: the
+grand-prix circuits run 2). A track added after the others opens for an old save when the track before it
 already has a bronze (`Unlocks.catch_up`, run when the save's `tracks_known` is not the number of tracks). A track's scenery is a theme in `world/themes.gd` (sky, light, fog, ground
 colours, mountains and scenery species, all data; since 6.4.0 also `woods` for a forest close to the road,
 `sky.aurora` for the northern lights and `ground.roadSnow` for snowy land beside snowy road; since 6.23.0 `posts:
-false` for a road without street lamps); add its name to
+false` for a road without street lamps; since 6.28.0 `town` for houses along the streets); add its name to
 `THEMES` in `tools/gen_tracks.gd`. The tests in `tests/test_sim.gd` check every track against the design rules and
 that the tracks, their signatures and their medal times stay exactly as they are (the five tracks reworked in 6.6.0
 against what their corners must be now). To rework a corner of an existing track, shorten the straights next to it by
@@ -1510,3 +1544,5 @@ the originals. The sound effects and music in `assets/audio/` and the engine sou
 (`tools/gen_sounds.py`, `audio/engine_voice.gd`): no third-party audio ([assets/audio/CREDITS.md](assets/audio/CREDITS.md)).
 The browser version in `web/` includes Three.js, © three.js authors, MIT licence
 ([web/vendor/three.LICENSE](web/vendor/three.LICENSE)). FleetSim (`native/`) is built with godot-cpp, MIT licence.
+The shapes of Monaco, Silverstone and Spielberg are traced from [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits),
+© 2019-2025 Tomislav Bacinger, MIT licence ([data/CREDITS.md](data/CREDITS.md)).

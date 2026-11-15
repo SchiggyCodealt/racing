@@ -43,6 +43,8 @@ const SIGS: Dictionary = {
 	"pine-ridge": "1820:3638|gravel78-1624", "dune-sea": "2104:4207|sand74-812,gravel813-1216,sand1217-1902",
 	"frozen-lake": "1751:3501|snow74-168,ice169-673,snow674-1092,ice1093-1525,snow1526-1555",
 	"monsoon-trail": "1747:3493|mud68-471,gravel472-781,mud782-1550",
+	# v6.28: the three grand-prix circuits
+	"monaco": "1674:3348", "silverstone": "2923:5846", "spielberg": "2142:4283",
 }
 ## The tracks v6.6.0 left alone: SHA-256 of their tools/gen_tracks.gd text (tracks_json([def])) and
 ## of their medal entry in data/medals.json (JSON.stringify, keys sorted) as v6.5 had them.
@@ -401,7 +403,7 @@ static func asphalt(id: String) -> BuiltTrack:
 func _tracks_and_autopilot() -> void:
 	t.section("tracks and the test autopilot")
 	var ids: PackedStringArray = Tracks.ids()
-	t.check(ids.size() == 19, "%d tracks defined (expected 19)" % ids.size())
+	t.check(ids.size() == 22, "%d tracks defined (expected 22)" % ids.size())
 	var exact: int = 0
 	var plain_time: Dictionary = {} # id -> the test autopilot's time on the all-asphalt track
 	for id: String in ids:
@@ -571,7 +573,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	var old_themes: Dictionary = {}
 	for i in 12:
 		old_themes[by_id(ids[i]).theme] = true
-	var meta_ok: bool = ids.size() == 19 and Array(ids.slice(12, 15)) == V64_TRACKS.keys()
+	var meta_ok: bool = ids.size() == 22 and Array(ids.slice(12, 15)) == V64_TRACKS.keys()
 	var themes: PackedStringArray = []
 	var last_diff: int = 0
 	for id: String in V64_TRACKS:
@@ -821,7 +823,7 @@ func _rally_stages() -> void:
 	# the four stages: sprints after Summit Rush, each with a theme of its own, a narrow road, its
 	# surfaces; the look's two slots (dirt 1 and snow 2 on every older track)
 	var ids: PackedStringArray = Tracks.ids()
-	ok = Array(ids.slice(15)) == V623_STAGES.keys()
+	ok = Array(ids.slice(15, 19)) == V623_STAGES.keys()
 	var themes: Dictionary = {}
 	for i in 15:
 		themes[by_id(ids[i]).theme] = true
@@ -845,6 +847,17 @@ func _rally_stages() -> void:
 		themes[tr.theme] = true
 		lines.append("%s %.2f km, %s, up to %d m wide" % [tr.name, tr.race_length() / 1000.0, String(want[0]).to_lower(), roundi(wmax)])
 	t.check(ok, "tracks 16-19 are the stages: point to point, a theme each, under a fifth asphalt (the start and the finish); the road's look carries their two surfaces, dirt and snow on the 15 older tracks (%s)" % "; ".join(lines))
+	# v6.28: the three grand-prix circuits after the stages, all asphalt with walls, two laps each,
+	# a theme each, at their real lengths (within 2 %), the start heading as the real one's
+	var gp_ok: bool = Array(Tracks.ids().slice(19, 22)) == ["monaco", "silverstone", "spielberg"]
+	var gp_lines: PackedStringArray = []
+	for gp: Array in [["monaco", 3337.0, "riviera", 5], ["silverstone", 5891.0, "parkland", 3], ["spielberg", 4318.0, "styria", 3]]:
+		var tr: BuiltTrack = by_id(String(gp[0]))
+		gp_ok = gp_ok and tr.closed and tr.laps == 2 and Surfaces.summary(tr) == "Asphalt" and not tr.open_edges and tr.theme == String(gp[2]) and \
+			not themes.has(tr.theme) and int(tr.def.difficulty) == int(gp[3]) and absf(tr.length / float(gp[1]) - 1.0) < 0.02
+		themes[tr.theme] = true
+		gp_lines.append("%s %.2f km (real %.2f)" % [tr.name, tr.length / 1000.0, float(gp[1]) / 1000.0])
+	t.check(gp_ok, "tracks 20-22 are the grand-prix circuits (v6.28): asphalt with walls, two laps, a theme each, at their real length: %s" % "; ".join(gp_lines))
 
 	# the medal runs: every car finishes every stage; on the ice the fastest run of most cars is a
 	# clean one (leaning on the snow banks does not pay: the ice's wall factor)
@@ -2426,7 +2439,7 @@ func _unlocks() -> void:
 	SaveData.reset_career()
 	SaveData.use_file(path)
 	t.check(all_open and quiet == "" and not SaveData.tracks_unlocked() and open_ids.call() == PackedStringArray(["rookie-oval", "hairpin-valley", "night-highway"]) and
-		SaveData.get_money() == 0, "unlock tracks opens all 19; reset career turns the flag off but keeps what medals opened (Hairpin Valley, and Night Highway from a gold while the flag was on)")
+		SaveData.get_money() == 0, "unlock tracks opens all 22; reset career turns the flag off but keeps what medals opened (Hairpin Valley, and Night Highway from a gold while the flag was on)")
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean.call()
 
@@ -2537,10 +2550,10 @@ func _career() -> void:
 			later = later and int(b.money) > int(a.money) and int(b.points) >= int(a.points) and int(b.money) % 10 == 0
 	var last: String = ids[ids.size() - 1]
 	t.check(ok and later and Medals.ORDER.size() == Economy.MEDALS_UP.size() and Economy.reward(ids[0], "gold") == {money = 800, points = 40} and
-		Economy.reward("summit-rush", "gold") == {money = 1920, points = 96} and Economy.reward(last, "gold") == {money = 2240, points = 112} and \
-		ids.size() == 19 and Economy.reward(ids[0], "ai-elite") == {money = 1600, points = 80} and
+		Economy.reward("summit-rush", "gold") == {money = 1920, points = 96} and Economy.reward(last, "gold") == {money = 2480, points = 124} and \
+		ids.size() == 22 and Economy.reward(ids[0], "ai-elite") == {money = 1600, points = 80} and
 		Economy.reward(ids[0], "nope").is_empty(),
-		"reward table: %d rewards (4 medals, %d AI levels), each harder one pays more money and points, every track more than the one before (gold: $800 / 40 pts on track 1, $1,920 / 96 pts on track 15, $2,240 / 112 pts on track %d)" % [
+		"reward table: %d rewards (4 medals, %d AI levels), each harder one pays more money and points, every track more than the one before (gold: $800 / 40 pts on track 1, $1,920 / 96 pts on track 15, $2,480 / 124 pts on track %d)" % [
 		keys.size(), Opponents.ids().size(), ids.size()])
 	# payouts: a medal pays the medals below it, an AI level the levels below it; paid ones are skipped
 	var p: Dictionary = Economy.payout("rookie-oval", "gold", "pro", PackedStringArray())
@@ -2740,8 +2753,9 @@ func _career() -> void:
 
 	# the prices: a player who drives well (gold medals, which also beat the Expert AI at 1.13 x the
 	# author time) can buy a second car after three tracks and, with the Quadra of v6.24, the six up
-	# to the Vortex after 17 of the 19; the Apex (the dearest) on top takes more than one car's
-	# gold + Expert career (the Elite AI, a second car's medals, field races or cups)
+	# to the Vortex after 17 of the 22; the Apex (the dearest) on top as well only after 21 of them
+	# (v6.28: the three grand-prix circuits pay the most; before them it took the Elite AI, a second
+	# car's medals, field races or cups)
 	var prices: Array = []
 	var total: int = 0
 	for id: String in Cars.ids():
@@ -2755,11 +2769,12 @@ func _career() -> void:
 	var fair: PackedInt32Array = Economy.career({medal = "silver", ai = "pro"})
 	var n: int = good.size()
 	var elite: PackedInt32Array = Economy.career({medal = "author", ai = "elite"})
-	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("apex") and good[1] < prices[0] and good[2] >= prices[0] and n == 19 and good[15] < total and \
-		good[16] >= total and good[n - 1] < total + dearest and elite[n - 1] >= total + dearest and fair[3] < prices[0] and fair[4] >= prices[0]
-	t.check(ok, "prices (%s; the six up to the Vortex $%s, the Apex on top): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after 16 and $%s after 17 (those six) and $%s after all %d (short of the Apex too, $%s in all; author + Elite earns $%s); silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
+	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("apex") and good[1] < prices[0] and good[2] >= prices[0] and n == 22 and good[15] < total and \
+		good[16] >= total and good[19] < total + dearest and good[20] >= total + dearest and elite[18] >= total + dearest and fair[3] < prices[0] and fair[4] >= prices[0]
+	t.check(ok, "prices (%s; the six up to the Vortex $%s, the Apex on top): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after 16 and $%s after 17 (those six), $%s after 20 and $%s after 21 (the Apex too, $%s in all), $%s after all %d; author + Elite: $%s after 19; silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
 		", ".join(PackedStringArray(prices.map(func(v: int) -> String: return UiFormat.money(v)))), UiFormat.points(total), UiFormat.points(good[1]),
-		UiFormat.points(good[2]), UiFormat.points(good[15]), UiFormat.points(good[16]), UiFormat.points(good[n - 1]), n, UiFormat.points(total + dearest), UiFormat.points(elite[n - 1]),
+		UiFormat.points(good[2]), UiFormat.points(good[15]), UiFormat.points(good[16]), UiFormat.points(good[19]), UiFormat.points(good[20]), UiFormat.points(total + dearest),
+		UiFormat.points(good[n - 1]), n, UiFormat.points(elite[18]),
 		UiFormat.points(fair[4]), UiFormat.points(fair[n - 1])])
 
 
@@ -3508,12 +3523,14 @@ func _cups() -> void:
 	var once := seen.size() == Tracks.ids().size()
 	for tid: String in Tracks.ids():
 		once = once and int(seen.get(tid, 0)) == 1
-	# (the five cups of v6.14 rise in difficulty; the Rally Cup of v6.23 comes after them, with the last tracks)
-	var rising := Cups.ids().size() == 6 and Cups.ids()[5] == "rally" and Cups.tracks_of("rally") == PackedStringArray(V623_STAGES.keys())
+	# (the five cups of v6.14 rise in difficulty; the Rally Cup of v6.23 and the Grand Prix Cup of v6.28
+	# come after them, with the last tracks)
+	var rising := Cups.ids().size() == 7 and Cups.ids()[5] == "rally" and Cups.tracks_of("rally") == PackedStringArray(V623_STAGES.keys()) and \
+		Cups.ids()[6] == "grand-prix" and Cups.tracks_of("grand-prix") == PackedStringArray(["silverstone", "spielberg", "monaco"])
 	for k in range(1, means.size()):
-		rising = rising and (means[k] >= means[k - 1] or k == 5) and opens_at[k] >= opens_at[k - 1]
+		rising = rising and (means[k] >= means[k - 1] or k >= 5) and opens_at[k] >= opens_at[k - 1]
 	t.check(data_ok and once and rising and Cups.cup("nope").is_empty() and Cups.tracks_of("nope").is_empty(),
-		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup; the first five rising in difficulty (mean %s), then the Rally Cup of the four stages; opening in order (with track %s)" % [
+		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup; the first five rising in difficulty (mean %s), then the Rally Cup of the four stages and the Grand Prix Cup of the three circuits; opening in order (with track %s)" % [
 		Cups.ids().size(), ", ".join(Array(means).map(func(x: float) -> String: return "%.1f" % x)), ", ".join(Array(opens_at).map(func(x: int) -> String: return str(x)))])
 	var path := "user://test_sim_cups.json"
 	if FileAccess.file_exists(path):

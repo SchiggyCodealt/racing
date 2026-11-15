@@ -60,6 +60,7 @@ const RACE_MUSIC := {
 	"night": "neon", "dusk": "neon", "arctic": "neon",
 	"desert": "dust", "canyon": "dust", "alpine": "dust", "autumn": "dust",
 	"pinewood": "overdrive", "dunes": "dust", "frozen": "neon", "jungle": "dust",
+	"riviera": "neon", "parkland": "overdrive", "styria": "dust",
 }
 const MENU_MUSIC := "menu"
 

@@ -866,7 +866,7 @@ func menu_nav() -> void:
 	auto_start = true
 	await pad_button(JOY_BUTTON_START)
 	check(app.mode == app.menu_mode, "pad Menu: back to the menu")
-	check(n == 19, "19 tracks")
+	check(n == 22, "22 tracks")
 
 
 # ---------------------------------------------------------------- settings
@@ -1477,7 +1477,7 @@ func cup_run() -> void:
 	await pick(tracks[0], "racer")
 	var r := cab.get_global_rect()
 	var fit := _menu_fits(menu)
-	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 30") and fit == "",
+	check(cab.is_visible_in_tree() and r.position.y >= 0.0 and r.end.x <= 1280.5 and cab.tooltip_text.contains("0 of 35") and fit == "",
 		"the menu: the Cups button with an empty cabinet on screen (%.0f,%.0f %.0fx%.0f); the menu fits 1280 x 720 %s" % [r.position.x, r.position.y, r.size.x, r.size.y, fit])
 	await shot("cup_menu")
 	await key(KEY_T)

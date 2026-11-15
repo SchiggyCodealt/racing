@@ -34,6 +34,9 @@ var gate_samples := PackedInt32Array()
 var pads: Array[Dictionary] = []
 ## seaside: {level, water, deep, shallow, sand (theme.sea), dx, dz (towards the sea), env: Envelope, off}
 var coast: Dictionary = {}
+## (v6.28) the theme's town: houses along the streets, planned by Scenery.plan_town
+## [{x, y, z, w, d, h, yaw, r, col}] (y = the foot, r = the radius the trees keep clear of)
+var town: Array[Dictionary] = []
 var has_coast := false
 ## the terrain (world/track_terrain.gd), set once built
 var terrain: RefCounted = null
