@@ -670,7 +670,7 @@ cup in progress).
 
 | The cup picker (the cabinet per cup and level) | The standings between the races |
 | --- | --- |
-| ![The Championships screen over the menu: six cups with their tracks, difficulty bars and a trophy place per level, the Rally Cup with its four stages picked, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1 as F1-style rows: you 1st with 10 points ahead of five AI drivers, P1 to P6 under Rookie and dots for the two races to come, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
+| ![The Championships screen over the menu: seven cups with their tracks, difficulty bars and a trophy place per level, the Grand Prix Cup (Silverstone, Spielberg, Monaco) picked, the field level chips with Rookie picked, what a win pays and START CUP](docs/screenshots/cup-picker.png) | ![The Rookie Cup's standings after race 1 as F1-style rows: you 1st with 10 points ahead of five AI drivers, P1 to P6 under Rookie and dots for the two races to come, the next race on Hairpin Valley from pole, RACE 2: HAIRPIN VALLEY and Quit cup](docs/screenshots/cup-standings.png) |
 
 ![The trophy moment after the Rookie Cup: the top three on the podium with gold, silver and bronze trophies, the final standings as F1-style rows with gold, silver and bronze place boxes (you 1st with 30 points) and the cup's pay on the right](docs/screenshots/cup-trophy.png)
 

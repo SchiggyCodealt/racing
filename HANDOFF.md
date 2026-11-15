@@ -1659,7 +1659,8 @@ What changed:
   rest of the scenery.
 - **Order and unlocks**: tracks 20-22 in the order asked (Monaco, Silverstone, Spielberg), each opened by a bronze on
   the one before; an old save gets them by the usual catch-up (`tracks_known`). **Cups**: the seventh, the Grand Prix
-  Cup (Silverstone, Spielberg, Monaco), opens with track 22 (`sim/cups.gd`).
+  Cup (Silverstone, Spielberg, Monaco), opens with track 22 (`sim/cups.gd`). To fit seven cups in 720 px the cup
+  rows' vertical padding went from 8 to 4 px and the intro text is two lines (`ui/cup_screen.gd`); 35 trophies.
 - **Medals** (`tools/medals.gd -- --tracks=monaco,silverstone,spielberg --update`, 11 min on 4 threads): Racer author
   3:20.017 / 4:25.533 / 3:11.667; the Apex fastest (3:04.5 / 3:48.6 / 2:52.6), the Dune slowest.
 - **The AI**: the 24 networks trained (`--train`, 21 min; flat out 0.85-0.94 × author already), tuned in the level 3
