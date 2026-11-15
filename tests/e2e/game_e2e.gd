@@ -33,7 +33,7 @@ extends SceneTree
 ##             network for the car (Load network's code path) before watching it (screenshots
 ##             of a trained AI). Shots: cars_menu_none, cars_train_form, cars_train, cars_train_cars
 ##             (the run view scrolled to its Car tiles), cars_menu_ready, cars_watch.
-##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15, v6.23: 16-19 by the arrows and
+##   menu      keyboard and gamepad navigation of the menu (v6.4: tracks 13-15, v6.23: 16-19, v6.28: 20-22 by the arrows and
 ##             the pad's rows of tiles; the menu fits 1280 x 720 without scrolling), Controls
 ##             and Settings screens.
 ##   settings1 / settings2   change settings with the keyboard on the Settings screen (v6.12: also
@@ -755,8 +755,8 @@ func menu_nav() -> void:
 	check(menu.selected_track == 1, "↑ previous track")
 	await key(KEY_EQUAL)
 	check(menu.selected_track == 11, "= picks track 12")
-	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too)
-	for want in [12, 13, 14, 15, 16, 17, 18]:
+	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too, v6.28: 20-22)
+	for want in range(12, n):
 		await key(KEY_RIGHT)
 		check(menu.selected_track == want, "→ track %d (%s)" % [want + 1, Tracks.build(Tracks.ids()[want]).name])
 	await key(KEY_RIGHT)
