@@ -1,7 +1,7 @@
-Track Rush 6.28.0 for Windows (64-bit)
+Track Rush 6.29.0 for Windows (64-bit)
 ======================================
 
-A Trackmania-style racer with eight cars, twenty-two tracks (seven of them
+A Trackmania-style racer with nine cars, twenty-two tracks (seven of them
 with dirt or packed snow, four of them rally stages on gravel, sand, ice and
 mud, three of them real grand-prix circuits), medals, ghosts and an AI driver
 you train yourself, with any of the cars. Medals and wins against five AI
@@ -10,16 +10,19 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.28.0: three real grand-prix circuits after Monsoon Trail, traced
-from the real ones at their real lengths. Monaco (3.35 km) runs between walls
-through a pastel harbour town, up to the Casino, round the Grand Hotel
-hairpin and along the sea; Silverstone (5.85 km) is the fast airfield
-circuit in English fields; Spielberg (4.28 km, the Austrian circuit) climbs
-a Styrian hillside to a hairpin and sweeps back down. Two laps each, medal
-times and AI opponents for every car, and a seventh championship, the Grand
-Prix Cup (Silverstone, Spielberg, then Monaco).
+New in 6.29.0: a ninth car, the Sarthe, a closed-cockpit Le Mans prototype
+named after the region of the 24-hour race (its own design, no real make's
+badges). A hybrid that drives all four wheels, with the highest top speed of
+all (336 km/h), the quickest run to 200 km/h, a 6 s boost and wings that
+press it down harder the faster it goes; long in the hairpins and lost on
+dirt and snow. $50,000, the dearest car, with its own engine sound (a turbo
+V4 under an electric whine), medal times, upgrades, AI opponents and a new
+driver, Mila Achterberg. The car page now shows three cards to a row.
 
 Earlier versions, newest first:
+6.28.0  three real grand-prix circuits, tracks 20 to 22: Monaco (3.35 km,
+        a harbour town), Silverstone (5.85 km) and Spielberg (4.28 km),
+        two laps each, and a seventh cup, the Grand Prix Cup.
 6.27.0  no barriers on the eleven tracks with loose ground: cones along
         both edges (0.5 s each knocked over) and a gravel-trap run-off;
         no checkpoint gates or CP counter; the minimap at the top left and

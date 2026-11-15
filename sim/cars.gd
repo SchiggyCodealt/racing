@@ -21,7 +21,7 @@ extends RefCounted
 ##            Dune on dirt, lands jumps softly; draggy, so a modest top speed
 ##   sarthe   (v6.29) closed-cockpit Le Mans prototype: a hybrid driving all four wheels (30 % to the
 ##            front axle), the highest top speed and the quickest to 200 km/h, a boost tank as big as
-##            the Thunder's (6 s), downforce second only to the Apex; long and heavy in hairpins, poor on
+##            the Thunder's (6 s), downforce second only to the Apex; long and slow to turn in hairpins, poor on
 ##            dirt and snow
 ##
 ## Use:
@@ -219,7 +219,7 @@ const DEFS: Array[Dictionary] = [
 	{
 		id = "sarthe", name = "Sarthe",
 		price = 50000,
-		description = "Le Mans prototype: a hybrid that drives all four wheels, the highest top speed and the biggest boost, glued down by its aero at speed. Long and heavy in hairpins, and lost on dirt and snow.",
+		description = "Le Mans prototype: a hybrid that drives all four wheels, the highest top speed and a long boost, glued down by its aero at speed. Long and slow to turn in hairpins, and lost on dirt and snow.",
 		look = {color = "#24272e", accent = "#c6f432", shape = "closed-cockpit endurance prototype: long, low and wide, tall front wheel arches, a narrow bubble cockpit, a shark fin down the tail to a wide rear wing, slim LED lights"},
 		changes = {
 			id = "sarthe",
