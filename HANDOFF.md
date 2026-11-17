@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-17 (v6.30.0: round 7, item 1 of 4: $1 per ms under the author time, once per track and car
+_Last updated: 2026-11-17 (v6.31.0: round 7, item 2 of 4: your nitro back in Race the AI (`PlayMode.nitro_on` always
+true there; the AI ghost's tank stays empty, no refill); field races and cups stay without;
+v6.30.0: round 7, item 1 of 4: $1 per ms under the author time, once per track and car
 (`Economy.under_ms`, reward id `under-<ms>`), and $1 per 100 points of every run's score (`Economy.score_money`);
 v6.29.0: round 6, item 3 of 3, the last: a ninth car, the Sarthe, a Le Mans prototype
 (`sim/cars.gd`, `world/car_shapes.gd`, `audio/engine_voice.gd`), $50,000, with medal times, upgrades, AI opponents and a
@@ -62,7 +64,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.30.0, round 7 item 1 of 4 done (money for the author margin and the score); next: nitro back in Race the AI, top-10 laps and sectors with points, Le Mans and 10-car endurance races; round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.31.0, round 7 items 1-2 of 4 done (money for the author margin and the score; nitro back in Race the AI); next: top-10 laps and sectors with points, Le Mans and 10-car endurance races; round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1628,7 +1630,7 @@ against the single ai on the track".
 The order (the owner was told; each is pushed when done) and the defaults chosen:
 
 1. **Money for the author margin and the score (v6.30.0, done)**: see below.
-2. **Nitro back in Race the AI (v6.31.0)**: yours only; the AI's levels were measured without nitro and the shipped
+2. **Nitro back in Race the AI (v6.31.0, done)**: yours only; the AI's levels were measured without nitro and the shipped
    networks have no nitro output. Field races and cups stay without.
 3. **Top-10 lists (v6.32.0)**: the ten fastest laps and the ten fastest of each sector per track; a time that makes a
    list earns career points by its place, 25-18-15-12-10-8-6-4-2-1.
@@ -1649,6 +1651,20 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
   the e2e run on Rookie Oval (3 laps, gold) scored 31,730 points: $317.
 - Tests: `test_sim.gd` (margins, rounding, the paid margin kept, the score every run), `test_game.gd` and the e2e
   `economy` scenario expect the score's money (and the margin) in the payout.
+
+### Item 2: nitro back in Race the AI (v6.31.0, done)
+
+- `modes/play_mode.gd`: `nitro_on` is true for every run it sets up (Drive, Race the AI at any level or My AI, the
+  training screen's Race best, Watch the AI); `modes/field_mode.gd` still turns it off for the field and the cups.
+  So against a single AI you start with a full tank, the gauge shows, the key hints name nitro and the style points
+  refill it, as in Drive. The AI ghost keeps `nitro = 0.0` and `refill = false` (v6.15): the opponents' levels
+  (speed caps) were measured without nitro and the shipped networks have no nitro output, so `OpponentRace` and the
+  test bounds stand.
+- The texts that said "no nitro in AI races" now name the field: the HUD's `NITRO_OFF_TEXT` "No nitro in field
+  races", the finish panel's note the same, the menu note `NITRO_NOTE` "No nitro in the field" (and its tooltip).
+- Tests: `test_game.gd` `_app_nitro` (Race my AI and the Rookie AI: your tank full, the AI's empty; 12 s holding
+  nitro, you burn and the AI never does; the gauge and the key hint; score refill; a field race still without, with
+  its HUD text), the e2e `modes` scenario (the gauge visible and the AI tank empty, shot `race_ai_nitro.png`).
 
 ## Round 6: cones, three circuits, a Le Mans car (v6.27.0 on)
 

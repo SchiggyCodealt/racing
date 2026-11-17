@@ -436,16 +436,17 @@ func _app_cars(t, app: GameApp, fixture: String) -> void:
 
 
 
-## v6.15: the AI uses nitro in Watch the AI (its tank on the HUD); races against the AI (the AI ghost of
-## My AI or a level, the training screen's Race best) have no nitro for anyone; Drive keeps it.
+## v6.15: the AI uses nitro in Watch the AI (its tank on the HUD); v6.31: racing a single AI (the AI ghost of
+## My AI or a level, the training screen's Race best) you have your nitro, the AI none; Drive keeps it.
 func _app_nitro(t, app: GameApp, fixture: String) -> void:
-	t.section("the app: AI nitro, and no nitro in races against the AI (v6.15)")
+	t.section("the app: AI nitro; your nitro against a single AI (v6.31), none in the field (v6.15)")
 	var menu: Node = app.ui.menu
 	var hud: Node = app.ui.hud
 	menu.select_car("racer")
 	menu.select(0)
 	var note: Label = menu.get("nitro_note")
-	t.check(note != null and note.text == "No nitro vs AI" and note.is_visible_in_tree() and note.tooltip_text.contains("no nitro for anyone"), "the menu says: No nitro vs AI (the tooltip says more)")
+	t.check(note != null and note.text == "No nitro in the field" and note.is_visible_in_tree() and note.tooltip_text.contains("no nitro for anyone") and
+		note.tooltip_text.contains("Racing a single AI you have your nitro"), "the menu says: No nitro in the field (v6.31; the tooltip says a single AI race has yours)")
 	# a network that leans on nitro: the test file's network with its nitro output's bias raised
 	var parsed := AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(fixture)))
 	var net: NeuralNetwork = (parsed.net as NeuralNetwork).clone()
@@ -470,7 +471,7 @@ func _app_nitro(t, app: GameApp, fixture: String) -> void:
 		"Watch the AI: the AI burns its nitro (the tank down to %d %%) and the HUD shows its tank" % roundi(low * 100.0))
 	t.check(refilled, "and its tank refills at clean checkpoints, as in training")
 	app.show_menu()
-	# Race my AI: nobody has nitro
+	# Race my AI (v6.31): your nitro as in Drive, the AI car none
 	app.play("human", true)
 	m = app.mode
 	car = m.get("car")
@@ -479,24 +480,25 @@ func _app_nitro(t, app: GameApp, fixture: String) -> void:
 	var keys := PackedStringArray()
 	for k: Array in hud.get("_keys_data"):
 		keys.append(str(k[1]))
-	t.check(m.get("with_ghost") == true and m.get("nitro_on") == false and car.nitro == 0.0 and gcar.nitro == 0.0 and (gh.ai as Object).get("refill") == false
-		and not keys.has("nitro") and not (m.get("score") as ScoreState).refill, "Race my AI: both tanks empty, no refills (the style points' nor the AI's), no nitro key hint")
+	t.check(m.get("with_ghost") == true and m.get("nitro_on") == true and car.nitro == 1.0 and gcar.nitro == 0.0 and (gh.ai as Object).get("refill") == false
+		and keys.has("nitro") and (m.get("score") as ScoreState).refill, "Race my AI (v6.31): your tank full, the style points refill it, the nitro key hint; the AI's tank empty with no refills")
 	app.input.held = {"accelerate": true, "nitro": true}
-	var top_off := false
+	var burned := false
+	var ai_boost := false
 	for i in 60 * 12:
 		m.update(1.0 / 60.0)
-		top_off = top_off or car.boosting or gcar.boosting or car.nitro > 0.0 or gcar.nitro > 0.0
+		burned = burned or (car.boosting and car.nitro < 1.0)
+		ai_boost = ai_boost or gcar.boosting or gcar.nitro > 0.0
 	app.input.held = {}
-	t.check(not top_off and m.get("phase") == "race", "12 s with the nitro key held: no nitro burns and no tank fills (the AI's neither)")
-	t.check(not (hud.get("_nitro") as Control).visible and (hud.get("_nitro_off") as Label).visible and (hud.get("_nitro_off") as Label).text == "No nitro in AI races",
-		"the HUD hides the nitro gauge and says: No nitro in AI races")
+	t.check(burned and not ai_boost and m.get("phase") == "race", "12 s with the nitro key held: your nitro burns (tank %d %%); the AI's never does and its tank stays empty" % roundi(car.nitro * 100.0))
+	t.check((hud.get("_nitro") as Control).visible and not (hud.get("_nitro_off") as Label).visible, "the HUD shows your nitro gauge")
 	app.show_menu()
 	# an AI level: the same
 	menu.select_opponent("rookie")
 	app.play("human", true)
 	m = app.mode
-	t.check(m.get("level") == "rookie" and m.get("nitro_on") == false and (m.get("car") as Car).nitro == 0.0 and ((m.get("ghost") as Dictionary).car as Car).nitro == 0.0,
-		"Race the Rookie AI: no nitro either")
+	t.check(m.get("level") == "rookie" and m.get("nitro_on") == true and (m.get("car") as Car).nitro == 1.0 and ((m.get("ghost") as Dictionary).car as Car).nitro == 0.0,
+		"Race the Rookie AI: your nitro too, the AI none")
 	app.show_menu()
 	# Drive keeps it
 	m = app.start_play({"track": app.tracks[0], "driver": "human"})
@@ -598,6 +600,10 @@ func _app_field(t, app: GameApp) -> void:
 		ahead = ahead and fr.racers[k].car.prog > car.prog and fr.racers[k].car != car
 	t.check(fr.racers[fr.player_index].car == car and absf(car.prog - float(track.start_idx)) < 0.05 and ahead and m.get("phase") == "countdown",
 		"the grid: your car last, on the usual start spot (sample %d), the five AI ahead of it" % track.start_idx)
+	for i in 5:
+		m.update(1.0 / 60.0)
+	t.check(m.get("nitro_on") == false and car.nitro == 0.0 and not (app.ui.hud.get("_nitro") as Control).visible and (app.ui.hud.get("_nitro_off") as Label).visible and
+		(app.ui.hud.get("_nitro_off") as Label).text == "No nitro in field races", "no nitro in the field (v6.15): your tank empty, the HUD says No nitro in field races (v6.31 wording)")
 	var empty := true
 	for r: FieldRace.Racer in fr.racers:
 		empty = empty and r.car.nitro == 0.0 and (r.player or r.driver.get("refill") == false)

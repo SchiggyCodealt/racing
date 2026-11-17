@@ -1,4 +1,4 @@
-Track Rush 6.30.0 for Windows (64-bit)
+Track Rush 6.31.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-two tracks (seven of them
@@ -10,12 +10,15 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.30.0: more ways to earn money. Every millisecond you beat the
-author time by pays $1, once per track and car (beat it by 1.234 s: $1,234;
-beat it later by 1.500 s: the extra $266). And every finished run pays $1
-for every 100 points of its score (a 31,730-point run: $317).
+New in 6.31.0: your nitro is back when you race a single AI (Race the AI,
+any level, and My AI): a full tank at the start, the gauge on the screen,
+and clean driving refills it. The AI car still has none, so the nitro is
+your edge. Race the field and the cups stay without nitro for everyone.
 
 Earlier versions, newest first:
+6.30.0  more ways to earn money: $1 for every millisecond under the author
+        time, once per track and car (a faster run later pays the extra),
+        and $1 for every 100 points of a run's score, every run.
 6.29.0  a ninth car, the Sarthe: a Le Mans prototype, a hybrid with the
         highest top speed, $50,000; the car page three cards to a row.
 6.28.0  three real grand-prix circuits, tracks 20 to 22: Monaco (3.35 km,
@@ -63,7 +66,8 @@ Earlier versions, newest first:
 6.16.0  upgrades go to level 10: seven more levels per part, each adding a
         little less and costing a lot more.
 6.15.0  the AI you train uses nitro; races against AI cars (Race the AI, Race
-        the field, championships) have no nitro for anyone.
+        the field, championships) have no nitro for anyone (from 6.31.0
+        you have yours again against a single AI).
 6.14.0  championships: five cups of three tracks against the same five AI
         drivers, points 10-8-6-5-4-3, trophies and a cup payout.
 6.13.0  Race the field: a six-car grid against five named AI drivers, solid
