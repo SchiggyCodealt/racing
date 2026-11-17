@@ -16,7 +16,7 @@ extends Control
 ##   update(state, dt)       every frame; state (hud.js update's s, snake_case):
 ##       time, lap, laps, sprint, speed (m/s), gear, rpm, spec {idle_rpm, redline,
 ##       upshift_rpm}, nitro (0..1 or null: no gauge), nitro_off (v6.15: true in a race against the
-##       AI: "No nitro in AI races" where the gauge was), boosting, score {total, mult, live:
+##       AI: "No nitro in field races" where the gauge was; v6.31), boosting, score {total, mult, live:
 ##       {kind: "drift"|"air"|"wall", time, points} or null} or null (no score), best (s or
 ##       null), medal {medal, time, all?} or null, finished, ghost_text, pad
 ##     and, optionally, the events of this frame: countdown ("3" / "GO!" / "" off), split
@@ -48,7 +48,7 @@ const POP_MAX := 4       # popups shown at once; the oldest goes first
 const SPLIT_TIME := 2.2
 const LIVE_NAMES := {"drift": "DRIFT", "air": "AIR"}
 ## (v6.15) the note where the nitro gauge is in a race against the AI
-const NITRO_OFF_TEXT := "No nitro in AI races"
+const NITRO_OFF_TEXT := "No nitro in field races" # (v6.31: only the field and the cups; "No nitro in AI races" before)
 
 var panel_open := false
 var finish: FinishPanel

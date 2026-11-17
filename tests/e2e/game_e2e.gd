@@ -20,9 +20,9 @@ extends SceneTree
 ##             then Esc: the menu's tile and panel show the record, score and ghost.
 ##   modes     loads an AI network file (Load network's code path), Race the AI ghost and Watch the
 ##             AI by clicking their buttons, respawn (Enter) and restart (R) in Drive, pad buttons
-##             in a race (joypad events through the InputMap actions), G toggles the ghost. v6.15:
-##             no nitro in the AI ghost race (both tanks empty, no gauge, the HUD's note; shot
-##             race_ai_no_nitro), the watched AI's gauge shows; with net=<file> (a network that
+##             in a race (joypad events through the InputMap actions), G toggles the ghost. v6.31:
+##             your nitro in the AI ghost race (the gauge shows, the AI's tank empty; shot
+##             race_ai_nitro; v6.15-v6.30 nobody had nitro there), the watched AI's gauge shows; with net=<file> (a network that
 ##             fires nitro) a shot of its first burn off the line (watch_ai_nitro).
 ##   cars      the AI network of each car (start from an empty save file): car=<id> (default dune)
 ##             has none yet (the menu's AI block says so, Watch / Race the AI off), the training
@@ -528,9 +528,9 @@ func modes() -> void:
 		check((g.race as RaceState).next_gate > 0 or (g.car as Car).prog > 50.0, "the AI ghost drives (progress %.0f samples)" % (g.car as Car).prog)
 		check(str(m.get("ghost_text")).begins_with("AI ghost"), "the HUD compares with the AI ghost: %s" % m.get("ghost_text"))
 		var hud: Node = app.ui.hud
-		check(not hud.get("_nitro").visible and hud.get("_nitro_off").visible and (m.get("car") as Car).nitro == 0.0 and (g.car as Car).nitro == 0.0,
-			"v6.15: no nitro in a race against the AI: both tanks empty, no gauge, the HUD says \"%s\"" % hud.get("_nitro_off").text)
-		await shot("race_ai_no_nitro")
+		check(hud.get("_nitro").visible and not hud.get("_nitro_off").visible and (g.car as Car).nitro == 0.0,
+			"v6.31: your nitro against a single AI (the gauge shows, tank %.0f %%); the AI's tank empty" % ((m.get("car") as Car).nitro * 100.0))
+		await shot("race_ai_nitro")
 		stop_autopilot()
 		await key(KEY_ESCAPE)
 	# Watch the AI

@@ -14,11 +14,13 @@ extends Node
 ## the car their network belongs to (opts.ai_car: the menu's car, whose network it is, or the
 ## training session's car), in that car's own colours. v6.15: the watched AI uses nitro as it
 ## learned to (a full tank at the start, refilled from clean gates: ai/sensors.gd NitroRefill;
-## the HUD shows its tank). In a race against the AI (`nitro_on` false: the AI ghost of any level
-## or My AI, the training screen's Race best; modes/field_mode.gd's field and cups) nobody has
-## nitro: every tank starts empty, the style points and the AI refill nothing, the HUD shows "No
-## nitro in AI races" where the gauge was and the key hints leave nitro out. The run still counts
-## as in Drive (record, ghost, medal).
+## the HUD shows its tank). In a field race (`nitro_on` false: modes/field_mode.gd's field and cups)
+## nobody has nitro: every tank starts empty, the style points and the AI refill nothing, the HUD
+## shows "No nitro in field races" where the gauge was and the key hints leave nitro out. v6.31:
+## against a single AI (the AI ghost of any level or My AI, the training screen's Race best; it was
+## without nitro from v6.15) you have your nitro again, as in Drive; the AI car still has none (its
+## levels were measured without, and the shipped networks never boost). The run counts as in Drive
+## (record, ghost, medal).
 ##
 ## Best times, ghosts and medals are per track and car: the player's runs are recorded
 ## (sim/replay.gd); a new personal best with the car is saved (sim/save.gd) with its ghost.
@@ -182,7 +184,7 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	driver = str(opts.get("driver", "human"))
 	net = opts.get("net")
 	with_ghost = bool(opts.get("ghost", false)) and net != null and driver == "human"
-	nitro_on = not with_ghost
+	nitro_on = true # (v6.31: yours against a single AI too; v6.15-v6.30 it was off there; field_mode.gd turns it off)
 	level = str(opts.get("level", "")) if Opponents.rank(str(opts.get("level", ""))) >= 0 else ""
 	cap = float(opts.get("cap", INF)) if (opts.get("cap") is float or opts.get("cap") is int) and float(opts.get("cap")) > 0.0 else INF
 	# the player's car (opts.car or the one picked on the menu); the AI drives its network's car
@@ -324,7 +326,7 @@ func restart() -> void:
 		ghost.watch = _new_watch(ghost.car, 0.0)
 		# (v6.27) its own cones, so its race is the one OpponentRace measures (the world shows its knocks)
 		ghost.cones = Cones.new(track) if track.open_edges else null
-		(ghost.car as Car).nitro = 0.0 # (v6.15: no nitro in races against the AI, the AI's neither)
+		(ghost.car as Car).nitro = 0.0 # (v6.15: the AI races without nitro, as its levels were measured; v6.31: you have yours)
 		(ghost.ai as Object).set("refill", false)
 	watch = _new_watch(car, 0.0)
 	ai_note = 0.0

@@ -532,7 +532,7 @@ func _score(sc: Dictionary, brief: bool = false) -> Control:
 	var lost := float(sc.get("nitro_lost", 0.0))
 	var note := "Nitro earned: none"
 	if bool(sc.get("nitro_off", false)):
-		note = "No nitro in AI races" # (v6.15)
+		note = "No nitro in field races" # (v6.15; v6.31: only the field and the cups)
 	elif earned >= 0.05:
 		var e := "%.1f" % earned
 		note = "Nitro earned: %s %s" % [e, "tank" if e == "1.0" else "tanks"]
