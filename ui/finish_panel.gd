@@ -21,7 +21,7 @@ extends PanelContainer
 ##   lines       ["AI ghost: 3:40.000, you win!"]: plain lines (the AI ghost's result)
 ##   unlocked    (v6.8.0) the track this run opened: {id, name, number ("03"), medal ("bronze"), from (this
 ##               track's name)}; absent when it opened none
-##   payout      (v6.5.0) what the run was paid: {items: [{id, kind "medal" | "ai", label, money,
+##   payout      (v6.5.0) what the run was paid: {items: [{id, kind "medal" | "ai" (v6.30: | "under" | "score", money only), label, money,
 ##               points}], money, points, money_total, points_total, repeat: [reward ids paid before],
 ##               medal (the run's medal, "" none), level (the AI level raced, "" none), won (beat it)}
 ##   score       {total, new_best: bool, prev: int (-1 none), car, rows: [{label, note, points}],
@@ -380,7 +380,8 @@ func _payout(p: Dictionary) -> Control:
 			0.0, false, true, false, lh)
 		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(v)
-		var q := UiStyle.label("+%d" % int(it.points), "text", small, UiStyle.ACCENT, 0.0, false, true, false, lh)
+		var no_pts: bool = int(it.points) == 0 and str(it.get("kind")) in ["under", "score"] # (v6.30: money only)
+		var q := UiStyle.label("" if no_pts else "+%d" % int(it.points), "text", small, UiStyle.ACCENT, 0.0, false, true, false, lh)
 		q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		q.custom_minimum_size.x = 30
 		q.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

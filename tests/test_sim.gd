@@ -2607,6 +2607,28 @@ func _career() -> void:
 		SaveData.paid_rewards("rookie-oval", "kestrel") == PackedStringArray(["bronze"]) and int(Economy.claim("rookie-oval", "racer", "author", "amateur").money) == 0
 	t.check(ok, "paid once: silver pays $800, the same again $0; author + Rookie then pay only what is new ($2,200); another car (Kestrel) and another track pay on their own; read back from the file, the paid rewards stay paid")
 
+	# (v6.30) $1 a millisecond under the author time, once per track and car (the best margin paid is kept,
+	# a bigger one later pays the extra ms), and $1 per 100 points of the run's score, every run
+	var medal_cr: int = int(Economy.payout("canyon-run", "author", "", PackedStringArray()).money)
+	var u1: Dictionary = Economy.claim("canyon-run", "racer", "author", "", "", 0, 1234, 0)
+	var u2: Dictionary = Economy.claim("canyon-run", "racer", "author", "", "", 0, 1000, 0)
+	var u3: Dictionary = Economy.claim("canyon-run", "racer", "author", "", "", 0, 1500, 2399)
+	var u4: Dictionary = Economy.claim("canyon-run", "kestrel", "", "", "", 0, 0, 99)
+	var u5: Dictionary = Economy.claim("canyon-run", "racer", "author", "", "", 0, 0, 2399)
+	var kinds := func(p: Dictionary) -> Array: return (p.items as Array).map(func(it: Dictionary) -> String: return "%s %d" % [it.kind, int(it.money)])
+	var u3_under: Dictionary = (u3.items as Array).filter(func(it: Dictionary) -> bool: return it.kind == "under")[0] if (u3.items as Array).any(func(it: Dictionary) -> bool: return it.kind == "under") else {}
+	SaveData.use_file(path)
+	ok = Economy.under_ms(121.867, 121.0) == 867 and Economy.under_ms(121.867, 121.867) == 0 and Economy.under_ms(121.867, 122.0) == 0 and \
+		Economy.under_ms(121.867, INF) == 0 and Economy.under_ms(100.0, 99.9996) == 0 and Economy.under_ms(0.0, 50.0) == 0 and \
+		Economy.score_money(2399) == 23 and Economy.score_money(99) == 0 and Economy.score_money(-5) == 0 and \
+		int(u1.money) == medal_cr + 1234 and kinds.call(u1).has("under 1234") and int(u2.money) == 0 and \
+		int(u3.money) == 266 + 23 and kinds.call(u3) == ["under 266", "score 23"] and str(u3_under.get("label", "")) == "Author time beaten by 1.500 s (1.234 s paid before)" and \
+		int(u4.money) == 0 and (u4.items as Array).is_empty() and int(u5.money) == 23 and \
+		Array(SaveData.paid_rewards("canyon-run", "racer")).filter(func(id: String) -> bool: return id.begins_with("under-")) == ["under-1500"] and \
+		not SaveData.paid_rewards("canyon-run", "racer").has("score") and Economy.paid_under(SaveData.paid_rewards("canyon-run", "racer")) == 1500 and \
+		Economy.label("under-1500") == "Author time beaten by 1.500 s"
+	t.check(ok, "(v6.30) the author margin: 1.234 s under it pays $1,234 on top of the medals, 1.000 s later nothing, 1.500 s the extra $266 (one margin kept per track and car: under-1500); the score pays $1 per 100 points every run (2,399: $23; 99: nothing) and is never kept as paid: %s / %s / %s" % [kinds.call(u1), kinds.call(u3), kinds.call(u5)])
+
 	# the shop
 	write.call(JSON.stringify({version = 4, career = {money = 9000, points = 3, cars = ["racer"], paid = {}}}))
 	SaveData.use_file(path)

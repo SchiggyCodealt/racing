@@ -310,7 +310,8 @@ func render(dt: float, alpha: float) -> void:
 func _finish_payout(t: float, s: Dictionary) -> Dictionary:
 	var place := field.position(field.player_index)
 	var medal := Medals.medal_for(medals, t)
-	var p := Economy.claim(track.id, car_def.id, medal, "", field_level, place)
+	var under := Economy.under_ms(float(medals.get("author", 0.0)), t)
+	var p := Economy.claim(track.id, car_def.id, medal, "", field_level, place, under, score.total if score != null else 0)
 	p.medal = medal
 	p.level = ""
 	p.won = place == 1

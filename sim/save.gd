@@ -726,6 +726,10 @@ static func pay_rewards(track_id: String, car_id: String, ids: PackedStringArray
 		c.paid[track_id][car_id] = []
 	var list: Array = c.paid[track_id][car_id]
 	for id: String in ids:
+		if id.begins_with("under-"): # (v6.30: one margin under the author time per track and car, the best paid)
+			for old: Variant in list.duplicate():
+				if old is String and String(old).begins_with("under-"):
+					list.erase(old)
 		if not list.has(id):
 			list.append(id)
 	c.money = maxi(0, int(c.money) + money)

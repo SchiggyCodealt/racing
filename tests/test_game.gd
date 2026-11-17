@@ -1020,11 +1020,16 @@ func _app_career(t, app: GameApp) -> void:
 	for id: String in want:
 		w_money += int(Economy.reward(tid, id).money)
 		w_points += int(Economy.reward(tid, id).points)
+	# (v6.30) and the run's score: $1 per 100 points
+	var sc_money := Economy.score_money(int((fs.get("score", {}) as Dictionary).get("total", 0)))
+	if sc_money > 0:
+		want.append("score")
+		w_money += sc_money
 	t.check(race.finished and race.finish_time > float(medals.author) and got != "" and ids == want and int(p.money) == w_money and int(p.points) == w_points and
 		p.get("won") == true and p.get("level") == "rookie" and str(fs.get("lines", [""])[0]).contains("Rookie AI hasn't finished: you win!") and
 		UiData.money() == money0 + w_money and UiData.points() == points0 + w_points and app.ui.hud.panel_open,
 		"the author run without nitro (%s, author %s) beats the Rookie AI: paid %s and the Rookie win, %s and %d pts (the finish panel's payout)" % [
-		RaceState.format_time(race.finish_time), RaceState.format_time(float(medals.author)), ", ".join(PackedStringArray(want.slice(0, want.size() - 1))), UiFormat.money(w_money), w_points])
+		RaceState.format_time(race.finish_time), RaceState.format_time(float(medals.author)), ", ".join(PackedStringArray(want.slice(0, want.find("ai-rookie")))), UiFormat.money(w_money), w_points])
 	var u: Dictionary = fs.get("unlocked", {})
 	t.check(u.get("id") == "forest-rally" and u.get("number") == "13" and SaveData.opened_tracks().has("forest-rally") and UiData.is_new_track("forest-rally") and
 		_texts(app.ui.hud.finish).has("Forest Rally unlocked"), "and it opens the next track: the finish panel says Forest Rally unlocked (track 13)")
@@ -1047,10 +1052,12 @@ func _app_career(t, app: GameApp) -> void:
 	gr = m.get("ghost").race
 	fs = m.get("finish_state")
 	p = fs.get("payout", {})
+	var sc_only := Economy.score_money(int((fs.get("score", {}) as Dictionary).get("total", 0)))
+	var not_score: Array = (p.get("items", [1]) as Array).filter(func(it: Variant) -> bool: return not (it is Dictionary and it.kind == "score"))
 	t.check(race.finished and gr.finished and absf(gr.finish_time - elite_t) < 0.0005 and race.finish_time > gr.finish_time and
-		str(fs.get("lines", [""])[0]).contains("the AI wins by") and m.get("level") == "elite" and p.get("won") == false and (p.get("items", [1]) as Array).is_empty() and
-		int(p.get("money", -1)) == 0 and UiData.money() == money1, "a slower run (%s) loses to the Elite AI (%s, its stored time): nothing new is paid" % [
-		RaceState.format_time(race.finish_time), RaceState.format_time(gr.finish_time)])
+		str(fs.get("lines", [""])[0]).contains("the AI wins by") and m.get("level") == "elite" and p.get("won") == false and not_score.is_empty() and
+		int(p.get("money", -1)) == sc_only and UiData.money() == money1 + sc_only, "a slower run (%s) loses to the Elite AI (%s, its stored time): nothing new is paid but the score's %s (v6.30)" % [
+		RaceState.format_time(race.finish_time), RaceState.format_time(gr.finish_time), UiFormat.money(sc_only)])
 	app.show_menu()
 
 	# My AI: the player's own network as before (no AI rewards)

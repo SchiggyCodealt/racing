@@ -547,6 +547,13 @@ lists what a run earned and why.
   easier levels on that track with that car as well (they are slower).
 - **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more, track 19 (Monsoon Trail) 180 % more, track 22 (Spielberg) 210 % more.
 - Each car earns on its own: a gold with the Kestrel pays again after a gold with the Racer.
+- **Under the author time** (version 6.30.0): every millisecond you beat the author time by pays **$1**, once per
+  track and car. Beat it by 1.234 s and the run pays $1,234 on top of the medals; beat it later by 1.500 s and that
+  run pays the extra $266. The same on any track (no extra for later tracks), in a time trial, against the AI, in
+  a field race or a cup.
+- **The score pays too** (version 6.30.0): every finished run pays **$1 for every 100 points** of its style score
+  (see [Points for clean driving](#points-for-clean-driving)), every time, rounded down: a 23,450-point run pays
+  $234. This one adds no career points.
 
 **The AI opponents.** Pick one in the menu's AI driver block, then **Race the ... AI**: its car drives next to yours
 (see-through: you can drive through it) and you win by finishing ahead of it. Every track and car has its own
