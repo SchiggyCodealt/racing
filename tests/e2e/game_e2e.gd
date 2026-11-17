@@ -1651,6 +1651,7 @@ func economy() -> void:
 	var p: Dictionary = fs.get("payout", {})
 	var want := ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro"]
 	var w := _sum("rookie-oval", want)
+	w.x += _extras(m, want)
 	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
 	check(race.finished and Medals.medal_for(Medals.medal_times(track, "racer"), race.finish_time) == "gold" and p.get("won") == true and ids == want and
 		int(p.money) == w.x and int(p.points) == w.y and UiData.money() == money0 + w.x and app.ui.hud.panel_open,
@@ -1690,6 +1691,7 @@ func economy() -> void:
 	var medal2 := Medals.medal_for(Medals.medal_times(m.get("track"), "racer"), (m.get("race") as RaceState).finish_time)
 	want = (["bronze", "silver", "gold", "author"] if medal2 == "author" else ["bronze", "silver", "gold"]) + ["ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
 	w = _sum("seaside-stunts", want)
+	w.x += _extras(m, want)
 	ids = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
 	check((medal2 == "gold" or medal2 == "author") and ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x,
 		"the author run without nitro in the level 3 Racer (%s, %s) beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [
@@ -1754,6 +1756,23 @@ func _sum(tid: String, ids: Array) -> Vector2i:
 		var r := Economy.reward(tid, id)
 		v += Vector2i(int(r.money), int(r.points))
 	return v
+
+
+## (v6.30) What a finished run adds to its medal and AI rewards: the margin under the author time (first
+## time on this track with this car) and its score's money. Appends their ids to `want`; returns the money.
+func _extras(m: Node, want: Array) -> int:
+	var fs: Dictionary = m.get("finish_state")
+	var medals: Dictionary = Medals.medal_times(m.get("track"), String((m.get("car_def") as Dictionary).id))
+	var add := 0
+	var under := Economy.under_ms(float(medals.author), (m.get("race") as RaceState).finish_time)
+	if under > 0:
+		want.append("under-%d" % under)
+		add += under
+	var sm := Economy.score_money(int((fs.get("score", {}) as Dictionary).get("total", 0)))
+	if sm > 0:
+		want.append("score")
+		add += sm
+	return add
 
 
 # ---------------------------------------------------------------- the terminal (v6.7.0)

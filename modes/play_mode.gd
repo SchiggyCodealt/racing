@@ -637,7 +637,8 @@ func _finish_sounds(s: Dictionary) -> void:
 ## won (beat it)}.
 func _payout(t: float, beaten: String) -> Dictionary:
 	var medal := Medals.medal_for(medals, t)
-	var p := Economy.claim(track.id, car_def.id, medal, beaten)
+	var under := Economy.under_ms(float(medals.get("author", 0.0)), t)
+	var p := Economy.claim(track.id, car_def.id, medal, beaten, "", 0, under, score.total if score != null else 0)
 	p.medal = medal
 	p.level = level
 	p.won = beaten != ""

@@ -46,6 +46,13 @@ extends RefCounted
 ##       money, points, repeat}  (pure)
 ##   Economy.claim_cup(cup_id, level, place) -> cup_payout(), paid into the save file with the trophy
 ##       (SaveData.finish_cup), with money_total and points_total
+## v6.30.0: two more payouts on every finished run, with money only. Beating the author time pays
+## UNDER_MONEY ($1) per millisecond under it, once per track and car: the best margin paid is kept as the
+## reward id "under-" + its ms (one per track and car), and a later run under it by more pays only the
+## extra ms. And the run's style score (sim/score.gd) pays $1 per SCORE_PER_DOLLAR (100) points, every
+## run (id "score", never remembered). Neither depends on the track's scale.
+##   Economy.payout(..., under_ms, score) / claim(..., under_ms, score); Economy.under_ms(author, time)
+##   Economy.paid_under(paid) -> the margin (ms) already paid;  Economy.score_money(score)
 
 ## Every reward on the first track; track k pays × (1 + TRACK_STEP × k) (money rounded to 10,
 ## points to a whole number).
@@ -85,6 +92,33 @@ const CUP_STEP: float = 0.25
 const CUP_PREFIX: String = "cup-"
 ## The medals in the order they are earned (slowest first).
 const MEDALS_UP: PackedStringArray = ["bronze", "silver", "gold", "author"]
+## (v6.30) Money per millisecond under the author time, and the score points that pay $1.
+const UNDER_MONEY: int = 1
+const UNDER_PREFIX: String = "under-"
+const SCORE_PER_DOLLAR: int = 100
+const SCORE_ID: String = "score"
+
+
+## (v6.30) How many milliseconds time `time` is under author time `author`, to the millisecond the HUD
+## shows (0 when it is not under it, or either is missing).
+static func under_ms(author: float, time: float) -> int:
+	if not (author > 0.0 and time > 0.0) or not is_finite(author) or not is_finite(time):
+		return 0
+	return maxi(0, Medals._ms(author) - Medals._ms(time))
+
+
+## (v6.30) The margin under the author time already paid (ms), from the "under-" reward id in `paid`.
+static func paid_under(paid: PackedStringArray) -> int:
+	var best: int = 0
+	for id: String in paid:
+		if id.begins_with(UNDER_PREFIX) and id.substr(UNDER_PREFIX.length()).is_valid_int():
+			best = maxi(best, id.substr(UNDER_PREFIX.length()).to_int())
+	return best
+
+
+## (v6.30) What a run's style score pays: $1 per SCORE_PER_DOLLAR points (rounded down).
+static func score_money(score: int) -> int:
+	return maxi(0, score) / SCORE_PER_DOLLAR
 
 
 ## How much track `track_id` pays: 1 + TRACK_STEP × its menu index (unknown tracks: 1).
@@ -149,7 +183,10 @@ static func earned_ids(medal: String, beaten: String) -> PackedStringArray:
 ## {items: [{id, kind ("medal" | "ai"), label, money, points}], money, points, repeat: [ids]}.
 ## (v6.13) `field_level` and `place`: a field race's level and the player's place (1 = won; "" / 0: not a
 ## field race); its place rewards follow the medal's (kind "field").
-static func payout(track_id: String, medal: String, beaten: String, paid: PackedStringArray, field_level: String = "", place: int = 0) -> Dictionary:
+## (v6.30) `under_ms`: how far under the author time the run was (kind "under": the ms not paid before);
+## `score`: the run's style score (kind "score", paid every run).
+static func payout(track_id: String, medal: String, beaten: String, paid: PackedStringArray, field_level: String = "", place: int = 0,
+		under: int = 0, score: int = 0) -> Dictionary:
 	var items: Array = []
 	var repeat: PackedStringArray = []
 	var money: int = 0
@@ -165,7 +202,33 @@ static func payout(track_id: String, medal: String, beaten: String, paid: Packed
 		items.append({id = id, kind = kind, label = label(id), money = r.money, points = r.points})
 		money += int(r.money)
 		points += int(r.points)
+	var before: int = paid_under(paid)
+	if under > before:
+		var lbl: String = "Author time beaten by %s s" % _secs(under)
+		if before > 0:
+			lbl += " (%s s paid before)" % _secs(before)
+		items.append({id = UNDER_PREFIX + str(under), kind = "under", label = lbl, money = (under - before) * UNDER_MONEY, points = 0})
+		money += (under - before) * UNDER_MONEY
+	var sm: int = score_money(score)
+	if sm > 0:
+		items.append({id = SCORE_ID, kind = "score", label = "Score %s: $1 per %d points" % [_group(score), SCORE_PER_DOLLAR], money = sm, points = 0})
+		money += sm
 	return {items = items, money = money, points = points, repeat = repeat}
+
+
+## Milliseconds as seconds with three decimals ("1.234").
+static func _secs(ms: int) -> String:
+	return "%d.%03d" % [ms / 1000, ms % 1000]
+
+
+## 12345 -> "12,345" (as the interface writes points).
+static func _group(n: int) -> String:
+	var s: String = str(absi(n))
+	var out: String = ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
 
 
 ## A reward's name for the finish panel: "Gold medal", "Beat the Pro AI", "Pro field: 2nd",
@@ -181,17 +244,24 @@ static func label(id: String) -> String:
 			return "%s field: %s" % [Opponents.level_name(String(f.level)), Field.place_name(int(f.place))]
 	if id.begins_with(AI_PREFIX):
 		return "Beat the %s AI" % Opponents.level_name(id.substr(AI_PREFIX.length()))
+	if id.begins_with(UNDER_PREFIX) and id.substr(UNDER_PREFIX.length()).is_valid_int():
+		return "Author time beaten by %s s" % _secs(id.substr(UNDER_PREFIX.length()).to_int())
+	if id == SCORE_ID:
+		return "Score"
 	return "%s medal" % String(Medals.NAMES.get(id, id.capitalize()))
 
 
 ## payout() for a finished run, paid into the save file (once: the ids are remembered per track
 ## and car). Returns the payout, with `money_total` and `points_total` after it.
-static func claim(track_id: String, car_id: String, medal: String, beaten: String, field_level: String = "", place: int = 0) -> Dictionary:
-	var p: Dictionary = payout(track_id, medal, beaten, SaveData.paid_rewards(track_id, car_id), field_level, place)
+## (v6.30) `under` and `score` as in payout(); the score's money is paid but not remembered.
+static func claim(track_id: String, car_id: String, medal: String, beaten: String, field_level: String = "", place: int = 0,
+		under: int = 0, score: int = 0) -> Dictionary:
+	var p: Dictionary = payout(track_id, medal, beaten, SaveData.paid_rewards(track_id, car_id), field_level, place, under, score)
 	var ids: PackedStringArray = []
 	for it: Dictionary in p.items:
-		ids.append(String(it.id))
-	if not ids.is_empty():
+		if String(it.id) != SCORE_ID:
+			ids.append(String(it.id))
+	if not ids.is_empty() or int(p.money) > 0:
 		SaveData.pay_rewards(track_id, car_id, ids, int(p.money), int(p.points))
 	p.money_total = SaveData.get_money()
 	p.points_total = SaveData.get_points()
