@@ -1,4 +1,4 @@
-Track Rush 6.29.0 for Windows (64-bit)
+Track Rush 6.30.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-two tracks (seven of them
@@ -10,16 +10,14 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.29.0: a ninth car, the Sarthe, a closed-cockpit Le Mans prototype
-named after the region of the 24-hour race (its own design, no real make's
-badges). A hybrid that drives all four wheels, with the highest top speed of
-all (336 km/h), the quickest run to 200 km/h, a 6 s boost and wings that
-press it down harder the faster it goes; long in the hairpins and lost on
-dirt and snow. $50,000, the dearest car, with its own engine sound (a turbo
-V4 under an electric whine), medal times, upgrades, AI opponents and a new
-driver, Mila Achterberg. The car page now shows three cards to a row.
+New in 6.30.0: more ways to earn money. Every millisecond you beat the
+author time by pays $1, once per track and car (beat it by 1.234 s: $1,234;
+beat it later by 1.500 s: the extra $266). And every finished run pays $1
+for every 100 points of its score (a 31,730-point run: $317).
 
 Earlier versions, newest first:
+6.29.0  a ninth car, the Sarthe: a Le Mans prototype, a hybrid with the
+        highest top speed, $50,000; the car page three cards to a row.
 6.28.0  three real grand-prix circuits, tracks 20 to 22: Monaco (3.35 km,
         a harbour town), Silverstone (5.85 km) and Spielberg (4.28 km),
         two laps each, and a seventh cup, the Grand Prix Cup.

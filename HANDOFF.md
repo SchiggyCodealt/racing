@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-15 (v6.29.0: round 6, item 3 of 3, the last: a ninth car, the Sarthe, a Le Mans prototype
+_Last updated: 2026-11-17 (v6.30.0: round 7, item 1 of 4: $1 per ms under the author time, once per track and car
+(`Economy.under_ms`, reward id `under-<ms>`), and $1 per 100 points of every run's score (`Economy.score_money`);
+v6.29.0: round 6, item 3 of 3, the last: a ninth car, the Sarthe, a Le Mans prototype
 (`sim/cars.gd`, `world/car_shapes.gd`, `audio/engine_voice.gd`), $50,000, with medal times, upgrades, AI opponents and a
 field driver; the car page three cards to a row;
 v6.28.0: round 6, item 2 of 3: three real grand-prix circuits as tracks 20-22, Monaco,
@@ -60,7 +62,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.29.0, round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.30.0, round 7 item 1 of 4 done (money for the author margin and the score); next: nitro back in Race the AI, top-10 laps and sectors with points, Le Mans and 10-car endurance races; round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1615,6 +1617,38 @@ rpm the frames logged, spectrograms with the firing frequency drawn over them).
   author); car balance, nitro and points were tuned with autopilots, not people; with Walls:
   Ride them the AI uses walls as brakes on twisty tracks; tracks can't cross themselves (no bridges). See
   web/HANDOFF.md for the full list.
+
+## Round 7: money, nitro, top-10 lists, Le Mans (v6.30.0 on)
+
+Asked on 2026-11-17: "for every ms under hte author medal reward 1 dollar / add lemans and make you able to race 10
+cars for either 10,20,30 or 40 laps / also for every 100 points you get reward 1 dollar / for every fastest lap or
+sector add some points based on a list so you could have the 10 fastest sectors / add back nitro on the races
+against the single ai on the track".
+
+The order (the owner was told; each is pushed when done) and the defaults chosen:
+
+1. **Money for the author margin and the score (v6.30.0, done)**: see below.
+2. **Nitro back in Race the AI (v6.31.0)**: yours only; the AI's levels were measured without nitro and the shipped
+   networks have no nitro output. Field races and cups stay without.
+3. **Top-10 lists (v6.32.0)**: the ten fastest laps and the ten fastest of each sector per track; a time that makes a
+   list earns career points by its place, 25-18-15-12-10-8-6-4-2-1.
+4. **Le Mans and endurance races (v6.33.0)**: the full Circuit de la Sarthe (13.6 km) and a new Endurance race, 10 cars,
+   10, 20, 30 or 40 laps, on any circuit; pause, no save in the middle of a race.
+
+### Item 1: money for the author margin and the score (v6.30.0, done)
+
+- `sim/economy.gd`: `payout()` / `claim()` take `under` (ms under the author time, `Economy.under_ms(author, time)`,
+  to the millisecond the HUD shows, as `Medals.medal_for` compares) and `score` (the run's style score). The margin
+  pays `UNDER_MONEY` ($1) per ms not paid before: the best margin paid is kept in the run's paid list as `under-<ms>`
+  (`SaveData.pay_rewards` keeps one per track and car), so a later, bigger margin pays the difference and a smaller
+  one nothing. The score pays `score_money()` = score / 100 (rounded down) every run, item id `score`, never kept.
+  Neither uses the track's scale. No career points for either.
+- `modes/play_mode.gd` (Drive, Race the AI) and `modes/field_mode.gd` (field races, cups) pass both; the finish panel
+  lists them as items of kind `under` / `score` without a points figure.
+- `Economy.career()` (the price balance) leaves both out, so the prices test and the README's career numbers stand;
+  the e2e run on Rookie Oval (3 laps, gold) scored 31,730 points: $317.
+- Tests: `test_sim.gd` (margins, rounding, the paid margin kept, the score every run), `test_game.gd` and the e2e
+  `economy` scenario expect the score's money (and the margin) in the payout.
 
 ## Round 6: cones, three circuits, a Le Mans car (v6.27.0 on)
 
