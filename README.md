@@ -70,7 +70,7 @@ button (or **T**) opens them and shows your **trophy cabinet** (see [Championshi
 Version 6.15.0 lets **the AI you train use nitro**: it sees its tank, learns where to fire it (out of the corners onto
 the straights) and refills it by driving cleanly, as you do; Watch the AI shows its tank. **Races against AI cars have
 no nitro** for anyone (Race the AI, Race the field, championships), and the HUD says so (see [Nitro](#nitro) and
-[Training the AI](#training-the-ai)).
+[Training the AI](#training-the-ai)); since version 6.31.0 your nitro is back when you race a single AI.
 Version 6.16.0 takes **upgrades to level 10**: every part of every car now has seven more levels, each adding a
 little less than the one before and costing a lot more, so a fully upgraded car is a late-career goal (see
 [Upgrades](#upgrades)).
@@ -141,6 +141,11 @@ highest top speed of all, the quickest run to 200 km/h and wings that grip harde
 quickest car on eight tracks, the three grand-prix circuits among them, but long in hairpins and lost on dirt and snow.
 It costs $50,000, the dearest car, and has its own engine sound, upgrades, AI opponents and a new driver in the field
 races; the car page now shows three cards to a row (see [The cars](#the-cars)).
+Version 6.30.0 pays **$1 for every millisecond under the author time**, once per track and car (a faster run later
+pays only the extra), and **$1 for every 100 points** of a run's style score, every run (see
+[Money, points and cars](#money-points-and-cars)).
+Version 6.31.0 gives you **your nitro back in Race the AI**: a full tank, the gauge and clean-driving refills, while
+the AI car still has none. Race the field and the cups stay without nitro for everyone (see [Nitro](#nitro)).
 
 ![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
@@ -381,11 +386,16 @@ a clean lap refills about half a tank to a full one, depending on the track, and
 Penalties take nothing out of the tank, and points banked at the finish refill nothing (the race is over).
 The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#upgrades)).
 
-**No nitro in AI races** (version 6.15.0). In every race against AI cars (Race the AI at any level and against My
-AI, Race the field and championships) nobody has nitro: every car starts with an empty tank and nothing refills
-it. The nitro gauge is hidden there, the HUD reads "No nitro in AI races" in its place, and the menu's AI driver
-line says "No nitro vs AI". Your time still counts for medals, records and opening tracks. Drive, your own ghost, Watch
-the AI and training keep nitro.
+**Nitro against a single AI** (version 6.31.0). In Race the AI, at any level and against My AI, you have your nitro
+again, as in a time trial: a full tank at the start, the gauge on the HUD, and clean driving refills it. The AI car
+has none (its tank is empty and nothing refills it), as from version 6.15.0: the opponents' levels were measured
+without nitro, so the nitro is your edge.
+
+**No nitro in field races** (version 6.15.0). In Race the field and the championships nobody has nitro, you
+included: every car starts with an empty tank and nothing refills it. The nitro gauge is hidden there, the HUD reads
+"No nitro in field races" in its place, and the menu's AI driver line says "No nitro in the field". Your time still
+counts for medals, records and opening tracks. Drive, Race the AI, your own ghost, Watch the AI and training keep
+your nitro.
 
 ### Points for clean driving
 
@@ -1173,7 +1183,7 @@ like everything else: a network that burns it where it gains time finishes faste
 refills by the same rule as yours, from the points a clean run would bank: 500 × the combo (x1 to x5) for each
 clean checkpoint and 2,000 for a clean lap, 16,000 to a full tank (× the nitro upgrade's refill); a wall contact
 spoils the checkpoint and the lap as it does for you (drifts and jumps refill nothing for the AI, and it scores no
-points). Training, Watch the AI and the AI's best lap on the training screen all use nitro; races against the AI
+points). Training, Watch the AI and the AI's best lap on the training screen all use nitro; the AI cars you race
 don't (see [Nitro](#nitro)). New networks start with the nitro output switched off (its weights at zero) and evolve
 it from there, so a population of random drivers doesn't burn nitro into the walls.
 Measured with 80 cars, seed 1 and 150 generations at Max: on Rookie Oval the AI learned to fire nitro coming out of
