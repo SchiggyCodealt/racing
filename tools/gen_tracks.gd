@@ -59,7 +59,7 @@ const RULES: Dictionary = {
 const RUN_IN: float = 36.0
 const RUN_OFF: float = 250.0
 const THEMES: Array[String] = ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland",
-	"pinewood", "dunes", "frozen", "jungle", "riviera", "parkland", "styria"]
+	"pinewood", "dunes", "frozen", "jungle", "riviera", "parkland", "styria", "sarthe"]
 const DEGR: float = PI / 180.0
 
 ## The designs, in menu order: {kind, meta, make (Callable), close (closeLoop options), req}
@@ -823,6 +823,49 @@ func _define() -> void:
 			.S(299, {y = 3})),
 		{a0 = 298, b0 = 166, minA = 150, minB = 80},
 		{minLength = 4000, kickers = 0})
+
+	# v6.33 - 23 - Le Mans: the 24-hour circuit of the Sarthe, 13.6 km of closed public roads and
+	# race track, run clockwise. No map data could be read when it was made (the map services were
+	# out of reach), so it is laid out from the real circuit's corners in order, their directions and
+	# the real distances between them: the pit straight up to the long right under the bridge, a
+	# chicane, down through the esses to Tertre Rouge, the 6 km straight to Mulsanne with its two
+	# chicanes and the kink, the road back through the fast kinks to Indianapolis and Arnage, the
+	# esses through the woods and the two chicanes before the pits. The start heading puts the long
+	# straight running south-south-east, as on the real map. Heights are scaled into 0-18 m: the
+	# crest at the bridge is the highest point, Arnage the lowest. One lap a race (about 3.5 min).
+	_circuit({id = "le-mans", name = "Le Mans", difficulty = 3, width = 14, theme = "sarthe",
+		description = "The 24-hour circuit: a 6 km straight through the woods with two chicanes, Mulsanne and Arnage.",
+		laps = 1},
+		func(a: float, b: float) -> Turtle: return (Turtle.new({width = 14, y = 12, yaw = deg_to_rad(210.0)})
+			.S(a, {y = 16})                          # the pit straight, up towards the bridge
+			.R(90, 220, {bank = 3, y = 17})          # the long right under the bridge
+			.L(25, 50, {y = 18}).R(25, 50, {y = 18}) # the chicane at the top
+			.S(280, {y = 11})                        # down the hill
+			.L(50, 110, {bank = 2, y = 10}).S(60).R(50, 110, {bank = 2, y = 9})  # the esses
+			.S(320, {y = 8})
+			.R(100, 100, {bank = 3, y = 7})          # Tertre Rouge
+			.S(1900, {y = 8})                        # the long straight through the woods
+			.R(40, 30).L(80, 30).R(40, 30)           # its first chicane
+			.S(1800, {y = 9.5})
+			.L(40, 30).R(80, 30).L(40, 30)           # its second chicane
+			.S(1100, {y = 8})
+			.R(5, 1500)                              # the kink
+			.S(600, {y = 6})
+			.R(135, 28, {y = 5})                     # Mulsanne
+			.S(b, {y = 3})                           # the road back
+			.R(20, 400).S(300).L(25, 250)            # the fast kinks
+			.R(40, 45, {bank = 6, y = 2})            # Indianapolis
+			.S(380, {y = 1.5})
+			.R(60, 25, {y = 1})                      # Arnage
+			.S(300, {y = 3})
+			.R(30, 160, {bank = 3}).S(80).L(70, 110, {bank = 4, y = 6}).S(120).R(50, 140, {bank = 3, y = 8})  # the esses in the woods
+			.S(250, {y = 9})
+			.L(45, 100, {bank = 3, y = 10})
+			.S(420, {y = 11})
+			.L(45, 30).R(50, 30).S(70).L(35, 25)     # the two chicanes before the pits
+			.S(300, {y = 12})),
+		{a0 = 1013, b0 = 2438, minA = 500, minB = 1000},
+		{minLength = 13000, kickers = 0})
 
 
 ## A design turned into its track definition: {def, f (finish() result), turtle, req}, or {} on an error.
