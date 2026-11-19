@@ -144,6 +144,7 @@ func run(checker: Variant) -> bool:
 	_field()
 	_cups()
 	_sectors()
+	_top_lists()
 	_open_edges()
 	_reset_everything()
 	t.section("formatters")
@@ -326,6 +327,85 @@ func _sectors() -> void:
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	for f: String in DirAccess.get_files_at("user://"):
 		if f.begins_with("test_sectors"):
+			DirAccess.remove_absolute("user://" + f)
+
+
+func _top_lists() -> void:
+	t.section("top-10 lists (v6.32.0): the ten fastest laps and sector times per track, points by place")
+	t.check(TopLists.POINTS == PackedInt32Array([25, 18, 15, 12, 10, 8, 6, 4, 2, 1]) and TopLists.points_for(1) == 25 and
+		TopLists.points_for(10) == 1 and TopLists.points_for(11) == 0 and TopLists.points_for(0) == 0,
+		"the points by place: 25, 18, 15, 12, 10, 8, 6, 4, 2, 1, nothing outside the ten")
+	var base: Array = []
+	for k in 9:
+		base.append({time = 40.0 + k, car = "racer", up = [], date = ""})
+	var m: Dictionary = TopLists.merge(base, [47.5, 39.0, INF, -1.0, NAN, 40.0, 60.0], "kestrel", [1, 0, 0, 0, 0], "d")
+	var ml: Array = m.list
+	t.check(m.places == PackedInt32Array([1, 3]) and ml.size() == 10 and ml[0].car == "kestrel" and ml[0].time == 39.0 and
+		ml[1].car == "racer" and ml[2].car == "kestrel" and ml[2].time == 40.0 and ml[9].time == 47.0 and base.size() == 9,
+		"a run's times go in fastest first: 39.000 takes 1st, 40.000 goes under the 40.000 already there (3rd), 47.500 and 60.000 miss the ten; no time, a negative one or NaN are left out")
+	var many: Array = []
+	for k in 12:
+		many.append(30.0 + k)
+	var m2: Dictionary = TopLists.merge([], many, "racer", [], "d")
+	t.check(m2.places == PackedInt32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) and (m2.list as Array).size() == 10, "an empty list takes ten of twelve laps")
+	t.check(TopLists.record_laps([10.0, 20.0, 30.5, 35.0, 45.0, 61.0], 2, 3) == PackedFloat64Array([30.5, 30.5]) and
+		TopLists.record_laps([10.0, 20.0, 30.5], 2, 3).is_empty() and TopLists.record_laps([10.0, 20.0, 30.5, 35.0, 45.0, 30.0], 2, 3).is_empty() and
+		TopLists.record_laps([61.0], 1, 1) == PackedFloat64Array([61.0]),
+		"the laps in a saved run's splits (the lines' gates), none when they don't add up")
+	# the save file: a track's lists start from what was kept before v6.32
+	var path := "user://test_tops.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	SaveData.use_file(path)
+	var oval := by_id("rookie-oval")
+	var per_lap: int = oval.cp_samples.size() + 1
+	var splits: Array = []
+	var at := 0.0
+	for lap in oval.laps:
+		for g in per_lap:
+			splits.append(at + (40.0 + lap) * (g + 1) / per_lap)
+		at += 40.0 + lap
+	SaveData.submit_record("rookie-oval", "racer", at, splits, [2, 0, 0, 0, 0])
+	SaveData.submit_sectors("rookie-oval", "racer", [14.0, 13.0, 12.0])
+	var g0: Dictionary = SaveData.get_tops("rookie-oval")
+	var seeded: bool = (oval.laps == 3 and (g0.laps as Array).size() == 3 and is_equal_approx(float(g0.laps[0].time), 40.0) and
+		is_equal_approx(float(g0.laps[2].time), 42.0) and g0.laps[0].car == "racer" and g0.laps[0].up == PackedInt32Array([2, 0, 0, 0, 0]) and
+		(g0.sectors[0] as Array).size() == 1 and g0.sectors[0][0].time == 14.0 and g0.sectors[2][0].time == 12.0 and
+		(SaveData.get_tops("hairpin-valley").laps as Array).is_empty())
+	t.check(seeded, "a track without lists starts with the laps of each car's best run (40.000, 41.000, 42.000 from the Racer's record) and the sector records; nothing paid for them")
+	var p0: int = SaveData.get_points()
+	var r: Dictionary = SaveData.submit_tops("rookie-oval", "kestrel", PackedFloat64Array([43.5, 39.5, 41.5]),
+		[PackedFloat64Array([13.5, 13.5, 12.5]), PackedFloat64Array([14.5, 13.5, 11.0]), PackedFloat64Array([15.0, 14.0, 13.0])], [0, 1, 0, 0, 0])
+	t.check(r.laps == PackedInt32Array([1, 4, 6]) and r.sectors[0] == PackedInt32Array([1, 3, 4]) and r.sectors[1] == PackedInt32Array([2, 3, 4]) and
+		r.sectors[2] == PackedInt32Array([1, 3, 4]) and r.records == PackedInt32Array([0, 2]) and r.points == 194 and
+		r.points_total == p0 + 194 and SaveData.get_points() == p0 + 194,
+		"a Kestrel run: laps 1st, 4th, 6th (45 points), S1 1st, 3rd, 4th (52), S2 2nd, 3rd, 4th (45), S3 1st, 3rd, 4th (52): 194 points paid, records in S1 and S3")
+	var sec: Array[Dictionary] = SaveData.get_sectors("rookie-oval")
+	t.check(sec[0].time == 13.5 and sec[0].car == "kestrel" and sec[1].time == 13.0 and sec[1].car == "racer" and sec[2].time == 11.0 and
+		sec[0].up == PackedInt32Array([0, 1, 0, 0, 0]), "the sector records follow the lists' first places")
+	SaveData.use_file(path) # (read back from the file)
+	var g1: Dictionary = SaveData.get_tops("rookie-oval")
+	t.check((g1.laps as Array).size() == 6 and g1.laps[0].car == "kestrel" and g1.laps[0].time == 39.5 and g1.laps[1].car == "racer" and
+		(g1.sectors[1] as Array).size() == 4 and g1.sectors[1][0].car == "racer" and SaveData.get_points() == p0 + 194,
+		"the lists and the points are read back from the save file")
+	var bad1: Dictionary = SaveData.submit_tops("rookie-oval", "bus", [1.0], [[1.0, 1.0, 1.0]])
+	var bad2: Dictionary = SaveData.submit_tops("no-such-track", "racer", [1.0], [[1.0, 1.0, 1.0]])
+	var slow: Dictionary = SaveData.submit_tops("rookie-oval", "racer", [], [PackedFloat64Array([30.0])])
+	t.check(int(bad1.points) == 0 and (bad1.laps as PackedInt32Array).is_empty() and int(bad2.points) == 0 and slow.sectors[0] == PackedInt32Array([5]) and
+		int(slow.points) == 10 and SaveData.get_points() == p0 + 204, "an unknown car or track keeps nothing; an unfinished lap's first sector still counts (5th: 10 points)")
+	var full: Array = []
+	for k in 12:
+		full.append(30.0 + k * 0.1)
+	var rf: Dictionary = SaveData.submit_tops("rookie-oval", "apex", full, [])
+	var gf: Dictionary = SaveData.get_tops("rookie-oval")
+	t.check((gf.laps as Array).size() == 10 and gf.laps[9].car == "apex" and rf.laps == PackedInt32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) and int(rf.points) == 101,
+		"a list keeps ten: twelve faster laps take every place (101 points) and push the rest off")
+	SaveData.reset_everything()
+	t.check((SaveData.get_tops("rookie-oval").laps as Array).is_empty() and (SaveData.get_tops("rookie-oval").sectors[0] as Array).is_empty(),
+		"reset everything wipes the lists")
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	for f: String in DirAccess.get_files_at("user://"):
+		if f.begins_with("test_tops"):
 			DirAccess.remove_absolute("user://" + f)
 
 

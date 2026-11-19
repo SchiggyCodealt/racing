@@ -1354,6 +1354,9 @@ func _sectors_ui(t) -> void:
 	UiData.store["sectors"] = {"rookie-oval": [{"time": 24.5, "car": "racer", "up": PackedInt32Array([3, 0, 0, 0, 1]), "date": "2026-11-14T10:00:00"},
 		{"time": 20.0, "car": "kestrel", "up": PackedInt32Array([0, 0, 0, 0, 0]), "date": ""}, {}],
 		"hairpin-valley": [{"time": 30.0, "car": "racer", "up": [], "date": ""}, {"time": 31.0, "car": "racer", "up": [], "date": ""}, {"time": 32.5, "car": "racer", "up": [], "date": ""}]}
+	# (v6.32) the top 10s
+	UiData.store["tops"] = {"rookie-oval": {"laps": [{"time": 72.004, "car": "racer", "up": [], "date": "2026-11-19T08:00:00"},
+		{"time": 72.95, "car": "kestrel", "up": [1, 0, 0, 0, 0], "date": ""}], "sectors": [[{"time": 24.5, "car": "racer", "up": [3, 0, 0, 0, 1], "date": ""}], [], []]}}
 	var hm := _menu(t)
 	var menu: MainMenu = hm[1]
 	var inp := Fx.FakeInput.new()
@@ -1361,14 +1364,34 @@ func _sectors_ui(t) -> void:
 	_settle(hm[0])
 	var rec: RecordsScreen = menu.records
 	var n := UiData.track_count()
-	t.check(rec.is_open and rec.lines.size() == n and rec.lines[0] == "01 Rookie Oval: S1 24.500 Racer E3 T0 N0 L0 W1, S2 20.000 Kestrel stock, S3 -, ideal -" and
-		rec.lines[1] == "02 Hairpin Valley: S1 30.000 Racer stock, S2 31.000 Racer stock, S3 32.500 Racer stock, ideal 1:33.500" and
-		rec.get("_count").text == "5 of %d sectors set" % (n * 3),
-		"R opens the sector records: a row a track (%s; %s), the ideal lap once all three are set" % [rec.lines[0], rec.lines[1]])
+	t.check(rec.is_open and rec.lines.size() == n and rec.lines[0] == "01 Rookie Oval: lap 1:12.004 Racer stock, S1 24.500 Racer E3 T0 N0 L0 W1, S2 20.000 Kestrel stock, S3 -, ideal -" and
+		rec.lines[1] == "02 Hairpin Valley: lap -, S1 30.000 Racer stock, S2 31.000 Racer stock, S3 32.500 Racer stock, ideal 1:33.500" and
+		rec.get("_count").text == "Every track: 5 of %d sectors set" % (n * 3),
+		"R opens the records: a row a track (%s; %s), its fastest lap, the ideal lap once all three sectors are set" % [rec.lines[0], rec.lines[1]])
 	var marks: Array = UiData.track_map(0).get("marks", [])
-	t.check(marks.size() == 2 and rec.get("_maps").size() == n + 1 and (rec.get("_maps")[1] as Control).visible, "every row has its map with the two sector marks")
+	t.check(marks.size() == 2 and rec.get("_maps").size() == n + 2 and (rec.get("_maps")[2] as Control).visible, "every row has its map with the two sector marks")
+	var sel: int = menu.selected_track
+	var opened_on: bool = rec.focus_track == sel and rec.top_lines.size() == 4 and str(rec.get("_top_name").text) == str(UiData.track_info(sel).name)
 	menu.handle_keys(_press(inp, ["Enter", "Digit3"]))
-	t.check(rec.is_open and menu.selected_track == 9, "on the records, other keys do nothing")
+	t.check(rec.is_open and menu.selected_track == 9 and sel == 9, "on the records, other keys do nothing")
+	t.check(opened_on, "(v6.32) it opens on the menu's track (%s) with its four top-10 lists" % UiData.track_info(sel).name)
+	menu.handle_keys(_press(inp, ["ArrowRight"]))
+	var right: int = rec.focus_track
+	menu.handle_keys(_press(inp, ["KeyA"]))
+	menu.handle_keys(_press(inp, ["PadLB"], true))
+	t.check(right == sel + 1 and rec.focus_track == sel - 1 and menu.selected_track == sel, "right / left (A, LB) go to the next and previous track's lists; the menu's track stays")
+	rec.show_track(0)
+	var name0: Label = (rec.get("_names") as Array)[0]
+	t.check(rec.top_lines == PackedStringArray(["Laps: 1 1:12.004 Racer, 2 1:12.950 Kestrel", "S1: 1 24.500 Racer", "S2: -", "S3: -"]) and
+		name0.get_theme_color("font_color") == UiStyle.ACCENT and _texts(rec).has("Points by place: 1st 25 · 2nd 18 · 3rd 15 · 4th 12 · 5th 10 · 6th 8 · 7th 6 · 8th 4 · 9th 2 · 10th 1"),
+		"Rookie Oval's lists: %s; its row in the accent; the points by place under them" % " / ".join(rec.top_lines))
+	rec.show_track(-1)
+	var wrap: bool = rec.focus_track == n - 1
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	((rec.get("_rows") as Array)[1] as Control).gui_input.emit(click)
+	t.check(wrap and rec.focus_track == 1 and rec.top_lines[0] == "Laps: -", "it wraps round, and a click on a row shows that track's lists")
 	menu.handle_keys(_press(inp, ["KeyR"]))
 	t.check(not rec.is_open, "R closes it")
 	menu.show_records(true)
@@ -1377,7 +1400,8 @@ func _sectors_ui(t) -> void:
 	hm[0].size = Vector2(700, 600)
 	menu.show_records(true)
 	_settle(hm[0])
-	t.check(not (rec.get("_maps")[1] as Control).visible and rec.panel.get_global_rect().end.x <= 700.5, "on a narrow window the maps go and the table fits")
+	t.check(not (rec.get("_maps")[2] as Control).visible and rec.panel.get_global_rect().end.x <= 700.5 and (rec.get("_top_grid") as GridContainer).columns == 2,
+		"on a narrow window the maps go, the lists go two to a row and the table fits")
 	menu.handle_keys(_press(inp, ["Escape"]))
 	t.check(not rec.is_open, "Esc closes it")
 	hm[0].free()
