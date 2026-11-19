@@ -390,13 +390,15 @@ func _ahead(i: int, j: int) -> bool:
 	var b := racers[j]
 	var la: int = a.race.lap_times.size()
 	var lb: int = b.race.lap_times.size()
-	if a.race.finished and b.race.finished and la != lb:
+	if endurance and a.race.finished and b.race.finished and la != lb:
 		return la > lb
-	if a.race.finished != b.race.finished:
+	if endurance and a.race.finished != b.race.finished:
 		var u := b if a.race.finished else a # (the one still racing)
 		var f := a if a.race.finished else b
 		if not u.dnf and u.race.lap_times.size() >= f.race.lap_times.size():
 			return u == a
+		return a.race.finished
+	if a.race.finished != b.race.finished:
 		return a.race.finished
 	if a.race.finished:
 		return a.race.finish_time < b.race.finish_time or (a.race.finish_time == b.race.finish_time and a.slot < b.slot)

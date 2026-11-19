@@ -89,6 +89,8 @@ const V623_STAGES: Dictionary = {
 }
 ## The grand-prix circuits of v6.28, in menu order (20-22): all asphalt, new (no older version)
 const V628_CIRCUITS: PackedStringArray = ["monaco", "silverstone", "spielberg"]
+## Le Mans, track 23 (v6.33): all asphalt, new (no older version)
+const V633_LE_MANS: PackedStringArray = ["le-mans"]
 ## The tracks of v6.4, in menu order (13-15): [surfaces, difficulty, race type]
 const V64_TRACKS: Dictionary = {
 	"forest-rally": ["Asphalt + dirt", 3, "circuit"],
@@ -618,11 +620,11 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	var kept_bad: PackedStringArray = []
 	for id: String in ids:
 		var same: bool = String(texts.get(id, "")).sha256_text() == String((V65_KEPT.get(id, ["?"]) as Array)[0])
-		if V623_STAGES.has(id) or V628_CIRCUITS.has(id):
+		if V623_STAGES.has(id) or V628_CIRCUITS.has(id) or V633_LE_MANS.has(id):
 			continue # (newer than v6.5: nothing to compare with; their signatures are pinned below)
 		if same != V65_KEPT.has(id) or V65_KEPT.has(id) == V66_REWORKED.has(id):
 			kept_bad.append(id)
-	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() + V623_STAGES.size() + V628_CIRCUITS.size() == ids.size(),
+	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() + V623_STAGES.size() + V628_CIRCUITS.size() + V633_LE_MANS.size() == ids.size(),
 		"the %d tracks v6.6 did not rework are bit for bit as in v6.5 (their tracks.json text); the %d reworked ones (%s) are not%s" % [
 			V65_KEPT.size(), V66_REWORKED.size(), ", ".join(V66_REWORKED.keys()), "" if kept_bad.is_empty() else ": wrong " + ", ".join(kept_bad)])
 	# signatures: the kept ones unchanged (the browser's layouts = v6.2's), the reworked ones new
@@ -631,7 +633,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	for id: String in ids:
 		var tr: BuiltTrack = by_id(id)
 		var legacy: String = Tracks.legacy_signature(id)
-		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == (V64_TRACKS.has(id) or V623_STAGES.has(id) or V628_CIRCUITS.has(id))
+		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == (V64_TRACKS.has(id) or V623_STAGES.has(id) or V628_CIRCUITS.has(id) or V633_LE_MANS.has(id))
 		if V66_REWORKED.has(id):
 			ok = ok and tr.layout_signature() != legacy and tr.signature() != String(V65_SIGS[id]) and \
 				Tracks.build_web(id).layout_signature() == legacy
@@ -640,7 +642,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 		if not ok:
 			bad_sigs.append("%s %s" % [id, Tracks.signature(id)])
 	t.check(bad_sigs.is_empty() and SIGS.size() == ids.size(),
-		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4, the 4 stages of v6.23 and the 3 circuits of v6.28 as made%s" % [
+		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4, the 4 stages of v6.23, the 3 circuits of v6.28 and Le Mans (v6.33) as made%s" % [
 			"" if bad_sigs.is_empty() else ": wrong " + ", ".join(bad_sigs)])
 	# medal times: the kept tracks' unchanged (data/medals.json), the reworked and v6.4 ones for every car
 	var md: Dictionary = Medals.data().get("tracks", {})
@@ -1085,7 +1087,7 @@ func _surfaces() -> void:
 	for tr: BuiltTrack in tracks:
 		var summary: String = Surfaces.summary(tr)
 		var legacy: String = Tracks.legacy_signature(tr.id)
-		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and (V64_TRACKS.has(tr.id) or V623_STAGES.has(tr.id) or V628_CIRCUITS.has(tr.id)))) and \
+		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and (V64_TRACKS.has(tr.id) or V623_STAGES.has(tr.id) or V628_CIRCUITS.has(tr.id) or V633_LE_MANS.has(tr.id)))) and \
 			(tr.signature() == tr.layout_signature()) == (not tr.has_surfaces()) and Tracks.signature(tr.id) == tr.signature()
 		ok = ok and summary == String(want.get(tr.id, "Asphalt")) and sig_ok
 		if tr.has_surfaces():
@@ -1108,7 +1110,7 @@ func _surfaces() -> void:
 				parts.append("%s %d%%" % [Surfaces.id(k), roundi(float(shares[k]) * 100.0)])
 			ok = ok and sums_ok and step_max <= 1.0 / (2 * Surfaces.BLEND + 1) + 1e-5 and grid_ok
 			lines.append("%s: %s (%s)" % [tr.name, ", ".join(parts), tr.signature().get_slice("|", 1)])
-	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4, the 4 stages of v6.23), the other %d all asphalt (the 3 circuits of v6.28 among them); the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
+	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4, the 4 stages of v6.23), the other %d all asphalt (the 3 circuits of v6.28 and Le Mans among them); the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
 		lines.size(), tracks.size() - lines.size(), 2 * Surfaces.BLEND + 1, roundi((2 * Surfaces.BLEND + 1) * 2.0), "; ".join(lines)])
 
 	# asphalt is the old physics: on Ramp Rally the racer drives bit for bit as on the all-asphalt
@@ -3687,7 +3689,7 @@ func _endurance() -> void:
 		laps_ok = laps_ok and r.race.laps == 2
 	var flagged_at := -1.0
 	var steps := 0
-	while not prace.finished and steps < 60 * 400:
+	while not f.all_done() and steps < 60 * 400:
 		f.step(DT, slowp.drive(pcar))
 		steps += 1
 		if f.flag_out and flagged_at < 0.0:
@@ -3767,9 +3769,9 @@ func _cups() -> void:
 			last = maxi(last, Tracks.index_of(tid))
 		means.append(sum / maxf(1.0, tr.size()))
 		opens_at.append(last + 1)
-	var once := seen.size() == Tracks.ids().size()
+	var once := seen.size() == Tracks.ids().size() - V633_LE_MANS.size()
 	for tid: String in Tracks.ids():
-		once = once and int(seen.get(tid, 0)) == 1
+		once = once and int(seen.get(tid, 0)) == (0 if V633_LE_MANS.has(tid) else 1)
 	# (the five cups of v6.14 rise in difficulty; the Rally Cup of v6.23 and the Grand Prix Cup of v6.28
 	# come after them, with the last tracks)
 	var rising := Cups.ids().size() == 7 and Cups.ids()[5] == "rally" and Cups.tracks_of("rally") == PackedStringArray(V623_STAGES.keys()) and \
@@ -3777,7 +3779,7 @@ func _cups() -> void:
 	for k in range(1, means.size()):
 		rising = rising and (means[k] >= means[k - 1] or k >= 5) and opens_at[k] >= opens_at[k - 1]
 	t.check(data_ok and once and rising and Cups.cup("nope").is_empty() and Cups.tracks_of("nope").is_empty(),
-		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup; the first five rising in difficulty (mean %s), then the Rally Cup of the four stages and the Grand Prix Cup of the three circuits; opening in order (with track %s)" % [
+		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup (Le Mans, v6.33, in none); the first five rising in difficulty (mean %s), then the Rally Cup of the four stages and the Grand Prix Cup of the three circuits; opening in order (with track %s)" % [
 		Cups.ids().size(), ", ".join(Array(means).map(func(x: float) -> String: return "%.1f" % x)), ", ".join(Array(opens_at).map(func(x: int) -> String: return str(x)))])
 	var path := "user://test_sim_cups.json"
 	if FileAccess.file_exists(path):
