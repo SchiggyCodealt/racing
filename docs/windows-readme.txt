@@ -104,7 +104,7 @@ Arrows or W A S D drive, Space is the handbrake, Shift is nitro, R restarts,
 Enter respawns at the last checkpoint, G shows or hides your ghost, Esc goes
 back to the menu. On the menu Enter starts a time trial (the car page comes
 first: arrows or C pick the car, Enter starts, Esc goes back), T opens the
-cups, R the sector records. Press H for every key and gamepad button, and
+cups, R the records (top 10s). Press H for every key and gamepad button, and
 O for the settings (graphics quality, screen dirt and snow, fullscreen,
 vertical sync, interface size, the volumes, the terminal, the reset). The `
 key opens the terminal on the menu (not during a race). Any standard gamepad
@@ -112,7 +112,7 @@ works.
 
 Where your saves go
 -------------------
-Best times, ghosts, scores, sector records, settings (volumes too), your
+Best times, ghosts, scores, sector records, top 10s, settings (volumes too), your
 money, points, cars, their upgrades and opened tracks, and each car's trained
 AI network are kept in
 
