@@ -1658,8 +1658,10 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
 - `world/themes.gd` `sarthe`: a June evening (sun elevation 17°, golden light, `woods` along the road, farmland),
   `headlights` 0.25; `audio/sound_bank.gd` gives it the overdrive race music.
 - Medal times: `tools/medals.gd --update --tracks=le-mans` (9 cars, 6 minutes): author 3:23.483 (Sarthe) to 4:24.967
-  (Dune). AI opponents: `tools/opponents.gd --train`, `--tune`, then the levels, for le-mans only (see the numbers
-  below). Track scale 1 + 0.1 x 22 = 3.2: gold + Expert everywhere now earns $193,200 (still short of every car,
+  (Dune). AI opponents: `tools/opponents.gd --train`, `--tune`, then the levels, for le-mans only (`--tracks=le-mans
+  --threads=4`; 11, 16 and 1 minutes): the tuned (stock car) laps are 0.883 (Apex) to 0.935 (Kestrel) × author; the
+  levels land Rookie 1.40-1.41, Amateur 1.25-1.26, Pro 1.10-1.11, Expert 0.994-1.005 and Elite 0.890-0.935 × author,
+  all inside the test_ai bounds (only the Apex's Elite is held, @77.9). Track scale 1 + 0.1 x 22 = 3.2: gold + Expert everywhere now earns $193,200 (still short of every car,
   $210,000).
 - **Endurance races.** `ui/car_screen.gd`: a race length row (`laps_choice`, `race_laps`, `laps_btns`, `laps_note`,
   `set_laps`, L, the pad reaches the chips as part of the parts list), shown for `race_field` on a circuit, back to
