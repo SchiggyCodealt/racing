@@ -31,7 +31,8 @@ extends PanelContainer
 ##   laps        [lap times] (shown when there are two or more; not in a field race)
 ##   pad         true: name the gamepad buttons too
 ##   field       (v6.13.0) Race the field: {place, of, level (its name), rows: [{place, name, code, car, color,
-##               time (INF: still racing), gap (s behind the winner, INF none), me, dnf}]}: your place
+##               time (INF: still racing), gap (s behind the winner, INF none), me, dnf, (v6.33) down (laps
+##               behind the winner: "+1 lap")}], (v6.33) laps (an endurance race's)}: your place
 ##               ("2nd of 6 · Pro field") and the finishing order with times and gaps (your row in the
 ##               accent); the score shows as one line then
 ##   dock        (v6.13.0) "right": the panel sits at the right of the window (the podium is on the left);
@@ -432,7 +433,7 @@ func _field(f: Dictionary) -> Control:
 	var place := int(f.get("place", 0))
 	var big := UiStyle.FS_L if _tiny else (24 if _short else UiStyle.FS_XL)
 	col.add_child(_line([[Field.place_name(place), "display_bold", big, UiStyle.ACCENT if place <= 3 else UiStyle.TEXT, 0.02, false, big],
-		UiStyle.gap(UiStyle.S2), ["of %d · %s field" % [int(f.get("of", 0)), str(f.get("level", ""))], "text", _num_size(), UiStyle.TEXT_2]]))
+		UiStyle.gap(UiStyle.S2), [("of %d · %s field" % [int(f.get("of", 0)), str(f.get("level", ""))]) + (" · %d laps" % int(f.laps) if int(f.get("laps", 0)) > 0 else ""), "text", _num_size(), UiStyle.TEXT_2]]))
 	if str(f.get("cup", "")) != "":
 		col.add_child(_line([[str(f.cup), "text_semi", small, UiStyle.ACCENT, 0.0, false, lh]]))
 	# (v6.20) the finishing order as F1-style rows: the place in a box, the car's colour, the driver, the
@@ -453,13 +454,18 @@ func _field(f: Dictionary) -> Control:
 			ResultRow.cell(str(r.get("name", "")), "text_semi", small, c),
 			ResultRow.cell(str(r.get("car", "")), "text", small, UiStyle.TEXT_2, car_w),
 			ResultRow.cell(UiFormat.time(t) if is_finite(t) else ("OUT" if bool(r.get("dnf", false)) else "racing…"), "display", num, c if is_finite(t) else UiStyle.TEXT_3, time_w, true),
-			ResultRow.cell("" if not is_finite(g) else ("Winner" if first else "+" + JsMath.to_fixed(g, 3)), "display", small, UiStyle.TEXT_2, gap_w, true),
+			ResultRow.cell("" if not is_finite(g) else ("Winner" if first else (_laps_down(int(r.get("down", 0))) if int(r.get("down", 0)) > 0 else "+" + JsMath.to_fixed(g, 3))), "display", small, UiStyle.TEXT_2, gap_w, true),
 		]
 		grid.add_child(ResultRow.make(int(r.get("place", 0)), r.get("color", Color.WHITE), me, cells, small))
 	var gm := UiStyle.margin([0, 0 if _short else UiStyle.S1, 0, 0])
 	gm.add_child(grid)
 	col.add_child(gm)
 	return outer
+
+
+## (v6.33) A lapped car's gap in an endurance race: "+1 lap", "+3 laps".
+static func _laps_down(n: int) -> String:
+	return "+%d lap%s" % [n, "" if n == 1 else "s"]
 
 
 ## The score block: total and best, the breakdown in two columns (one in very narrow windows), the nitro note.

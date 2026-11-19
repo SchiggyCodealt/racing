@@ -19,6 +19,8 @@ extends RefCounted
 ##   RaceState.format_time(t) -> "m:ss.mmm";  RaceState.format_delta(d) -> "+0.123"
 ##   race.penalize(s)                          (v6.27) a time penalty (a cone): s added to the clock
 ##   race.penalty, race.penalties               the seconds added so far and how many times
+##   race.flag = true                          (v6.33) an endurance race's chequered flag: the car's next
+##       lap line is its finish (a lapped car finishes a lap or more short: race.lap_times.size() laps)
 
 var track: BuiltTrack
 var laps: int = 1
@@ -40,6 +42,9 @@ var respawn: Dictionary = {}
 ## (v6.27) time penalties so far (seconds added to the clock) and their number (cones knocked)
 var penalty: float = 0.0
 var penalties: int = 0
+## (v6.33) the chequered flag is out (the leader of an endurance race has finished): the next lap line
+## this car crosses is its finish, whatever lap it is on
+var flag: bool = false
 
 
 func _init(t: BuiltTrack, n_laps: int = -1) -> void:
@@ -61,6 +66,7 @@ func reset() -> void:
 	respawn = {}
 	penalty = 0.0
 	penalties = 0
+	flag = false
 
 
 ## (v6.27) Adds `s` seconds to the clock (a knocked cone), until the finish. The splits, lap times,
@@ -105,11 +111,15 @@ func update(car: Car, dt: float) -> Array[Dictionary]:
 			ev.lap_time = time - lap_start
 			lap_times.append(ev.lap_time)
 			lap_start = time
-		if g.kind == "finish":
+		if g.kind == "lap" and flag:
+			ev.kind = "finish" # (v6.33: under the chequered flag)
+		if ev.kind == "finish":
 			finished = true
 			finish_time = time
 		next_gate += 1
 		events.append(ev)
+		if finished:
+			break
 	return events
 
 

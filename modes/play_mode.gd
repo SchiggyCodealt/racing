@@ -91,6 +91,10 @@ const STINGER_AT := 0.9 # s after the finish sound: the medal or best-time sting
 var uses_hud := true
 ## (v6.13) Plain Drive races the best-run ghost; Race the field (modes/field_mode.gd) doesn't.
 var uses_pb := true
+## (v6.33) The race's laps (-1: the track's own); an endurance race sets 10 to 40.
+var race_laps := -1
+## (v6.33) Paused (an endurance race: modes/field_mode.gd): nothing steps, the HUD reads PAUSED.
+var paused := false
 var app: GameApp
 var track: BuiltTrack
 var driver := "human"
@@ -297,7 +301,7 @@ func restart() -> void:
 	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
 	if not nitro_on:
 		car.nitro = 0.0 # (v6.15: no nitro in races against the AI)
-	race = RaceState.new(track)
+	race = RaceState.new(track, race_laps)
 	_new_sectors()
 	if cones != null: # (v6.27) every cone standing again
 		cones.reset()
@@ -305,7 +309,7 @@ func restart() -> void:
 		if tn != null:
 			tn.call("reset_cones")
 	_place_start()
-	record = SaveData.get_record(track.id, car_def.id) # your best with this car
+	record = SaveData.get_record(track.id, car_def.id) if counts_for_records() else {} # your best with this car
 	medal_target = _aim_for() # fixed for the run: the HUD ticks it at the finish if won
 	# a best run saved during the last race is raced from now on
 	if next_pb != null:
@@ -546,7 +550,13 @@ func _on_finish() -> void:
 	model.celebrate() # the driver's fist pump (reset_effects() on restart ends it)
 	var t: float = race.finish_time
 	var s := {"title": "AI finished" if driver == "ai" else "Finish", "time": t, "ai": driver == "ai"}
-	if driver == "human":
+	if driver == "human" and not counts_for_records():
+		# (v6.33) an endurance race: its laps and sectors go in the top 10s and it pays its place and score;
+		# no record, medal, ghost or opened track (those are for the track's own laps)
+		s.payout = _finish_payout(t, s)
+		s.score = _score_state(false)
+		_tops_payout(s.payout, _save_sectors())
+	elif driver == "human":
 		var is_record := SaveData.submit_record(track.id, car_def.id, t, race.splits, levels)
 		var prev: Variant = record.get("time")
 		s.medal = _medal_line(t, prev)
@@ -662,11 +672,11 @@ func _add_score_events(events: Array) -> void:
 
 
 ## The finish panel's score: total, breakdown, the nitro it refilled and the best score for
-## this track and car (saved if beaten).
-func _score_state() -> Dictionary:
+## this track and car (saved if beaten; (v6.33) `keep` false: not saved, an endurance race's).
+func _score_state(keep: bool = true) -> Dictionary:
 	var sc := score
 	var prev := best_score
-	var is_best := SaveData.submit_score(track.id, car_def.id, sc.total)
+	var is_best := SaveData.submit_score(track.id, car_def.id, sc.total) if keep else false
 	var now := SaveData.get_best_score(track.id, car_def.id)
 	best_score = now if not now.is_empty() else prev
 	var rows: Array = []
@@ -679,10 +689,16 @@ func _score_state() -> Dictionary:
 	}
 
 
+## (v6.33) Whether this run counts for the records, medals, ghost and unlocks (false: an endurance race,
+## whose laps aren't the track's own).
+func counts_for_records() -> bool:
+	return race_laps < 0
+
+
 ## The HUD's medal target for this run: the next medal above your best time ({medal, time};
 ## all: every medal won), or null.
 func _aim_for() -> Variant:
-	if medals.is_empty() or driver != "human":
+	if medals.is_empty() or driver != "human" or not counts_for_records():
 		return null
 	var n := Medals.next_medal(medals, float(record.get("time", INF)))
 	return n if not n.is_empty() else {"medal": "author", "time": float(medals.author), "all": true}
@@ -945,7 +961,9 @@ func _minimap_state() -> Dictionary:
 ## The HUD of this frame.
 func _render_hud(dt: float) -> void:
 	var hud := app.ui.hud
-	if phase == "countdown":
+	if paused:
+		hud.countdown("PAUSED")
+	elif phase == "countdown":
 		hud.countdown(str(ceili(clock)))
 	elif go_timer > 0.0:
 		hud.countdown("GO!")

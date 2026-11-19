@@ -11,6 +11,9 @@ extends "res://ui/dialog_screen.gd"
 ## - Your money, and START: it reads BUY and the price for a car you don't own (the game asks first),
 ##   LOCKED when the money is short.
 ## The pick is the "car" setting (UiData.picked_car()); the buttons only emit signals.
+## (v6.33) Race the field on a circuit (`laps_choice`, set by the menu): a race length row beside the money:
+## Normal (the field race) or 10, 20, 30, 40 laps (an endurance race of ten cars); `race_laps` is the
+## pick (0: normal), back to Normal each time the page opens for a race; L (or the pad on the chips) picks.
 ##
 ## Keys: arrows / WASD move over the cars, C / Shift+C next / previous car, 1-9 buy the next level of
 ## that part, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
@@ -21,6 +24,8 @@ signal start
 signal car_picked(id: String)
 ## buy the next level of part `part` of the picked car (the game asks first)
 signal upgrade(part: String)
+## (v6.33) a race length was picked (0: normal, else an endurance race's laps)
+signal laps_picked(laps: int)
 
 const CarCard := preload("res://ui/car_card.gd")
 const PartChip := preload("res://ui/part_chip.gd")
@@ -52,6 +57,17 @@ var money_l: Label
 var _event_l: Label
 var _ring: Control
 var _pad_at: Control = null   # the chip or START the pad highlight is on (null: the picked car's card)
+## (v6.33) the race length: the row, its chips (Normal first), the pick (0 normal), and whether it shows
+var laps_row: HBoxContainer
+var laps_btns: Array = []
+var race_laps := 0
+var laps_choice := false:
+	set(v):
+		laps_choice = v
+		if laps_row != null:
+			laps_row.visible = v
+			_hint_text()
+var _hint: Label
 
 
 func _init() -> void:
@@ -139,7 +155,34 @@ func _init() -> void:
 	money_l.mouse_filter = Control.MOUSE_FILTER_PASS
 	money_l.tooltip_text = "Your money: it buys cars and upgrades. Medals and wins against the AI pay it."
 	foot.add_child(money_l)
+	# (v6.33) the race length (Race the field on a circuit)
+	laps_row = UiStyle.hbox(UiStyle.S1)
+	laps_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var lcap := UiStyle.label("Laps", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	lcap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lcap.mouse_filter = Control.MOUSE_FILTER_PASS
+	lcap.tooltip_text = "Race length: Normal is the usual field race (six cars, the track's own laps, it counts for medals and records); 10 to 40 laps is an endurance race of ten cars (you and nine AI drivers), paid by place."
+	var lm := UiStyle.margin([0, 0, UiStyle.S1, 0])
+	lm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lm.mouse_filter = Control.MOUSE_FILTER_PASS
+	lm.add_child(lcap)
+	laps_row.add_child(lm)
+	var choices: Array = [0]
+	choices.append_array(Array(Field.ENDURANCE_LAPS))
+	for n: int in choices:
+		var b := UiStyle.button("Normal" if n == 0 else str(n), "ChipButton", 26)
+		b.custom_minimum_size.x = 76 if n == 0 else 44
+		b.set_meta("laps", n)
+		b.tooltip_text = "The usual field race: six cars, the track's own laps" if n == 0 else "An endurance race: ten cars for %d laps (pause with Esc; nothing is saved mid-race)" % n
+		b.pressed.connect(func() -> void:
+			UiSound.play("ui_move")
+			set_laps(n))
+		laps_row.add_child(b)
+		laps_btns.append(b)
+	laps_row.visible = false
+	foot.add_child(laps_row)
 	var hint := UiStyle.label("C next car · 1-%d upgrade a part · Enter start" % part_chips.size(), "text", UiStyle.FS_S, UiStyle.TEXT_3)
+	_hint = hint
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -162,6 +205,23 @@ func open() -> void:
 	_pad_at = null
 	refresh()
 	super()
+
+
+## (v6.33) Pick race length `n` (0: normal; else one of Field.ENDURANCE_LAPS).
+func set_laps(n: int) -> void:
+	race_laps = n if Field.ENDURANCE_LAPS.has(n) else 0
+	_style_laps()
+	laps_picked.emit(race_laps)
+
+
+func _style_laps() -> void:
+	for b: Button in laps_btns:
+		b.theme_type_variation = "ChipOnButton" if int(b.get_meta("laps")) == race_laps else "ChipButton"
+
+
+func _hint_text() -> void:
+	if _hint != null:
+		_hint.text = "C next car · 1-%d upgrade a part · %sEnter start" % [part_chips.size(), "L laps · " if laps_choice else ""]
 
 
 func close() -> void:
@@ -250,8 +310,12 @@ func press_start() -> void:
 
 
 ## The part chips the pad highlight can go to (enabled).
+## (v6.33) And the race length chips, when they show.
 func _pad_parts() -> Array:
-	return part_chips.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
+	var all: Array = part_chips.duplicate()
+	if laps_choice:
+		all.append_array(laps_btns)
+	return all.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
 
 
 ## The control the pad highlight is on (null: none shown), for tests.
@@ -279,6 +343,11 @@ func handle_keys(inp: Object) -> void:
 		pick(cards[at - cols if at - cols >= 0 else at].car_id)
 	if inp.consume(["KeyC"]):
 		cycle(-1 if inp.consume(["Shift+KeyC"]) else 1)
+	if laps_choice and inp.consume(["KeyL"]): # (v6.33) the next race length
+		var choices: Array = [0]
+		choices.append_array(Array(Field.ENDURANCE_LAPS))
+		UiSound.play("ui_move")
+		set_laps(choices[(choices.find(race_laps) + 1) % choices.size()])
 	for k in mini(part_chips.size(), PART_KEYS.size()):
 		if inp.consume(PART_KEYS[k]):
 			upgrade.emit(String(part_chips[k].part_id))

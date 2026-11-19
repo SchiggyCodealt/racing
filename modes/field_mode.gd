@@ -32,6 +32,14 @@ extends "res://modes/play_mode.gd"
 ## on the podium with their trophies (world/trophy.gd: gold, silver, bronze), the finish panel showing
 ## the final standings and the cup's pay (GameApp.cup_result); Enter or Esc goes back to the menu.
 
+## v6.33.0, an endurance race (opts.laps: 10, 20, 30 or 40 on a circuit; lineup: Field.ENDURANCE_AI
+## drivers, ten cars with you): the same race over that many laps, with the chequered flag rule of
+## sim/field_race.gd (when the leader finishes, every other car finishes at the line, a lapped car a lap
+## or more short). It doesn't count for records, medals, the ghost or unlocks (PlayMode.counts_for_records):
+## the finish pays the endurance place (Economy, kind "endurance") and the score's money, and the laps and
+## sectors go in the top 10s. Esc (or R) pauses it before the finish: Enter goes on, R starts it again,
+## Esc goes back to the menu. Nothing is saved mid-race.
+
 const FAST_USEC := 6000       # script time a frame may spend finishing the AI's races after yours (µs)
 const PODIUM_AT := 1.8        # s after your finish
 const VOICES := 3             # AI engines heard at once
@@ -62,6 +70,8 @@ var player_slot := -1
 var cup_done := false
 var trophy_on := false
 var cup_end: Dictionary = {}
+## (v6.33) An endurance race's laps (0: a usual field race).
+var endurance := 0
 
 
 func setup(p_app: GameApp, opts: Dictionary) -> void:
@@ -78,6 +88,11 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	nitro_on = false # (v6.15: no nitro in races against the AI; FieldRace empties every tank)
 	cup = opts.get("cup") if opts.get("cup") is CupRun else null
 	player_slot = int(opts.get("player_slot", -1))
+	var laps := int(opts.get("laps", 0))
+	endurance = laps if Field.ENDURANCE_LAPS.has(laps) and track.closed and cup == null else 0
+	if endurance > 0:
+		race_laps = endurance
+		rec = null # (no ghost is saved from it: no need to record the run)
 
 
 func _enter_field() -> void:
@@ -107,6 +122,8 @@ func exit() -> void:
 
 
 func _mode_text(cname: String) -> String:
+	if endurance > 0:
+		return "ENDURANCE · %d LAPS · %s FIELD · %s · %s" % [endurance, Opponents.level_name(field_level).to_upper(), track.name, cname]
 	if cup != null:
 		return "%s · RACE %d/%d · %s · %s · %s" % [Cups.name_of(cup.cup).to_upper(), cup.races_done() + 1, cup.race_count(),
 			Opponents.level_name(field_level).to_upper(), track.name, cname]
@@ -117,6 +134,62 @@ func enter() -> void:
 	_enter_field()
 	if cup != null:
 		app.ui.hud.set_keys([["R", "restart", "View"], ["Enter", "respawn", "B"], ["Esc", "standings", "Menu"]], app.input.pad_active)
+	elif endurance > 0:
+		app.ui.hud.set_keys(RACE_KEYS, app.input.pad_active)
+
+
+## (v6.33) An endurance race's key hints: racing, and paused.
+const RACE_KEYS := [["Enter", "respawn", "B"], ["Esc", "pause", "Menu"]]
+const PAUSE_KEYS := [["Enter", "go on", "B"], ["R", "restart", "View"], ["Esc", "menu", "Menu"]]
+
+
+## (v6.33) Pause an endurance race (or go on): nothing steps while paused, the engines go quiet.
+func set_paused(on: bool) -> void:
+	if on == paused:
+		return
+	paused = on
+	app.ui.hud.set_keys(PAUSE_KEYS if on else RACE_KEYS, app.input.pad_active)
+	if car_audio != null:
+		car_audio.set_active(not on)
+	if on:
+		for a: CarAudio in ai_audio:
+			a.set_active(false)
+		app.audio.duck(FINISH_DUCK_DB)
+	else:
+		app.audio.duck(0.0)
+		_voiced = []
+
+
+## (v6.33) An endurance race before the finish: Esc or R pauses; paused, Enter goes on, R starts again, Esc
+## goes back to the menu. True when the frame was handled here (paused).
+func _endurance_keys(dt: float) -> bool:
+	if endurance <= 0 or phase == "finished":
+		if paused:
+			set_paused(false)
+		return false
+	var inp := app.input
+	if not paused:
+		if inp.consume(["menu", "restart"]):
+			set_paused(true)
+		else:
+			return false
+	elif inp.consume(["respawn"]):
+		set_paused(false)
+		inp.clear_pressed()
+		return true
+	elif inp.consume(["restart"]):
+		set_paused(false)
+		inp.clear_pressed()
+		restart()
+		return true
+	elif inp.consume(["menu"]):
+		set_paused(false)
+		inp.clear_pressed()
+		return_to.call()
+		return true
+	inp.clear_pressed()
+	_render_hud(dt)
+	return true
 
 
 ## The field's drivers and every car on its grid slot (your car on the last one).
@@ -126,6 +199,7 @@ func _place_start() -> void:
 		drivers.append(AiLink.driver(nets[k], float(lineup[k].cap)))
 	field = FieldRace.new(track, lineup, drivers, car, race, {"id": Cups.PLAYER, "name": "You", "code": "YOU",
 		"color": Color(str(car_def.get("look", {}).get("color", "#d7263d")))}, player_slot)
+	field.endurance = endurance > 0
 	_since_finish = -1.0
 	board = {}
 	_voiced = []
@@ -186,6 +260,8 @@ func _bumps() -> void:
 
 
 func update(dt: float) -> void:
+	if _endurance_keys(dt):
+		return
 	if cup != null and phase == "finished" and field != null:
 		# (v6.14) a cup race after your finish: Enter or Esc goes on (the standings, or the trophy moment
 		# and then the menu); R doesn't race it again (its result counts)
@@ -309,6 +385,17 @@ func render(dt: float, alpha: float) -> void:
 
 func _finish_payout(t: float, s: Dictionary) -> Dictionary:
 	var place := field.position(field.player_index)
+	if endurance > 0:
+		# (v6.33) the endurance place and the score's money; no medal (its times are for the track's laps)
+		var e := Economy.claim(track.id, car_def.id, "", "", field_level, place, 0, score.total if score != null else 0, endurance)
+		e.medal = ""
+		e.level = ""
+		e.won = place == 1
+		e.field = field_level
+		e.place = place
+		s.dock = "right"
+		s.field = _field_state(place)
+		return e
 	var medal := Medals.medal_for(medals, t)
 	var under := Economy.under_ms(float(medals.get("author", 0.0)), t)
 	var p := Economy.claim(track.id, car_def.id, medal, "", field_level, place, under, score.total if score != null else 0)
@@ -326,6 +413,8 @@ func _finish_payout(t: float, s: Dictionary) -> Dictionary:
 
 func _field_state(place: int) -> Dictionary:
 	var f := {"place": place, "of": field.racers.size(), "level": Opponents.level_name(field_level), "rows": field.results()}
+	if endurance > 0:
+		f.laps = endurance
 	if cup != null:
 		f.cup = "%s, race %d of %d: +%d points" % [Cups.name_of(cup.cup), cup.races_done() + (0 if cup_done else 1), cup.race_count(), Cups.points_for(place)]
 	return f

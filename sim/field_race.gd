@@ -28,6 +28,11 @@ extends RefCounted
 ##   f.standings() -> racer indices, leader first;  f.position(i) -> 1-based
 ##   f.gap(ahead, behind) -> s;  f.board(i) -> the HUD's {pos, of, rows, ahead, behind}
 ##   f.results() -> the finish panel's rows;  f.respawned(i) after the mode put car i back (the player)
+## v6.33.0, an endurance race (`endurance` true; Field.ENDURANCE_AI drivers, the player's race made for
+## 10 to 40 laps, the AI's races as long): when the leader finishes, the chequered flag is out for the
+## others (RaceState.flag): each finishes the next time it crosses the line, a lapped car a lap or more
+## short. The standings put a car with more laps ahead (results(): laps, down), and the cars still racing
+## after the player's finish get finish_wait = FINISH_WAIT + FLAG_LAPS × the winner's average lap.
 ## Racer indices: 0 .. AI_COUNT - 1 the AI in lineup order, the player last (player_index); a racer's
 ## grid slot is its `slot` (the same as its index unless the player starts further up: v6.14's cups).
 
@@ -42,6 +47,8 @@ const CLEAR_MARGIN: float = 0.5
 ## Progress samples per gap mark (10 m).
 const MARK: int = 5
 const FINISH_WAIT: float = 90.0
+## (v6.33) An endurance race: the laps (the winner's average) the others get after your finish, on top.
+const FLAG_LAPS: float = 1.5
 ## the traffic layer: how far it looks ahead (m + s × speed), how soon it reacts (s to contact), the
 ## lane (m besides the two half widths), how it follows (m/s per m of gap), how hard it steers
 ## round a car ahead and away from one alongside, and the room it wants on the side it passes (m)
@@ -95,6 +102,11 @@ var player_contacts: int = 0
 var hits: Array = []
 ## race time of the player's finish (-1 before)
 var player_finished_at: float = -1.0
+## (v6.33) an endurance race: the chequered flag rule (see the header); whether the flag is out, and how
+## long the others have after the player's finish (s)
+var endurance: bool = false
+var flag_out: bool = false
+var finish_wait: float = FINISH_WAIT
 
 var _cars: Array = []
 var _solid: Array = []
@@ -121,7 +133,7 @@ func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player
 		r.slot = k if k < ps else k + 1
 		r.driver = drivers[k]
 		r.car = Car.new(t, t.start_idx, Opponents.spec(String(e.car))) # (v6.25: the AI's upgraded car)
-		r.race = RaceState.new(t)
+		r.race = RaceState.new(t, player_race.laps) # (v6.33: as many laps as yours: an endurance race's)
 		racers.append(r)
 	var p := Racer.new()
 	p.player = true
@@ -170,6 +182,8 @@ func place_on_grid() -> void:
 	player_contacts = 0
 	hits = []
 	player_finished_at = -1.0
+	flag_out = false
+	finish_wait = FINISH_WAIT
 	_touching = {}
 	knocked = []
 	if cones != null:
@@ -231,15 +245,29 @@ func step(dt: float, player_ctrl: Car.Controls) -> Array[Dictionary]:
 			_watchdog(r, dt)
 		if r.ghost > 0.0:
 			r.ghost = CLEAR_TIME if _overlaps_any(r) else r.ghost - dt
+	if endurance and not flag_out:
+		_flag()
 	var me := racers[player_index]
 	if me.race.finished:
 		if player_finished_at < 0.0:
 			player_finished_at = time
-		elif time - player_finished_at > FINISH_WAIT:
+		elif time - player_finished_at > finish_wait:
 			for r in racers:
 				if not r.race.finished:
 					r.dnf = true
 	return events
+
+
+## (v6.33) An endurance race: once a car has finished (the leader), the chequered flag for the others.
+func _flag() -> void:
+	for r in racers:
+		if r.race.finished:
+			flag_out = true
+			for o in racers:
+				if not o.race.finished:
+					o.race.flag = true
+			finish_wait = FINISH_WAIT + FLAG_LAPS * r.race.finish_time / maxi(1, r.race.lap_times.size())
+			return
 
 
 ## True when every AI car has finished (or is out).
@@ -349,6 +377,8 @@ func traffic(r: Racer, c: Car.Controls) -> void:
 # ---------------------------------------------------------------- positions and gaps
 
 ## Racer indices in race order, leader first: the finished by their time, then by progress (DNF last).
+## (v6.33) Laps first: a car that finished laps short under an endurance race's flag is behind one with
+## more laps (finished or still racing on as many laps as it finished with).
 func standings() -> PackedInt32Array:
 	var idx: Array = range(racers.size())
 	idx.sort_custom(_ahead)
@@ -358,7 +388,15 @@ func standings() -> PackedInt32Array:
 func _ahead(i: int, j: int) -> bool:
 	var a := racers[i]
 	var b := racers[j]
+	var la: int = a.race.lap_times.size()
+	var lb: int = b.race.lap_times.size()
+	if a.race.finished and b.race.finished and la != lb:
+		return la > lb
 	if a.race.finished != b.race.finished:
+		var u := b if a.race.finished else a # (the one still racing)
+		var f := a if a.race.finished else b
+		if not u.dnf and u.race.lap_times.size() >= f.race.lap_times.size():
+			return u == a
 		return a.race.finished
 	if a.race.finished:
 		return a.race.finish_time < b.race.finish_time or (a.race.finish_time == b.race.finish_time and a.slot < b.slot)
@@ -419,17 +457,20 @@ func board(me: int) -> Dictionary:
 
 ## The finish panel's rows in race order: {place, i, id (the driver's, sim/field.gd; the player's
 ## info id), name, code, car (name), color, time (s, INF not finished), gap (s behind the winner; INF:
-## not finished), me, dnf}.
+## not finished), me, dnf, (v6.33) laps (done), down (laps behind the winner, finished cars; else 0)}.
 func results() -> Array[Dictionary]:
 	var order := standings()
 	var out: Array[Dictionary] = []
 	var first: float = racers[order[0]].race.finish_time
+	var top: int = racers[order[0]].race.lap_times.size()
 	for k in order.size():
 		var i: int = order[k]
 		var r := racers[i]
 		var t: float = r.race.finish_time
+		var laps: int = r.race.lap_times.size()
 		out.append({place = k + 1, i = i, id = String(r.info.get("id", "")), name = name_of(i), code = code_of(i), car = String(Cars.get_car(String(r.car.spec.id)).name),
-			color = color_of(i), time = t, gap = t - first if r.race.finished and is_finite(first) else INF, me = r.player, dnf = r.dnf})
+			color = color_of(i), time = t, gap = t - first if r.race.finished and is_finite(first) else INF, me = r.player, dnf = r.dnf,
+			laps = laps, down = maxi(0, top - laps) if r.race.finished and is_finite(first) else 0})
 	return out
 
 

@@ -53,6 +53,14 @@ extends RefCounted
 ## run (id "score", never remembered). Neither depends on the track's scale.
 ##   Economy.payout(..., under_ms, score) / claim(..., under_ms, score); Economy.under_ms(author, time)
 ##   Economy.paid_under(paid) -> the margin (ms) already paid;  Economy.score_money(score)
+## v6.33.0, endurance races (sim/field.gd: ten cars, 10 to 40 laps of a circuit): a finishing place pays
+## from ENDU_PLACES × FIELD_LEVELS[level] × the track's scale × the race's laps / the track's own laps (so
+## lap for lap about what a field race there pays), and like a field place it pays the places below it
+## (9th pays nothing else; 10th nothing): once per track, car, race length, level and place. Reward ids
+## "endu-" + laps + "-" + level + "-" + place ("endu-20-pro-1"). No medal or author money (the medal
+## times are for the track's own laps); the score's money as in every run.
+##   Economy.payout(..., endu_laps) / claim(..., endu_laps): field_level and place with endu_laps > 0 pay
+##       the endurance places instead (kind "endurance");  Economy.endu_ids(laps, level, place)
 
 ## Every reward on the first track; track k pays × (1 + TRACK_STEP × k) (money rounded to 10,
 ## points to a whole number).
@@ -80,6 +88,19 @@ const FIELD_PLACES: Array[Dictionary] = [
 ]
 const FIELD_LEVELS: Dictionary = {"rookie": 0.6, "amateur": 1.0, "pro": 1.5, "expert": 2.1, "elite": 3.0}
 const FIELD_PREFIX: String = "field-"
+## (v6.33) An endurance race's places (ten cars: 9th to 1st pay), as FIELD_PLACES.
+const ENDU_PLACES: Array[Dictionary] = [
+	{"place": 9, "money": 20, "points": 1},
+	{"place": 8, "money": 25, "points": 1},
+	{"place": 7, "money": 35, "points": 1},
+	{"place": 6, "money": 45, "points": 1},
+	{"place": 5, "money": 60, "points": 1},
+	{"place": 4, "money": 90, "points": 2},
+	{"place": 3, "money": 150, "points": 4},
+	{"place": 2, "money": 250, "points": 8},
+	{"place": 1, "money": 450, "points": 15},
+]
+const ENDU_PREFIX: String = "endu-"
 ## (v6.14) The end of a cup: what each place in its standings adds in the first cup at a level of × 1
 ## (the worse places first: a place pays its own and every worse one's), and the step per cup.
 const CUP_PLACES: Array[Dictionary] = [
@@ -136,6 +157,12 @@ static func reward(track_id: String, id: String) -> Dictionary:
 			return {}
 		r = f
 		s *= float(f.scale)
+	elif id.begins_with(ENDU_PREFIX):
+		var e: Dictionary = _endu_reward(id)
+		if e.is_empty():
+			return {}
+		r = e
+		s *= float(e.scale) * float(e.laps) / maxf(1.0, float(Tracks.def(track_id).get("laps", 1)))
 	if not (r is Dictionary):
 		return {}
 	return {money = roundi(float(r.money) * s / 10.0) * 10, points = roundi(float(r.points) * s)}
@@ -151,6 +178,32 @@ static func _field_reward(id: String) -> Dictionary:
 		if int(p.place) == place:
 			return {money = p.money, points = p.points, scale = FIELD_LEVELS[parts[0]], level = parts[0], place = place}
 	return {}
+
+
+## (v6.33) An endurance reward id's {money, points (before any scale), scale (its level's), laps, level,
+## place}, or {} ("endu-<laps>-<level>-<place>").
+static func _endu_reward(id: String) -> Dictionary:
+	var parts: PackedStringArray = id.substr(ENDU_PREFIX.length()).split("-")
+	if parts.size() != 3 or not parts[0].is_valid_int() or not Field.ENDURANCE_LAPS.has(parts[0].to_int()) \
+			or not FIELD_LEVELS.has(parts[1]) or not parts[2].is_valid_int():
+		return {}
+	var place: int = parts[2].to_int()
+	for p: Dictionary in ENDU_PLACES:
+		if int(p.place) == place:
+			return {money = p.money, points = p.points, scale = FIELD_LEVELS[parts[1]], laps = parts[0].to_int(), level = parts[1], place = place}
+	return {}
+
+
+## (v6.33) The place rewards an endurance finish earns: `laps` laps, level `level`, place `place` and every
+## worse place that pays.
+static func endu_ids(laps: int, level: String, place: int) -> PackedStringArray:
+	var out: PackedStringArray = []
+	if not Field.ENDURANCE_LAPS.has(laps) or not FIELD_LEVELS.has(level) or place < 1:
+		return out
+	for p: Dictionary in ENDU_PLACES:
+		if int(p.place) >= place:
+			out.append("%s%d-%s-%d" % [ENDU_PREFIX, laps, level, int(p.place)])
+	return out
 
 
 ## The place rewards a field finish earns: field level `field_level`, place `place` (1 = won) and every
@@ -185,20 +238,22 @@ static func earned_ids(medal: String, beaten: String) -> PackedStringArray:
 ## field race); its place rewards follow the medal's (kind "field").
 ## (v6.30) `under_ms`: how far under the author time the run was (kind "under": the ms not paid before);
 ## `score`: the run's style score (kind "score", paid every run).
+## (v6.33) `endu_laps` > 0: an endurance race of that many laps: `field_level` and `place` pay its places
+## (kind "endurance") instead of a field race's.
 static func payout(track_id: String, medal: String, beaten: String, paid: PackedStringArray, field_level: String = "", place: int = 0,
-		under: int = 0, score: int = 0) -> Dictionary:
+		under: int = 0, score: int = 0, endu_laps: int = 0) -> Dictionary:
 	var items: Array = []
 	var repeat: PackedStringArray = []
 	var money: int = 0
 	var points: int = 0
 	var ids: PackedStringArray = earned_ids(medal, beaten)
-	ids.append_array(field_ids(field_level, place))
+	ids.append_array(endu_ids(endu_laps, field_level, place) if endu_laps > 0 else field_ids(field_level, place))
 	for id: String in ids:
 		if paid.has(id):
 			repeat.append(id)
 			continue
 		var r: Dictionary = reward(track_id, id)
-		var kind: String = "ai" if id.begins_with(AI_PREFIX) else ("field" if id.begins_with(FIELD_PREFIX) else "medal")
+		var kind: String = "ai" if id.begins_with(AI_PREFIX) else ("field" if id.begins_with(FIELD_PREFIX) else ("endurance" if id.begins_with(ENDU_PREFIX) else "medal"))
 		items.append({id = id, kind = kind, label = label(id), money = r.money, points = r.points})
 		money += int(r.money)
 		points += int(r.points)
@@ -242,6 +297,10 @@ static func label(id: String) -> String:
 		var f: Dictionary = _field_reward(id)
 		if not f.is_empty():
 			return "%s field: %s" % [Opponents.level_name(String(f.level)), Field.place_name(int(f.place))]
+	if id.begins_with(ENDU_PREFIX):
+		var e: Dictionary = _endu_reward(id)
+		if not e.is_empty():
+			return "%d-lap endurance (%s): %s" % [int(e.laps), Opponents.level_name(String(e.level)), Field.place_name(int(e.place))]
 	if id.begins_with(AI_PREFIX):
 		return "Beat the %s AI" % Opponents.level_name(id.substr(AI_PREFIX.length()))
 	if id.begins_with(UNDER_PREFIX) and id.substr(UNDER_PREFIX.length()).is_valid_int():
@@ -255,8 +314,8 @@ static func label(id: String) -> String:
 ## and car). Returns the payout, with `money_total` and `points_total` after it.
 ## (v6.30) `under` and `score` as in payout(); the score's money is paid but not remembered.
 static func claim(track_id: String, car_id: String, medal: String, beaten: String, field_level: String = "", place: int = 0,
-		under: int = 0, score: int = 0) -> Dictionary:
-	var p: Dictionary = payout(track_id, medal, beaten, SaveData.paid_rewards(track_id, car_id), field_level, place, under, score)
+		under: int = 0, score: int = 0, endu_laps: int = 0) -> Dictionary:
+	var p: Dictionary = payout(track_id, medal, beaten, SaveData.paid_rewards(track_id, car_id), field_level, place, under, score, endu_laps)
 	var ids: PackedStringArray = []
 	for it: Dictionary in p.items:
 		if String(it.id) != SCORE_ID:

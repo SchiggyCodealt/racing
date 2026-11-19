@@ -245,6 +245,17 @@
     "apex": {"author": 172.55, "gold": 183, "silver": 208, "bronze": 225, "run": {"aLat": 32, "lookK": 1, "steps": 10353, "wallSteps": 155}},
     "quadra": {"author": 192.733, "gold": 205, "silver": 232, "bronze": 251, "run": {"aLat": 18, "lookK": 1, "steps": 11564, "wallSteps": 53}},
     "sarthe": {"author": 167.95, "gold": 179, "silver": 202, "bronze": 219, "run": {"aLat": 26, "lookK": 1, "steps": 10077, "wallSteps": 44}}
+  }},
+  "le-mans": {"name": "Le Mans", "laps": 1, "sig": "6813:13627", "cars": {
+    "racer": {"author": 243.733, "gold": 259, "silver": 293, "bronze": 317, "run": {"aLat": 26, "lookK": 1, "steps": 14624, "wallSteps": 219}},
+    "kestrel": {"author": 255.883, "gold": 272, "silver": 308, "bronze": 333, "run": {"aLat": 32, "lookK": 1, "steps": 15353, "wallSteps": 147}},
+    "thunder": {"author": 234.533, "gold": 249, "silver": 282, "bronze": 305, "run": {"aLat": 22, "lookK": 1, "steps": 14072, "wallSteps": 45}},
+    "drifter": {"author": 246.533, "gold": 262, "silver": 296, "bronze": 321, "run": {"aLat": 28, "lookK": 1, "steps": 14792, "wallSteps": 184}},
+    "dune": {"author": 264.967, "gold": 281, "silver": 318, "bronze": 345, "run": {"aLat": 24, "lookK": 1, "steps": 15898, "wallSteps": 120}},
+    "vortex": {"author": 214.1, "gold": 227, "silver": 257, "bronze": 279, "run": {"aLat": 28, "lookK": 1, "steps": 12846, "wallSteps": 74}},
+    "apex": {"author": 215.767, "gold": 229, "silver": 259, "bronze": 281, "run": {"aLat": 40, "lookK": 1, "steps": 12946, "wallSteps": 218}},
+    "quadra": {"author": 249.633, "gold": 265, "silver": 300, "bronze": 325, "run": {"aLat": 22, "lookK": 1, "steps": 14978, "wallSteps": 183}},
+    "sarthe": {"author": 203.483, "gold": 216, "silver": 245, "bronze": 265, "run": {"aLat": 40, "lookK": 1, "steps": 12209, "wallSteps": 149}}
   }}
 }
 }
