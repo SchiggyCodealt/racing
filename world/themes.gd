@@ -289,10 +289,28 @@ const THEMES := {
 		"scenery": ["pine", "pineTall", "pine", "broadleaf", "rock"],
 		"tuft": {"color": 0x5e9238, "tip": 0xa4c25e},
 	},
+	# v6.33 (Le Mans, track 23)
+	"sarthe": {
+		# a June evening in the Sarthe: a low golden sun, long shadows, pine and oak woods along the
+		# straights, flat farmland beyond; the headlights just start to matter
+		"sky": {"zenith": 0x2d5cb4, "horizon": 0xf0d4a8, "below": 0x6a7a48, "clouds": 0.32, "cloudLit": 0xfff0d8, "cloudShade": 0x9c90a0, "haze": 0.6},
+		"sun": {"color": 0xffd9a0, "intensity": 2.9, "elevation": 17.0, "azimuth": 285.0},
+		"hemi": {"sky": 0xe4dcd0, "ground": 0x5a6438, "intensity": 0.32},
+		"env": 0.95,
+		"fog": {"color": 0xe2d2b6, "near": 320.0, "far": 3400.0},
+		"exposure": 1.0,
+		"bloom": {"strength": 0.24, "radius": 0.5, "threshold": 1.1},
+		"ground": {"a": 0x4f7a2e, "b": 0x6b8c3a, "dry": 0x9a9450, "dirt": 0x7c6646, "rock": 0x8a8478, "snow": -1, "far": 0x5c7c3c},
+		"hills": 5.0, "mountains": 40.0, "mountainStyle": "peaks",
+		"accent": [0x1c5cc8, 0xf4f2ec], "lamps": false, "headlights": 0.25,
+		"woods": {"count": 1.3, "spacing": 9.0, "peak": 0.75, "near": 110.0, "open": 0.35},
+		"scenery": ["pine", "broadleaf", "pineTall", "broadleaf", "bush"],
+		"tuft": {"color": 0x6a9238, "tip": 0xb4c060},
+	},
 }
 
 const NAMES := ["meadow", "desert", "alpine", "canyon", "dusk", "night", "seaside", "autumn", "arctic", "highland",
-	"pinewood", "dunes", "frozen", "jungle", "riviera", "parkland", "styria"]
+	"pinewood", "dunes", "frozen", "jungle", "riviera", "parkland", "styria", "sarthe"]
 
 ## Quality levels (scene.js QUALITY, plus what Godot does with them): render scale
 ## (the web's pixel-ratio cap at 1x DPI), bloom (glow), sun shadow map size and

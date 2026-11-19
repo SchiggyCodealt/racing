@@ -110,11 +110,12 @@ func _initialize() -> void:
 	var longest: float = 0.0
 	var ids: Dictionary = {}
 	for r in results:
-		longest = maxf(longest, float(r.stats.race))
+		if r.def.type == "sprint": # (v6.33: Le Mans's one lap is longer; the marathon stays the longest sprint)
+			longest = maxf(longest, float(r.stats.race))
 		ids[r.def.id] = true
 	for r in results:
 		if r.def.id == "grand-marathon" and float(r.stats.race) < longest:
-			print("   ! grand-marathon must be the longest track")
+			print("   ! grand-marathon must be the longest sprint")
 			failed += 1
 	if ids.size() != results.size():
 		print("   ! duplicate track ids")
@@ -844,19 +845,19 @@ func _define() -> void:
 			.L(50, 110, {bank = 2, y = 10}).S(60).R(50, 110, {bank = 2, y = 9})  # the esses
 			.S(320, {y = 8})
 			.R(100, 100, {bank = 3, y = 7})          # Tertre Rouge
-			.S(1900, {y = 8})                        # the long straight through the woods
+			.S(1700, {y = 8})                        # the long straight through the woods
 			.R(40, 30).L(80, 30).R(40, 30)           # its first chicane
-			.S(1800, {y = 9.5})
+			.S(1700, {y = 9.5})
 			.L(40, 30).R(80, 30).L(40, 30)           # its second chicane
-			.S(1100, {y = 8})
+			.S(1000, {y = 8})
 			.R(5, 1500)                              # the kink
-			.S(600, {y = 6})
-			.R(135, 28, {y = 5})                     # Mulsanne
+			.S(500, {y = 6})
+			.R(122, 28, {y = 5})                     # Mulsanne
 			.S(b, {y = 3})                           # the road back
 			.R(20, 400).S(300).L(25, 250)            # the fast kinks
-			.R(40, 45, {bank = 6, y = 2})            # Indianapolis
-			.S(380, {y = 1.5})
-			.R(60, 25, {y = 1})                      # Arnage
+			.R(46, 45, {bank = 6, y = 2})            # Indianapolis
+			.S(420, {y = 1.5})
+			.R(67, 25, {y = 1})                      # Arnage
 			.S(300, {y = 3})
 			.R(30, 160, {bank = 3}).S(80).L(70, 110, {bank = 4, y = 6}).S(120).R(50, 140, {bank = 3, y = 8})  # the esses in the woods
 			.S(250, {y = 9})
@@ -864,7 +865,7 @@ func _define() -> void:
 			.S(420, {y = 11})
 			.L(45, 30).R(50, 30).S(70).L(35, 25)     # the two chicanes before the pits
 			.S(300, {y = 12})),
-		{a0 = 1013, b0 = 2438, minA = 500, minB = 1000},
+		{a0 = 996, b0 = 2033, minA = 500, minB = 1000},
 		{minLength = 13000, kickers = 0})
 
 
