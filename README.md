@@ -156,7 +156,7 @@ nine AI drivers) for **10, 20, 30 or 40 laps**, with a chequered flag that ends 
 (lapped cars finish a lap or more short), a pause on Esc and pay by place (see [Le Mans](#le-mans-version-6330) and
 [Endurance races](#endurance-races-version-6330)).
 
-![The menu: money and career points in the header, the track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (a shot from version 6.28.0, before Le Mans) (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
@@ -711,6 +711,10 @@ So a first win there pays $5,640 and 170 points; 40 laps pay four times as much 
 Pro field at Le Mans pays $54,000. The HUD's timing tower lists all ten cars, and the finish panel the ten with their
 times, gaps and laps down ("1st of 10 · Pro field · 20 laps").
 
+| The car page | The finish |
+| --- | --- |
+| ![The car page for Race the field on Rookie Oval: "Endurance race: 10 laps, ten cars (Pro field)" at the top, the nine cars and the upgrade chips, and under them the RACE LENGTH row with Normal, 10 (picked), 20, 30 and 40 and the note "Ten cars for 10 laps · paid by place · no records or medals"](docs/screenshots/endurance-car-page.png) | ![The finish of a 10-lap endurance race on Rookie Oval: 1st of 10 · Pro field · 10 laps in 6:49.983, the ten rows with the lapped Drifter "+1 lap" and the others still racing to the line, and the pay: the nine places from 9th to 1st, the score's money and the top 10s, $6,878 and 574 points in all](docs/screenshots/endurance-finish.png) |
+
 **The car shop.** Choose a race, pick a locked car on the car page and press START (it reads BUY): it asks first, then the car is yours for good.
 
 | Car | Racer | Kestrel | Drifter | Dune | Thunder | Quadra | Vortex | Apex | Sarthe |
@@ -1185,6 +1189,8 @@ the metre. It is 14 m wide between walls, runs one lap a race (the medal autopil
 with the Dune) and opens with a bronze on Spielberg. Its scenery (sarthe) is a June evening: a low golden sun and long
 shadows, pine and oak woods close along the straights and farmland beyond, with the headlights just starting to matter.
 It is in no championship; its long lap is the place for the [endurance races](#endurance-races-version-6330).
+
+![Le Mans: the red Racer on nitro at 245 km/h down the long straight between barriers, the road running dead straight to the horizon past pines and oaks and open fields, the minimap of the whole circuit at the top left](docs/screenshots/le-mans.png)
 
 #### The reworked corners (version 6.6.0)
 

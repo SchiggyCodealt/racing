@@ -312,6 +312,7 @@ func _menu_keys(t) -> void:
 	menu.select(15)
 	t.check(meta.text.ends_with("km · Asphalt + gravel"), "... and a rally stage's (v6.23): \"%s\"" % meta.text)
 	menu.select(22)
+	t.check(meta.text == "Circuit · 1 lap · 13.63 km a lap · Asphalt", "... and Le Mans, one lap (v6.33): \"%s\"" % meta.text)
 	menu.handle_keys(_press(inp, ["ArrowRight"]))
 	t.check(menu.selected_track == 0, "ArrowRight from the last track (23) wraps to the first")
 	menu.handle_keys(_press(inp, ["ArrowUp"]))

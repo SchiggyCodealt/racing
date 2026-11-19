@@ -1685,8 +1685,10 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
 - Tests: `test_sim.gd` (Le Mans data, `_endurance`: the nine-driver lineup, the flag on a `RaceState`, a whole 2-lap
   endurance race with nine autopilots and a slow player who is lapped, the standings by laps, the pay), `test_game.gd`
   `_app_endurance` (the car page's row, START, ten cars, pause / go on / restart, a finish by hand: the pay, nothing
-  saved), `test_ui.gd` (23 tiles, the race length row at every window size), e2e `endurance` (shots
-  `endurance_*.png`) and the e2e `menu` / `unlock` counts.
+  saved), `test_ui.gd` (23 tiles, the race length row at every window size, "Circuit · 1 lap" on the track panel),
+  e2e `endurance` (10 checks, 10 laps of Rookie Oval at Pro in 17 minutes; shots `endurance_*.png`, two of them in
+  `docs/screenshots/endurance-*.png`), e2e `shots track=le-mans gfx=high train=0 at=95` (`docs/screenshots/le-mans.png`)
+  and the e2e `menu` / `unlock` counts. `docs/screenshots/menu.png` is still the 22-tile shot of v6.28 (the README says so).
 
 ### Item 1: money for the author margin and the score (v6.30.0, done)
 
