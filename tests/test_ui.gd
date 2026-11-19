@@ -95,7 +95,7 @@ func _data(t) -> void:
 		surf.append(UiData.track_info(i).surfaces)
 	t.check(surf[0] == "Asphalt" and surf[1] == "Asphalt + packed snow" and surf[2] == "Asphalt + dirt" and surf[7] == "Asphalt + dirt + packed snow" and \
 		surf[8] == "Asphalt + dirt" and surf[12] == "Asphalt + dirt" and surf[13] == "Asphalt + packed snow" and surf[14] == "Asphalt + dirt + packed snow" and \
-		surf.count("Asphalt") == 11 and surf[19] == "Asphalt" and surf[21] == "Asphalt", "the road surfaces of every track (v6.3, v6.4; v6.28: the grand-prix circuits asphalt only): %s" % ", ".join(surf))
+		surf.count("Asphalt") == 12 and surf[19] == "Asphalt" and surf[21] == "Asphalt" and surf[22] == "Asphalt", "the road surfaces of every track (v6.3, v6.4; v6.28: the grand-prix circuits asphalt only; v6.33: Le Mans too): %s" % ", ".join(surf))
 	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra", "sarthe"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])

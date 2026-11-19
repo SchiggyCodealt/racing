@@ -4,7 +4,11 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-19 (v6.32.0: round 7, item 3 of 4: top-10 lists of laps and sectors per track (`sim/top_lists.gd`,
+_Last updated: 2026-11-19 (v6.33.0: round 7, item 4 of 4, the last: Le Mans as track 23 (laid out by hand in
+`tools/gen_tracks.gd`, theme `sarthe`, 13.63 km, one lap) and endurance races: Race the field on a circuit with a race
+length of 10 / 20 / 30 / 40 laps, ten cars (`Field.ENDURANCE_AI`), the chequered flag (`RaceState.flag`,
+`FieldRace.endurance`), a pause on Esc, pay by place (`Economy` `endu-` ids); no records or medals from them;
+v6.32.0: round 7, item 3 of 4: top-10 lists of laps and sectors per track (`sim/top_lists.gd`,
 `SaveData.get_tops` / `submit_tops`, save section `tops`), each place paying career points 25-18-15-12-10-8-6-4-2-1; the
 Records screen shows a track's four lists;
 v6.31.0: round 7, item 2 of 4: your nitro back in Race the AI (`PlayMode.nitro_on` always
@@ -1637,8 +1641,50 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
    networks have no nitro output. Field races and cups stay without.
 3. **Top-10 lists (v6.32.0, done)**: the ten fastest laps and the ten fastest of each sector per track; a time that makes a
    list earns career points by its place, 25-18-15-12-10-8-6-4-2-1.
-4. **Le Mans and endurance races (v6.33.0)**: the full Circuit de la Sarthe (13.6 km) and a new Endurance race, 10 cars,
+4. **Le Mans and endurance races (v6.33.0, done)**: the full Circuit de la Sarthe (13.6 km) and endurance races, 10 cars,
    10, 20, 30 or 40 laps, on any circuit; pause, no save in the middle of a race.
+
+### Item 4: Le Mans and endurance races (v6.33.0, done)
+
+- **The track.** `tools/gen_tracks.gd`: a `_circuit` "le-mans" (track 23, after Spielberg, difficulty 3, 14 m, one lap,
+  theme `sarthe`). Not traced: bacinger/f1-circuits has no Le Mans and the network policy here refuses OpenStreetMap
+  and Overpass (403), so it is laid out from the real corners and their lengths (pit straight, Dunlop, the bridge
+  chicane, the esses, Tertre Rouge, Mulsanne with two chicanes and the kink, Mulsanne corner, the road back,
+  Indianapolis, Arnage, the Porsche curves, the Ford chicanes). The solver closes it with the pit straight (a ~ 996 m)
+  and the road back (b ~ 2033 m); the lap is 13,627 m (real 13,626). Tuning tip: the turtle's turns have clothoid
+  run-ins (`lt = clamp(0.8 r, 8, 50)`), so a plain arc model misses the closure by hundreds of metres on a track this
+  long; the prototype in Python had to model them. The generator's "grand-marathon must be the longest" rule is now
+  "the longest sprint". Signature `6813:13627`.
+- `world/themes.gd` `sarthe`: a June evening (sun elevation 17°, golden light, `woods` along the road, farmland),
+  `headlights` 0.25; `audio/sound_bank.gd` gives it the overdrive race music.
+- Medal times: `tools/medals.gd --update --tracks=le-mans` (9 cars, 6 minutes): author 3:23.483 (Sarthe) to 4:24.967
+  (Dune). AI opponents: `tools/opponents.gd --train`, `--tune`, then the levels, for le-mans only (see the numbers
+  below). Track scale 1 + 0.1 x 22 = 3.2: gold + Expert everywhere now earns $193,200 (still short of every car,
+  $210,000).
+- **Endurance races.** `ui/car_screen.gd`: a race length row (`laps_choice`, `race_laps`, `laps_btns`, `laps_note`,
+  `set_laps`, L, the pad reaches the chips as part of the parts list), shown for `race_field` on a circuit, back to
+  Normal on every `ask_car`; `ui/main_menu.gd` sets it and rewrites the event line; `GameApp.play_field(level, laps)`
+  makes a lineup of `Field.ENDURANCE_AI` (9) and passes `laps` to `FieldMode`.
+- `sim/field.gd`: `lineup(track, level, car, n)`, `pace(k, n)` (PACE for five, the same 1.04-1.00 spread for nine),
+  `_drivers(seed, n)` (the same shuffle: the first five are the usual race's). `sim/race.gd`: `flag` (the next lap
+  line is the finish; reset clears it). `sim/field_race.gd`: the AI's races get the player's laps; `endurance` turns on
+  the flag rule (`_flag`: when any car finishes, every other race gets `flag`; `finish_wait` = 90 s + 1.5 x the
+  winner's average lap); `_ahead` sorts by laps first (a car still racing with as many laps as a flagged finisher is
+  ahead of it; a DNF stays last); `results()` adds `laps` and `down`.
+- `modes/play_mode.gd`: `race_laps` (-1 the track's), `counts_for_records()` (false in an endurance race: `_on_finish`
+  skips the record, medal line, ghost, unlock and best score but pays and fills the top 10s), `paused` (the HUD reads
+  PAUSED). `modes/field_mode.gd`: `endurance` (laps), `rec = null`, the HUD line "ENDURANCE · 20 LAPS · PRO FIELD",
+  key hints, `set_paused` / `_endurance_keys` (Esc or R pauses; paused: Enter goes on, R restarts, Esc leaves; the
+  engines go quiet and the music ducks), the payout `Economy.claim(..., endu_laps)`, `field.laps` for the panel.
+- `sim/economy.gd`: `ENDU_PLACES` (9th-1st), ids `endu-<laps>-<level>-<place>`, kind `endurance`, scale = track x
+  level x laps / the track's laps; `endu_ids`, labels "20-lap endurance (Pro): 1st". `ui/finish_panel.gd`: "+1 lap" for
+  `down`, "of 10 · Pro field · 20 laps".
+- Not done: cups stay six cars and the track's laps; Le Mans is in no cup; no fuel, tyres or pit stops.
+- Tests: `test_sim.gd` (Le Mans data, `_endurance`: the nine-driver lineup, the flag on a `RaceState`, a whole 2-lap
+  endurance race with nine autopilots and a slow player who is lapped, the standings by laps, the pay), `test_game.gd`
+  `_app_endurance` (the car page's row, START, ten cars, pause / go on / restart, a finish by hand: the pay, nothing
+  saved), `test_ui.gd` (23 tiles, the race length row at every window size), e2e `endurance` (shots
+  `endurance_*.png`) and the e2e `menu` / `unlock` counts.
 
 ### Item 1: money for the author margin and the score (v6.30.0, done)
 
