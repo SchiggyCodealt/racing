@@ -453,9 +453,9 @@ lap**, the three added up. A click on a row shows that track's top 10s. Watch AI
 records. Like best times, the records stop counting when the physics or the track changes, and **Reset all progress**
 clears them.
 
-| The minimap during a race | The sector records |
+| The minimap during a race | The Records screen (v6.32.0: with the top 10s) |
 | --- | --- |
-| ![Driving on Night Highway: at the top left, under the lap plate, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come; the split time SPLIT 6 under the race clock](docs/screenshots/minimap.png) | ![The Sector records screen over the menu: a row for every track with its small map and yellow sector marks, the S1, S2 and S3 records with the car and its upgrades under each time, and the ideal lap](docs/screenshots/sector-records.png) |
+| ![Driving on Night Highway: at the top left, under the lap plate, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come; the split time SPLIT 6 under the race clock](docs/screenshots/minimap.png) | ![The Records screen over the menu: Night Highway's map, number and name between the Previous and Next buttons, its four top-10 lists (fastest laps, sectors 1 to 3) with each place's time and car, the points by place, then the table of every track with its fastest lap, the S1, S2 and S3 records and the ideal lap](docs/screenshots/sector-records.png) |
 
 ### Top 10s: the fastest laps and sectors (version 6.32.0)
 
@@ -484,11 +484,7 @@ and training don't count). A time that makes a list earns **career points by its
 The **Records** screen (**R** on the menu) opens on the menu's track: its map, number and name, the four lists side by
 side (two to a row on a narrow window), each place with its time and the car (the tooltip gives its upgrades, the date
 and what the place pays), and the points by place under them. **Left** / **right** (A / D, the d-pad, LB / RB) or the
-**Previous** / **Next** buttons go to another track; under them is every track's table (above).
-
-| The Records screen with the top 10s |
-| --- |
-| ![The Records screen: Night Highway's map, number and name between the Previous and Next buttons, four columns of ten places (Fastest laps, Sector 1, Sector 2, Sector 3) with each time and car, the points by place under them, then the table of every track with its fastest lap and sector records](docs/screenshots/top-10s.png) |
+**Previous** / **Next** buttons go to another track; under them is every track's table (pictured above).
 
 ### Medals
 

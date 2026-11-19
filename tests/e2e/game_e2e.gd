@@ -984,7 +984,9 @@ func shots() -> void:
 	check(rec.is_open and row != "" and not row.contains("S1 -") and not row.contains("S3 -") and not row.ends_with("ideal -") and not row.contains("lap -"),
 		"R opens the records with this run's fastest lap and three sectors: %s" % row)
 	# (v6.32) on this track, with its top 10s
-	check(rec.focus_track == Tracks.ids().find(tid) and rec.top_lines.size() == 4 and rec.top_lines[0].begins_with("Laps: 1 ") and rec.top_lines[3].begins_with("S3: 1 "),
+	var n_laps: int = Tracks.build(tid).laps if Tracks.build(tid).closed else 1
+	check(rec.focus_track == Tracks.ids().find(tid) and rec.top_lines.size() == 4 and rec.top_lines[0].begins_with("Laps: 1 ") and rec.top_lines[3].begins_with("S3: 1 ") and
+		rec.top_lines[0].split(", ").size() == n_laps,
 		"the records open on this track with its top 10s: %s" % " / ".join(rec.top_lines))
 	await shot("records_" + tag)
 	await key(KEY_ESCAPE)

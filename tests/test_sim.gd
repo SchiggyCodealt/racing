@@ -367,12 +367,23 @@ func _top_lists() -> void:
 		at += 40.0 + lap
 	SaveData.submit_record("rookie-oval", "racer", at, splits, [2, 0, 0, 0, 0])
 	SaveData.submit_sectors("rookie-oval", "racer", [14.0, 13.0, 12.0])
+	var g_new: Dictionary = SaveData.get_tops("rookie-oval")
+	t.check((g_new.laps as Array).is_empty() and (g_new.sectors[0] as Array).is_empty(),
+		"in a save made by 6.32 a new best time doesn't start the lists (only submit_tops puts times in, so a run's laps never go in twice)")
+	# a save from before v6.32: no lists and no tops_seeded flag
+	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	(raw as Dictionary).erase("tops_seeded")
+	(raw as Dictionary).erase("tops")
+	var fw := FileAccess.open(path, FileAccess.WRITE)
+	fw.store_string(JSON.stringify(raw, "", false, true))
+	fw.close()
+	SaveData.use_file(path)
 	var g0: Dictionary = SaveData.get_tops("rookie-oval")
 	var seeded: bool = (oval.laps == 3 and (g0.laps as Array).size() == 3 and is_equal_approx(float(g0.laps[0].time), 40.0) and
 		is_equal_approx(float(g0.laps[2].time), 42.0) and g0.laps[0].car == "racer" and g0.laps[0].up == PackedInt32Array([2, 0, 0, 0, 0]) and
 		(g0.sectors[0] as Array).size() == 1 and g0.sectors[0][0].time == 14.0 and g0.sectors[2][0].time == 12.0 and
 		(SaveData.get_tops("hairpin-valley").laps as Array).is_empty())
-	t.check(seeded, "a track without lists starts with the laps of each car's best run (40.000, 41.000, 42.000 from the Racer's record) and the sector records; nothing paid for them")
+	t.check(seeded, "loading a save from before 6.32 starts the lists, once, with the laps of each car's best run (40.000, 41.000, 42.000 from the Racer's record) and the sector records; nothing paid for them")
 	var p0: int = SaveData.get_points()
 	var r: Dictionary = SaveData.submit_tops("rookie-oval", "kestrel", PackedFloat64Array([43.5, 39.5, 41.5]),
 		[PackedFloat64Array([13.5, 13.5, 12.5]), PackedFloat64Array([14.5, 13.5, 11.0]), PackedFloat64Array([15.0, 14.0, 13.0])], [0, 1, 0, 0, 0])
@@ -388,11 +399,16 @@ func _top_lists() -> void:
 	t.check((g1.laps as Array).size() == 6 and g1.laps[0].car == "kestrel" and g1.laps[0].time == 39.5 and g1.laps[1].car == "racer" and
 		(g1.sectors[1] as Array).size() == 4 and g1.sectors[1][0].car == "racer" and SaveData.get_points() == p0 + 194,
 		"the lists and the points are read back from the save file")
+	SaveData.submit_record("hairpin-valley", "racer", 100.0, [], [])
+	var hp: Dictionary = SaveData.submit_tops("hairpin-valley", "racer", [52.0, 48.0], [[20.0, 16.0, 16.0], [18.0, 15.0, 15.0]])
+	t.check(hp.laps == PackedInt32Array([1, 2]) and (SaveData.get_tops("hairpin-valley").laps as Array).size() == 2 and
+		hp.sectors[0] == PackedInt32Array([1, 2]), "a first run on a track: saved as the best time first, its laps go in once (1st and 2nd)")
+	var p1: int = SaveData.get_points()
 	var bad1: Dictionary = SaveData.submit_tops("rookie-oval", "bus", [1.0], [[1.0, 1.0, 1.0]])
 	var bad2: Dictionary = SaveData.submit_tops("no-such-track", "racer", [1.0], [[1.0, 1.0, 1.0]])
 	var slow: Dictionary = SaveData.submit_tops("rookie-oval", "racer", [], [PackedFloat64Array([30.0])])
 	t.check(int(bad1.points) == 0 and (bad1.laps as PackedInt32Array).is_empty() and int(bad2.points) == 0 and slow.sectors[0] == PackedInt32Array([5]) and
-		int(slow.points) == 10 and SaveData.get_points() == p0 + 204, "an unknown car or track keeps nothing; an unfinished lap's first sector still counts (5th: 10 points)")
+		int(slow.points) == 10 and SaveData.get_points() == p1 + 10, "an unknown car or track keeps nothing; an unfinished lap's first sector still counts (5th: 10 points)")
 	var full: Array = []
 	for k in 12:
 		full.append(30.0 + k * 0.1)
