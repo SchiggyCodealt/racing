@@ -156,7 +156,7 @@ nine AI drivers) for **10, 20, 30 or 40 laps**, with a chequered flag that ends 
 (lapped cars finish a lap or more short), a pause on Esc and pay by place (see [Le Mans](#le-mans-version-6330) and
 [Endurance races](#endurance-races-version-6330)).
 
-![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
+![The menu: money and career points in the header, the track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
@@ -719,9 +719,9 @@ times, gaps and laps down ("1st of 10 · Pro field · 20 laps").
 
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
 $13,200 after three (a second car), $122,400 after 17, enough for the six cars up to the Vortex ($120,000), and
-$144,400 after 19 (the four rally stages pay well). The Apex ($40,000) on top of those comes after 21 of the 22
-($168,000; the three grand-prix circuits of version 6.28.0 pay the most, $180,400 after all 22), or sooner with the Elite
-AI and author times (a career of those earns $306,680), a second car's medals, Race the field or the cups, which all pay
+$144,400 after 19 (the four rally stages pay well). The Apex ($40,000) on top of those comes after 21 of the 23
+($168,000; the three grand-prix circuits of version 6.28.0 and Le Mans pay the most, $193,200 after all 23), or sooner with the Elite
+AI and author times (a career of those earns $328,440), a second car's medals, Race the field or the cups, which all pay
 as well. The Sarthe ($50,000, version 6.29.0) is the dearest: every car together costs $210,000, more than one gold
 and Expert career, so the last car needs money from a second car, the AI races or the cups. Silver and the Pro
 everywhere buy the Kestrel after five tracks.
@@ -852,8 +852,8 @@ run out), so the last engine levels mostly add acceleration.
 Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 of the four older parts cost what they
 did before version 6.16.0 ($248,200 for the six cars of that version, $519,700 for today's nine; $678,400 with the weight); from there each level's price rises by more than the one before
 (level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
-wins gold and beats the Expert on every track earns $180,400 per car driven (author and the Elite everywhere
-$306,680): the Racer at level 7 everywhere costs a little less than one author-and-Elite career with it ($256,500), and its levels
+wins gold and beats the Expert on every track earns $193,200 per car driven (author and the Elite everywhere
+$328,440): the Racer at level 7 everywhere costs less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
 counts too). Every level of every part of every car costs $12,000,200.
 
