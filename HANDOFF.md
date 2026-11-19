@@ -1675,8 +1675,10 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
   times go in fastest first; an equal time goes below the one listed; returns the new list and the places taken),
   `record_laps(splits, laps, gates_per_lap)` (the laps in a saved best run's splits).
 - `sim/save.gd`: section `tops` {track: {sig, physics, laps: [{time, car, up, date}], sectors: [[...] x 3]}}.
-  `get_tops(track)` validates like the sector records (physics, track signature, known cars) and, for a track without
-  lists, seeds them (paying nothing) from every car's best run (its splits) and the sector records. `submit_tops(track,
+  `get_tops(track)` validates like the sector records (physics, track signature, known cars). A save from before v6.32
+  gets its lists once, on loading (`_seed_all_tops`, flag `tops_seeded`; paying nothing), from every car's best run
+  (its splits) and the sector records: at load, not lazily, because the finish saves the run's record before its
+  laps go in, and a lazy seed would count a first run's laps twice. `submit_tops(track,
   car, laps, sector_laps, up)` merges a run (laps: `race.lap_times`; sectors: `Sectors.Clock.times`, so every lap's
   sectors), pays the places into career points and rewrites the `sectors` record section from the lists' first
   places, all in one write. `submit_sectors` / `get_sectors` stay (the HUD's records, the old tests).
