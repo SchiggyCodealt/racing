@@ -33,7 +33,7 @@ const MENU := ["Menu", true, [
 	["Settings", ["k:O"], ["t:D-pad, then", "k:A"]],
 	["Terminal", ["k:`"], ["t:Settings, then", "k:A"]],
 	["Championships", ["k:T"], ["t:D-pad, then", "k:A"]],
-	["Sector records", ["k:R"], ["t:D-pad, then", "k:A"]],
+	["Records (top 10s)", ["k:R"], ["t:D-pad, then", "k:A"]],
 	["Other buttons", ["t:Mouse"], ["t:D-pad, then", "k:A"]],
 	["Back to the tracks", [], ["k:B"]],
 	["This screen", ["k:H", "k:?", "k:Esc"], ["k:View", "k:B"]],

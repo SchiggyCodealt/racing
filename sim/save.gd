@@ -72,6 +72,14 @@ extends RefCounted
 ##                                                    version of the track)
 ##   SaveData.submit_sectors(track_id, car_id, times, up) -> the sectors (0..2) whose record `times` (3 floats,
 ##                                                    INF: not driven) beat, written in one go
+## Top-10 lists (v6.32.0; sim/top_lists.gd):
+##   SaveData.get_tops(track_id) -> {laps: [entry] fastest first, sectors: [[entry] x 3]}, at most 10 each,
+##                                                    any car (entries as the sector records'); a track with
+##                                                    none yet starts from the laps of each car's best run
+##                                                    and the sector records
+##   SaveData.submit_tops(track_id, car_id, laps, sector_laps, up) -> {laps, sectors (the places the run's
+##                                                    times took), records (sectors it set the record in),
+##                                                    points (paid into the career by place), points_total}
 ## Unlocking tracks (v6.8.0; sim/unlocks.gd has the rule):
 ##   SaveData.opened_tracks() -> the tracks opened by medals (track ids; the first track is always open)
 ##   SaveData.open_track(id)                          open track `id` for good (true when it was not yet)
@@ -79,7 +87,7 @@ extends RefCounted
 ## File layout: {version, records: {track: {car: {time, splits, date, physics, sig}}},
 ## ghosts: {track: {car: ghost}}, scores: {track: {car: {score, date, rules, physics, sig}}},
 ## settings: {...}, networks: {car: {slot: network file}}, sectors (v6.26): {track: {sig, physics, best: [{time, car, up,
-## date} or null] × 3}},
+## date} or null] × 3}}, tops (v6.32): {track: {sig, physics, laps: [{time, car, up, date}], sectors: [[...] × 3]}},
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
 ## tracks_open, upgrades: {car: [engine, tyres, nitro, loose, weight]}, cups?: {paid: [cup reward ids], trophies: {cup:
@@ -160,7 +168,7 @@ static func _all() -> Dictionary:
 			else:
 				# keep what we couldn't read, then start over
 				DirAccess.copy_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path + ".bad"))
-		for k: String in ["records", "ghosts", "scores", "settings", "networks", "archive", "sectors"]:
+		for k: String in ["records", "ghosts", "scores", "settings", "networks", "archive", "sectors", "tops"]:
 			if not (_data.get(k) is Dictionary):
 				_data[k] = {}
 		# (version 3 and older have no career; a career is kept whatever the version says: an older
@@ -514,6 +522,125 @@ static func submit_sectors(track_id: String, car_id: String, times: Variant, up:
 	return better
 
 
+# ---- top-10 lists (v6.32.0) ---------------------------------------------------------
+
+## The track's ten fastest laps and ten fastest times through each sector, any car (sim/top_lists.gd):
+## {laps: [{time, car, up, date}] fastest first, sectors: [[...], [...], [...]]}. A track without lists
+## yet (a save from before v6.32) starts them from what was kept before: the laps of every car's best
+## run (its splits) and the sector records.
+static func get_tops(track_id: String) -> Dictionary:
+	_mutex.lock()
+	var out: Dictionary = {laps = [], sectors = [[], [], []]}
+	var e: Variant = (_all().tops as Dictionary).get(track_id)
+	if e is Dictionary and JsMath.same(e.get("physics"), Car.PHYSICS_VERSION) and _same_track(e, track_id):
+		out.laps = _top_list(e.get("laps"))
+		var s: Variant = e.get("sectors")
+		for k in Sectors.COUNT:
+			out.sectors[k] = _top_list(s[k] if s is Array and k < (s as Array).size() else null)
+	else:
+		out = _seed_tops(track_id)
+	_mutex.unlock()
+	return out
+
+
+## A saved list read back: the entries with a time and a known car, fastest first, at most SIZE.
+static func _top_list(v: Variant) -> Array:
+	var out: Array = []
+	if v is Array:
+		for b: Variant in v:
+			if b is Dictionary and _is_num(b.get("time")) and float(b.time) > 0.0 and Cars.has_car(str(b.get("car", ""))):
+				out.append({time = float(b.time), car = str(b.car), up = Upgrades.clean(b.get("up")), date = str(b.get("date", ""))})
+	out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.time) < float(b.time))
+	if out.size() > TopLists.SIZE:
+		out.resize(TopLists.SIZE)
+	return out
+
+
+## The lists a track starts with (nothing paid for them): the laps of each car's best run, the sector records.
+static func _seed_tops(track_id: String) -> Dictionary:
+	var out: Dictionary = {laps = [], sectors = [[], [], []]}
+	var t: BuiltTrack = Tracks.build(track_id)
+	var recs: Variant = (_all().records as Dictionary).get(track_id)
+	if t != null and recs is Dictionary:
+		var laps: int = t.laps if t.closed else 1
+		var per_lap: int = t.cp_samples.size() + 1
+		var cars: Array = (recs as Dictionary).keys()
+		cars.sort() # (the same order every time: equal laps keep it)
+		for car: Variant in cars:
+			if not Cars.has_car(str(car)):
+				continue
+			var r: Dictionary = get_record(track_id, str(car))
+			if r.is_empty():
+				continue
+			var lt := TopLists.record_laps(r.splits, laps, per_lap)
+			out.laps = TopLists.merge(out.laps, lt, str(car), r.up, str(r.date)).list
+	var sec: Array[Dictionary] = get_sectors(track_id)
+	for k in Sectors.COUNT:
+		if not sec[k].is_empty():
+			out.sectors[k] = [sec[k]]
+	return out
+
+
+## Put a run's times in the track's lists and pay their places (one write): `laps` its lap times,
+## `sector_laps` its sector times lap by lap (Sectors.Clock.times), with car `car_id` and upgrade
+## levels `up`. The sector records (get_sectors) follow the lists' first places. Returns {laps
+## (PackedInt32Array: the places this run's laps took, best first), sectors ([PackedInt32Array] x 3),
+## records (PackedInt32Array: the sectors whose record the run set, as submit_sectors), points (paid),
+## points_total}; nothing for an unknown car or track.
+static func submit_tops(track_id: String, car_id: String, laps: Variant, sector_laps: Variant, up: Variant = null) -> Dictionary:
+	var res: Dictionary = {laps = PackedInt32Array(), sectors = [PackedInt32Array(), PackedInt32Array(), PackedInt32Array()],
+		records = PackedInt32Array(), points = 0, points_total = get_points()}
+	if not Cars.has_car(car_id) or Tracks.signature(track_id) == "":
+		return res
+	var lv: Array = Array(Upgrades.clean(up))
+	var date: String = _now()
+	_mutex.lock()
+	var cur: Dictionary = get_tops(track_id)
+	var changed: bool = false
+	var m: Dictionary = TopLists.merge(cur.laps, laps, car_id, lv, date)
+	res.laps = m.places
+	var lists: Dictionary = {laps = m.list, sectors = [[], [], []]}
+	changed = changed or not m.places.is_empty()
+	for k in Sectors.COUNT:
+		var times := PackedFloat64Array()
+		if sector_laps is Array:
+			for lap: Variant in sector_laps:
+				if (lap is Array or lap is PackedFloat64Array) and k < lap.size():
+					times.append(float(lap[k]) if _is_num(lap[k]) else INF)
+		var ms: Dictionary = TopLists.merge(cur.sectors[k], times, car_id, lv, date)
+		lists.sectors[k] = ms.list
+		res.sectors[k] = ms.places
+		if not ms.places.is_empty():
+			changed = true
+			if ms.places[0] == 1:
+				res.records.append(k)
+	for p: int in res.laps:
+		res.points += TopLists.points_for(p)
+	for k in Sectors.COUNT:
+		for p: int in res.sectors[k]:
+			res.points += TopLists.points_for(p)
+	if changed:
+		(_all().tops as Dictionary)[track_id] = {sig = Tracks.signature(track_id), physics = Car.PHYSICS_VERSION,
+			laps = _top_json(lists.laps), sectors = [_top_json(lists.sectors[0]), _top_json(lists.sectors[1]), _top_json(lists.sectors[2])]}
+		var best: Array = []
+		for k in Sectors.COUNT:
+			best.append(_top_json([lists.sectors[k][0]])[0] if not (lists.sectors[k] as Array).is_empty() else null)
+		(_all().sectors as Dictionary)[track_id] = {sig = Tracks.signature(track_id), physics = Car.PHYSICS_VERSION, best = best}
+		var c: Dictionary = _career()
+		c.points = maxi(0, int(c.points) + int(res.points))
+		_write()
+	res.points_total = int(_career().points)
+	_mutex.unlock()
+	return res
+
+
+static func _top_json(list: Array) -> Array:
+	var out: Array = []
+	for e: Dictionary in list:
+		out.append({time = float(e.time), car = str(e.car), up = Array(Upgrades.clean(e.get("up"))), date = str(e.get("date", ""))})
+	return out
+
+
 # ---- ghosts ------------------------------------------------------------------------
 
 ## The saved ghost of the best run on a track with a car, unchecked (Replay.unpack_ghost
@@ -844,7 +971,7 @@ static func reset_everything() -> Dictionary:
 	var settings: Dictionary = (d.get("settings", {}) as Dictionary).duplicate(true)
 	settings.erase("car")
 	settings.erase("opponent")
-	var fresh: Dictionary = {version = VERSION, records = {}, ghosts = {}, scores = {}, settings = settings, networks = {}, archive = {}, sectors = {}}
+	var fresh: Dictionary = {version = VERSION, records = {}, ghosts = {}, scores = {}, settings = settings, networks = {}, archive = {}, sectors = {}, tops = {}}
 	_start_career(fresh)
 	_repair_career(fresh)
 	fresh.career.tracks_open = Array(Unlocks.from_records(fresh))

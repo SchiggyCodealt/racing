@@ -511,7 +511,7 @@ func _build_go() -> void:
 	head_row.add_child(push)
 	# (v6.26) the sector records, beside the Cups
 	_records_btn = Dialog.button_with_cap("Records", "R")
-	_records_btn.tooltip_text = "The fastest sector times on every track, with the car and its upgrades"
+	_records_btn.tooltip_text = "The ten fastest laps and sector times on every track (each place pays career points), with the car and its upgrades"
 	_records_btn.custom_minimum_size.y = CupCabinet.H
 	_records_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_records_btn.pressed.connect(func() -> void:
@@ -981,10 +981,11 @@ func show_controls(on: bool) -> void:
 		controls.close()
 
 
-## (v6.26.0) The sector records over the menu.
+## (v6.26.0) The records over the menu (v6.32.0: the top 10s, on the menu's track).
 func show_records(on: bool) -> void:
 	if on:
 		_ring.set_target(null)
+		records.focus_track = selected_track
 		records.open()
 	else:
 		records.close()
