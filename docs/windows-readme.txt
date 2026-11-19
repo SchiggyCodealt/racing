@@ -1,23 +1,32 @@
-Track Rush 6.32.0 for Windows (64-bit)
+Track Rush 6.33.0 for Windows (64-bit)
 ======================================
 
-A Trackmania-style racer with nine cars, twenty-two tracks (seven of them
+A Trackmania-style racer with nine cars, twenty-three tracks (seven of them
 with dirt or packed snow, four of them rally stages on gravel, sand, ice and
-mud, three of them real grand-prix circuits), medals, ghosts and an AI driver
+mud, three of them real grand-prix circuits, and Le Mans), medals, ghosts and an AI driver
 you train yourself, with any of the cars. Medals and wins against five AI
 opponents (Rookie to Elite) pay money and career points, and money buys cars
 and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.32.0: top 10s. Every track keeps its ten fastest laps and the ten
-fastest times through each of its three sectors, by any car. A time that
-makes a list earns career points by its place: 25, 18, 15, 12, 10, 8, 6, 4,
-2, 1 (the finish panel shows them). R on the menu opens the Records screen
-on the menu's track with its four lists; left and right go to another
-track. Your times from before start the lists (paying nothing).
+New in 6.33.0: Le Mans and endurance races. Track 23 is Le Mans, the
+24-hour circuit at its real length: 13.63 km a lap with the 6 km Mulsanne
+straight and its two chicanes, one lap a race, on a June evening; a bronze
+on Spielberg opens it. And on any circuit Race the field can be an endurance
+race: on the car page pick the race length (Normal, or 10, 20, 30 or 40
+laps; L steps through them) for ten cars, you and nine AI drivers. When the
+leader finishes, everyone else finishes at the line (a lapped car a lap or
+more short: "+1 lap"). Esc pauses (Enter goes on, R starts again, Esc goes
+to the menu); nothing is saved mid-race. Endurance races pay by place
+(9th to 1st, more for more laps) and fill the top 10s, but count for no
+medal, record or ghost.
 
 Earlier versions, newest first:
+6.32.0  top 10s: every track keeps its ten fastest laps and the ten fastest
+        times through each sector, by any car; a time that makes a list
+        earns career points by its place (25 for 1st down to 1); R on the
+        menu shows them.
 6.31.0  your nitro is back in Race the AI (the AI car still has none);
         Race the field and the cups stay without nitro.
 6.30.0  more ways to earn money: $1 for every millisecond under the author
@@ -131,7 +140,8 @@ that save folder if you want your records gone too).
 
 Credits
 -------
-The shapes of Monaco, Silverstone and Spielberg are traced from the circuit
+Le Mans is laid out by hand from the real circuit's corners and lengths (no
+map data is used). The shapes of Monaco, Silverstone and Spielberg are traced from the circuit
 centre lines of bacinger/f1-circuits (github.com/bacinger/f1-circuits):
 
   MIT License, Copyright (c) 2019-2025 Tomislav Bacinger

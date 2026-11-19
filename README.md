@@ -1,8 +1,8 @@
 # Track Rush
 
 A Trackmania-style racer, plus a neural-network AI driver that you train yourself with
-neuroevolution and can watch learn in real time. Pick one of 8 cars, chase the medal times on
-22 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
+neuroevolution and can watch learn in real time. Pick one of 9 cars, chase the medal times on
+23 tracks, fire the nitro, score points for clean driving, race the ghost of your own best run,
 and play with a keyboard or a gamepad.
 
 Version 6.0.0 is the game rebuilt in the [Godot](https://godotengine.org) game engine (version
@@ -150,8 +150,13 @@ Version 6.32.0 keeps **top 10s** on every track: its ten fastest laps and ten fa
 car. A time that makes a list earns career points by its place, 25 for 1st down to 1 for 10th, shown on the finish
 panel; the **Records** screen shows each track's four lists (see
 [Top 10s](#top-10s-the-fastest-laps-and-sectors-version-6320)).
+Version 6.33.0 adds **Le Mans**, the 24-hour circuit at its real length (13.63 km a lap, with the 6 km Mulsanne straight
+and its two chicanes), as track 23, and **endurance races**: on any circuit, Race the field can be ten cars (you and
+nine AI drivers) for **10, 20, 30 or 40 laps**, with a chequered flag that ends everyone's race when the leader finishes
+(lapped cars finish a lap or more short), a pause on Esc and pay by place (see [Le Mans](#le-mans-version-6330) and
+[Endurance races](#endurance-races-version-6330)).
 
-![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
+![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (a shot from version 6.28.0, before Le Mans) (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
 | Driving at night (headlights, nitro flames, the score on the left) | The finish panel |
 | --- | --- |
@@ -590,7 +595,8 @@ lists what a run earned and why.
   the same result again pays nothing (the finish panel says "paid before").
 - A medal pays the medals below it too (a first gold pays bronze, silver and gold), and beating an AI pays the
   easier levels on that track with that car as well (they are slower).
-- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more, track 19 (Monsoon Trail) 180 % more, track 22 (Spielberg) 210 % more.
+- **Later tracks pay more**: track 2 pays 10 % more than Rookie Oval, track 15 (Summit Rush) 140 % more, track 19 (Monsoon Trail) 180 % more, track 22 (Spielberg) 210 % more, track 23 (Le Mans) 220 % more.
+- **Endurance races pay by place** (version 6.33.0), scaled by their laps (see [Endurance races](#endurance-races-version-6330)).
 - Each car earns on its own: a gold with the Kestrel pays again after a gold with the Racer.
 - **Under the author time** (version 6.30.0): every millisecond you beat the author time by pays **$1**, once per
   track and car. Beat it by 1.234 s and the run pays $1,234 on top of the medals; beat it later by 1.500 s and that
@@ -670,6 +676,45 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 | --- | --- |
 | ![Race the field on Rookie Oval against an Elite field on lap 2: at the top right the timing tower (LAP 2/3, DUA the leader, the others with their gaps, your row 6th in yellow) and under it P6/6 with the car ahead, your best and the bronze time; the minimap at the top left with every car as a dot](docs/screenshots/field-race.png) | ![The podium on the start straight (Ines Duarte in the Apex, Rico Vance, Ada Brandt) with the finish panel on the right, over the timing tower: 6th of 6, the finishing order as F1-style rows with car, time and gap to the winner, a gold medal and a new personal best, $1,600 and 70 points](docs/screenshots/field-podium.png) |
 
+### Endurance races (version 6.33.0)
+
+On a circuit (not a sprint), Race the field can also be an **endurance race**: ten cars, you and nine AI drivers,
+for **10, 20, 30 or 40 laps**. Pick a level in the AI driver block, press **Race the field**, and on the car page pick
+the **race length** under the cars: **Normal** is the usual field race (six cars, the track's own laps), **10**, **20**,
+**30** or **40** an endurance race (click a chip, or press **L** to step through them; the gamepad reaches them from
+the upgrade chips). The line at the top of the page says what will start ("Endurance race: 20 laps, ten cars").
+
+- **The field.** Nine of the eleven drivers (the usual race's five first), their paces spread as in a field race:
+  the pole sitter 4 % slower than the level, the last AI on the grid at the level's pace with your car. You start
+  last on a grid of ten.
+- **The chequered flag.** When the leader finishes, the race is over for the others at the line: each car finishes
+  the next time it crosses it. A car that was lapped finishes a lap or more short and the results say "+1 lap" ("+2
+  laps" ...) instead of a gap. If an AI wins while you are a lap down, your race ends the next time you cross the line.
+- **Pause.** **Esc** (gamepad Menu) pauses the race: nothing moves, the screen says PAUSED and the engines go quiet.
+  **Enter** (B) goes on, **R** (View) starts the race again and **Esc** goes back to the menu. R while racing pauses
+  too, so a stray key doesn't throw a long race away. Nothing is saved during a race: leaving it or closing the game
+  ends it. After the finish R and Esc work as in a field race.
+- **No nitro**, as in every race against the field.
+- **What counts.** An endurance race doesn't count for medals, records, your ghost, your best score or opening tracks
+  (those are for the track's own laps), and pays no medal or author money. Every lap and sector counts for the top 10s
+  (see [Top 10s](#top-10s-the-fastest-laps-and-sectors-version-6320)), and the score pays its money as in every run.
+- **Pay by place.** 9th to 1st pay, scaled like a field race by the field's level and the track and also by the
+  race's length against the track's own: 10 laps of Rookie Oval (a 3-lap track) pay 10 / 3 × as much, 10 laps of Le Mans
+  (a 1-lap track) 10 ×. A place pays the places below it too, once per track, car, race length and level.
+
+| 10 laps of Rookie Oval, Pro field | 9th | 8th | 7th | 6th | 5th | 4th | 3rd | 2nd | 1st | 10th |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Money | $100 | $130 | $180 | $230 | $300 | $450 | $750 | $1,250 | $2,250 | nothing |
+| Points | 5 | 5 | 5 | 5 | 5 | 10 | 20 | 40 | 75 | |
+
+So a first win there pays $5,640 and 170 points; 40 laps pay four times as much ($22,500), and a 10-lap win against a
+Pro field at Le Mans pays $54,000. The HUD's timing tower lists all ten cars, and the finish panel the ten with their
+times, gaps and laps down ("1st of 10 · Pro field · 20 laps").
+
+| The car page | The finish |
+| --- | --- |
+| ![The car page for Race the field on Rookie Oval: "Endurance race: 10 laps, ten cars (Pro field)" at the top, the nine cars and the upgrade chips, and under them the RACE LENGTH row with Normal, 10 (picked), 20, 30 and 40 and the note "Ten cars for 10 laps · paid by place · no records or medals"](docs/screenshots/endurance-car-page.png) | ![The finish of a 10-lap endurance race on Rookie Oval: 1st of 10 · Pro field · 10 laps in 6:49.983, the ten rows with the lapped Drifter "+1 lap" and the others still racing to the line, and the pay: the nine places from 9th to 1st, the score's money and the top 10s, $6,878 and 574 points in all](docs/screenshots/endurance-finish.png) |
+
 **The car shop.** Choose a race, pick a locked car on the car page and press START (it reads BUY): it asks first, then the car is yours for good.
 
 | Car | Racer | Kestrel | Drifter | Dune | Thunder | Quadra | Vortex | Apex | Sarthe |
@@ -678,9 +723,9 @@ in Drive. A win against a Pro field on Rookie Oval pays $1,520 and 46 points on 
 
 A player who wins gold and beats the Expert on every track with the Racer has $8,400 after two tracks and
 $13,200 after three (a second car), $122,400 after 17, enough for the six cars up to the Vortex ($120,000), and
-$144,400 after 19 (the four rally stages pay well). The Apex ($40,000) on top of those comes after 21 of the 22
-($168,000; the three grand-prix circuits of version 6.28.0 pay the most, $180,400 after all 22), or sooner with the Elite
-AI and author times (a career of those earns $306,680), a second car's medals, Race the field or the cups, which all pay
+$144,400 after 19 (the four rally stages pay well). The Apex ($40,000) on top of those comes after 21 of the 23
+($168,000; the three grand-prix circuits of version 6.28.0 and Le Mans pay the most, $193,200 after all 23), or sooner with the Elite
+AI and author times (a career of those earns $328,440), a second car's medals, Race the field or the cups, which all pay
 as well. The Sarthe ($50,000, version 6.29.0) is the dearest: every car together costs $210,000, more than one gold
 and Expert career, so the last car needs money from a second car, the AI races or the cups. Silver and the Pro
 everywhere buy the Kestrel after five tracks.
@@ -703,7 +748,7 @@ it (the AI drivers and the standings stay as they are).
 | 6 | **Rally Cup** (version 6.23.0) | Pine Ridge, Dune Sea, Frozen Lake, Monsoon Trail | 19 |
 | 7 | **Grand Prix Cup** (version 6.28.0) | Silverstone, Spielberg, Monaco | 22 |
 
-Together they cover all 22 tracks. The first five get harder from one to the next; the Rally Cup comes after them and
+Together they cover the first 22 tracks (Le Mans, track 23, is in none of them). The first five get harder from one to the next; the Rally Cup comes after them and
 is the only one of four races: forest gravel, desert sand, a frozen lake and jungle mud, a different road in every race,
 so the car that wins one stage may struggle on the next (you can change cars between the races). The Grand Prix Cup
 comes last: the three real circuits, two laps each, ending in the Monaco streets. A cup opens when all
@@ -811,8 +856,8 @@ run out), so the last engine levels mostly add acceleration.
 Prices follow the car's price (the Racer counts as a $12,000 car). Levels 1-3 of the four older parts cost what they
 did before version 6.16.0 ($248,200 for the six cars of that version, $519,700 for today's nine; $678,400 with the weight); from there each level's price rises by more than the one before
 (level k costs 0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2.3, 2.8 × the car's price × the part's share). A player who
-wins gold and beats the Expert on every track earns $180,400 per car driven (author and the Elite everywhere
-$306,680): the Racer at level 7 everywhere costs a little less than one author-and-Elite career with it ($256,500), and its levels
+wins gold and beats the Expert on every track earns $193,200 per car driven (author and the Elite everywhere
+$328,440): the Racer at level 7 everywhere costs less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
 counts too). Every level of every part of every car costs $12,000,200.
 
@@ -1105,6 +1150,7 @@ stages) have **no barriers**. Instead:
 | 20 | Monaco | 2 laps | 3.35 km/lap | riviera | asphalt | ★★★★★ | The real harbour street circuit, 12 m wide between walls: the climb to the Casino, the Grand Hotel hairpin (10.5 m), the long bend along the sea and the swimming pool |
 | 21 | Silverstone | 2 laps | 5.85 km/lap | parkland | asphalt | ★★★ | The real airfield circuit: Copse, the Maggotts-Becketts sweepers, the Hangar and Wellington straights, the Loop |
 | 22 | Spielberg | 2 laps | 4.28 km/lap | styria | asphalt | ★★★ | The real Austrian circuit: a long climb to the hairpin at the top (18 m up), then fast sweepers down the hill |
+| 23 | Le Mans | 1 lap | 13.63 km/lap | sarthe | asphalt | ★★★ | The 24-hour circuit: the 6 km Mulsanne straight through the woods with two chicanes, the Mulsanne and Arnage hairpins, the Porsche curves |
 
 #### The grand-prix circuits (version 6.28.0)
 
@@ -1129,6 +1175,22 @@ the seventh championship, the **Grand Prix Cup** (Silverstone, Spielberg, then M
 | Monaco | Silverstone | Spielberg |
 | --- | --- | --- |
 | ![Monaco: the red Racer climbing a curving street between barriers with red and white kerb boards, pastel houses with rows of windows on both sides](docs/screenshots/monaco.png) | ![Silverstone: the Racer on a wide, flat straight between barriers with blue boards, green fields and copses on both sides](docs/screenshots/silverstone.png) | ![Spielberg: the Racer on the start straight between barriers, spruce woods and green hills, snowy Alps behind](docs/screenshots/spielberg.png) |
+
+#### Le Mans (version 6.33.0)
+
+Le Mans is the Circuit de la Sarthe, the circuit of the 24-hour race, at its real length: one lap is 13.63 km (the real
+one 13.626 km), more than twice a lap of Silverstone and longer than the Grand Marathon. No traced outline of it was at
+hand (the grand-prix circuits' data set has no Le Mans, and the map services were out of reach where it was built), so
+it is laid out by hand from its known corners and their lengths: the pit straight up to the Dunlop curve and the chicane
+under the bridge, the esses down the hill, Tertre Rouge, the Mulsanne straight through the woods (6 km with its two
+chicanes and the kink), the Mulsanne corner, the fast road back with its kinks, Indianapolis and Arnage, the Porsche
+curves through the woods and the two chicanes before the pits. It looks like the real one on the minimap, though not to
+the metre. It is 14 m wide between walls, runs one lap a race (the medal autopilot takes 3:23 with the Sarthe and 4:25
+with the Dune) and opens with a bronze on Spielberg. Its scenery (sarthe) is a June evening: a low golden sun and long
+shadows, pine and oak woods close along the straights and farmland beyond, with the headlights just starting to matter.
+It is in no championship; its long lap is the place for the [endurance races](#endurance-races-version-6330).
+
+![Le Mans: the red Racer on nitro at 245 km/h down the long straight between barriers, the road running dead straight to the horizon past pines and oaks and open fields, the minimap of the whole circuit at the top left](docs/screenshots/le-mans.png)
 
 #### The reworked corners (version 6.6.0)
 
@@ -1518,8 +1580,8 @@ on Linux): a script error at start-up leaves Godot waiting instead of exiting.
 
 | Command | What it does |
 | --- | --- |
-| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades, the cups: points, standings, grids, payouts; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop, Race the field, championships) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels, whole AI field races). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
-| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip; since 6.23.0 also the four rally stages with the Racer: gravel, sand, ice and mud, `stages=only` runs only them and `stages=0` leaves them out), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `field` (Race the field: the grid, a race, the podium), `cup` (a championship: the cup picker, its races driven by the autopilot, the standings between them, the trophy moment and the cabinet; `cup=rally` picks another cup, `races=1` drives only the first race), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
+| `godot --headless --path . --script res://tests/run_tests.gd` | The test suite, about 6 minutes: `sim` (tracks, physics, road surfaces, race, points, ghosts, medals, save file, money and points, unlocking tracks, the faster bronze, car upgrades, the cups: points, standings, grids, payouts; the numbers are compared with the browser version's on the browser's versions of the tracks: all asphalt, and the five reworked in 6.6.0 as they were before), `ui`, `world` (3D building, no window; the engine sounds and a car's sounds from the physics), `game` (the game shell, input, modes, the car shop, races against the AI opponents, the terminal's commands, locked tracks, upgrades, sound: buses, volumes, the background mute and the sounds of a race and the shop, Race the field, endurance races, championships) and `ai` (network, sensors, FleetSim against the GDScript simulation with every car, stock and upgraded, training with every car, the training screen, the AI opponents' levels, whole AI field races). Add `-- sim ai` to run only some. It also runs on GitHub Actions for every push (`.github/workflows/test.yml`). |
+| `xvfb-run -a -s "-screen 0 1920x1080x24" godot --path . --resolution 1280x720 --script res://tests/e2e/game_e2e.gd -- scenario=races save=/tmp/e2e.json gfx=low` | End-to-end tests of the real game in a window (Linux with a virtual display; on Windows leave out `xvfb-run ...`). Scenarios: `races`, `modes`, `cars` (an AI network per car: train one, watch it, race it), `menu`, `settings1` then `settings2` (same save file), `shots` (the README screenshots), `economy` (money, points, races against the AI opponents, buying a car), `surfaces` (dirt and snow: the menu's surface line, dust, snow spray, tyre-mark colours, mud and snow on the screen and gone again on asphalt; give `gfx=high`, for its screenshots and its snow-spray check, which `gfx=low` thins out to a coin flip; since 6.23.0 also the four rally stages with the Racer: gravel, sand, ice and mud, `stages=only` runs only them and `stages=0` leaves them out), `terminal` (the terminal: open it with `` ` `` and from Settings, type commands, add money, buy cars with it, close it; `` ` `` in a race does nothing), `unlock` (a new career: locked tracks refuse Drive and Race the AI, Watch and Train work, a bronze on Rookie Oval opens Hairpin Valley), `upgrades` (a new career: the part chips, buying every level of every part of the Racer by clicking, a faster race with the same autopilot, the upgraded run's ghost), `audio` (sound and music: the menu music, the Settings sliders and the background mute, two races with the engine's pitch measured against the revs, the cues heard when they play, gravel and snow, a wall hit, the AI car's sound; it records the sound and logs every frame; run it with `--write-movie out.avi` (Movie Maker) so the sound is mixed in step with the frames, and with `--audio-driver Dummy` on a machine without a sound card), `field` (Race the field: the grid, a race, the podium), `endurance` (version 6.33.0: the car page's race length, a 10-lap race of ten cars fast-forwarded, the pause, the chequered flag, the finish panel and the podium; `laps=20` for another length), `cup` (a championship: the cup picker, its races driven by the autopilot, the standings between them, the trophy moment and the cabinet; `cup=rally` picks another cup, `races=1` drives only the first race), `perf`. Always give `save=` so your own save file is left alone. See the top of `tests/e2e/game_e2e.gd`. |
 | `godot --headless --path . --script res://tools/headless_train.gd -- ...` | Trains the AI without the game window (see above) |
 | `godot --headless --path . --script res://tools/gen_tracks.gd` | Regenerates `data/tracks.json` from the track designs in the same file and checks the design rules (`-- --check` only compares) |
 | `godot --headless --path . --script res://tools/medals.gd` | Works out the medal times of every track and car and writes `data/medals.json`: about 45 minutes on 3 cores for eight cars (one car on all 22 tracks: 11 minutes on 4 threads; `-- --check` only compares, `-- --jobs=N` threads, `-- --update --tracks=a,b` sweeps only those tracks and keeps the others' times: 17 minutes for four tracks; `-- --factors` works gold, silver and bronze out again from the author times already in the file after a factor in `sim/medals.gd` changes, in a second, as version 6.9.0 did for bronze; `-- --js=<file>` compares with the browser version's times, author, gold and silver only since 6.9.0) |
@@ -1561,7 +1623,7 @@ it uses and its `scale` of it, its colours, a `look` (one of the road shader's t
 numbers for that look, the `slot` it likes and a detail texture (`tex`: a generator in `world/textures.gd`
 `surface()`). Add new surfaces at the end of the table (the tracks store their index). The menu, minimaps, scenery
 and AI pick a new track up by themselves; the menu has keys for 12 tracks (1-9, 0, -, =), further tracks are picked
-with the mouse, arrows or gamepad, and its grid makes rows as full as it can (22 tracks: four rows of six, which fit
+with the mouse, arrows or gamepad, and its grid makes rows as full as it can (23 tracks: four rows of six, the last of five, which fit
 a 1280 x 720 window without scrolling). A circuit runs 3 laps unless its design sets `laps` (6.28.0: the
 grand-prix circuits run 2). A track added after the others opens for an old save when the track before it
 already has a bronze (`Unlocks.catch_up`, run when the save's `tracks_known` is not the number of tracks). A track's scenery is a theme in `world/themes.gd` (sky, light, fog, ground

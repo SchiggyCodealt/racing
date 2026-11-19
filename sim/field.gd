@@ -36,8 +36,14 @@ extends RefCounted
 ##   Field.lineup_of(track_id, level, player_car, driver_ids) -> lineup() for those drivers (driver k at
 ##       PACE[k]); lineup() is lineup_of() with the drivers shuffled by track and level
 ##   Field.place_name(p) -> "1st", "2nd" ...
+## v6.33.0, endurance races: ENDURANCE_AI (9) AI drivers and you, ten cars, for 10, 20, 30 or 40 laps
+## (ENDURANCE_LAPS) of a circuit; the same drivers' paces spread over the longer grid (pace(k, n)):
+##   Field.lineup(track_id, level, player_car, n) -> n drivers (default AI_COUNT);  Field.pace(k, n)
 
 const AI_COUNT: int = 5
+## (v6.33) An endurance race's AI drivers (ten cars with you) and its race lengths (laps).
+const ENDURANCE_AI: int = 9
+const ENDURANCE_LAPS: PackedInt32Array = [10, 20, 30, 40]
 ## The roster: id, name, code (standings), car (sim/cars.gd id), color (paint).
 const DRIVERS: Array[Dictionary] = [
 	{id = "brandt", name = "Ada Brandt", code = "BRA", car = "kestrel", color = "#eef0f2"},
@@ -78,9 +84,20 @@ static func _seed(text: String) -> int:
 	return h
 
 
-## The field of a race: AI_COUNT drivers, pole first (see the header).
-static func lineup(track_id: String, level: String, player_car: String) -> Array[Dictionary]:
-	return lineup_of(track_id, level, player_car, _drivers("%s|%s" % [track_id, level]))
+## The field of a race: AI_COUNT drivers (or (v6.33) `n`: an endurance race's ENDURANCE_AI), pole first
+## (see the header). The first AI_COUNT of a larger field are the usual race's drivers.
+static func lineup(track_id: String, level: String, player_car: String, n: int = AI_COUNT) -> Array[Dictionary]:
+	return lineup_of(track_id, level, player_car, _drivers("%s|%s" % [track_id, level], n))
+
+
+## (v6.33) Grid slot k's pace (pole first) in a field of n AI drivers: PACE for the usual five, the same
+## spread (the pole 4 % slower than the last) for another number.
+static func pace(k: int, n: int) -> float:
+	if n == PACE.size():
+		return PACE[k]
+	if n <= 1:
+		return PACE[PACE.size() - 1]
+	return lerpf(PACE[0], PACE[PACE.size() - 1], float(k) / float(n - 1))
 
 
 ## (v6.14) The five drivers of a cup (sim/cups.gd) at a level: driver ids, the slowest first (the order
@@ -97,9 +114,9 @@ static func driver(id: String) -> Dictionary:
 	return {}
 
 
-## AI_COUNT driver ids from the roster, in an order shuffled by `seed_text` (Fisher-Yates with a
+## `n` (AI_COUNT) driver ids from the roster, in an order shuffled by `seed_text` (Fisher-Yates with a
 ## generator seeded by a stable hash).
-static func _drivers(seed_text: String) -> PackedStringArray:
+static func _drivers(seed_text: String, n: int = AI_COUNT) -> PackedStringArray:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _seed(seed_text)
 	var order: Array = range(DRIVERS.size())
@@ -109,23 +126,24 @@ static func _drivers(seed_text: String) -> PackedStringArray:
 		order[k] = order[j]
 		order[j] = x
 	var out: PackedStringArray = []
-	for k in AI_COUNT:
+	for k in mini(n, order.size()):
 		out.append(String(DRIVERS[order[k]].id))
 	return out
 
 
-## The field of drivers `driver_ids` (AI_COUNT roster ids) on a track at a level: driver k aims at
-## PACE[k] × the level's time with the player's car, in that order (lineup()'s entries).
+## The field of drivers `driver_ids` (AI_COUNT roster ids; v6.33: any number) on a track at a level:
+## driver k aims at pace(k, n) × the level's time with the player's car, in that order (lineup()'s entries).
 static func lineup_of(track_id: String, level: String, player_car: String, driver_ids: PackedStringArray) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var base: float = Opponents.time_of(track_id, player_car, level)
-	if base <= 0.0 or driver_ids.size() != AI_COUNT:
+	var n: int = driver_ids.size()
+	if base <= 0.0 or n < 1:
 		return out
-	for k in AI_COUNT:
+	for k in n:
 		var d: Dictionary = driver(driver_ids[k])
 		if d.is_empty():
 			return []
-		var target: float = PACE[k] * base
+		var target: float = pace(k, n) * base
 		var car: String = String(d.car)
 		var fastest: float = Opponents.time_of(track_id, car, "elite")
 		if fastest <= 0.0 or fastest > target * 1.0001 or Opponents.cap_of(track_id, car, level) < 0.0:

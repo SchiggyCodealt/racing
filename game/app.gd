@@ -36,6 +36,8 @@ extends Node
 ## v6.13.0: Race the field (modes/field_mode.gd, sim/field.gd): the menu's button races five AI drivers at
 ## the menu's AI level on the selected track with the picked car (play_field), refused like Drive on a
 ## locked track or with a car you don't own, and with My AI picked (a field needs a level).
+## v6.33.0: an endurance race: the car page's race length (10 to 40 laps, on a circuit) makes Race the field
+## ten cars, Field.ENDURANCE_AI drivers, for that many laps (play_field's `laps`).
 ## v6.14.0: championships (sim/cups.gd, sim/cup_run.gd, ui/cup_screen.gd): the menu's Cups button (or
 ## T) opens the cup screen: pick a cup and a field level, Start races its tracks one after the other as
 ## field races (start_cup, cup_race) against the same five drivers with the picked car; between races the
@@ -164,7 +166,7 @@ func _ready() -> void:
 	ui.menu.race_ghost.connect(func() -> void: play("human", true))
 	ui.menu.watch_ai.connect(func() -> void: play("ai", false))
 	ui.menu.train_ai.connect(train)
-	ui.menu.race_field.connect(func() -> void: play_field())
+	ui.menu.race_field.connect(func() -> void: play_field("", ui.menu.car_page.race_laps))
 	# (v6.14) championships: the cup screen asks, the app races
 	cup = CupRun.from_dict(SaveData.get_cup_run())
 	if cup == null and not SaveData.get_cup_run().is_empty():
@@ -324,7 +326,8 @@ func play(driver: String, ghost: bool) -> void:
 ## (v6.13) Race the field on the selected track with the picked car: five AI drivers at field level
 ## `level` (default the menu's AI level). Refused like Drive (a car you don't own is offered for sale, a
 ## locked track says what opens it), and with My AI picked or no AI opponents here.
-func play_field(level: String = "") -> void:
+## (v6.33) `laps` 10, 20, 30 or 40 on a circuit: an endurance race (Field.ENDURANCE_AI drivers, ten cars).
+func play_field(level: String = "", laps: int = 0) -> void:
 	var car := UiData.picked_car()
 	if not UiData.owns_car(car):
 		offer_car(car)
@@ -340,7 +343,8 @@ func play_field(level: String = "") -> void:
 		refuse("Pick a field level", "Race the field puts five AI drivers on the grid with you. Pick their level first: Rookie, Amateur, Pro, Expert or Elite in the AI driver row (My AI races alone).")
 		return
 	var t := tracks[selected_track]
-	var lineup := Field.lineup(t.id, lv, car)
+	var endu := laps if Field.ENDURANCE_LAPS.has(laps) and t.closed else 0
+	var lineup := Field.lineup(t.id, lv, car, Field.ENDURANCE_AI if endu > 0 else Field.AI_COUNT)
 	var nets: Array = []
 	for e: Dictionary in lineup:
 		var opp := AiLink.opponent(t.id, String(e.car))
@@ -352,7 +356,10 @@ func play_field(level: String = "") -> void:
 		refuse("No AI field", "There are no AI opponents for %s with the %s in this version of the game, so there is no field to race." % [t.name, Cars.get_car(car).name])
 		return
 	UiSound.play("ui_confirm")
-	start_field({"track": t, "field": lv, "lineup": lineup, "nets": nets})
+	var opts := {"track": t, "field": lv, "lineup": lineup, "nets": nets}
+	if endu > 0:
+		opts.laps = endu
+	start_field(opts)
 
 
 ## Start Race the field (opts: see modes/field_mode.gd). Returns the mode.

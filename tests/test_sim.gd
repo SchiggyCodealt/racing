@@ -45,6 +45,8 @@ const SIGS: Dictionary = {
 	"monsoon-trail": "1747:3493|mud68-471,gravel472-781,mud782-1550",
 	# v6.28: the three grand-prix circuits
 	"monaco": "1674:3348", "silverstone": "2923:5846", "spielberg": "2142:4283",
+	# v6.33: Le Mans
+	"le-mans": "6813:13627",
 }
 ## The tracks v6.6.0 left alone: SHA-256 of their tools/gen_tracks.gd text (tracks_json([def])) and
 ## of their medal entry in data/medals.json (JSON.stringify, keys sorted) as v6.5 had them.
@@ -87,6 +89,8 @@ const V623_STAGES: Dictionary = {
 }
 ## The grand-prix circuits of v6.28, in menu order (20-22): all asphalt, new (no older version)
 const V628_CIRCUITS: PackedStringArray = ["monaco", "silverstone", "spielberg"]
+## Le Mans, track 23 (v6.33): all asphalt, new (no older version)
+const V633_LE_MANS: PackedStringArray = ["le-mans"]
 ## The tracks of v6.4, in menu order (13-15): [surfaces, difficulty, race type]
 const V64_TRACKS: Dictionary = {
 	"forest-rally": ["Asphalt + dirt", 3, "circuit"],
@@ -142,6 +146,7 @@ func run(checker: Variant) -> bool:
 	_faster_bronze()
 	_upgrades()
 	_field()
+	_endurance()
 	_cups()
 	_sectors()
 	_top_lists()
@@ -501,7 +506,7 @@ static func asphalt(id: String) -> BuiltTrack:
 func _tracks_and_autopilot() -> void:
 	t.section("tracks and the test autopilot")
 	var ids: PackedStringArray = Tracks.ids()
-	t.check(ids.size() == 22, "%d tracks defined (expected 22)" % ids.size())
+	t.check(ids.size() == 23, "%d tracks defined (expected 23)" % ids.size())
 	var exact: int = 0
 	var plain_time: Dictionary = {} # id -> the test autopilot's time on the all-asphalt track
 	for id: String in ids:
@@ -615,11 +620,11 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	var kept_bad: PackedStringArray = []
 	for id: String in ids:
 		var same: bool = String(texts.get(id, "")).sha256_text() == String((V65_KEPT.get(id, ["?"]) as Array)[0])
-		if V623_STAGES.has(id) or V628_CIRCUITS.has(id):
+		if V623_STAGES.has(id) or V628_CIRCUITS.has(id) or V633_LE_MANS.has(id):
 			continue # (newer than v6.5: nothing to compare with; their signatures are pinned below)
 		if same != V65_KEPT.has(id) or V65_KEPT.has(id) == V66_REWORKED.has(id):
 			kept_bad.append(id)
-	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() + V623_STAGES.size() + V628_CIRCUITS.size() == ids.size(),
+	t.check(kept_bad.is_empty() and V65_KEPT.size() + V66_REWORKED.size() + V623_STAGES.size() + V628_CIRCUITS.size() + V633_LE_MANS.size() == ids.size(),
 		"the %d tracks v6.6 did not rework are bit for bit as in v6.5 (their tracks.json text); the %d reworked ones (%s) are not%s" % [
 			V65_KEPT.size(), V66_REWORKED.size(), ", ".join(V66_REWORKED.keys()), "" if kept_bad.is_empty() else ": wrong " + ", ".join(kept_bad)])
 	# signatures: the kept ones unchanged (the browser's layouts = v6.2's), the reworked ones new
@@ -628,7 +633,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	for id: String in ids:
 		var tr: BuiltTrack = by_id(id)
 		var legacy: String = Tracks.legacy_signature(id)
-		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == (V64_TRACKS.has(id) or V623_STAGES.has(id) or V628_CIRCUITS.has(id))
+		var ok: bool = Tracks.signature(id) == String(SIGS.get(id, "?")) and tr.signature() == Tracks.signature(id) and (legacy == "") == (V64_TRACKS.has(id) or V623_STAGES.has(id) or V628_CIRCUITS.has(id) or V633_LE_MANS.has(id))
 		if V66_REWORKED.has(id):
 			ok = ok and tr.layout_signature() != legacy and tr.signature() != String(V65_SIGS[id]) and \
 				Tracks.build_web(id).layout_signature() == legacy
@@ -637,7 +642,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 		if not ok:
 			bad_sigs.append("%s %s" % [id, Tracks.signature(id)])
 	t.check(bad_sigs.is_empty() and SIGS.size() == ids.size(),
-		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4, the 4 stages of v6.23 and the 3 circuits of v6.28 as made%s" % [
+		"track signatures: the kept tracks' unchanged (layouts = v6.2's), the reworked ones' new (not v6.5's or v6.2's; the browser's layout still built for the parity checks), the 3 of v6.4, the 4 stages of v6.23, the 3 circuits of v6.28 and Le Mans (v6.33) as made%s" % [
 			"" if bad_sigs.is_empty() else ": wrong " + ", ".join(bad_sigs)])
 	# medal times: the kept tracks' unchanged (data/medals.json), the reworked and v6.4 ones for every car
 	var md: Dictionary = Medals.data().get("tracks", {})
@@ -671,7 +676,7 @@ func _v64_tracks(ids: PackedStringArray) -> void:
 	var old_themes: Dictionary = {}
 	for i in 12:
 		old_themes[by_id(ids[i]).theme] = true
-	var meta_ok: bool = ids.size() == 22 and Array(ids.slice(12, 15)) == V64_TRACKS.keys()
+	var meta_ok: bool = ids.size() == 23 and Array(ids.slice(12, 15)) == V64_TRACKS.keys()
 	var themes: PackedStringArray = []
 	var last_diff: int = 0
 	for id: String in V64_TRACKS:
@@ -956,6 +961,13 @@ func _rally_stages() -> void:
 		themes[tr.theme] = true
 		gp_lines.append("%s %.2f km (real %.2f)" % [tr.name, tr.length / 1000.0, float(gp[1]) / 1000.0])
 	t.check(gp_ok, "tracks 20-22 are the grand-prix circuits (v6.28): asphalt with walls, two laps, a theme each, at their real length: %s" % "; ".join(gp_lines))
+	# v6.33: Le Mans after them, the 24-hour circuit: one lap of its real 13.626 km (within 1 %), asphalt with
+	# walls, 14 m wide, a theme of its own; a lap is longer than the Grand Marathon (the longest sprint)
+	var lm: BuiltTrack = by_id("le-mans")
+	var lm_ok: bool = Tracks.index_of("le-mans") == 22 and lm.closed and lm.laps == 1 and Surfaces.summary(lm) == "Asphalt" and not lm.open_edges and \
+		lm.theme == "sarthe" and not themes.has(lm.theme) and int(lm.def.difficulty) == 3 and absf(lm.length / 13626.0 - 1.0) < 0.01 and \
+		absf(2.0 * lm.hw[lm.start_idx] - 14.0) < 0.01 and lm.race_length() > by_id("grand-marathon").race_length() and lm.cp_samples.size() >= 30
+	t.check(lm_ok, "track 23 is Le Mans (v6.33): one lap of %.3f km (the real circuit 13.626), asphalt with walls, 14 m wide, theme sarthe, %d checkpoints" % [lm.length / 1000.0, lm.cp_samples.size()])
 
 	# the medal runs: every car finishes every stage; on the ice the fastest run of most cars is a
 	# clean one (leaning on the snow banks does not pay: the ice's wall factor)
@@ -1075,7 +1087,7 @@ func _surfaces() -> void:
 	for tr: BuiltTrack in tracks:
 		var summary: String = Surfaces.summary(tr)
 		var legacy: String = Tracks.legacy_signature(tr.id)
-		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and (V64_TRACKS.has(tr.id) or V623_STAGES.has(tr.id) or V628_CIRCUITS.has(tr.id)))) and \
+		var sig_ok: bool = ((tr.layout_signature() == legacy) != V66_REWORKED.has(tr.id) or (legacy == "" and (V64_TRACKS.has(tr.id) or V623_STAGES.has(tr.id) or V628_CIRCUITS.has(tr.id) or V633_LE_MANS.has(tr.id)))) and \
 			(tr.signature() == tr.layout_signature()) == (not tr.has_surfaces()) and Tracks.signature(tr.id) == tr.signature()
 		ok = ok and summary == String(want.get(tr.id, "Asphalt")) and sig_ok
 		if tr.has_surfaces():
@@ -1098,7 +1110,7 @@ func _surfaces() -> void:
 				parts.append("%s %d%%" % [Surfaces.id(k), roundi(float(shares[k]) * 100.0)])
 			ok = ok and sums_ok and step_max <= 1.0 / (2 * Surfaces.BLEND + 1) + 1e-5 and grid_ok
 			lines.append("%s: %s (%s)" % [tr.name, ", ".join(parts), tr.signature().get_slice("|", 1)])
-	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4, the 4 stages of v6.23), the other %d all asphalt (the 3 circuits of v6.28 among them); the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
+	t.check(ok, "surfaces on %d tracks (4 of v6.3, 3 of v6.4, the 4 stages of v6.23), the other %d all asphalt (the 3 circuits of v6.28 and Le Mans among them); the layouts of v6.2 but for the five reworked in v6.6; blend weights add up to 1 and change at most 1/%d a sample (about %d m from one surface to the next); the start grid on asphalt; %s" % [
 		lines.size(), tracks.size() - lines.size(), 2 * Surfaces.BLEND + 1, roundi((2 * Surfaces.BLEND + 1) * 2.0), "; ".join(lines)])
 
 	# asphalt is the old physics: on Ramp Rally the racer drives bit for bit as on the all-asphalt
@@ -2537,7 +2549,7 @@ func _unlocks() -> void:
 	SaveData.reset_career()
 	SaveData.use_file(path)
 	t.check(all_open and quiet == "" and not SaveData.tracks_unlocked() and open_ids.call() == PackedStringArray(["rookie-oval", "hairpin-valley", "night-highway"]) and
-		SaveData.get_money() == 0, "unlock tracks opens all 22; reset career turns the flag off but keeps what medals opened (Hairpin Valley, and Night Highway from a gold while the flag was on)")
+		SaveData.get_money() == 0, "unlock tracks opens all 23; reset career turns the flag off but keeps what medals opened (Hairpin Valley, and Night Highway from a gold while the flag was on)")
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clean.call()
 
@@ -2648,10 +2660,10 @@ func _career() -> void:
 			later = later and int(b.money) > int(a.money) and int(b.points) >= int(a.points) and int(b.money) % 10 == 0
 	var last: String = ids[ids.size() - 1]
 	t.check(ok and later and Medals.ORDER.size() == Economy.MEDALS_UP.size() and Economy.reward(ids[0], "gold") == {money = 800, points = 40} and
-		Economy.reward("summit-rush", "gold") == {money = 1920, points = 96} and Economy.reward(last, "gold") == {money = 2480, points = 124} and \
-		ids.size() == 22 and Economy.reward(ids[0], "ai-elite") == {money = 1600, points = 80} and
+		Economy.reward("summit-rush", "gold") == {money = 1920, points = 96} and Economy.reward(last, "gold") == {money = 2560, points = 128} and \
+		ids.size() == 23 and Economy.reward(ids[0], "ai-elite") == {money = 1600, points = 80} and
 		Economy.reward(ids[0], "nope").is_empty(),
-		"reward table: %d rewards (4 medals, %d AI levels), each harder one pays more money and points, every track more than the one before (gold: $800 / 40 pts on track 1, $1,920 / 96 pts on track 15, $2,480 / 124 pts on track %d)" % [
+		"reward table: %d rewards (4 medals, %d AI levels), each harder one pays more money and points, every track more than the one before (gold: $800 / 40 pts on track 1, $1,920 / 96 pts on track 15, $2,560 / 128 pts on track %d)" % [
 		keys.size(), Opponents.ids().size(), ids.size()])
 	# payouts: a medal pays the medals below it, an AI level the levels below it; paid ones are skipped
 	var p: Dictionary = Economy.payout("rookie-oval", "gold", "pro", PackedStringArray())
@@ -2872,8 +2884,8 @@ func _career() -> void:
 	clean.call()
 
 	# the prices: a player who drives well (gold medals, which also beat the Expert AI at 1.13 x the
-	# author time) can buy a second car after three tracks, the six up to the Vortex after 17 of the 22
-	# and the Apex too after 21 (v6.28: the three grand-prix circuits pay the most); the Sarthe of v6.29
+	# author time) can buy a second car after three tracks, the six up to the Vortex after 17 of the 23
+	# and the Apex too after 21 (v6.28: the three grand-prix circuits pay the most; v6.33: Le Mans more); the Sarthe of v6.29
 	# (the dearest) on top takes more than one car's gold + Expert career (the Elite AI, a second car's
 	# medals, field races or cups)
 	var prices: Array = []
@@ -2890,7 +2902,7 @@ func _career() -> void:
 	var fair: PackedInt32Array = Economy.career({medal = "silver", ai = "pro"})
 	var n: int = good.size()
 	var elite: PackedInt32Array = Economy.career({medal = "author", ai = "elite"})
-	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("sarthe") and good[1] < prices[0] and good[2] >= prices[0] and n == 22 and good[15] < six and \
+	ok = prices.size() == Cars.ids().size() - 1 and dearest == Economy.price("sarthe") and good[1] < prices[0] and good[2] >= prices[0] and n == 23 and good[15] < six and \
 		good[16] >= six and good[19] < total and good[20] >= total and good[n - 1] < total + dearest and elite[n - 1] >= total + dearest and fair[3] < prices[0] and fair[4] >= prices[0]
 	t.check(ok, "prices (%s; the six up to the Vortex $%s, with the Apex $%s, the Sarthe on top): gold + Expert on each track earns $%s after 2 tracks, $%s after 3 (the second car), $%s after 16 and $%s after 17 (those six), $%s after 20 and $%s after 21 (the Apex too) and $%s after all %d (short of the Sarthe, $%s in all; author + Elite earns $%s); silver + Pro: the second car after 5 tracks ($%s), $%s in all" % [
 		", ".join(PackedStringArray(prices.map(func(v: int) -> String: return UiFormat.money(v)))), UiFormat.points(six), UiFormat.points(total), UiFormat.points(good[1]),
@@ -3623,6 +3635,120 @@ func _field() -> void:
 
 
 
+## v6.33.0: endurance races: ten cars (Field.ENDURANCE_AI drivers and you) for 10 to 40 laps of a
+## circuit; the chequered flag rule (RaceState.flag, FieldRace.endurance); the standings by laps; the
+## endurance places' pay (sim/economy.gd).
+func _endurance() -> void:
+	t.section("endurance races (v6.33.0): the field, the chequered flag, the pay")
+	var lu := Field.lineup("rookie-oval", "pro", "racer", Field.ENDURANCE_AI)
+	var five := Field.lineup("rookie-oval", "pro", "racer")
+	var base: float = Opponents.time_of("rookie-oval", "racer", "pro")
+	var ids: Dictionary = {}
+	var ok := lu.size() == 9 and five.size() == Field.AI_COUNT and Field.ENDURANCE_LAPS == PackedInt32Array([10, 20, 30, 40])
+	for k in lu.size():
+		ids[String(lu[k].id)] = true
+		ok = ok and is_equal_approx(float(lu[k].target), Field.pace(k, 9) * base) and int(lu[k].slot) == k and float(lu[k].cap) > 0.0
+		if k < five.size():
+			ok = ok and String(lu[k].id) == String(five[k].id)
+	ok = ok and ids.size() == 9 and is_equal_approx(Field.pace(0, 9), 1.04) and is_equal_approx(Field.pace(8, 9), 1.0) and Field.pace(4, 9) > Field.pace(5, 9) and \
+		Field.pace(2, 5) == Field.PACE[2]
+	t.check(ok, "an endurance field: nine different drivers (the usual race's five first), pole at 1.04 x the level's time down to 1.0 x for the last AI (%.3f, %.3f ... %.3f)" % [
+		Field.pace(0, 9), Field.pace(1, 9), Field.pace(8, 9)])
+	# the flag: a race of 3 laps; once flagged, the next lap line is the finish
+	var oval: BuiltTrack = Tracks.build("rookie-oval")
+	var fc := Car.new(oval, oval.start_idx)
+	var fr := RaceState.new(oval, 3)
+	var per: int = fr.cp_per_lap
+	var ev_all: Array = []
+	fc.prog = float(fr.gates[per - 1].prog) + 0.1 # (past the line of lap 1)
+	ev_all.append_array(fr.update(fc, 50.0))
+	fr.flag = true
+	fc.prog = float(fr.gates[per].prog) + 0.1 # (a checkpoint of lap 2: no finish yet)
+	ev_all.append_array(fr.update(fc, 20.0))
+	var mid := not fr.finished
+	fc.prog = float(fr.gates[2 * per - 1].prog) + 0.1 # (the line of lap 2: the finish, a lap short)
+	var evs := fr.update(fc, 30.0)
+	fr.reset()
+	t.check(mid and fr.flag == false and evs.size() == per - 1 and String(evs[evs.size() - 1].kind) == "finish" and is_equal_approx(float(evs[evs.size() - 1].time), 100.0) and
+		String(ev_all[per - 1].kind) == "lap" and String(ev_all[per].kind) == "cp",
+		"RaceState.flag: under the chequered flag a checkpoint is just a checkpoint, the next lap line is the finish (lap 2 of 3, at 100 s); reset() takes the flag in")
+	# a whole endurance race of 2 laps: nine identical autopilots at 40 m/s and you at a third of their speed:
+	# when the leader finishes, every other car finishes at the line; you are lapped (one lap short)
+	var drivers: Array = []
+	var fake: Array = []
+	for k in Field.ENDURANCE_AI:
+		drivers.append(PilotDriver.new(Autopilot.basic(oval, 11.0, 7.5, 40.0)))
+		fake.append({name = "Car %d" % k, code = "C%d" % k, car = "racer", color = "#ffffff", cap = INF, pace = 100.0 + k, slot = k})
+	var pcar := Car.new(oval, oval.start_idx)
+	var prace := RaceState.new(oval, 2)
+	var f := FieldRace.new(oval, fake, drivers, pcar, prace)
+	f.endurance = true
+	var slowp := Autopilot.basic(oval, 11.0, 7.5, 13.0)
+	var laps_ok := f.racers.size() == 10
+	for r: FieldRace.Racer in f.racers:
+		laps_ok = laps_ok and r.race.laps == 2
+	var flagged_at := -1.0
+	var steps := 0
+	while not f.all_done() and steps < 60 * 400:
+		f.step(DT, slowp.drive(pcar))
+		steps += 1
+		if f.flag_out and flagged_at < 0.0:
+			flagged_at = f.time
+	var leader_t: float = f.racers[0].race.finish_time
+	var rs := f.results()
+	var mine: Dictionary = rs[rs.size() - 1]
+	var ai_done := true
+	for k in Field.ENDURANCE_AI:
+		ai_done = ai_done and f.racers[k].race.finished and f.racers[k].race.lap_times.size() == 2
+	t.check(laps_ok and prace.finished and prace.lap_times.size() == 1 and f.flag_out and absf(flagged_at - leader_t) < 0.02 and ai_done and
+		bool(mine.me) and int(mine.place) == 10 and int(mine.down) == 1 and int(mine.laps) == 1 and int(rs[0].down) == 0 and int(rs[0].laps) == 2 and
+		f.position(f.player_index) == 10 and f.finish_wait > FieldRace.FINISH_WAIT and prace.finish_time > leader_t,
+		"a 2-lap endurance race, ten cars: every race 2 laps; the leader finishes at %s, the flag is out; the AI finish on 2 laps; you, lapped, finish at the line on lap 1 (%s): 10th, \"+1 lap\"" % [
+		RaceState.format_time(leader_t), RaceState.format_time(prace.finish_time)])
+	# the standings by laps: a car still racing with as many laps as one that finished under the flag is ahead of it
+	var g := FieldRace.new(oval, fake, drivers, Car.new(oval, oval.start_idx), RaceState.new(oval, 3))
+	g.endurance = true
+	g.racers[0].race.lap_times = PackedFloat64Array([60.0, 60.0, 60.0])
+	g.racers[0].race.finished = true
+	g.racers[0].race.finish_time = 180.0
+	g.racers[1].race.lap_times = PackedFloat64Array([65.0, 65.0])
+	g.racers[1].race.finished = true
+	g.racers[1].race.finish_time = 130.0 # (lapped: finished on 2 laps, earlier than the leader on the clock)
+	g.racers[2].race.lap_times = PackedFloat64Array([61.0, 61.0])
+	g.racers[2].car.prog = 99999.0 # (still racing on its 3rd lap)
+	g.racers[3].race.lap_times = PackedFloat64Array([70.0])
+	g.racers[3].dnf = true
+	var order := g.standings()
+	t.check(order[0] == 0 and order[1] == 2 and order[2] == 1 and order[order.size() - 1] == 3,
+		"the standings by laps: the winner (3 laps), a car still on its 3rd lap, then one that finished on 2 laps earlier on the clock; an out car last")
+	# the pay: Rookie Oval (3 laps) 10 laps at Pro: x 1.5 x 10 / 3 = x 5 on the places 9th to 1st
+	var path := "user://test_sim_endurance.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var tid: String = Tracks.ids()[0]
+	var win := Economy.claim(tid, "racer", "", "", "pro", 1, 0, 1234, 10)
+	var again := Economy.claim(tid, "racer", "", "", "pro", 1, 0, 0, 10)
+	var longer := Economy.payout(tid, "", "", SaveData.paid_rewards(tid, "racer"), "pro", 1, 0, 0, 40)
+	var kinds: Dictionary = {}
+	var eids: PackedStringArray = []
+	for it: Dictionary in win.items:
+		kinds[String(it.kind)] = true
+		if String(it.kind) == "endurance":
+			eids.append(String(it.id))
+	t.check(eids == Economy.endu_ids(10, "pro", 1) and eids.size() == 9 and eids[0] == "endu-10-pro-9" and eids[8] == "endu-10-pro-1" and
+		int(win.money) == 5640 + 12 and int(win.points) == 170 and kinds.has("score") and not kinds.has("medal") and not kinds.has("field") and
+		again.items.is_empty() and again.repeat.size() == 9 and int(longer.money) == 22500 and
+		Economy.label("endu-20-elite-2") == "20-lap endurance (Elite): 2nd" and Economy.endu_ids(15, "pro", 1).is_empty() and Economy.endu_ids(10, "pro", 10).is_empty() and
+		Economy.reward(tid, "endu-10-pro-10").is_empty() and Economy.reward(tid, "endu-15-pro-1").is_empty() and
+		int(Economy.reward("le-mans", "endu-10-pro-1").money) > int(Economy.reward(tid, "endu-10-pro-1").money) * 5,
+		"endurance pay: a 10-lap win at Pro on Rookie Oval pays 9th to 1st ($%d, %d points) plus the score's $12, no medal; again nothing; the 40-lap race pays on its own (about 4 x as much: $%d); 10th pays nothing; Le Mans (one lap a race) pays far more a place" % [
+		int(win.money) - 12, int(win.points), int(longer.money)])
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
 ## v6.14.0: championships (sim/cups.gd, sim/cup_run.gd, sim/field.gd's grid by the standings,
 ## sim/economy.gd's cup payouts, the save file's cups section).
 func _cups() -> void:
@@ -3643,9 +3769,9 @@ func _cups() -> void:
 			last = maxi(last, Tracks.index_of(tid))
 		means.append(sum / maxf(1.0, tr.size()))
 		opens_at.append(last + 1)
-	var once := seen.size() == Tracks.ids().size()
+	var once := seen.size() == Tracks.ids().size() - V633_LE_MANS.size()
 	for tid: String in Tracks.ids():
-		once = once and int(seen.get(tid, 0)) == 1
+		once = once and int(seen.get(tid, 0)) == (0 if V633_LE_MANS.has(tid) else 1)
 	# (the five cups of v6.14 rise in difficulty; the Rally Cup of v6.23 and the Grand Prix Cup of v6.28
 	# come after them, with the last tracks)
 	var rising := Cups.ids().size() == 7 and Cups.ids()[5] == "rally" and Cups.tracks_of("rally") == PackedStringArray(V623_STAGES.keys()) and \
@@ -3653,7 +3779,7 @@ func _cups() -> void:
 	for k in range(1, means.size()):
 		rising = rising and (means[k] >= means[k - 1] or k >= 5) and opens_at[k] >= opens_at[k - 1]
 	t.check(data_ok and once and rising and Cups.cup("nope").is_empty() and Cups.tracks_of("nope").is_empty(),
-		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup; the first five rising in difficulty (mean %s), then the Rally Cup of the four stages and the Grand Prix Cup of the three circuits; opening in order (with track %s)" % [
+		"%d cups of 3-4 tracks, every one a real track, every track in exactly one cup (Le Mans, v6.33, in none); the first five rising in difficulty (mean %s), then the Rally Cup of the four stages and the Grand Prix Cup of the three circuits; opening in order (with track %s)" % [
 		Cups.ids().size(), ", ".join(Array(means).map(func(x: float) -> String: return "%.1f" % x)), ", ".join(Array(opens_at).map(func(x: int) -> String: return str(x)))])
 	var path := "user://test_sim_cups.json"
 	if FileAccess.file_exists(path):

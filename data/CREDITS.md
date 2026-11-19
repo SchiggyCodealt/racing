@@ -33,3 +33,9 @@ SOFTWARE.
 
 The game uses the circuits' shapes only, named by their places; it carries no circuit, event or sponsor names
 or logos.
+
+## Le Mans (version 6.33.0)
+
+The Le Mans track uses no outside data: it is laid out by hand in `tools/gen_tracks.gd` from the real circuit's
+well-known corners (Dunlop, the esses, Tertre Rouge, the Mulsanne straight and its two chicanes, Mulsanne corner,
+Indianapolis, Arnage, the Porsche curves, the Ford chicanes) and its published lap length (13.626 km).

@@ -86,7 +86,7 @@ func _formats(t) -> void:
 func _data(t) -> void:
 	t.section("data adapter and medals (medals.js medalFor / nextMedal)")
 	Fx.save_data_v5()
-	t.check(UiData.track_count() == 22, "22 tracks (%d)" % UiData.track_count())
+	t.check(UiData.track_count() == 23, "23 tracks (%d)" % UiData.track_count())
 	t.check(UiData.track_id(9) == "night-highway" and UiData.track_info(9).name == "Night Highway", "track 10 is Night Highway")
 	var real: bool = not UiData._tracks.is_empty()
 	t.check(real, "tracks come from sim/ (Tracks.build), not the fixture")
@@ -95,7 +95,7 @@ func _data(t) -> void:
 		surf.append(UiData.track_info(i).surfaces)
 	t.check(surf[0] == "Asphalt" and surf[1] == "Asphalt + packed snow" and surf[2] == "Asphalt + dirt" and surf[7] == "Asphalt + dirt + packed snow" and \
 		surf[8] == "Asphalt + dirt" and surf[12] == "Asphalt + dirt" and surf[13] == "Asphalt + packed snow" and surf[14] == "Asphalt + dirt + packed snow" and \
-		surf.count("Asphalt") == 11 and surf[19] == "Asphalt" and surf[21] == "Asphalt", "the road surfaces of every track (v6.3, v6.4; v6.28: the grand-prix circuits asphalt only): %s" % ", ".join(surf))
+		surf.count("Asphalt") == 12 and surf[19] == "Asphalt" and surf[21] == "Asphalt" and surf[22] == "Asphalt", "the road surfaces of every track (v6.3, v6.4; v6.28: the grand-prix circuits asphalt only; v6.33: Le Mans too): %s" % ", ".join(surf))
 	t.check(UiData.car_ids() == ["racer", "kestrel", "thunder", "drifter", "dune", "vortex", "apex", "quadra", "sarthe"], "cars in picker order: %s" % [UiData.car_ids()])
 	var racer := UiData.car_info("racer")
 	t.check(absf(racer.top - 277.7) < 0.01 and racer.mass == 1250.0, "racer: 277.7 km/h, 1250 kg (%s, %s)" % [racer.top, racer.mass])
@@ -232,13 +232,29 @@ func _menu_cars(t) -> void:
 		t.check(menu.car_page.is_open and cards.size() == 9 and inside and not overlap and cols_ok and all_shown and chips_ok,
 			"%dx%d: %d cards, %d a row, inside the window and apart%s; the five part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
+		# (v6.33) Race the field on a circuit: the race length row over the money and START, inside the panel
+		var hidden_before := not menu.car_page.laps_row.is_visible_in_tree()
+		menu.car_page.close()
+		menu.ask_car("race_field")
+		_settle(h)
+		var lrow: Control = menu.car_page.laps_row
+		var lr := lrow.get_global_rect()
+		var pr2 := menu.car_page.panel.get_global_rect()
+		var sb := menu.car_page.start_btn.get_global_rect()
+		var lok := hidden_before and lrow.is_visible_in_tree() and lr.position.x >= pr2.position.x - 0.5 and lr.end.x <= pr2.end.x + 0.5 and lr.end.y <= sb.position.y + 0.5
+		for b: Control in menu.car_page.laps_btns:
+			var br := b.get_global_rect()
+			lok = lok and br.end.x <= pr2.end.x + 0.5 and br.size.x >= 40.0
+		if sz.x >= 1280:
+			lok = lok and sb.end.y <= sz.y + 0.5
+		t.check(lok, "%dx%d: Race the field shows the race length row (hidden for the time trial) above START, inside the panel%s" % [sz.x, sz.y, ", START still on screen" if sz.x >= 1280 else ""])
 		h.free()
 
 
 func _menu_tracks(t) -> void:
-	t.section("menu track grid: 22 tracks at every window size (v6.4; v6.23: the four stages make a fourth row; v6.28: rows of six)")
+	t.section("menu track grid: 23 tracks at every window size (v6.4; v6.23: the four stages make a fourth row; v6.28: rows of six; v6.33: Le Mans)")
 	Fx.save_data_v5()
-	# [window, tiles a row]: four rows of six (the last one of four) from 1200 px wide, rows of four from 760, three below
+	# [window, tiles a row]: four rows of six (the last one of five) from 1200 px wide, rows of four from 760, three below
 	for case: Array in [[Vector2(1280, 720), 6], [Vector2(1920, 1080), 6], [Vector2(1366, 768), 6], [Vector2(1200, 700), 6],
 			[Vector2(1024, 600), 4], [Vector2(900, 700), 4], [Vector2(700, 900), 3], [Vector2(640, 720), 3]]:
 		var sz: Vector2 = case[0]
@@ -262,7 +278,7 @@ func _menu_tracks(t) -> void:
 		# from 1280 x 720 up every tile is on screen without scrolling (the e2e menu scenario checks the
 		# whole menu with real frames)
 		var on_screen := bottom <= sz.y + 0.5 if sz.x >= 1280 else true
-		t.check(tiles.size() == 22 and menu.columns == int(case[1]) and inside and not overlap and on_screen,
+		t.check(tiles.size() == 23 and menu.columns == int(case[1]) and inside and not overlap and on_screen,
 			"%dx%d: %d tiles, %d a row, inside the window and apart%s" % [sz.x, sz.y, tiles.size(), menu.columns,
 				", every tile on screen (lowest ends at %d px, maps %d px)" % [roundi(bottom), roundi(menu.map_h)] if sz.x >= 1280 else ""])
 		h.free()
@@ -274,7 +290,7 @@ func _menu_keys(t) -> void:
 	var hm := _menu(t)
 	var menu: MainMenu = hm[1]
 	var inp := Fx.FakeInput.new()
-	t.check(menu.selected_track == 9 and menu.columns == 6, "Night Highway selected, six tiles a row at 1280 x 720 (22 tracks: four rows)")
+	t.check(menu.selected_track == 9 and menu.columns == 6, "Night Highway selected, six tiles a row at 1280 x 720 (23 tracks: four rows)")
 	var picked := []
 	menu.track_selected.connect(func(i: int) -> void: picked.append(i))
 	for pair in [["Digit1", 0], ["Digit0", 9], ["Minus", 10], ["Equal", 11], ["Numpad5", 4]]:
@@ -295,11 +311,12 @@ func _menu_keys(t) -> void:
 	t.check(meta.text.ends_with("km · Asphalt + dirt + packed snow"), "... and a sprint's: \"%s\"" % meta.text)
 	menu.select(15)
 	t.check(meta.text.ends_with("km · Asphalt + gravel"), "... and a rally stage's (v6.23): \"%s\"" % meta.text)
-	menu.select(21)
+	menu.select(22)
+	t.check(meta.text == "Circuit · 1 lap · 13.63 km a lap · Asphalt", "... and Le Mans, one lap (v6.33): \"%s\"" % meta.text)
 	menu.handle_keys(_press(inp, ["ArrowRight"]))
-	t.check(menu.selected_track == 0, "ArrowRight from the last track (22) wraps to the first")
+	t.check(menu.selected_track == 0, "ArrowRight from the last track (23) wraps to the first")
 	menu.handle_keys(_press(inp, ["ArrowUp"]))
-	t.check(menu.selected_track == 21, "ArrowUp from the first wraps to the last")
+	t.check(menu.selected_track == 22, "ArrowUp from the first wraps to the last")
 	menu.handle_keys(_press(inp, ["KeyS"]))
 	t.check(menu.selected_track == 0, "S moves on like ArrowDown")
 	UiData.set_setting("car", "racer")
@@ -378,7 +395,7 @@ func _menu_pad(t) -> void:
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_tiles")[15] and menu.selected_track == 15, "down a row: track 16 (Pine Ridge, the third row of six)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
-	t.check(menu.pad_target() == menu.get("_tiles")[21] and menu.selected_track == 21, "down again: the fourth row has four tiles (v6.28), so the last one: track 22 (Spielberg)")
+	t.check(menu.pad_target() == menu.get("_tiles")[21] and menu.selected_track == 21, "down again: track 22 (Spielberg), under it in the fourth row (five tiles since v6.33)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
 	t.check(menu.pad_target() == menu.get("_drive_btn"), "down from the bottom row: TIME TRIAL (v6.19: the race buttons)")
 	menu.handle_keys(_press(inp, ["NavDown"], true))
@@ -1049,7 +1066,7 @@ func _unlocks(t) -> void:
 	var menu: MainMenu = hm[1]
 	var tiles: Array = menu.get("_tiles")
 	var drive_btn: Button = menu.get("_drive_btn")
-	t.check(UiData.store.career.tracks_open == null and UiData.open_track_count() == 22 and tiles.all(func(x: Control) -> bool: return not x.locked),
+	t.check(UiData.store.career.tracks_open == null and UiData.open_track_count() == 23 and tiles.all(func(x: Control) -> bool: return not x.locked),
 		"the store's default (tests, previews): every track open")
 	UiData.store.career.tracks_open = ["hairpin-valley"]
 	UiData.set_setting("car", "racer")
@@ -1057,7 +1074,7 @@ func _unlocks(t) -> void:
 	t.check(UiData.open_track_count() == 2 and not tiles[0].locked and not tiles[1].locked and tiles[2].locked and tiles[14].locked and tiles[18].locked and
 		tiles[2].lock_note == "Bronze on 02" and tiles[14].lock_note == "Bronze on 14" and tiles[15].lock_note == "Bronze on 15" and str(tiles[2].tooltip_text).contains("Locked: bronze on Hairpin Valley opens it") and
 		UiData.track_lock(2) == {"medal": "bronze", "index": 1, "name": "Hairpin Valley"} and UiData.track_lock(1).is_empty(),
-		"Rookie Oval and Hairpin Valley open: tiles 3-22 locked (Ramp Rally: \"%s\", its tooltip says what opens it)" % tiles[2].lock_note)
+		"Rookie Oval and Hairpin Valley open: tiles 3-23 locked (Ramp Rally: \"%s\", its tooltip says what opens it)" % tiles[2].lock_note)
 	var inp := Fx.FakeInput.new()
 	var drives := [0]
 	menu.drive.connect(func() -> void: drives[0] += 1)

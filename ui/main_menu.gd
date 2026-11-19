@@ -203,6 +203,7 @@ func _init() -> void:
 	car_page = CarScreen.new() # (over the cup screen: a cup's races ask for the car too)
 	add_child(car_page)
 	car_page.start.connect(_start_pending)
+	car_page.laps_picked.connect(func(_n: int) -> void: car_page.event_text = event_text(pending, pending_args)) # (v6.33)
 	car_page.upgrade.connect(func(part: String) -> void: upgrade.emit(part))
 	car_page.car_picked.connect(func(id: String) -> void:
 		car_selected.emit(id)
@@ -742,7 +743,7 @@ func _render_opponent(opp: String, car: String, cname: String) -> void:
 	# (v6.13) Race the field at this level: what a win pays now
 	_field_btn.disabled = not has
 	var win: Dictionary = UiData.field_pays(UiData.track_id(selected_track), car, opp, 1)
-	_field_btn.tooltip_text = "Race the field: five AI drivers at %s pace on a starting grid; you start last. You pick the car next. Places pay once per track and car%s" % [
+	_field_btn.tooltip_text = "Race the field: five AI drivers at %s pace on a starting grid; you start last (on a circuit you can pick an endurance race of ten cars for 10 to 40 laps on the next page). You pick the car next. Places pay once per track and car%s" % [
 		lname, (": a win with the %s pays +%s · +%s pts now" % [cname, UiFormat.money(int(win.money)), UiFormat.points(int(win.points))]) if int(win.money) > 0 else " (every place here is paid with the %s)" % cname] if has \
 		else "No %s AI on this track with the %s" % [lname, cname]
 
@@ -816,7 +817,7 @@ func _render_detail() -> void:
 	_td_num.text = UiFormat.track_number(i)
 	_td_name.text = t.name
 	_td_diff.level = t.difficulty
-	_td_meta.text = (("Circuit · %d laps · %s km a lap" % [t.laps, UiFormat.km(t.length)]) if t.closed \
+	_td_meta.text = (("Circuit · %d lap%s · %s km a lap" % [t.laps, "" if int(t.laps) == 1 else "s", UiFormat.km(t.length)]) if t.closed \
 		else ("Sprint · %s km" % UiFormat.km(t.sprint_length))) + " · " + str(t.get("surfaces", "Asphalt"))
 	_td_desc.text = t.description
 	var lock := UiData.track_lock(i)
@@ -892,6 +893,9 @@ func ask_car(kind: String, args: Array = []) -> void:
 		var c := String(v.get("car", ""))
 		if UiData.car_ids().has(c) and c != UiData.picked_car():
 			select_car(c)
+	# (v6.33) Race the field on a circuit offers a race length (Normal, or an endurance race's laps)
+	car_page.laps_choice = kind == "race_field" and String(Tracks.def(UiData.track_id(selected_track)).get("type", "")) == "circuit"
+	car_page.set_laps(0)
 	car_page.event_text = event_text(kind, args)
 	UiSound.play("ui_confirm")
 	_ring.set_target(null)
@@ -909,6 +913,8 @@ func event_text(kind: String, args: Array = []) -> String:
 		"race_ghost":
 			return ("Race my AI · %s" % where) if opp == UiData.MY_AI else "Race the %s AI · %s · no nitro" % [Opponents.level_name(opp), where]
 		"race_field":
+			if car_page != null and car_page.laps_choice and car_page.race_laps > 0:
+				return "Endurance race: %d laps, ten cars (%s field) · %s · no nitro" % [car_page.race_laps, Opponents.level_name(opp), where]
 			return "Race the field (%s) · %s · no nitro" % [Opponents.level_name(opp), where]
 		"cup_start":
 			return "%s · %s field · you can change cars before every race" % [Cups.name_of(String(args[0])), Opponents.level_name(String(args[1]))]
