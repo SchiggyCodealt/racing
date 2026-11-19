@@ -981,8 +981,13 @@ func shots() -> void:
 	for l: String in rec.lines:
 		if l.contains(" " + Tracks.build(tid).name + ":"):
 			row = l
-	check(rec.is_open and row != "" and not row.contains("S1 -") and not row.contains("S3 -") and not row.ends_with("ideal -"),
-		"R opens the sector records with this run's three sectors: %s" % row)
+	check(rec.is_open and row != "" and not row.contains("S1 -") and not row.contains("S3 -") and not row.ends_with("ideal -") and not row.contains("lap -"),
+		"R opens the records with this run's fastest lap and three sectors: %s" % row)
+	# (v6.32) on this track, with its top 10s
+	var n_laps: int = Tracks.build(tid).laps if Tracks.build(tid).closed else 1
+	check(rec.focus_track == Tracks.ids().find(tid) and rec.top_lines.size() == 4 and rec.top_lines[0].begins_with("Laps: 1 ") and rec.top_lines[3].begins_with("S3: 1 ") and
+		rec.top_lines[0].split(", ").size() == n_laps,
+		"the records open on this track with its top 10s: %s" % " / ".join(rec.top_lines))
 	await shot("records_" + tag)
 	await key(KEY_ESCAPE)
 	await frames(10)
@@ -1651,7 +1656,7 @@ func economy() -> void:
 	var p: Dictionary = fs.get("payout", {})
 	var want := ["bronze", "silver", "gold", "ai-rookie", "ai-amateur", "ai-pro"]
 	var w := _sum("rookie-oval", want)
-	w.x += _extras(m, want)
+	w += _extras(m, want)
 	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
 	check(race.finished and Medals.medal_for(Medals.medal_times(track, "racer"), race.finish_time) == "gold" and p.get("won") == true and ids == want and
 		int(p.money) == w.x and int(p.points) == w.y and UiData.money() == money0 + w.x and app.ui.hud.panel_open,
@@ -1691,7 +1696,7 @@ func economy() -> void:
 	var medal2 := Medals.medal_for(Medals.medal_times(m.get("track"), "racer"), (m.get("race") as RaceState).finish_time)
 	want = (["bronze", "silver", "gold", "author"] if medal2 == "author" else ["bronze", "silver", "gold"]) + ["ai-rookie", "ai-amateur", "ai-pro", "ai-expert"]
 	w = _sum("seaside-stunts", want)
-	w.x += _extras(m, want)
+	w += _extras(m, want)
 	ids = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
 	check((medal2 == "gold" or medal2 == "author") and ids == want and int(p.money) == w.x and UiData.money() == money1 + w.x,
 		"the author run without nitro in the level 3 Racer (%s, %s) beats the Expert AI on Seaside Stunts (x2.1): %s, %d pts" % [
@@ -1760,18 +1765,23 @@ func _sum(tid: String, ids: Array) -> Vector2i:
 
 ## (v6.30) What a finished run adds to its medal and AI rewards: the margin under the author time (first
 ## time on this track with this car) and its score's money. Appends their ids to `want`; returns the money.
-func _extras(m: Node, want: Array) -> int:
+func _extras(m: Node, want: Array) -> Vector2i:
 	var fs: Dictionary = m.get("finish_state")
 	var medals: Dictionary = Medals.medal_times(m.get("track"), String((m.get("car_def") as Dictionary).id))
-	var add := 0
+	var add := Vector2i.ZERO
 	var under := Economy.under_ms(float(medals.author), (m.get("race") as RaceState).finish_time)
 	if under > 0:
 		want.append("under-%d" % under)
-		add += under
+		add.x += under
 	var sm := Economy.score_money(int((fs.get("score", {}) as Dictionary).get("total", 0)))
 	if sm > 0:
 		want.append("score")
-		add += sm
+		add.x += sm
+	# (v6.32) the top-10 lists the run's laps and sectors made: points by place (checked in test_sim)
+	for it: Dictionary in (fs.get("payout", {}) as Dictionary).get("items", []):
+		if str(it.kind) == "top":
+			want.append(str(it.id))
+			add.y += int(it.points)
 	return add
 
 

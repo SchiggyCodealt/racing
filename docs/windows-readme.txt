@@ -1,4 +1,4 @@
-Track Rush 6.31.0 for Windows (64-bit)
+Track Rush 6.32.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-two tracks (seven of them
@@ -10,12 +10,16 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.31.0: your nitro is back when you race a single AI (Race the AI,
-any level, and My AI): a full tank at the start, the gauge on the screen,
-and clean driving refills it. The AI car still has none, so the nitro is
-your edge. Race the field and the cups stay without nitro for everyone.
+New in 6.32.0: top 10s. Every track keeps its ten fastest laps and the ten
+fastest times through each of its three sectors, by any car. A time that
+makes a list earns career points by its place: 25, 18, 15, 12, 10, 8, 6, 4,
+2, 1 (the finish panel shows them). R on the menu opens the Records screen
+on the menu's track with its four lists; left and right go to another
+track. Your times from before start the lists (paying nothing).
 
 Earlier versions, newest first:
+6.31.0  your nitro is back in Race the AI (the AI car still has none);
+        Race the field and the cups stay without nitro.
 6.30.0  more ways to earn money: $1 for every millisecond under the author
         time, once per track and car (a faster run later pays the extra),
         and $1 for every 100 points of a run's score, every run.
@@ -100,7 +104,7 @@ Arrows or W A S D drive, Space is the handbrake, Shift is nitro, R restarts,
 Enter respawns at the last checkpoint, G shows or hides your ghost, Esc goes
 back to the menu. On the menu Enter starts a time trial (the car page comes
 first: arrows or C pick the car, Enter starts, Esc goes back), T opens the
-cups, R the sector records. Press H for every key and gamepad button, and
+cups, R the records (top 10s). Press H for every key and gamepad button, and
 O for the settings (graphics quality, screen dirt and snow, fullscreen,
 vertical sync, interface size, the volumes, the terminal, the reset). The `
 key opens the terminal on the menu (not during a race). Any standard gamepad
@@ -108,7 +112,7 @@ works.
 
 Where your saves go
 -------------------
-Best times, ghosts, scores, sector records, settings (volumes too), your
+Best times, ghosts, scores, sector records, top 10s, settings (volumes too), your
 money, points, cars, their upgrades and opened tracks, and each car's trained
 AI network are kept in
 

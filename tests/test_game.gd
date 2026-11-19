@@ -1013,7 +1013,21 @@ func _app_career(t, app: GameApp) -> void:
 	var race: RaceState = m.get("race")
 	var fs: Dictionary = m.get("finish_state")
 	var p: Dictionary = fs.get("payout", {})
-	var ids: Array = (p.get("items", []) as Array).map(func(it: Dictionary) -> String: return String(it.id))
+	# (v6.32) the run's laps and sectors in the track's top 10s: items of their own, points only
+	var top_items: Array = (p.get("items", []) as Array).filter(func(it: Dictionary) -> bool: return it.kind == "top")
+	var ids: Array = (p.get("items", []) as Array).filter(func(it: Dictionary) -> bool: return it.kind != "top").map(func(it: Dictionary) -> String: return String(it.id))
+	var top_pts := 0
+	for it: Dictionary in top_items:
+		top_pts += int(it.points)
+	var tops: Dictionary = SaveData.get_tops(tid)
+	var best_lap: float = Array(race.lap_times).min()
+	var in_list: bool = (tops.laps as Array).any(func(e: Dictionary) -> bool: return e.car == "racer" and e.time == best_lap)
+	var top_ids: Array = top_items.map(func(it: Dictionary) -> String: return String(it.id))
+	var ptexts0 := _texts(app.ui.hud.finish)
+	t.check(top_ids == ["top-laps", "top-s1", "top-s2", "top-s3"] and top_pts > 0 and in_list and str(top_items[0].label).begins_with("Top 10 laps: ") and
+		top_items.all(func(it: Dictionary) -> bool: return int(it.money) == 0) and ptexts0.has(str(top_items[0].label)) and not ptexts0.has("+$0"),
+		"the run's laps and sectors go in Seaside Stunts' top 10s (%s; %d points), on the finish panel without money" % [
+		", ".join(PackedStringArray(top_items.map(func(it: Dictionary) -> String: return "%s +%d" % [it.label, it.points]))), top_pts])
 	# (v6.15: no nitro in races against the AI, so the author run's autopilot is slower here than the
 	# author time; the medal it earns still counts and pays)
 	var got := Medals.medal_for(medals, race.finish_time)
@@ -1031,9 +1045,9 @@ func _app_career(t, app: GameApp) -> void:
 	if sc_money > 0:
 		want.append("score")
 		w_money += sc_money
-	t.check(race.finished and race.finish_time > float(medals.author) and got != "" and ids == want and int(p.money) == w_money and int(p.points) == w_points and
+	t.check(race.finished and race.finish_time > float(medals.author) and got != "" and ids == want and int(p.money) == w_money and int(p.points) == w_points + top_pts and
 		p.get("won") == true and p.get("level") == "rookie" and str(fs.get("lines", [""])[0]).contains("Rookie AI hasn't finished: you win!") and
-		UiData.money() == money0 + w_money and UiData.points() == points0 + w_points and app.ui.hud.panel_open,
+		UiData.money() == money0 + w_money and UiData.points() == points0 + w_points + top_pts and int(p.points_total) == UiData.points() and app.ui.hud.panel_open,
 		"the author run without nitro (%s, author %s) beats the Rookie AI: paid %s and the Rookie win, %s and %d pts (the finish panel's payout)" % [
 		RaceState.format_time(race.finish_time), RaceState.format_time(float(medals.author)), ", ".join(PackedStringArray(want.slice(0, want.find("ai-rookie")))), UiFormat.money(w_money), w_points])
 	var u: Dictionary = fs.get("unlocked", {})
@@ -1059,7 +1073,7 @@ func _app_career(t, app: GameApp) -> void:
 	fs = m.get("finish_state")
 	p = fs.get("payout", {})
 	var sc_only := Economy.score_money(int((fs.get("score", {}) as Dictionary).get("total", 0)))
-	var not_score: Array = (p.get("items", [1]) as Array).filter(func(it: Variant) -> bool: return not (it is Dictionary and it.kind == "score"))
+	var not_score: Array = (p.get("items", [1]) as Array).filter(func(it: Variant) -> bool: return not (it is Dictionary and it.kind in ["score", "top"]))
 	t.check(race.finished and gr.finished and absf(gr.finish_time - elite_t) < 0.0005 and race.finish_time > gr.finish_time and
 		str(fs.get("lines", [""])[0]).contains("the AI wins by") and m.get("level") == "elite" and p.get("won") == false and not_score.is_empty() and
 		int(p.get("money", -1)) == sc_only and UiData.money() == money1 + sc_only, "a slower run (%s) loses to the Elite AI (%s, its stored time): nothing new is paid but the score's %s (v6.30)" % [

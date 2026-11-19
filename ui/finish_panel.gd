@@ -21,7 +21,8 @@ extends PanelContainer
 ##   lines       ["AI ghost: 3:40.000, you win!"]: plain lines (the AI ghost's result)
 ##   unlocked    (v6.8.0) the track this run opened: {id, name, number ("03"), medal ("bronze"), from (this
 ##               track's name)}; absent when it opened none
-##   payout      (v6.5.0) what the run was paid: {items: [{id, kind "medal" | "ai" (v6.30: | "under" | "score", money only), label, money,
+##   payout      (v6.5.0) what the run was paid: {items: [{id, kind "medal" | "ai" (v6.30: | "under" | "score", money only;
+##               v6.32: | "top", a top-10 list the run's laps or sectors made, points only), label, money,
 ##               points}], money, points, money_total, points_total, repeat: [reward ids paid before],
 ##               medal (the run's medal, "" none), level (the AI level raced, "" none), won (beat it)}
 ##   score       {total, new_best: bool, prev: int (-1 none), car, rows: [{label, note, points}],
@@ -376,7 +377,8 @@ func _payout(p: Dictionary) -> Control:
 		left.add_child(l)
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(left)
-		var v := UiStyle.label("+%s" % UiFormat.money(int(it.money)), "display", UiStyle.FS_S if _tiny else UiStyle.FS_M, UiStyle.GOOD,
+		var no_money: bool = int(it.money) == 0 and str(it.get("kind")) == "top" # (v6.32: points only)
+		var v := UiStyle.label("" if no_money else "+%s" % UiFormat.money(int(it.money)), "display", UiStyle.FS_S if _tiny else UiStyle.FS_M, UiStyle.GOOD,
 			0.0, false, true, false, lh)
 		v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		line.add_child(v)

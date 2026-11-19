@@ -27,6 +27,7 @@ extends RefCounted
 ##                   surfaces (the road surfaces for the menu: "Asphalt", "Asphalt + dirt", ...)}
 ##   track_map(i)    see TrackMapView.make_map: {points, size, start, finish (or null), closed, marks}
 ##   sector_records(track)  (v6.26.0) [{time, car, up, date} or {}] x 3: the track's fastest sectors
+##   top_lists(track)       (v6.32.0) {laps, sectors: [x 3]}: the track's top-10 lists of [{time, car, up, date}]
 ##   car_info(id)    {id, name, description, color, accent, top, mass, bars {speed, acceleration,
 ##                   grip, drift, nitro}, rev {idle_rpm, redline, upshift_rpm}}
 ##   car_profile(id) {parts: [{mat, pts: PackedVector2Array of (z, y) m}], wheels: [[z, r]]}
@@ -301,6 +302,23 @@ static func sector_records(track: String) -> Array:
 		for k in mini((s as Array).size(), 3):
 			if s[k] is Dictionary:
 				out[k] = s[k]
+	return out
+
+
+## (v6.32.0) A track's top-10 lists (sim/top_lists.gd): {laps: [{time, car, up, date}] fastest first,
+## sectors: [[...] x 3]}, from SaveData or the store's "tops" ({track: the same}).
+static func top_lists(track: String) -> Dictionary:
+	if _save:
+		return SaveData.get_tops(track)
+	var out: Dictionary = {laps = [], sectors = [[], [], []]}
+	var s: Variant = (store.get("tops", {}) as Dictionary).get(track)
+	if s is Dictionary:
+		if s.get("laps") is Array:
+			out.laps = s.laps
+		if s.get("sectors") is Array:
+			for k in mini((s.sectors as Array).size(), 3):
+				if s.sectors[k] is Array:
+					out.sectors[k] = s.sectors[k]
 	return out
 
 

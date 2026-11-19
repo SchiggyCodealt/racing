@@ -146,6 +146,10 @@ pays only the extra), and **$1 for every 100 points** of a run's style score, ev
 [Money, points and cars](#money-points-and-cars)).
 Version 6.31.0 gives you **your nitro back in Race the AI**: a full tank, the gauge and clean-driving refills, while
 the AI car still has none. Race the field and the cups stay without nitro for everyone (see [Nitro](#nitro)).
+Version 6.32.0 keeps **top 10s** on every track: its ten fastest laps and ten fastest times through each sector, by any
+car. A time that makes a list earns career points by its place, 25 for 1st down to 1 for 10th, shown on the finish
+panel; the **Records** screen shows each track's four lists (see
+[Top 10s](#top-10s-the-fastest-laps-and-sectors-version-6320)).
 
 ![The menu: money and career points in the header, 22 track tiles with minimaps in four rows (Forest Rally just opened and marked NEW, the last nine tracks, the four rally stages and Monaco, Silverstone and Spielberg among them, still locked with a padlock and "Bronze on 13" to "Bronze on 21"), the selected track's panel with a record, its medal and the medal times, and under it TIME TRIAL, the AI driver row with the Expert picked, Race the Expert AI, Race the field and the AI's tools](docs/screenshots/menu.png)
 
@@ -224,7 +228,7 @@ On the menu:
 | O | highlight **Settings**, then A | The **Settings** screen |
 | `` ` `` (the key under Esc) | Settings, highlight **Terminal**, then A | The **terminal**: commands for money, points and cars (not during a race) |
 | T | highlight **Cups**, then A | The **championships**: pick a cup and a level, or the standings of the cup you are in (v6.14.0) |
-| R | highlight **Records**, then A | The **sector records**: the fastest time through each sector of every track, with the car and its upgrades (v6.26.0; Esc, R or B closes it) |
+| R | highlight **Records**, then A | The **records**: the top 10s of the menu's track (its ten fastest laps and sector times, v6.32.0; left / right or LB / RB for another track) and every track's sector records, with the car and its upgrades (v6.26.0; Esc, R or B closes it) |
 | Mouse | | Click a track tile or a car card to pick it, double-click to drive straight away |
 
 Each run starts with a 3-2-1-GO countdown. Circuits are 3 laps, and a lap only counts when you pass
@@ -246,7 +250,7 @@ Under it is **2 Race**: **TIME TRIAL** (alone against the clock, called **Drive*
 best-run ghost** option, the **AI driver** row (**Rookie** to **Elite**, or **My AI**, the picked car's own network)
 with what that driver does on this track and what beating it pays, **Race the AI** and **Race the field** (five AI
 drivers of the picked level on a grid with you). Next to the **2 Race** heading the **Cups** button shows your
-trophy cabinet and opens the championships, and the **Records** button beside it opens the sector records. Under a thin line are the AI's tools: **Watch AI**, **Train AI**,
+trophy cabinet and opens the championships, and the **Records** button beside it opens the records (the top 10s and the sector records). Under a thin line are the AI's tools: **Watch AI**, **Train AI**,
 **Load AI…** and **Save AI…**. The header shows your money and career points and a few key hints; the **Controls**
 button lists the rest, and the **Settings** button opens the settings.
 
@@ -441,15 +445,46 @@ window, where the race screen has no room for it.
 Your fastest time through each sector of each track is kept with the car and its upgrades, whatever race you drove it
 in (a time trial, an AI race, the field or a cup), so a record can come from a lap that was not your best overall.
 The finish panel says when a run set new ones ("New sector records: S1, S3"). The menu's **Records** button (or **R**)
-opens the **Sector records** screen: a row for every track with its small map (yellow dots where the sectors meet),
-the three record times, each over the car that set it and its upgrades (a code such as `E3 T3 N0 L3 W2` for engine,
+opens the **Records** screen: under the top 10s of the menu's track (see [Top 10s](#top-10s-the-fastest-laps-and-sectors-version-6320))
+a row for every track with its small map (yellow dots where the sectors meet), its fastest lap (since 6.32.0), the
+three sector record times, each over the car that set it and its upgrades (a code such as `E3 T3 N0 L3 W2` for engine,
 tyres, nitro, loose grip and weight; **stock** for none; the tooltip spells them out with the date), and the **ideal
-lap**, the three added up. Watch AI and the AI's own runs set no records. Like best times, the records stop counting
-when the physics or the track changes, and **Reset all progress** clears them.
+lap**, the three added up. A click on a row shows that track's top 10s. Watch AI and the AI's own runs set no
+records. Like best times, the records stop counting when the physics or the track changes, and **Reset all progress**
+clears them.
 
-| The minimap during a race | The sector records |
+| The minimap during a race | The Records screen (v6.32.0: with the top 10s) |
 | --- | --- |
-| ![Driving on Night Highway: at the top left, under the lap plate, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come; the split time SPLIT 6 under the race clock](docs/screenshots/minimap.png) | ![The Sector records screen over the menu: a row for every track with its small map and yellow sector marks, the S1, S2 and S3 records with the car and its upgrades under each time, and the ideal lap](docs/screenshots/sector-records.png) |
+| ![Driving on Night Highway: at the top left, under the lap plate, the minimap shows the track with S1 and S2 done in green and S3 being driven in yellow, the car's yellow dot, and under it S1 26.283, S2 17.350, S3 still to come; the split time SPLIT 6 under the race clock](docs/screenshots/minimap.png) | ![The Records screen over the menu: Night Highway's map, number and name between the Previous and Next buttons, its four top-10 lists (fastest laps, sectors 1 to 3) with each place's time and car, the points by place, then the table of every track with its fastest lap, the S1, S2 and S3 records and the ideal lap](docs/screenshots/sector-records.png) |
+
+### Top 10s: the fastest laps and sectors (version 6.32.0)
+
+Every track keeps **four top-10 lists**: its ten fastest **laps** and the ten fastest times through each of its three
+**sectors**, by any car, from every race you drive yourself (a time trial, Race the AI, the field or a cup; Watch AI
+and training don't count). A time that makes a list earns **career points by its place**, as F1 scores a race:
+
+| Place | 1st | 2nd | 3rd | 4th | 5th | 6th | 7th | 8th | 9th | 10th |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Points | 25 | 18 | 15 | 12 | 10 | 8 | 6 | 4 | 2 | 1 |
+
+- **Every lap counts**, the first one (from a standstill) as much as the rest, and one run can put several laps or
+  sectors in a list. A sprint's lap is its whole run, start to finish.
+- A run's times go in fastest first and each is paid by the place it holds once the run is in: two laps under the
+  list's best take 1st and 2nd (25 + 18). A time equal to one already listed goes below it. Times pushed off the
+  bottom keep what they earned, and a list never pays twice for the same time.
+- The **finish panel** lists what the lists paid as rows of their own, points only ("Top 10 laps: 1st, 4th +37",
+  "Top 10 S2: 2nd +18"), with the run's other rewards. A run you restart or leave counts too (its finished laps and
+  sectors): the points are paid there and then, and after a restart the race screen says so for a few seconds
+  ("Top 10: 1 lap, 2 sector times, +33 points").
+- The 1st place of a sector list is that sector's record (see [The minimap and sector records](#the-minimap-and-sector-records)).
+- **Your times from before 6.32.0** start the lists, paying nothing: the laps of each car's best run on the track
+  and the sector records. So the first run after updating earns points for beating your own earlier laps, not for
+  filling empty lists.
+
+The **Records** screen (**R** on the menu) opens on the menu's track: its map, number and name, the four lists side by
+side (two to a row on a narrow window), each place with its time and the car (the tooltip gives its upgrades, the date
+and what the place pays), and the points by place under them. **Left** / **right** (A / D, the d-pad, LB / RB) or the
+**Previous** / **Next** buttons go to another track; under them is every track's table (pictured above).
 
 ### Medals
 
@@ -561,6 +596,8 @@ lists what a run earned and why.
   track and car. Beat it by 1.234 s and the run pays $1,234 on top of the medals; beat it later by 1.500 s and that
   run pays the extra $266. The same on any track (no extra for later tracks), in a time trial, against the AI, in
   a field race or a cup.
+- **Top-10 times pay points** (version 6.32.0): a lap or sector time that makes one of the track's top 10s earns
+  25, 18, 15, 12, 10, 8, 6, 4, 2 or 1 points by its place (see [Top 10s](#top-10s-the-fastest-laps-and-sectors-version-6320)).
 - **The score pays too** (version 6.30.0): every finished run pays **$1 for every 100 points** of its style score
   (see [Points for clean driving](#points-for-clean-driving)), every time, rounded down: a 23,450-point run pays
   $234. This one adds no career points.
@@ -1410,7 +1447,7 @@ trained AI network of every car (a save file from version 6.0-6.1 had one networ
 and the career: money, points, the cars you own and their upgrades, the rewards already paid, the tracks medals have
 opened (and, since 6.23.0, how many tracks the game had when they were last checked, so tracks added later can open),
 whether the terminal's `unlock all` opened every track, and (6.14.0) the cup trophies, the cup payouts
-and a cup in progress, and (6.26.0) the sector records of every track with the car and upgrades that set them. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+and a cup in progress, and (6.26.0) the sector records of every track with the car and upgrades that set them, and (6.32.0) its top 10s. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If
@@ -1554,7 +1591,7 @@ sim/                    game logic without any graphics: tracks, road surfaces, 
                         car upgrades (upgrades.gd: the parts, their levels, prices and the upgraded specs), Race the
                         field (field.gd: the drivers, paces and grid; field_race.gd: the race; car_contact.gd: solid cars),
                         championships (cups.gd: the cups, points, standings and grids; cup_run.gd: a cup in progress),
-                        the three sectors of a lap and their clock (sectors.gd)
+                        the three sectors of a lap and their clock (sectors.gd), the top-10 lists (top_lists.gd)
 ai/                     the AI: network, evolution, sensors and driver, trainer, an opponent's race (opponent_race.gd)
 native/                 the C++ source of FleetSim, the fast training simulation (built into bin/)
 bin/                    the built FleetSim libraries for Windows and Linux (trackrush.gdextension names them)
@@ -1567,7 +1604,7 @@ ui/                     the interface, built in code: style, menu, Controls, Set
                         training dashboard (car_chip.gd: its car tiles), network view, fitness chart, the car
                         picker's part chips (part_chip.gd), the volume bars (volume_bar.gd), the championships (cup_screen.gd,
                         cup_table.gd, cup_cabinet.gd: the menu's Cups button), the race minimap (race_minimap.gd), the
-                        Sector records screen (records_screen.gd), ui_sound.gd (the
+                        Records screen with the top 10s (records_screen.gd), ui_sound.gd (the
                         interface's sounds, without depending on audio/)
 audio/                  sound (v6.12.0): the buses, volumes, pooled players and music (game_audio.gd), every sound
                         file as data (sound_bank.gd), the live engine synthesizer (engine_voice.gd) and a car's

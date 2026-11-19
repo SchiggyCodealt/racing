@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-17 (v6.31.0: round 7, item 2 of 4: your nitro back in Race the AI (`PlayMode.nitro_on` always
+_Last updated: 2026-11-19 (v6.32.0: round 7, item 3 of 4: top-10 lists of laps and sectors per track (`sim/top_lists.gd`,
+`SaveData.get_tops` / `submit_tops`, save section `tops`), each place paying career points 25-18-15-12-10-8-6-4-2-1; the
+Records screen shows a track's four lists;
+v6.31.0: round 7, item 2 of 4: your nitro back in Race the AI (`PlayMode.nitro_on` always
 true there; the AI ghost's tank stays empty, no refill); field races and cups stay without;
 v6.30.0: round 7, item 1 of 4: $1 per ms under the author time, once per track and car
 (`Economy.under_ms`, reward id `under-<ms>`), and $1 per 100 points of every run's score (`Economy.score_money`);
@@ -64,7 +67,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.31.0, round 7 items 1-2 of 4 done (money for the author margin and the score; nitro back in Race the AI); next: top-10 laps and sectors with points, Le Mans and 10-car endurance races; round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.32.0, round 7 items 1-3 of 4 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points); next: Le Mans and 10-car endurance races; round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1632,7 +1635,7 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
 1. **Money for the author margin and the score (v6.30.0, done)**: see below.
 2. **Nitro back in Race the AI (v6.31.0, done)**: yours only; the AI's levels were measured without nitro and the shipped
    networks have no nitro output. Field races and cups stay without.
-3. **Top-10 lists (v6.32.0)**: the ten fastest laps and the ten fastest of each sector per track; a time that makes a
+3. **Top-10 lists (v6.32.0, done)**: the ten fastest laps and the ten fastest of each sector per track; a time that makes a
    list earns career points by its place, 25-18-15-12-10-8-6-4-2-1.
 4. **Le Mans and endurance races (v6.33.0)**: the full Circuit de la Sarthe (13.6 km) and a new Endurance race, 10 cars,
    10, 20, 30 or 40 laps, on any circuit; pause, no save in the middle of a race.
@@ -1665,6 +1668,31 @@ The order (the owner was told; each is pushed when done) and the defaults chosen
 - Tests: `test_game.gd` `_app_nitro` (Race my AI and the Rookie AI: your tank full, the AI's empty; 12 s holding
   nitro, you burn and the AI never does; the gauge and the key hint; score refill; a field race still without, with
   its HUD text), the e2e `modes` scenario (the gauge visible and the AI tank empty, shot `race_ai_nitro.png`).
+
+### Item 3: top-10 lists of laps and sectors (v6.32.0, done)
+
+- `sim/top_lists.gd` (pure): `SIZE` 10, `POINTS` 25-18-15-12-10-8-6-4-2-1, `merge(list, times, car, up, date)` (a run's
+  times go in fastest first; an equal time goes below the one listed; returns the new list and the places taken),
+  `record_laps(splits, laps, gates_per_lap)` (the laps in a saved best run's splits).
+- `sim/save.gd`: section `tops` {track: {sig, physics, laps: [{time, car, up, date}], sectors: [[...] x 3]}}.
+  `get_tops(track)` validates like the sector records (physics, track signature, known cars). A save from before v6.32
+  gets its lists once, on loading (`_seed_all_tops`, flag `tops_seeded`; paying nothing), from every car's best run
+  (its splits) and the sector records: at load, not lazily, because the finish saves the run's record before its
+  laps go in, and a lazy seed would count a first run's laps twice. `submit_tops(track,
+  car, laps, sector_laps, up)` merges a run (laps: `race.lap_times`; sectors: `Sectors.Clock.times`, so every lap's
+  sectors), pays the places into career points and rewrites the `sectors` record section from the lists' first
+  places, all in one write. `submit_sectors` / `get_sectors` stay (the HUD's records, the old tests).
+- `modes/play_mode.gd`: `_save_sectors()` now calls `submit_tops` (at the finish, a restart or leaving; the player's
+  runs only, so the field and cups too) and returns its result; the finish adds one payout item per list made (kind
+  `top`, id `top-laps` / `top-s1`..., points only; `_tops_payout`); a restart shows a HUD note when the run left
+  points behind.
+- `ui/records_screen.gd` (title "Records"): the shown track's four lists at the top (`focus_track`, `show_track(i)`,
+  left / right, A / D, LB / RB, Previous / Next buttons, a click on a table row), the points legend, then the table
+  with a Fastest lap column. `top_lines` for tests. `ui/finish_panel.gd` hides the "+$0" of `top` items.
+  `UiData.top_lists(track)` (store fallback `tops`).
+- Tests: `test_sim.gd` `_top_lists` (merge, ties, cut at ten, seeding, places and points, records follow, read back,
+  reset), `test_game.gd` (the Rookie AI run's top items and points), `test_ui.gd` (the screen), e2e `economy`
+  (`_extras` adds the top items) and `shots` (the records open on the run's track with its lists; `records_*.png`).
 
 ## Round 6: cones, three circuits, a Le Mans car (v6.27.0 on)
 

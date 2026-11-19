@@ -293,7 +293,7 @@ func _exit_view() -> void:
 
 
 func restart() -> void:
-	_save_sectors() # (v6.26: the sector times of the run left behind count)
+	var tops := _save_sectors() # (v6.26: the sector times of the run left behind count; v6.32: its laps too)
 	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
 	if not nitro_on:
 		car.nitro = 0.0 # (v6.15: no nitro in races against the AI)
@@ -321,6 +321,8 @@ func restart() -> void:
 	score_events.clear()
 	best_score = SaveData.get_best_score(track.id, car_def.id) if score != null else {}
 	note = {}
+	if int(tops.get("points", 0)) > 0: # (v6.32) what the run left behind put in the top 10s
+		note = {"t": NOTE_TIME, "text": "Top 10: %s, +%d points" % [_tops_count(tops), int(tops.points)]}
 	if with_ghost:
 		ghost = {"car": Car.new(track, track.start_idx, ai_spec), "race": RaceState.new(track), "ai": AiLink.driver(net, cap)}
 		ghost.watch = _new_watch(ghost.car, 0.0)
@@ -565,8 +567,10 @@ func _on_finish() -> void:
 			UiData.mark_new_track(opened)
 		s.score = _score_state()
 		record = SaveData.get_record(track.id, car_def.id)
-		# (v6.26) the run's sector times: those that beat the track's records (any car's) are kept
-		var better := _save_sectors()
+		# (v6.26) the run's sector times: those that beat the track's records (any car's) are kept;
+		# (v6.32) its laps and sectors go in the track's top 10s, each place paying points
+		var tops := _save_sectors()
+		var better: PackedInt32Array = tops.get("records", PackedInt32Array())
 		if not better.is_empty():
 			var names := PackedStringArray()
 			for k in better:
@@ -574,6 +578,7 @@ func _on_finish() -> void:
 			var l: Array = s.get("lines", [])
 			l.append("New sector record%s: %s (any car on this track)" % ["s" if names.size() > 1 else "", ", ".join(names)])
 			s.lines = l
+		_tops_payout(s.payout, tops)
 	else:
 		s.medal = _medal_line(t, null)
 		if not record.is_empty():
@@ -872,13 +877,52 @@ func _sector_step() -> void:
 			sector_hold = race.time + HOLD_SECTORS
 
 
-## Keep this run's best sector times where they beat the track's records (the player's runs, once).
-## The sectors improved.
-func _save_sectors() -> PackedInt32Array:
+## Keep this run's sector times where they beat the track's records (the player's runs, once) and,
+## (v6.32) with its laps, put them in the track's top-10 lists, paying their places (SaveData
+## submit_tops: {laps, sectors, records, points, points_total}; {} when there was nothing to keep).
+func _save_sectors() -> Dictionary:
 	if sectors_saved or sectors == null:
-		return PackedInt32Array()
+		return {}
 	sectors_saved = true
-	return SaveData.submit_sectors(track.id, car_def.id, sectors.best, levels)
+	return SaveData.submit_tops(track.id, car_def.id, race.lap_times, sectors.times, levels)
+
+
+## (v6.32) The finish panel's payout gets one item per top-10 list the run made (kind "top", points
+## only): "Top 10 laps: 1st, 4th" +43.
+func _tops_payout(p: Dictionary, tops: Dictionary) -> void:
+	if tops.is_empty() or int(tops.get("points", 0)) <= 0:
+		return
+	var lists: Array = [tops.laps]
+	lists.append_array(tops.sectors)
+	var items: Array = p.get("items", [])
+	for i in lists.size():
+		var places: PackedInt32Array = lists[i]
+		if places.is_empty():
+			continue
+		var names := PackedStringArray()
+		var pts := 0
+		for pl: int in places:
+			names.append(Field.place_name(pl))
+			pts += TopLists.points_for(pl)
+		items.append({"id": "top-" + TopLists.LISTS[i], "kind": "top", "money": 0, "points": pts,
+			"label": "Top 10 %s: %s" % ["laps" if i == 0 else TopLists.list_name(i), ", ".join(names)]})
+	p.items = items
+	p.points = int(p.get("points", 0)) + int(tops.points)
+	p.points_total = int(tops.points_total)
+
+
+## (v6.32) "2 laps, 3 sectors": how many of a run's times made a top 10.
+static func _tops_count(tops: Dictionary) -> String:
+	var n_laps: int = (tops.get("laps", PackedInt32Array()) as PackedInt32Array).size()
+	var n_sec := 0
+	for pl: Variant in tops.get("sectors", []):
+		n_sec += (pl as PackedInt32Array).size()
+	var parts := PackedStringArray()
+	if n_laps > 0:
+		parts.append("%d lap%s" % [n_laps, "" if n_laps == 1 else "s"])
+	if n_sec > 0:
+		parts.append("%d sector time%s" % [n_sec, "" if n_sec == 1 else "s"])
+	return ", ".join(parts)
 
 
 ## The minimap's cars: yours (or the watched AI's) and the AI ghost (field_mode.gd: the field).
