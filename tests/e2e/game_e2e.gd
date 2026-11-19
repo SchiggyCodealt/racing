@@ -70,7 +70,7 @@ extends SceneTree
 ##             Vortex is short of money (a message), the Kestrel is bought (BUY asks first) and
 ##             driven. Shots: economy_race, economy_finish, economy_menu, economy_shop, economy_buy.
 ##   unlock    the tracks open one at a time (v6.8.0) from a new career: only Rookie Oval is open,
-##             21 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
+##             22 tiles locked; 2 still picks Hairpin Valley (its panel says what opens it, Drive
 ##             reads LOCKED, the menu fits 1280 x 720); Enter (Drive) and Race the Rookie AI are
 ##             refused with a message; Watch the Rookie AI and Train the AI work there; a bronze on
 ##             Rookie Oval (a slow autopilot, 50 m/s at most: 2:32.900 against bronze 2:39 and
@@ -134,6 +134,16 @@ extends SceneTree
 ##             podium with the top three; R starts it again, Esc goes back. Prints PERF lines: the
 ##             physics step of the six cars and the AI engines' script time per frame.
 ##             Shots: field_menu, field_grid, field_battle, field_finish, field_podium.
+##   endurance an endurance race (v6.33.0) on track=<id> (default rookie-oval) at level=<id> (default
+##             pro) for laps=<n> (default 10) with the Racer: Race the field (clicked) opens the car
+##             page with the race length row (on screen at 1280 x 720); the laps' chip (clicked) says
+##             ten cars; START: the grid of ten (nine AI cars ahead); Esc after GO pauses (nothing
+##             moves, PAUSED), Enter goes on; the medal autopilot of the author run drives every lap
+##             (fast-forwarded; a shot with the standings of ten); the finish panel with the ten,
+##             "of 10 · Pro field · 10 laps", the endurance places paid and no medal; the podium.
+##             Prints PERF lines for the ten cars' physics step.
+##             Shots: endurance_page, endurance_grid, endurance_pause, endurance_battle,
+##             endurance_finish, endurance_podium.
 ##   cup       a championship (v6.14.0): cup=<id> (default rookie) at level=<id> (default rookie)
 ##             with the Racer: the menu's Cups button (an empty cabinet, on screen; the menu fits
 ##             1280 x 720); T opens the cup picker (fits 1280 x 720, no scrolling), the arrow keys
@@ -224,6 +234,8 @@ func _main() -> void:
 			await audio_run()
 		"field":
 			await field_race()
+		"endurance":
+			await endurance_race()
 		"cones":
 			await cones_run()
 		"cup":
@@ -755,7 +767,7 @@ func menu_nav() -> void:
 	check(menu.selected_track == 1, "↑ previous track")
 	await key(KEY_EQUAL)
 	check(menu.selected_track == 11, "= picks track 12")
-	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too, v6.28: 20-22)
+	# v6.4: tracks 13-15 (no key of their own) are on with the arrows, and on screen (v6.23: 16-19 too, v6.28: 20-22, v6.33: 23)
 	for want in range(12, n):
 		await key(KEY_RIGHT)
 		check(menu.selected_track == want, "→ track %d (%s)" % [want + 1, Tracks.build(Tracks.ids()[want]).name])
@@ -866,7 +878,7 @@ func menu_nav() -> void:
 	auto_start = true
 	await pad_button(JOY_BUTTON_START)
 	check(app.mode == app.menu_mode, "pad Menu: back to the menu")
-	check(n == 22, "22 tracks")
+	check(n == 23, "23 tracks")
 
 
 # ---------------------------------------------------------------- settings
@@ -1450,6 +1462,105 @@ func field_race() -> void:
 	check(app.mode == app.menu_mode, "Esc: back to the menu")
 
 
+# ---------------------------------------------------------------- endurance races (v6.33.0)
+
+func endurance_race() -> void:
+	var tid := str(opts.get("track", "rookie-oval"))
+	var lv := str(opts.get("level", "pro"))
+	var laps := int(opts.get("laps", "10"))
+	var menu: MainMenu = app.ui.menu
+	var page: CarScreen = menu.car_page
+	var btns: Dictionary = menu.get("_opp_btns")
+	var fbtn: Button = menu.get("_field_btn")
+	var win := Vector2(root.size)
+	await pick(tid, "racer")
+	await click(btns[lv])
+	auto_start = false
+	await click(fbtn)
+	var chip: Button = null
+	for b: Button in page.laps_btns:
+		if int(b.get_meta("laps")) == laps:
+			chip = b
+	var rr := page.laps_row.get_global_rect()
+	check(page.is_open and page.laps_row.is_visible_in_tree() and chip != null and rr.end.y <= win.y + 0.5 and page.start_btn.get_global_rect().end.y <= win.y + 0.5,
+		"Race the field (clicked): the car page with the race length row (Normal, 10, 20, 30, 40), on screen at %dx%d" % [int(win.x), int(win.y)])
+	if chip == null:
+		auto_start = true
+		return
+	await click(chip)
+	check(page.race_laps == laps and page.event_text.begins_with("Endurance race: %d laps, ten cars" % laps) and page.laps_note.text.begins_with("Ten cars"),
+		"the %d chip (clicked): \"%s\"" % [laps, page.event_text])
+	await shot("endurance_page")
+	await click(page.start_btn)
+	auto_start = true
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and m.name == "FieldMode" and int(m.get("endurance")) == laps and str(app.ui.hud.get("_mode").text).begins_with("ENDURANCE · %d LAPS" % laps),
+			"START: %s" % app.ui.hud.get("_mode").text):
+		return
+	var fr: FieldRace = m.get("field")
+	var track: BuiltTrack = m.get("track")
+	var car: Car = m.get("car")
+	await frames(6)
+	var ahead := 0
+	for k in Field.ENDURANCE_AI:
+		if fr.racers[k].car.prog > car.prog and (m.get("ai_models") as Array)[k].visible:
+			ahead += 1
+	check(m.get("phase") == "countdown" and fr.racers.size() == 10 and ahead == 9, "the grid: nine AI cars ahead of you, ten in all")
+	await shot("endurance_grid")
+	await wait_until(func() -> bool: return m.get("phase") == "race" and (m.get("race") as RaceState).time > 1.5, 30.0)
+	await key(KEY_ESCAPE)
+	var t0: float = (m.get("race") as RaceState).time
+	await frames(40)
+	check(m.get("paused") == true and app.mode == m and (m.get("race") as RaceState).time == t0 and str(app.ui.hud.get("_countdown").text) == "PAUSED",
+		"Esc pauses: the race clock stays at %s, PAUSED on the screen" % RaceState.format_time(t0))
+	await shot("endurance_pause")
+	await key(KEY_ENTER)
+	await frames(20)
+	check(m.get("paused") == false and (m.get("race") as RaceState).time > t0, "Enter goes on")
+	var run: Dictionary = Medals.medal_times(track, "racer").run
+	autopilot(float(run.aLat), float(run.lookK), false)
+	fast(true)
+	await wait_until(func() -> bool: return (m.get("race") as RaceState).time > 75.0, 200.0)
+	fast(false)
+	var steps0: int = m.get("steps_run")
+	var usec0: int = m.get("step_usec")
+	await frames(180)
+	var steps: int = int(m.get("steps_run")) - steps0
+	var step_ms: float = (int(m.get("step_usec")) - usec0) / 1000.0 / maxf(1, steps)
+	print("PERF endurance: physics step of the ten cars %.3f ms each over %d steps" % [step_ms, steps])
+	var bd: Dictionary = m.get("board")
+	check(int(bd.of) == 10 and (bd.rows as Array).size() == 10 and step_ms < 8.0, "lap 2: the standings of ten (P%d/10), %.2f ms a step" % [int(bd.pos), step_ms])
+	await shot("endurance_battle")
+	fast(true)
+	await wait_until(func() -> bool: return m.get("phase") == "finished", 3000.0)
+	fast(false)
+	stop_autopilot()
+	await frames(20)
+	var place := fr.position(fr.player_index)
+	var fs: Dictionary = m.get("finish_state")
+	var p: Dictionary = fs.get("payout", {})
+	var eids: Array = (p.get("items", []) as Array).filter(func(it: Dictionary) -> bool: return String(it.kind) == "endurance").map(func(it: Dictionary) -> String: return String(it.id))
+	var medal_items: Array = (p.get("items", []) as Array).filter(func(it: Dictionary) -> bool: return String(it.kind) == "medal")
+	var texts := _texts(app.ui.hud.finish)
+	var race: RaceState = m.get("race")
+	check(race.finished and PackedStringArray(eids) == Economy.endu_ids(laps, lv, place) and medal_items.is_empty() and texts.has(Field.place_name(place)) and
+		texts.has("of 10 · %s field · %d laps" % [Opponents.level_name(lv), laps]) and SaveData.get_record(tid, "racer").is_empty(),
+		"the finish: %s after %d laps in %s, the endurance places paid (%s, %s), no medal and no record" % [Field.place_name(place), race.lap_times.size(),
+		RaceState.format_time(race.finish_time), ", ".join(eids), UiFormat.money(int(p.get("money", 0)))])
+	await shot("endurance_finish")
+	await wait_until(func() -> bool: return m.get("podium_on") == true and fr.all_done(), 120.0)
+	await frames(90)
+	var lapped := 0
+	for r: Dictionary in fr.results():
+		if int(r.down) > 0:
+			lapped += 1
+	check(fr.all_done() and (m.get("podium") as Podium).has(1), "the podium; every AI finished (%d lapped)" % lapped)
+	await shot("endurance_podium")
+	await key(KEY_ESCAPE)
+	await frames(10)
+	check(app.mode == app.menu_mode, "Esc: back to the menu")
+
+
 # ---------------------------------------------------------------- championships (v6.14.0)
 
 ## The menu fits the window: no scrolling, the main column inside it.
@@ -2022,8 +2133,8 @@ func unlock() -> void:
 	var msg: Label = app.message.get("_text")
 	menu.select_opponent("rookie")
 	var locked := tiles.filter(func(x: Control) -> bool: return x.get("locked")).size()
-	check(UiData.open_track_count() == 1 and locked == 21 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18" and tiles[21].lock_note == "Bronze on 21",
-		"a new career: only Rookie Oval is open, 21 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
+	check(UiData.open_track_count() == 1 and locked == 22 and not tiles[0].locked and tiles[1].lock_note == "Bronze on 01" and tiles[14].lock_note == "Bronze on 14" and tiles[18].lock_note == "Bronze on 18" and tiles[21].lock_note == "Bronze on 21" and tiles[22].lock_note == "Bronze on 22",
+		"a new career: only Rookie Oval is open, 22 tiles locked (Hairpin Valley's: %s)" % tiles[1].lock_note)
 	await frames(10)
 	await shot("unlock_menu")
 	# the keys still pick a locked track

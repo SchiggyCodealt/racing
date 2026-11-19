@@ -271,7 +271,7 @@ func _app(t) -> void:
 	var music_db := AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
 	t.check(is_equal_approx(music_db, GameAudio.volume_db(0.3)), "a saved volume applies from the start (music 30%%: %.1f dB)" % music_db)
 	UiData.set_setting("vol_music", 0.7) # (the app applies it)
-	t.check(app.tracks.size() == 22 and app.world.track == app.tracks[0], "22 tracks, the first one shown")
+	t.check(app.tracks.size() == 23 and app.world.track == app.tracks[0], "23 tracks, the first one shown")
 	t.check(app.ui.input == app.input and app.ui.menu.input == app.input, "the interface reads the game's input")
 	# (the player's own network first: the opponent "My AI"; the AI levels are checked in _app_career)
 	app.ui.menu.select_opponent(UiData.MY_AI)
@@ -374,6 +374,10 @@ func _app(t) -> void:
 		app.show_menu()
 	if AiLink.ready():
 		_app_field(t, app)
+	if app.mode != app.menu_mode:
+		app.show_menu()
+	if AiLink.ready():
+		_app_endurance(t, app)
 	if app.mode != app.menu_mode:
 		app.show_menu()
 	if AiLink.ready():
@@ -656,6 +660,93 @@ func _app_field(t, app: GameApp) -> void:
 	app.input.pressed["menu"] = true
 	m.update(1.0 / 60.0)
 	t.check(app.mode == app.menu_mode and app.ui.menu.visible, "Esc: back to the menu")
+	SaveData.use_file(SAVE)
+
+
+## v6.33.0: an endurance race through the app, on a new save file: the car page's race length (on a
+## circuit only), START with 10 laps: ten cars, every race 10 laps, the HUD's ENDURANCE line, no medal
+## target or best time; Esc pauses (nothing steps, PAUSED), Enter goes on, R while racing pauses too and R
+## paused starts again; a finish (put in by hand) pays the endurance places and no medal, saves no record
+## or best score, and the panel says "of 10 · Pro field · 10 laps".
+func _app_endurance(t, app: GameApp) -> void:
+	t.section("the app: endurance races (v6.33.0)")
+	var path := "user://test_game_endurance.json"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	SaveData.use_file(path)
+	var menu: MainMenu = app.ui.menu
+	var page: CarScreen = menu.car_page
+	menu.select_car("racer")
+	menu.select(0)
+	menu.select_opponent("pro")
+	menu.ask_car("drive")
+	var none_drive := not page.laps_choice and not page.laps_row.visible
+	page.close()
+	menu.ask_car("race_field")
+	var shown := page.laps_choice and page.laps_row.visible and page.race_laps == 0 and page.laps_btns.size() == 5 and page.event_text.begins_with("Race the field (Pro)")
+	app.input.press("KeyL")
+	menu.handle_keys(app.input)
+	var ten := page.race_laps == 10 and page.event_text.begins_with("Endurance race: 10 laps, ten cars (Pro field)")
+	(page.laps_btns[4] as Button).pressed.emit()
+	var forty := page.race_laps == 40 and page.event_text.contains("40 laps")
+	(page.laps_btns[1] as Button).pressed.emit()
+	t.check(none_drive and shown and ten and forty and page.race_laps == 10,
+		"the car page: no race length for a time trial; Race the field on Rookie Oval shows Normal, 10, 20, 30, 40 (Normal picked); L picks 10 laps (\"%s\"), a chip 40, then 10 again" % page.event_text)
+	page.press_start()
+	var m: Node = app.mode
+	var fr: FieldRace = m.get("field") if m != app.menu_mode else null
+	if fr == null:
+		t.check(false, "the endurance race starts")
+		return
+	var race: RaceState = m.get("race")
+	var laps_ok := fr.endurance and fr.racers.size() == 10 and (m.get("ai_models") as Array).size() == 9 and race.laps == 10
+	for r: FieldRace.Racer in fr.racers:
+		laps_ok = laps_ok and r.race.laps == 10
+	var mode_text := str(app.ui.hud.get("_mode").text)
+	t.check(laps_ok and int(m.get("endurance")) == 10 and mode_text.begins_with("ENDURANCE · 10 LAPS · PRO FIELD") and m.get("medal_target") == null and
+		(m.get("record") as Dictionary).is_empty() and m.get("rec") == null and not m.counts_for_records() and not page.is_open,
+		"START: ten cars (nine AI models), every race 10 laps, the HUD says %s; no medal target, best time or ghost recording" % mode_text)
+	_run_until(m, func() -> bool: return m.get("phase") == "race" and race.time > 1.0, 10.0)
+	app.input.pressed["menu"] = true
+	m.update(1.0 / 60.0)
+	var t0 := race.time
+	for i in 30:
+		m.update(1.0 / 60.0)
+	var held: bool = m.get("paused") == true and app.mode == m and race.time == t0 and str(app.ui.hud.get("_countdown").text) == "PAUSED"
+	app.input.pressed["respawn"] = true
+	m.update(1.0 / 60.0)
+	for i in 30:
+		m.update(1.0 / 60.0)
+	var going: bool = m.get("paused") == false and race.time > t0 + 0.3
+	app.input.pressed["restart"] = true
+	m.update(1.0 / 60.0)
+	var r_pauses: bool = m.get("paused") == true and race.time > 1.0 and m.get("phase") == "race"
+	app.input.pressed["restart"] = true
+	m.update(1.0 / 60.0)
+	var race2: RaceState = m.get("race")
+	t.check(held and going and r_pauses and m.get("paused") == false and m.get("phase") == "countdown" and race2 != race and race2.laps == 10,
+		"Esc pauses (nothing steps, PAUSED), Enter goes on; R while racing pauses too, R paused starts the race again (10 laps)")
+	# a finish put in by hand: the endurance places, no medal, no record or best score
+	_run_until(m, func() -> bool: return m.get("phase") == "race" and race2.time > 1.0, 10.0)
+	race2.lap_times = PackedFloat64Array([70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0, 70.0])
+	race2.finished = true
+	race2.finish_time = 700.0
+	var money0 := UiData.money()
+	m.call("_on_finish")
+	var fs: Dictionary = m.get("finish_state")
+	var pay: Dictionary = fs.get("payout", {})
+	var kinds: Dictionary = {}
+	for it: Dictionary in pay.get("items", []):
+		kinds[String(it.kind)] = true
+	var ptexts := _texts(app.ui.hud.finish)
+	t.check(m.get("phase") == "finished" and int(pay.place) == 1 and kinds.has("endurance") and not kinds.has("medal") and not kinds.has("field") and
+		String(pay.get("medal", "x")) == "" and SaveData.get_record("rookie-oval", "racer").is_empty() and SaveData.get_best_score("rookie-oval", "racer").is_empty() and
+		int((fs.get("field", {}) as Dictionary).get("laps", 0)) == 10 and ptexts.has("of 10 · Pro field · 10 laps") and not fs.has("medal") and not fs.has("unlocked") and
+		UiData.money() == money0 + int(pay.money),
+		"the finish: 1st (ten cars on the panel), paid the 10-lap endurance places (%s) and no medal; no record or best score saved; the panel says \"of 10 · Pro field · 10 laps\"" % UiFormat.money(int(pay.money)))
+	app.input.pressed["menu"] = true
+	m.update(1.0 / 60.0)
+	t.check(app.mode == app.menu_mode, "Esc after the finish: back to the menu")
 	SaveData.use_file(SAVE)
 
 
@@ -1480,7 +1571,7 @@ func _terminal(t) -> void:
 	r = term.run("status")
 	var st: String = text_of.call(r)
 	t.check(st.contains("Money | $4,321") and st.contains("Points | 0 pts") and st.contains("(9 of 9)") and st.contains("0 author, 1 gold, 0 silver, 1 bronze") and
-		st.contains("1 of 22 tracks") and st.contains("Tracks | all 22 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
+		st.contains("1 of 23 tracks") and st.contains("Tracks | all 23 open (unlock tracks)") and opened == "" and SaveData.opened_tracks().has("hairpin-valley"),
 		"status: money, points, cars, medal counts (1 gold, 1 bronze on one track), the tracks flag (the gold opened Hairpin Valley for good, unannounced: it was open)")
 	# v6.14.0: cup (the trophy cabinet; a place set without racing, nothing paid)
 	var money_c := SaveData.get_money()
@@ -1530,7 +1621,7 @@ func _terminal(t) -> void:
 	t.check(r.changed and SaveData.get_money() == 0 and SaveData.owned_cars() == PackedStringArray(["racer"]) and not SaveData.tracks_unlocked() and
 		not SaveData.get_record("rookie-oval", "racer").is_empty(), "reset career confirm: $0, only the Racer, the flag off; the records stay")
 	st = text_of.call(term.run("status"))
-	t.check(Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally") and st.contains("Tracks | 2 of 22 open; next: Ramp Rally (bronze on Hairpin Valley)"),
+	t.check(Unlocks.is_open("hairpin-valley") and not Unlocks.is_open("ramp-rally") and st.contains("Tracks | 2 of 23 open; next: Ramp Rally (bronze on Hairpin Valley)"),
 		"after the reset the track the gold opened stays open, those the flag opened lock again: %s" % st.get_slice("Tracks | ", 1))
 	# clear, exit
 	r = term.run("clear")

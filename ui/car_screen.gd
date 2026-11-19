@@ -11,7 +11,7 @@ extends "res://ui/dialog_screen.gd"
 ## - Your money, and START: it reads BUY and the price for a car you don't own (the game asks first),
 ##   LOCKED when the money is short.
 ## The pick is the "car" setting (UiData.picked_car()); the buttons only emit signals.
-## (v6.33) Race the field on a circuit (`laps_choice`, set by the menu): a race length row beside the money:
+## (v6.33) Race the field on a circuit (`laps_choice`, set by the menu): a race length row above the money:
 ## Normal (the field race) or 10, 20, 30, 40 laps (an endurance race of ten cars); `race_laps` is the
 ## pick (0: normal), back to Normal each time the page opens for a race; L (or the pad on the chips) picks.
 ##
@@ -60,14 +60,17 @@ var _pad_at: Control = null   # the chip or START the pad highlight is on (null:
 ## (v6.33) the race length: the row, its chips (Normal first), the pick (0 normal), and whether it shows
 var laps_row: HBoxContainer
 var laps_btns: Array = []
+var laps_note: Label
 var race_laps := 0
 var laps_choice := false:
 	set(v):
 		laps_choice = v
 		if laps_row != null:
 			laps_row.visible = v
+			_laps_wrap.visible = v
 			_hint_text()
 var _hint: Label
+var _laps_wrap: Control
 
 
 func _init() -> void:
@@ -148,17 +151,10 @@ func _init() -> void:
 	var dm := UiStyle.margin([0, UiStyle.S2, 0, 0])
 	dm.add_child(desc_row)
 	body.add_child(dm)
-	# your money, and START
-	var foot := UiStyle.hbox(UiStyle.S4)
-	money_l = UiStyle.label("", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.02, false, true, false, UiStyle.FS_L)
-	money_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	money_l.mouse_filter = Control.MOUSE_FILTER_PASS
-	money_l.tooltip_text = "Your money: it buys cars and upgrades. Medals and wins against the AI pay it."
-	foot.add_child(money_l)
 	# (v6.33) the race length (Race the field on a circuit)
 	laps_row = UiStyle.hbox(UiStyle.S1)
 	laps_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var lcap := UiStyle.label("Laps", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	var lcap := UiStyle.label("Race length", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
 	lcap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lcap.mouse_filter = Control.MOUSE_FILTER_PASS
 	lcap.tooltip_text = "Race length: Normal is the usual field race (six cars, the track's own laps, it counts for medals and records); 10 to 40 laps is an endurance race of ten cars (you and nine AI drivers), paid by place."
@@ -179,8 +175,29 @@ func _init() -> void:
 			set_laps(n))
 		laps_row.add_child(b)
 		laps_btns.append(b)
+	laps_note = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_3, 0.0, false, false, false, 18)
+	laps_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	laps_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	laps_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	laps_note.custom_minimum_size.x = 1
+	var nm := UiStyle.margin([UiStyle.S2, 0, 0, 0])
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	nm.add_child(laps_note)
+	laps_row.add_child(nm)
 	laps_row.visible = false
-	foot.add_child(laps_row)
+	var lrm := UiStyle.margin([0, UiStyle.S3, 0, 0])
+	lrm.add_child(laps_row)
+	body.add_child(lrm)
+	_laps_wrap = lrm
+	lrm.visible = false
+	# your money, and START
+	var foot := UiStyle.hbox(UiStyle.S4)
+	money_l = UiStyle.label("", "display_bold", UiStyle.FS_L, UiStyle.TEXT, 0.02, false, true, false, UiStyle.FS_L)
+	money_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	money_l.mouse_filter = Control.MOUSE_FILTER_PASS
+	money_l.tooltip_text = "Your money: it buys cars and upgrades. Medals and wins against the AI pay it."
+	foot.add_child(money_l)
 	var hint := UiStyle.label("C next car · 1-%d upgrade a part · Enter start" % part_chips.size(), "text", UiStyle.FS_S, UiStyle.TEXT_3)
 	_hint = hint
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -217,6 +234,8 @@ func set_laps(n: int) -> void:
 func _style_laps() -> void:
 	for b: Button in laps_btns:
 		b.theme_type_variation = "ChipOnButton" if int(b.get_meta("laps")) == race_laps else "ChipButton"
+	laps_note.text = "Ten cars for %d laps · paid by place · no records or medals" % race_laps if race_laps > 0 \
+		else "Six cars, the track's own laps · counts for medals and records"
 
 
 func _hint_text() -> void:
