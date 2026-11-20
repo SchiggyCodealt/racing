@@ -40,7 +40,7 @@ const KMH: float = 3.6
 ## How far a stored stat may be from a fresh measurement (absolute, in its unit).
 const TOLERANCE: Dictionary = {
 	mass = 0.0, accel100 = 0.03, accel200 = 0.05, top = 0.5, accel200n = 0.05, topNitro = 0.5,
-	tankTime = 0.05, tankDist = 3.0, brake100 = 0.3, grip = 0.02, gripFast = 0.02, drift = 0.05,
+	tankTime = 0.05, tankDist = 3.0, brake100 = 0.3, brake200 = 0.6, grip = 0.02, gripFast = 0.02, drift = 0.05,
 }
 const STAT_KEYS: Array[String] = ["mass", "accel100", "accel200", "top", "accel200n", "topNitro",
 	"tankTime", "tankDist", "brake100", "grip", "gripFast", "drift"]
@@ -134,9 +134,15 @@ static func run(spec: CarSpec, nitro: bool = false, refill: bool = false, second
 
 
 static func brake100(spec: CarSpec) -> float:
+	return brake_from(spec, 100.0)
+
+
+## (v6.36) Metres to stop from `kmh` km/h, full brakes, wheels straight (brake100 at 100; the
+## brakes part is also measured from 200, where the downforce cars' tyres can take more).
+static func brake_from(spec: CarSpec, kmh: float) -> float:
 	var tr: BuiltTrack = road()
 	var car := Car.new(tr, 10, spec)
-	car.place(tr, 10, {x = tr.px[10], z = tr.pz[10], yaw = 0.0, vx = 0.0, vz = 100.0 / KMH, idx = 10, laps = 0})
+	car.place(tr, 10, {x = tr.px[10], z = tr.pz[10], yaw = 0.0, vx = 0.0, vz = kmh / KMH, idx = 10, laps = 0})
 	var z0: float = car.z
 	var ctrl := Car.Controls.new(0.0, -1.0, false)
 	var s: int = 0
