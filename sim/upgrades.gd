@@ -100,7 +100,7 @@ const PARTS: Array[Dictionary] = [
 	{id = "weight", name = "Weight", short = "W", step = 0.03, cost = 1.1, alias = ["lighter", "light", "mass", "diet", "wheight"],
 		what = "a lighter car: it pulls harder at speed, stops shorter and gets more from the nitro", effect = "-%d %% weight"},
 	{id = "supercharger", name = "Supercharger", chip = "Super", short = "S", step = 0.06, cost = 1.25, max = 5, needs = ["engine", 5], trial = true, extra = true,
-		alias = ["supercharger", "supercharging", "charger", "blower", "sc"],
+		alias = ["super", "supercharging", "charger", "blower", "sc"],
 		what = "forced induction: much more power on top of the engine's, for quicker acceleration everywhere", effect = "+%d %% power"},
 ]
 

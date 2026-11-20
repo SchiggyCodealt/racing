@@ -1297,7 +1297,7 @@ func _app_trial(t, app: GameApp, chips: Array, msg: Label) -> void:
 	var m0 := UiData.money()
 	menu.refresh()
 	(chips[5] as Button).pressed.emit()
-	var asked: bool = app.message.asking and msg.text.contains("press 4 arrows in the order shown, within 3.6 s") and
+	var asked: bool = app.message.asking and msg.text.contains("press 4 arrows in the order shown, within 3.6 s") and \
 		msg.text.contains("gives half back (%s)" % UiFormat.money(s1 / 2)) and msg.text.contains("+6 % power")
 	app.message.confirm()
 	var opened: bool = tr.visible and tr.running and tr.trial.level == 1 and UiData.money() == m0 and SaveData.get_upgrades("racer")[5] == 0

@@ -1,4 +1,4 @@
-Track Rush 6.33.0 for Windows (64-bit)
+Track Rush 6.34.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-three tracks (seven of them
@@ -10,19 +10,19 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.33.0: Le Mans and endurance races. Track 23 is Le Mans, the
-24-hour circuit at its real length: 13.63 km a lap with the 6 km Mulsanne
-straight and its two chicanes, one lap a race, on a June evening; a bronze
-on Spielberg opens it. And on any circuit Race the field can be an endurance
-race: on the car page pick the race length (Normal, or 10, 20, 30 or 40
-laps; L steps through them) for ten cars, you and nine AI drivers. When the
-leader finishes, everyone else finishes at the line (a lapped car a lap or
-more short: "+1 lap"). Esc pauses (Enter goes on, R starts again, Esc goes
-to the menu); nothing is saved mid-race. Endurance races pay by place
-(9th to 1st, more for more laps) and fill the top 10s, but count for no
-medal, record or ghost.
+New in 6.34.0: the supercharger. Once a car's engine is at upgrade level
+5, its sixth part opens: a supercharger with five levels, each +6 % power
+on top of the engine's (level 5: +30 %), much quicker to 200 km/h. Each
+level is fitted with a trial: a row of arrows appears, then press them in
+order before the bar runs out (arrow keys, WASD, the d-pad or a click).
+Every level has more arrows and less time for each (4 to 8). A wrong
+arrow, running out of time or giving up is a miss: nothing is fitted and
+half the price comes back; you can try again.
 
 Earlier versions, newest first:
+6.33.0  Le Mans (track 23, 13.63 km a lap) and endurance races: Race the
+        field on a circuit for 10, 20, 30 or 40 laps with ten cars, the
+        chequered flag, a pause on Esc, pay by place.
 6.32.0  top 10s: every track keeps its ten fastest laps and the ten fastest
         times through each sector, by any car; a time that makes a list
         earns career points by its place (25 for 1st down to 1); R on the
