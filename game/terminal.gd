@@ -455,8 +455,8 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 	if args.is_empty():
 		for id: String in Cars.ids():
 			out.row(_car_name(id), _levels_text(SaveData.get_upgrades(id)) if SaveData.owns_car(id) else "not yours")
-		out.add("info", "upgrade <car> <part> <level> sets one (0 to %d; the supercharger and the aero tune 0 to %d), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays." % [
-			Upgrades.MAX_LEVEL, Upgrades.max_level("supercharger")])
+		out.add("info", "upgrade <car> <part> <level> sets one (0 to %d; %s 0 to %d), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays." % [
+			Upgrades.MAX_LEVEL, Upgrades.five_level_text(), Upgrades.max_level("supercharger")])
 		return
 	var all := args[0] == "all"
 	var id := "" if all else car_id(args[0])
@@ -488,8 +488,8 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 		levels = Upgrades.stock()
 		if args[1] == "max":
 			levels.fill(Upgrades.MAX_LEVEL)
-			levels = Upgrades.clean(levels) # (v6.34-6.35: the supercharger's and the aero tune's top is 5)
-		what = "every part at level 0" if args[1] == "stock" else "every part at its top level (the supercharger and the aero tune at %d)" % Upgrades.max_level("supercharger")
+			levels = Upgrades.clean(levels) # (v6.34-6.36: the supercharger's, the aero tune's and the brakes' top is 5)
+		what = "every part at level 0" if args[1] == "stock" else "every part at its top level (%s at %d)" % [Upgrades.five_level_text(), Upgrades.max_level("supercharger")]
 	elif args.size() == 3 and not all:
 		var part := Upgrades.part_id(args[1])
 		if part == "":
