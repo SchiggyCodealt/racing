@@ -112,6 +112,8 @@ var car_def: Dictionary = {}
 ## the AI ghost: the player's levels for the player's car and own network, Opponents.UPGRADES for an
 ## AI opponent (v6.25; stock before)
 var levels: PackedInt32Array = Upgrades.stock()
+## (v6.37) the player's setup for this track and car (SaveData.get_setup: the gearbox tune); {} for an AI driver
+var car_setup: Dictionary = {}
 var car_spec: CarSpec = null
 var ai_levels: PackedInt32Array = Upgrades.stock()
 var ai_spec: CarSpec = null
@@ -206,7 +208,9 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	ai_levels = SaveData.get_upgrades(String(ai_def.id)) if level == "" else Opponents.UPGRADES
 	ai_spec = Upgrades.spec(String(ai_def.id), ai_levels)
 	levels = SaveData.get_upgrades(String(car_def.id)) if driver == "human" else ai_levels
-	car_spec = Upgrades.spec(String(car_def.id), levels)
+	# (v6.37) your car with your gearbox tune for this track (the AI's car: stock gears)
+	car_setup = SaveData.get_setup(String(car_def.id), track.id) if driver == "human" else {}
+	car_spec = Upgrades.spec(String(car_def.id), levels, car_setup)
 	var sp: CarSpec = car_spec
 	_rev_spec = {"idle_rpm": sp.idle_rpm, "redline": sp.redline, "upshift_rpm": sp.upshift_rpm}
 	cones = Cones.new(track) if track.open_edges else null

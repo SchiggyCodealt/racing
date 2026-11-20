@@ -86,6 +86,15 @@ const TRIAL_SHARE: Array[float] = [1.1, 1.45, 1.85, 2.3, 2.8]
 const FREE_CAR_BASE: int = 12000
 ## Prices are rounded to this many dollars.
 const ROUND: int = 50
+## (v6.37) The gearbox tune: a free setting per car and track (SaveData.get_setup), from Short 2
+## (-2) to Long 2 (+2). Each step makes every gear 6 % longer (the final drive x 1 - 0.06 x step):
+## short gears pull harder and run out of revs sooner, long ones the other way round.
+const GEAR_STEP: float = 0.06
+const GEAR_MIN: int = -2
+const GEAR_MAX: int = 2
+const GEAR_NAMES: PackedStringArray = ["Short 2", "Short 1", "Stock", "Long 1", "Long 2"]
+## What the gearbox measurements hold (MEASURED.gearbox: Short 2, Short 1, Long 1, Long 2 on the stock car).
+const GEAR_KEYS: Array[String] = ["top", "accel100", "accel200"]
 
 ## The parts, in the picker's order. step: the share of the stock value each level adds; cost:
 ## × the car's base price share; alias: other words the terminal takes; what: what it does (one
@@ -319,7 +328,7 @@ static func gain(i: int, level: int) -> float:
 
 ## The CarSpec fields an upgraded car changes, with the JS names (CarSpec.make() takes them).
 ## Stock levels: {}.
-static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
+static func changes(car_id: String, levels: PackedInt32Array, setup: Dictionary = {}) -> Dictionary:
 	var lv: PackedInt32Array = clean(levels)
 	var s: CarSpec = Cars.spec(car_id)
 	var out: Dictionary = {}
@@ -363,21 +372,43 @@ static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
 	if bk > 0.0:
 		# (v6.36) the brakes: more force at full pedal, the same bias (the tyres' grip still caps each axle)
 		out.brakeForce = s.brake_force * (1.0 + bk)
+	var gr: int = gear_of(setup)
+	if gr != 0:
+		# (v6.37) the gearbox tune: every gear shorter (Short) or longer (Long) through the final drive
+		out.finalDrive = s.final_drive * (1.0 - GEAR_STEP * gr)
 	return out
 
 
-## Car `car_id` with `levels` (8 ints: engine, tyres, nitro, loose, weight, supercharger, aero, brakes). Stock levels give the stock
-## spec itself; others are made once and cached (a spec is read-only once a car uses it).
-static func spec(car_id: String, levels: PackedInt32Array = PackedInt32Array()) -> CarSpec:
+## (v6.37) The gearbox step of `setup` ({gear}), -2..2 (0: stock; junk: 0).
+static func gear_of(setup: Variant) -> int:
+	if not (setup is Dictionary):
+		return 0
+	var g: Variant = (setup as Dictionary).get("gear", 0)
+	return clampi(int(g), GEAR_MIN, GEAR_MAX) if (g is int or g is float) and is_finite(float(g)) else 0
+
+
+## (v6.37) "Short 2" .. "Long 2" for a gearbox step.
+static func gear_name(g: int) -> String:
+	return GEAR_NAMES[clampi(g, GEAR_MIN, GEAR_MAX) - GEAR_MIN]
+
+
+## Car `car_id` with `levels` (8 ints: engine, tyres, nitro, loose, weight, supercharger, aero, brakes)
+## and (v6.37) `setup` ({gear}: the gearbox tune, SaveData.get_setup; {} stock). Stock levels and
+## setup give the stock spec itself; others are made once and cached (a spec is read-only once a car
+## uses it).
+static func spec(car_id: String, levels: PackedInt32Array = PackedInt32Array(), setup: Dictionary = {}) -> CarSpec:
 	var id: String = car_id if Cars.has_car(car_id) else Cars.DEFAULT_CAR
 	var lv: PackedInt32Array = clean(levels)
-	if is_stock(lv):
+	var g: int = gear_of(setup)
+	if is_stock(lv) and g == 0:
 		return Cars.spec(id)
 	var key: String = "%s:%s" % [id, ",".join(Array(lv).map(func(x: int) -> String: return str(x)))]
+	if g != 0:
+		key += ":g%d" % g
 	_mutex.lock()
 	var s: Variant = _specs.get(key)
 	if s == null:
-		var ch: Dictionary = changes(id, lv)
+		var ch: Dictionary = changes(id, lv, setup)
 		ch.id = id
 		s = CarSpec.make(ch, Cars.spec(id))
 		_specs[key] = s
@@ -460,7 +491,7 @@ static func effect(part_id: String, level: int) -> String:
 ## weight part gives the mass, and what it was measured to do alone (MEASURED.weight) goes on top
 ## of the engine's and the tyres' numbers as the same share (a lighter car with a stronger engine
 ## is a little better still than each alone; the bars need no more than that).
-static func stats(car_id: String, levels: PackedInt32Array) -> Dictionary:
+static func stats(car_id: String, levels: PackedInt32Array, setup: Dictionary = {}) -> Dictionary:
 	var stock_stats: Dictionary = Cars.get_car(car_id).stats
 	var out: Dictionary = stock_stats.duplicate()
 	var lv: PackedInt32Array = clean(levels)
@@ -494,9 +525,16 @@ static func stats(car_id: String, levels: PackedInt32Array) -> Dictionary:
 		for key: String in TRIAL_KEYS:
 			if ms.has(key) and float(base.get(key, 0.0)) > 0.0:
 				out[key] = float(out[key]) * float(ms[key]) / float(base[key])
+	# (v6.37) the gearbox tune: what its step was measured to do on the stock car, as a share
+	var g: int = gear_of(setup)
+	if g != 0 and m.get("gearbox") is Array and (m.gearbox as Array).size() == 4:
+		var mg: Dictionary = m.gearbox[g + 2 if g < 0 else g + 1]
+		for key: String in GEAR_KEYS:
+			if mg.has(key) and float(stock_stats.get(key, 0.0)) > 0.0:
+				out[key] = float(out[key]) * float(mg[key]) / float(stock_stats[key])
 	return out
 
 
 ## The car picker's bars of car `car_id` with `levels` (Cars.stat_bars of stats()).
-static func bars(car_id: String, levels: PackedInt32Array) -> Dictionary:
-	return Cars.stat_bars(stats(car_id, levels), spec(car_id, levels))
+static func bars(car_id: String, levels: PackedInt32Array, setup: Dictionary = {}) -> Dictionary:
+	return Cars.stat_bars(stats(car_id, levels, setup), spec(car_id, levels, setup))

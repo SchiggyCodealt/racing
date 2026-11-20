@@ -542,6 +542,33 @@ static func buy_upgrade(id: String, part: String, fitted: bool = true) -> Dictio
 		"short": p - int(c.money) if err == "money" else 0, "refund": p / 2 if err == "" and not fitted else 0}
 
 
+## (v6.37) Car `id`'s setup on track `track_id` ({gear}: the gearbox tune, -2..2; all 0 when not set
+## or the car isn't owned).
+static func get_setup(id: String, track_id: String) -> Dictionary:
+	if _save:
+		return SaveData.get_setup(id, track_id)
+	var out := {"gear": 0}
+	var sets: Variant = store.career.get("setups")
+	if owns_car(id) and sets is Dictionary and (sets as Dictionary).get(id) is Dictionary and sets[id].get(track_id) is Dictionary:
+		out.gear = Upgrades.gear_of(sets[id][track_id])
+	return out
+
+
+## (v6.37) Set key `key` ("gear") of car `id`'s setup on track `track_id` (free); false for a car not owned.
+static func set_setup(id: String, track_id: String, key: String, value: int) -> bool:
+	if _save:
+		return SaveData.set_setup(id, track_id, key, value)
+	if not owns_car(id) or key != "gear" or track_id == "":
+		return false
+	var c: Dictionary = store.career
+	if not (c.get("setups") is Dictionary):
+		c.setups = {}
+	if not (c.setups.get(id) is Dictionary):
+		c.setups[id] = {}
+	c.setups[id][track_id] = {"gear": clampi(value, Upgrades.GEAR_MIN, Upgrades.GEAR_MAX)}
+	return true
+
+
 ## Car `id`'s stat bars with the upgrades bought (car_info(id).bars are the stock car's).
 static func car_bars(id: String) -> Dictionary:
 	return Upgrades.bars(id, upgrade_levels(id))

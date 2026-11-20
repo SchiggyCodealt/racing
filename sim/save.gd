@@ -44,6 +44,8 @@ extends RefCounted
 ##                                                    "order" (not the next level), "max", "money", "unknown"
 ##   SaveData.set_upgrades(car_id, levels)            set the levels without paying (the terminal); false
 ##                                                    for a car not owned
+##   SaveData.get_setup(car_id, track_id) -> {gear}   (v6.37) the gearbox tune there, -2..2 (0 stock)
+##   SaveData.set_setup(car_id, track_id, key, value) set it (free; false for a car not owned)
 ## The terminal (v6.7.0, game/terminal.gd) also uses:
 ##   SaveData.tracks_unlocked() -> bool                every track open whatever the medals (the terminal's
 ##                                                    `unlock all` / `unlock tracks`)
@@ -92,7 +94,9 @@ extends RefCounted
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
 ## tracks_open, upgrades: {car: [engine, tyres, nitro, loose, weight]}, cups?: {paid: [cup reward ids], trophies: {cup:
-## {level: best place}}, run?: the cup in progress}}}.
+## {level: best place}}, run?: the cup in progress}, setups? (v6.37): {car: {track: {gear}}}}}.
+## (setups, v6.37.0: the gearbox tune per car and track, only what isn't stock; absent = every car stock
+## everywhere; version 5 stays. A reset career drops them.)
 ## (cups, v6.14.0: absent in older files = no trophies, nothing paid, no cup in progress; version 5 stays.
 ## A reset career keeps the trophies (like the records) but not the cup payouts or the cup in progress.)
 ## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
@@ -373,6 +377,24 @@ static func _repair_career(d: Dictionary) -> void:
 			if cars.has(str(car)) and not Upgrades.is_stock(lv):
 				up[str(car)] = Array(lv)
 	c.upgrades = up
+	# (v6.37) setups: owned cars only, {track: {gear}} with the values in range; stock entries dropped
+	if c.has("setups"):
+		var sets: Dictionary = {}
+		if c.setups is Dictionary:
+			for car: Variant in c.setups:
+				if not cars.has(str(car)) or not (c.setups[car] is Dictionary):
+					continue
+				var per: Dictionary = {}
+				for tr: Variant in c.setups[car]:
+					var one: Dictionary = _setup_set(_clean_setup(c.setups[car][tr]))
+					if not one.is_empty() and str(tr) != "":
+						per[str(tr)] = one
+				if not per.is_empty():
+					sets[str(car)] = per
+		if sets.is_empty():
+			c.erase("setups")
+		else:
+			c.setups = sets
 
 
 ## Entries kept from older versions of a track: {signature: entry} (section: "records",
@@ -1083,6 +1105,73 @@ static func set_upgrades(car_id: String, levels: PackedInt32Array) -> bool:
 			(c.upgrades as Dictionary).erase(car_id)
 		else:
 			c.upgrades[car_id] = Array(lv)
+		_write()
+	_mutex.unlock()
+	return ok
+
+
+# ---- car setups (v6.37.0: the gearbox tune; sim/upgrades.gd applies them) --------------------
+
+## The keys a setup holds, each [lowest, highest] (v6.37: the gearbox tune, -2 Short 2 .. 2 Long 2; 0 is stock).
+const SETUP_KEYS: Dictionary = {gear = [-2, 2]}
+
+
+## Every key of SETUP_KEYS from `d` (a file's entry): numbers clamped to their range, anything else 0.
+static func _clean_setup(d: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for k: String in SETUP_KEYS:
+		var v: Variant = (d as Dictionary).get(k, 0) if d is Dictionary else 0
+		out[k] = clampi(int(v), int(SETUP_KEYS[k][0]), int(SETUP_KEYS[k][1])) if _is_num(v) and is_finite(float(v)) else 0
+	return out
+
+
+## A clean setup as the file keeps it: only the keys that aren't stock (0).
+static func _setup_set(d: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for k: String in d:
+		if int(d[k]) != 0:
+			out[k] = int(d[k])
+	return out
+
+
+## Car `car_id`'s setup on track `track_id`: {gear} (all 0, stock, for a car not owned or never set
+## up there). Upgrades.spec(car, levels, setup) drives it.
+static func get_setup(car_id: String, track_id: String) -> Dictionary:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var out: Dictionary = _clean_setup({})
+	var sets: Variant = c.get("setups")
+	if (c.cars as Array).has(car_id) and sets is Dictionary and (sets as Dictionary).get(car_id) is Dictionary:
+		out = _clean_setup(sets[car_id].get(track_id))
+	_mutex.unlock()
+	return out
+
+
+## Set key `key` (SETUP_KEYS: "gear") of car `car_id`'s setup on track `track_id` to `value` (clamped
+## to its range). False for a car not owned or unknown, an unknown key or no track. Free.
+static func set_setup(car_id: String, track_id: String, key: String, value: int) -> bool:
+	if not Cars.has_car(car_id) or not SETUP_KEYS.has(key) or track_id == "":
+		return false
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var ok: bool = (c.cars as Array).has(car_id)
+	if ok:
+		if not (c.get("setups") is Dictionary):
+			c.setups = {}
+		var per: Dictionary = c.setups[car_id] if (c.setups as Dictionary).get(car_id) is Dictionary else {}
+		var one: Dictionary = _clean_setup(per.get(track_id))
+		one[key] = clampi(value, int(SETUP_KEYS[key][0]), int(SETUP_KEYS[key][1]))
+		one = _setup_set(one)
+		if one.is_empty():
+			per.erase(track_id)
+		else:
+			per[track_id] = one
+		if per.is_empty():
+			(c.setups as Dictionary).erase(car_id)
+		else:
+			c.setups[car_id] = per
+		if (c.setups as Dictionary).is_empty():
+			c.erase("setups")
 		_write()
 	_mutex.unlock()
 	return ok

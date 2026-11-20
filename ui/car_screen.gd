@@ -15,8 +15,12 @@ extends "res://ui/dialog_screen.gd"
 ## Normal (the field race) or 10, 20, 30, 40 laps (an endurance race of ten cars); `race_laps` is the
 ## pick (0: normal), back to Normal each time the page opens for a race; L (or the pad on the chips) picks.
 ##
+## (v6.37) The setup for the race's track (`track_id`, set by the menu; "" hides it): the gearbox tune,
+## Short 2 to Long 2, with what it does to the picked car's top speed and 0-200 km/h; free, kept per car
+## and track (UiData.get_setup); G / Shift+G longer / shorter (`setup_picked` goes out).
+##
 ## Keys: arrows / WASD move over the cars, C / Shift+C next / previous car, 1-9 buy the next level of
-## that part, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
+## that part, G / Shift+G the gearbox, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
 ## (down to the parts, then to START), LB / RB the car, A starts or presses, B goes back.
 
 ## START was pressed (the menu starts what was chosen; the game refuses a car you don't own).
@@ -26,6 +30,8 @@ signal car_picked(id: String)
 signal upgrade(part: String)
 ## (v6.33) a race length was picked (0: normal, else an endurance race's laps)
 signal laps_picked(laps: int)
+## (v6.37) the picked car's setup on `track_id` changed (key "gear": the gearbox step, -2..2)
+signal setup_picked(key: String, value: int)
 
 const CarCard := preload("res://ui/car_card.gd")
 const PartChip := preload("res://ui/part_chip.gd")
@@ -71,6 +77,18 @@ var laps_choice := false:
 			_hint_text()
 var _hint: Label
 var _laps_wrap: Control
+## (v6.37) the setup row: the track it is for ("" hides it), the gearbox buttons, its value and note
+var track_id := "":
+	set(v):
+		track_id = v
+		if setup_row != null:
+			_setup_wrap.visible = v != ""
+var setup_row: HBoxContainer
+var gear_shorter: Button
+var gear_longer: Button
+var gear_l: Label
+var gear_note: Label
+var _setup_wrap: Control
 
 
 func _init() -> void:
@@ -152,6 +170,50 @@ func _init() -> void:
 	var dm := UiStyle.margin([0, UiStyle.S2, 0, 0])
 	dm.add_child(desc_row)
 	body.add_child(dm)
+	# (v6.37) the gearbox tune for the race's track
+	setup_row = UiStyle.hbox(UiStyle.S1)
+	setup_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var gcap := UiStyle.label("Gearbox", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	gcap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gcap.mouse_filter = Control.MOUSE_FILTER_PASS
+	gcap.tooltip_text = "The gearbox tune, free and kept for each car and track: short gears pull harder out of the corners but run out of revs sooner (a lower top speed), long gears reach a higher top speed but pull less. Medal times stay stock."
+	var gm := UiStyle.margin([0, 0, UiStyle.S1, 0])
+	gm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gm.mouse_filter = Control.MOUSE_FILTER_PASS
+	gm.add_child(gcap)
+	setup_row.add_child(gm)
+	gear_shorter = UiStyle.button("← Shorter", "ChipButton", 26)
+	gear_shorter.custom_minimum_size.x = 96
+	gear_shorter.tooltip_text = "Shorter gears: quicker off the line and out of corners, a lower top speed (Shift+G)"
+	gear_shorter.pressed.connect(func() -> void: step_gear(-1))
+	setup_row.add_child(gear_shorter)
+	gear_l = UiStyle.label("Stock", "text_semi", UiStyle.FS_S, UiStyle.TEXT, 0.0, false, false, false, 18)
+	gear_l.custom_minimum_size.x = 64
+	gear_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	gear_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	setup_row.add_child(gear_l)
+	gear_longer = UiStyle.button("Longer →", "ChipButton", 26)
+	gear_longer.custom_minimum_size.x = 96
+	gear_longer.tooltip_text = "Longer gears: a higher top speed, slower off the line (G)"
+	gear_longer.pressed.connect(func() -> void: step_gear(1))
+	setup_row.add_child(gear_longer)
+	gear_note = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_3, 0.0, false, false, false, 18)
+	gear_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gear_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gear_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	gear_note.custom_minimum_size.x = 1
+	gear_note.mouse_filter = Control.MOUSE_FILTER_PASS
+	var gnm := UiStyle.margin([UiStyle.S2, 0, 0, 0])
+	gnm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gnm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	gnm.mouse_filter = Control.MOUSE_FILTER_PASS
+	gnm.add_child(gear_note)
+	setup_row.add_child(gnm)
+	var srm := UiStyle.margin([0, UiStyle.S2, 0, 0])
+	srm.add_child(setup_row)
+	body.add_child(srm)
+	_setup_wrap = srm
+	srm.visible = false
 	# (v6.33) the race length (Race the field on a circuit)
 	laps_row = UiStyle.hbox(UiStyle.S1)
 	laps_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -241,7 +303,22 @@ func _style_laps() -> void:
 
 func _hint_text() -> void:
 	if _hint != null:
-		_hint.text = "C next car · 1-%d upgrade a part · %sEnter start" % [part_chips.size(), "L laps · " if laps_choice else ""]
+		_hint.text = "C next car · 1-%d upgrade a part · %s%sEnter start" % [part_chips.size(), "G gears · " if track_id != "" else "", "L laps · " if laps_choice else ""]
+
+
+## (v6.37) The picked car's gearbox one step longer (1) or shorter (-1) on `track_id` (it stops at
+## Short 2 and Long 2); a car you don't own: nothing.
+func step_gear(step: int) -> void:
+	var car := UiData.picked_car()
+	if track_id == "" or not UiData.owns_car(car):
+		return
+	var g := Upgrades.gear_of(UiData.get_setup(car, track_id))
+	var to := clampi(g + step, Upgrades.GEAR_MIN, Upgrades.GEAR_MAX)
+	if to == g:
+		return
+	UiSound.play("ui_move")
+	setup_picked.emit("gear", to)
+	refresh()
 
 
 func close() -> void:
@@ -289,6 +366,7 @@ func refresh() -> void:
 			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s%s Medal times stay stock; the AI opponents keep their level 3 car." % [
 				p.name, cname, p.what, now, level + 1, Upgrades.effect(String(p.id), level + 1), UiFormat.money(nxt), UiFormat.money(have),
 				"" if have >= nxt else " %s more to go." % UiFormat.money(nxt - have), trial_note]
+	_refresh_setup(car, owned, cname, lv)
 	car_desc_name.text = cname
 	car_desc.text = info.description
 	car_desc.tooltip_text = "%s: %s" % [cname, info.description]
@@ -307,6 +385,30 @@ func refresh() -> void:
 		start_btn.theme_type_variation = ""
 		start_btn.tooltip_text = "The %s costs %s: %s more to go. Medals and wins against the AI opponents pay money." % [
 			cname, UiFormat.money(price), UiFormat.money(price - have)]
+
+
+## (v6.37) The gearbox row for car `car` on `track_id`: its step, the buttons (off at the ends or for
+## a car not yours) and what the step does to the top speed and 0-200 km/h (Upgrades.stats).
+func _refresh_setup(car: String, owned: bool, cname: String, lv: PackedInt32Array) -> void:
+	_hint_text()
+	if track_id == "":
+		return
+	var g := Upgrades.gear_of(UiData.get_setup(car, track_id))
+	gear_l.text = Upgrades.gear_name(g)
+	gear_shorter.disabled = not owned or g <= Upgrades.GEAR_MIN
+	gear_longer.disabled = not owned or g >= Upgrades.GEAR_MAX
+	var tname := String(Tracks.def(track_id).get("name", track_id))
+	if not owned:
+		gear_note.text = "Buy the %s to tune its gears" % cname
+	else:
+		var st0 := Upgrades.stats(car, lv)
+		var st := Upgrades.stats(car, lv, {"gear": g})
+		if g == 0:
+			gear_note.text = "Stock gears on %s · %d km/h · 0-200 in %.1f s" % [tname, roundi(float(st0.top)), float(st0.accel200)]
+		else:
+			gear_note.text = "On %s · top speed %d → %d km/h · 0-200 %.1f → %.1f s" % [tname, roundi(float(st0.top)), roundi(float(st.top)),
+				float(st0.accel200), float(st.accel200)]
+	gear_note.tooltip_text = "%s's gears on %s: %s. Free; kept for this car and track." % [cname, tname, Upgrades.gear_name(g)]
 
 
 ## Pick car `id` (remembered: the "car" setting).
@@ -341,6 +443,8 @@ func press_start() -> void:
 ## (v6.33) And the race length chips, when they show.
 func _pad_parts() -> Array:
 	var all: Array = part_chips.duplicate()
+	if track_id != "": # (v6.37) the gearbox buttons
+		all.append_array([gear_shorter, gear_longer])
 	if laps_choice:
 		all.append_array(laps_btns)
 	return all.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
@@ -371,6 +475,8 @@ func handle_keys(inp: Object) -> void:
 		pick(cards[at - cols if at - cols >= 0 else at].car_id)
 	if inp.consume(["KeyC"]):
 		cycle(-1 if inp.consume(["Shift+KeyC"]) else 1)
+	if track_id != "" and inp.consume(["KeyG"]): # (v6.37) the gearbox: G longer, Shift+G shorter
+		step_gear(-1 if inp.consume(["Shift+KeyG"]) else 1)
 	if laps_choice and inp.consume(["KeyL"]): # (v6.33) the next race length
 		var choices: Array = [0]
 		choices.append_array(Array(Field.ENDURANCE_LAPS))

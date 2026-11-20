@@ -1,6 +1,6 @@
 extends SceneTree
 ## upgrades.gd (v6.11.0; v6.16.0: ten levels; v6.21.0: the weight part; v6.34-6.35: the supercharger
-## and the aero tune; v6.36.0: the brakes): measures what the car
+## and the aero tune; v6.36.0: the brakes; v6.37.0: the gearbox tune): measures what the car
 ## upgrades (sim/upgrades.gd) do, with the real physics.
 ## ------------------------------------------------------------------
 ##   godot --headless --path <copy> --script res://tools/upgrades.gd [-- options]
@@ -43,8 +43,11 @@ const LAP_SETS: Array = [
 ]
 const SLIP_SETS: Array = ["all3", "all10", "max"]
 
-## The parts measured (--parts=; all of MEASURED_PARTS by default).
-var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger", "aero", "brakes"]
+## (v6.37) The gearbox tune's steps measured (on the stock car): MEASURED.<car>.gearbox in this order.
+const GEAR_STEPS: Array[int] = [-2, -1, 1, 2]
+
+## The parts measured (--parts=; all of MEASURED_PARTS and "gearbox" by default).
+var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger", "aero", "brakes", "gearbox"]
 var _lap_sets: PackedStringArray = []
 
 
@@ -59,7 +62,10 @@ func _stat_sets() -> Array:
 			var lv: Array = (mp[4] as Array).duplicate()
 			lv[int(mp[2])] = k
 			out.append(["%s%d" % [mp[1], k], lv])
-	if _parts.size() == MEASURED_PARTS.size():
+	if _parts.has("gearbox"):
+		for g: int in GEAR_STEPS:
+			out.append(["G%d" % g, [0, 0, 0, 0, 0], {gear = g}])
+	if _full():
 		out.append_array([["N3", [0, 0, 3, 0, 0]], ["N10", [0, 0, 10, 0, 0]], ["all3", [3, 3, 3, 3, 3]], ["all10", [10, 10, 10, 10, 10]]])
 	return out
 
@@ -138,11 +144,11 @@ func _stats(cars: PackedStringArray) -> void:
 	CarStats.surface = "asphalt"
 	CarStats.prepare()
 	var sets: Array = _stat_sets()
-	var full: bool = _parts.size() == MEASURED_PARTS.size()
+	var full: bool = _full()
 	var jobs: Array[Dictionary] = []
 	for id: String in cars:
 		for set: Array in sets:
-			var spec: CarSpec = Upgrades.spec(id, _lv(set[1]))
+			var spec: CarSpec = Upgrades.spec(id, _lv(set[1]), set[2] if set.size() > 2 else {})
 			jobs.append({key = "%s|%s" % [id, set[0]], fn = _measure.bind(spec, _parts.has("brakes") and (set[0] == "stock" or String(set[0]).begins_with("B")))})
 	_run_jobs(jobs)
 	var asphalt: Dictionary = _results.duplicate()
@@ -179,6 +185,9 @@ func _stats(cars: PackedStringArray) -> void:
 			parts.append("B%d 100-0 %+.1f 200-0 %+.1f" % [k, _pc(m.brake100, s.brake100), _pc(m.brake200, s.brake200)])
 		if _parts.has("brakes"):
 			parts.append("200-0 stock %.1f m" % float(s.brake200))
+		for g: int in (GEAR_STEPS if _parts.has("gearbox") else []):
+			var m: Dictionary = asphalt["%s|G%d" % [id, g]]
+			parts.append("G%+d top %+.1f 0-100 %+.1f 0-200 %+.1f" % [g, _pc(m.top, s.top), _pc(m.accel100, s.accel100), _pc(m.accel200, s.accel200)])
 		if full:
 			for n: String in ["N3", "N10"]:
 				parts.append("%s tank %+.1f" % [n, _pc(asphalt["%s|%s" % [id, n]].tankTime, s.tankTime)])
@@ -221,6 +230,14 @@ static func _measure(spec: CarSpec, from200: bool) -> Dictionary:
 	return d
 
 
+## Every part measured (and the gearbox): the stats add nitro 3 and 10, everything 3 and 10, dirt and snow.
+func _full() -> bool:
+	for mp: Array in MEASURED_PARTS:
+		if not _parts.has(mp[0]):
+			return false
+	return _parts.has("gearbox")
+
+
 static func _pc(a: Variant, b: Variant) -> float:
 	return (float(a) / float(b) - 1.0) * 100.0
 
@@ -245,6 +262,21 @@ func _measured_text(cars: PackedStringArray, m: Dictionary) -> String:
 						kv.append("%s = %s" % [key, JsMath.num_to_js(float(src[key]))])
 				cells.append("{%s}" % ", ".join(kv))
 			rows.append("\t\t%s = [%s]," % [mp[0], ", ".join(cells)])
+		# (v6.37) the gearbox tune's steps
+		var gcells: PackedStringArray = []
+		for gi in GEAR_STEPS.size():
+			var src: Dictionary = {}
+			if _parts.has("gearbox"):
+				src = m["%s|G%d" % [id, GEAR_STEPS[gi]]]
+			else:
+				var have: Array = (Upgrades.MEASURED.get(id, {}) as Dictionary).get("gearbox", [])
+				src = have[gi] if have.size() > gi else {}
+			var kv: PackedStringArray = []
+			for key: String in Upgrades.GEAR_KEYS:
+				if src.has(key):
+					kv.append("%s = %s" % [key, JsMath.num_to_js(float(src[key]))])
+			gcells.append("{%s}" % ", ".join(kv))
+		rows.append("\t\tgearbox = [%s]," % ", ".join(gcells))
 		lines.append("\t%s = {\n%s\n\t}," % [id, "\n".join(rows)])
 	return "const MEASURED: Dictionary = {\n%s\n}" % "\n".join(lines)
 
@@ -257,7 +289,7 @@ func _check(cars: PackedStringArray) -> int:
 		for set: Array in _stat_sets():
 			if ["stock", "N3", "N10", "all3", "all10"].has(set[0]):
 				continue
-			var spec: CarSpec = Upgrades.spec(id, _lv(set[1]))
+			var spec: CarSpec = Upgrades.spec(id, _lv(set[1]), set[2] if set.size() > 2 else {})
 			jobs.append({key = "%s|%s" % [id, set[0]], fn = _measure.bind(spec, String(set[0]).begins_with("B"))})
 	_run_jobs(jobs)
 	var off: PackedStringArray = []
@@ -273,6 +305,13 @@ func _check(cars: PackedStringArray) -> int:
 				for key: String in mp[3]:
 					if not (absf(float(have.get(key, NAN)) - float(m[key])) <= float(CarStats.TOLERANCE[key]) + 1e-9):
 						off.append("%s %s %s %s -> %s" % [id, tag, key, have.get(key), m[key]])
+		for gi in (GEAR_STEPS.size() if _parts.has("gearbox") else 0):
+			var tag: String = "G%d" % GEAR_STEPS[gi]
+			var m: Dictionary = _results["%s|%s" % [id, tag]]
+			var have: Dictionary = (stored.get("gearbox", [])[gi] if (stored.get("gearbox", []) as Array).size() > gi else {})
+			for key: String in Upgrades.GEAR_KEYS:
+				if not (absf(float(have.get(key, NAN)) - float(m[key])) <= float(CarStats.TOLERANCE[key]) + 1e-9):
+					off.append("%s %s %s %s -> %s" % [id, tag, key, have.get(key), m[key]])
 	print("Upgrades.MEASURED is up to date" if off.is_empty() else "OUT OF DATE (run tools/upgrades.gd and paste MEASURED):\n  " + "\n  ".join(off))
 	return 0 if off.is_empty() else 1
 
