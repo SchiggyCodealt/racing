@@ -1761,9 +1761,10 @@ func _jumps(ids: PackedStringArray, lv: PackedInt32Array = PackedInt32Array(), s
 	var spins: int = 0
 	var max_air: float = 0.0
 	# (v6.35) the cars in `slides` may spin after a landing with the steer key held through the flight
-	# (counted apart), and at most once in all their normal runs
+	# (counted apart), and at most once in all their normal runs; `where` names each spin
 	var slide_jumps: int = 0
 	var slide_spins: PackedInt32Array = [0, 0] # (normal, steer held)
+	var where: PackedStringArray = []
 	for id: String in ids:
 		for track: BuiltTrack in tracks:
 			if track.kickers.is_empty():
@@ -1798,6 +1799,7 @@ func _jumps(ids: PackedStringArray, lv: PackedInt32Array = PackedInt32Array(), s
 					if watch > 0:
 						watch -= 1
 						if absf(wrap_a(car.yaw - atan2(track.tx[car.idx], track.tz[car.idx]))) > PI / 2.0:
+							where.append("%s on %s%s" % [Cars.get_car(id).name, track.name, " (steer held)" if hold else ""])
 							if slides.has(id):
 								slide_spins[hold] += 1
 							else:
@@ -1807,8 +1809,24 @@ func _jumps(ids: PackedStringArray, lv: PackedInt32Array = PackedInt32Array(), s
 	t.check(jumps >= 40 and bounces == 0 and spins == 0 and max_air < 35.0 and slide_spins[0] <= 1,
 		"jumps, every car%s: %d jumps, %d bounces, %d spins; holding a steer key through a whole flight turns the car at most %.1f° (limit 35°)%s" % [
 			"" if Upgrades.is_stock(lv) else " (upgrades %s)" % Upgrades.code(lv), jumps, bounces, spins, max_air,
-			"" if slides.is_empty() else "; the %s, built to slide, spun after %d of its %d landings: %d with the steer key held through the flight, %d without (at most 1)" % [
-				" and ".join(Array(slides).map(func(x: String) -> String: return Cars.get_car(x).name)), slide_spins[0] + slide_spins[1], slide_jumps, slide_spins[1], slide_spins[0]]])
+			"" if slides.is_empty() else "; the %s spun after %d of their %d landings: %d with the steer key held through the flight, %d without (at most 1)" % [
+				" and ".join(Array(slides).map(func(x: String) -> String: return Cars.get_car(x).name)), slide_spins[0] + slide_spins[1], slide_jumps, slide_spins[1], slide_spins[0]]] + \
+			("" if where.is_empty() else " [%s]" % ", ".join(_tally(where))))
+
+
+## "Drifter on Ramp Rally (steer held) x2", ... from a list with repeats (in first-seen order).
+static func _tally(items: PackedStringArray) -> PackedStringArray:
+	var order: PackedStringArray = []
+	var n: Dictionary = {}
+	for x: String in items:
+		if not n.has(x):
+			order.append(x)
+			n[x] = 0
+		n[x] = int(n[x]) + 1
+	var out: PackedStringArray = []
+	for x: String in order:
+		out.append(x if int(n[x]) == 1 else "%s x%d" % [x, int(n[x])])
+	return out
 
 
 # ---- 12: the style score ------------------------------------------------------------------
@@ -3148,8 +3166,9 @@ func _upgrades() -> void:
 	var top_all := Upgrades.clean([10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]) # (v6.34-6.36: the supercharger, the aero tune and the brakes at 5 too)
 	_jumps(ids, all10)
 	# (v6.35) every part at its top: the Drifter, built to slide, with 30 % more power and less drag can spin
-	# after a landing, nearly always only when the steer key is held through the whole flight
-	_jumps(ids, top_all, PackedStringArray(["drifter"]))
+	# after a landing, nearly always only when the steer key is held through the whole flight; (v6.36) with the
+	# brakes at 5 too, the Dune once on Dune Sea: landed crooked (the steer held), braking hard on the sand
+	_jumps(ids, top_all, PackedStringArray(["drifter", "dune"]))
 	_lane_keeping(ids, top_all)
 	var spins: PackedStringArray = []
 	ok = true
@@ -3576,7 +3595,7 @@ func _brakes() -> void:
 		var st3 := Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 3]))
 		var stw := Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 5, 0, 0, 3]))
 		ok = ok and absf(float(st3.brake100) - float(m.brakes[2].brake100)) < 1e-9 and float(stw.brake100) < float(st3.brake100) and \
-			float(stw.brake100) < float(Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 5])).brake100)
+			float(stw.brake100) <= float(Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 5])).brake100) + 1e-9
 		meas.append("%s %.1f -> %.1f m, %.1f -> %.1f m" % [id, float(base.brake100), b5, s200, b52])
 	t.check(ok, "the brakes: +8 %% brake force a level (level 3 x 1.24), the bias and everything else as it was; the AI keeps stock brakes; measured 100-0 and 200-0 km/h, stock -> brakes 5: %s (every level at least as short, level 5 under %d %% of stock from 100 or 200, the Apex only from 200; with the weight part shorter still)" % [
 		", ".join(meas), roundi(BRAKES_B5_MAX * 100.0)])

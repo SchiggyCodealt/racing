@@ -1673,6 +1673,10 @@ items; AI cars and medal times stay stock):
   `{brake100, brake200}`; `stats()` scales `brake100` by the measured share. Most cars stop 15-17 % shorter from
   100 km/h at level 5; the Apex's brakes already lock its tyres at 100 km/h (no gain there, 8 % from 200, where its
   downforce helps), the Sarthe's after level 2 (4 % from 100, 15 % from 200). The tests know the Apex exception.
+- **Stability.** With every part at its top (brakes 5 included) the jumps test (`_jumps`) saw the Drifter spin after
+  6 of 52 landings (all with the steer held through the flight) and the Dune once (Dune Sea, steer held, full brakes
+  on the sand after landing; no spin without the brakes): both are passed as `slides` there, so the test stays strict
+  without the steer held and names every spin. Item 3 (suspension) should make these landings steadier.
 - **Elsewhere.** `Opponents.UPGRADES` has a 0 for the brakes (8 ints). The car page shows eight chips (two rows of
   four at 1280 x 720; keys 1-8). The terminal: `upgrade <car> brakes <0-5>`, `buy <car> brakes` buys a level (no
   trial). Tests: `_brakes()` in tests/test_sim.gd, the parts' checks, the UI's eight chips, the terminal, e2e (66

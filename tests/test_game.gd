@@ -1807,7 +1807,7 @@ func _terminal_upgrades(t) -> void:
 	var r6: Dictionary = term.run("buy racer supercharger")
 	var r7: Dictionary = term.run("buy racer aero")
 	var b1 := Upgrades.price("racer", "brakes", 1)
-	term.run("money %d" % (100 + b1))
+	term.run("money set %d" % (100 + b1))
 	var r8: Dictionary = term.run("buy racer brakes")
 	t.check(kind_of.call(r) == "info" and text_of.call(r).contains("level 10 already") and kind_of.call(r3) == "error" and text_of.call(r3).contains("don't own the Vortex") and
 		kind_of.call(r4) == "error" and text_of.call(r4).contains("no part called") and kind_of.call(r5) == "error" and SaveData.get_money() == 100 and

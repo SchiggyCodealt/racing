@@ -957,11 +957,14 @@ its top. The nitro can't push the top speed further with the tune fitted: the lo
 at the new top speed. `buy <car> aero` points at the car page; `upgrade <car> aero <0-5>` sets it for free on weight 5
 or above (a weight set below 5 takes it off).
 
-With every part at its top (the supercharger and the aero tune at 5 too; since 6.36.0 the brakes as well) the cars stay as steady as before in the
+With every part at its top (the supercharger and the aero tune at 5 too) the cars stay as steady as before in the
 stability tests (holding a lane at 120-240 km/h, braking hard in a curve, the jumps of every track), with one
 exception that suits its name: the **Drifter**, rear-driven and built to slide, can spin after a landing when it lands
 crooked. In the tests it spun after 7 of its 50 landings, 6 of them with a steer key held through the whole flight:
-land straight and it stays straight.
+land straight and it stays straight. With [the brakes](#the-brakes) at 5 as well (version 6.36.0) the Drifter spun
+after 6 of 52 landings, every one with the steer key held through the flight, and the **Dune** once: on Dune Sea,
+landing crooked (the steer held) and braking hard on the sand straight away. The suspension upgrade (round 9, item
+3) is meant to make such landings steadier.
 
 #### The brakes
 
