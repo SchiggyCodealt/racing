@@ -2276,10 +2276,10 @@ func upgrades() -> void:
 	auto_start = false
 	await key(KEY_ENTER)
 	await frames(4)
-	var shown: bool = chips.size() == 8 and page.is_open and chips[5].call("price_text") == "Engine 5" and chips[6].call("price_text") == "Weight 5"
+	var shown: bool = chips.size() == 9 and page.is_open and chips[5].call("price_text") == "Engine 5" and chips[6].call("price_text") == "Weight 5"
 	for c: Button in chips:
 		shown = shown and c.is_visible_in_tree() and not c.disabled and int(c.get("level")) == 0 and not bool(c.get("affordable"))
-	check(shown, "Enter (a time trial): the car page with the Racer's eight part chips (Weight since v6.21; the Supercharger since v6.34, reading Engine 5; the Aero tune since v6.35, reading Weight 5; the Brakes since v6.36): level 0, the next level's price (grey: $0)")
+	check(shown, "Enter (a time trial): the car page with the Racer's nine part chips (Weight since v6.21; the Supercharger since v6.34, reading Engine 5; the Aero tune since v6.35, reading Weight 5; the Brakes since v6.36; the Suspension since v6.37): level 0, the next level's price (grey: $0)")
 	# the Kestrel (not yours): its chips are off and its description shows
 	while UiData.picked_car() != "kestrel":
 		await key(KEY_C)

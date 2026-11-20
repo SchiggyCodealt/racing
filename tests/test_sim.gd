@@ -2989,7 +2989,7 @@ func _upgrades() -> void:
 		Upgrades.text(PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 2, 0])) == "engine 0, tyres 0, nitro 0, loose grip 0, weight 0, brakes 2" and \
 		Upgrades.five_level_text() == "the supercharger, the aero tune, the brakes and the suspension" and \
 		Upgrades.part_id("Suspension") == "suspension" and Upgrades.part_id("springs") == "suspension" and Upgrades.part_id("susp") == "suspension" and \
-		Upgrades.effect("suspension", 1) == "-6 % pitch, softer landings" and Upgrades.effect("suspension", 5) == "-30 % pitch, softer landings" and \
+		Upgrades.effect("suspension", 1) == "-6 % nose dive, softer landings" and Upgrades.effect("suspension", 5) == "-30 % nose dive, softer landings" and \
 		Upgrades.max_level("suspension") == 5 and Upgrades.max_level(8) == 5 and Upgrades.needs("suspension").is_empty() and \
 		Upgrades.code(PackedInt32Array([5, 1, 0, 3, 5, 2, 1, 4, 2])) == "E5 T1 N0 L3 W5 S2 A1 B4 U2" and Upgrades.code(PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 0, 1])) == "E0 T0 N0 L0 W0 U1" and \
 		Upgrades.text(PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 0, 3])) == "engine 0, tyres 0, nitro 0, loose grip 0, weight 0, suspension 3" and \

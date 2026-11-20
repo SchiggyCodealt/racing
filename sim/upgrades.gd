@@ -35,12 +35,12 @@ extends RefCounted
 ##   brakes  (v6.36) five levels, open from the start and bought like the first five: +8 % brake
 ##           force a level (level 5 +40 %), the same front/rear bias. The tyres still cap what each
 ##           axle can take, so a car whose brakes already lock its rear gains less than 40 %
-##   susp    (v6.37) the suspension: five levels, open from the start and bought like the brakes. A
-##           lower, stiffer car: the centre of gravity -6 % a level (less weight moves onto the front
-##           wheels under braking and onto the rear under power, so the car pitches less and the
-##           rear stays planted when it lands braking), hard landings cost -10 % a level less speed
-##           and take a harder hit (+10 % a level) before they cost any. Level 5 keeps the Drifter
-##           and the Dune from spinning on crooked landings with everything else at its top
+##   susp    (v6.37) the suspension: five levels, open from the start and bought like the brakes.
+##           -6 % nose dive a level (brakeDive: while the car slows, less weight moves onto the
+##           front wheels, so the rear stays planted when it lands braking; under power nothing
+##           changes), hard landings cost 10 % a level less speed and take a 10 % harder hit before
+##           they cost any. Level 5 keeps the Drifter and the Dune from spinning on crooked landings
+##           with everything else at its top
 ## Never changed: max_speed (it scales the AI's speed input, so a network sees the same range in an
 ## upgraded car), the steering and the stability control: an upgraded car keeps its character. Levels 0, 0, 0, 0, 0 are the stock car itself (Cars.spec(id), the same object), so
 ## stock runs stay bit for bit what they were.
@@ -130,7 +130,7 @@ const PARTS: Array[Dictionary] = [
 		what = "stronger brakes: a shorter stop from any speed (the tyres still set the limit)", effect = "+%d %% brake force"},
 	{id = "suspension", name = "Suspension", chip = "Susp", short = "U", step = 0.06, cost = 0.75, max = 5, extra = true, share = [0.15, 0.3, 0.55, 0.85, 1.25],
 		alias = ["susp", "springs", "dampers", "shocks", "suspention", "suspencion", "ride", "landing", "landings"],
-		what = "a lower, stiffer car: it pitches less, and hard landings cost less speed and spin it less", effect = "-%d %% pitch, softer landings"},
+		what = "stiffer springs: less nose dive under braking, so the rear keeps its grip; hard landings cost less speed and spin the car less", effect = "-%d %% nose dive, softer landings"},
 ]
 
 ## Measured with the real physics by tools/upgrades.gd (tools/car_stats.gd's measurements of the

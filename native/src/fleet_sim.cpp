@@ -1026,7 +1026,7 @@ PackedFloat64Array FleetSim::debug_drive(int start_idx, const PackedFloat64Array
 }
 
 String FleetSim::version() const {
-	return "trackrush-native 6";
+	return "trackrush-native 7";
 }
 
 void FleetSim::_bind_methods() {

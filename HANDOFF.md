@@ -1697,7 +1697,7 @@ items; AI cars and medal times stay stock):
 - **The physics.** New CarSpec field `brake_dive` (JS `brakeDive`, 1 for every stock car): in `sim/car.gd` the
   longitudinal weight transfer uses `cg_height × brake_dive` while `_ax < 0` (slowing) and `cg_height` otherwise, so
   stock cars are bit for bit as before. Ported to `native/src` (`Spec.brake_dive`, the spec field list, `car_step`)
-  and all four libraries in `bin/` rebuilt (scons; godot-cpp's libraries were already built). First tried: a lower
+  and all four libraries in `bin/` rebuilt ("trackrush-native 7"; scons; godot-cpp's libraries were already built). First tried: a lower
   `cg_height` (the same landing fix), but it also cut the rear tyres' load under power: the rear-driven cars launched
   up to 7 % slower and the Drifter lost 17 % on Hairpin Valley's snow.
 - **Measured.** Landing spins with every other part at its top, steer held through the flight: the Drifter 6, 5, 4,

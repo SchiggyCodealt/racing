@@ -811,7 +811,7 @@ $105k). Click a chip (or press its number, 1 to 9, or highlight it with the game
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
 its top speed and weight turn green when the top speed is higher or the car lighter (at 1280 x 720 and in narrower
-windows the eight chips stand in two rows of four; in a window under about 900 px wide, three rows). The `upgrade` and `buy <car> <part>` commands of
+windows the nine chips stand in two rows, five and four; in a window under about 900 px wide, three rows of three). The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
 Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
@@ -1028,7 +1028,7 @@ suspension <0-5>` sets it for free. The AI opponents keep the stock suspension.
 
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 338 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune and the Brakes at MAX with five, two rows of four](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 338 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes and the Suspension at MAX with five, in two rows of five and four](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 

@@ -992,7 +992,7 @@ func _upgrades(t) -> void:
 	# (v6.37) the ninth, the Suspension: open from the start too, five levels
 	var su: Button = chips[8]
 	var su_open: bool = int(su.get("level")) == 0 and int(su.get("max_level")) == 5 and int(su.get("price")) == Upgrades.price("racer", "suspension", 1) and \
-		not su.disabled and su.tooltip_text.contains("Level 1 (-6 %% pitch, softer landings) costs %s" % UiFormat.money(Upgrades.price("racer", "suspension", 1))) and \
+		not su.disabled and su.tooltip_text.contains("Level 1 (-6 %% nose dive, softer landings) costs %s" % UiFormat.money(Upgrades.price("racer", "suspension", 1))) and \
 		su.tooltip_text.contains("landings") and not su.tooltip_text.contains("half the price back")
 	t.check(chips.size() == 9 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight", "Supercharger", "Aero tune", "Brakes", "Suspension"] and prices_ok and chips_in and sc_shut and ae_shut and
 		bk_open and su_open and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),

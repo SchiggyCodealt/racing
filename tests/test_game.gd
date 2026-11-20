@@ -1791,7 +1791,7 @@ func _terminal_upgrades(t) -> void:
 		text_of.call(r).contains("brakes 3"), "upgrade racer brake 3: open on a stock car (%s)" % text_of.call(r))
 	# (v6.37) the suspension: 0 to 5, open on a stock car too
 	r = term.run("upgrade racer springs 4")
-	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 3, 4]) and r.changed and text_of.call(r).contains("suspension level 4 (-24 % pitch, softer landings)") and
+	t.check(SaveData.get_upgrades("racer") == PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 3, 4]) and r.changed and text_of.call(r).contains("suspension level 4 (-24 % nose dive, softer landings)") and
 		text_of.call(r).contains("brakes 3, suspension 4"), "upgrade racer springs 4: open on a stock car (%s)" % text_of.call(r))
 	term.run("upgrade racer stock")
 	# buy <car> <part>: the car picker's chip, with money
@@ -1820,7 +1820,7 @@ func _terminal_upgrades(t) -> void:
 		kind_of.call(r4) == "error" and text_of.call(r4).contains("no part called") and kind_of.call(r5) == "error" and SaveData.get_money() == 100 and
 		kind_of.call(r6) == "error" and text_of.call(r6).contains("fitted on the car page, with a trial of arrows") and text_of.call(r6).contains("upgrade racer supercharger 1") and kind_of.call(r7) == "error" and text_of.call(r7).contains("aero tune is fitted on the car page") and
 		kind_of.call(r8) == "loss" and SaveData.get_upgrades("racer")[7] == 1 and text_of.call(r8).contains("level 1 (+8 % brake force)") and
-		kind_of.call(r9) == "loss" and SaveData.get_upgrades("racer")[8] == 1 and text_of.call(r9).contains("level 1 (-6 % pitch, softer landings)") and SaveData.get_money() == 100,
+		kind_of.call(r9) == "loss" and SaveData.get_upgrades("racer")[8] == 1 and text_of.call(r9).contains("level 1 (-6 % nose dive, softer landings)") and SaveData.get_money() == 100,
 		"buy at the top level: already; a car not yours, an unknown part, too many words: errors; the supercharger and the aero tune: on the car page (their trial); the brakes (%s) and the suspension (%s): bought at once" % [UiFormat.money(b1), UiFormat.money(u1)])
 	# Tab: the command, then the car
 	var tab_bad := []
