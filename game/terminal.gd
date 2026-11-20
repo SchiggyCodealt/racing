@@ -401,6 +401,11 @@ func _buy_part(id: String, word: String, out: Out) -> void:
 		out.add("error", "buy: there is no part called %s. The parts: %s." % [_q(word), _part_list()])
 		return
 	var pname := String(Upgrades.part(part).name).to_lower()
+	if Upgrades.has_trial(part):
+		# (v6.34) its levels are fitted with the car page's trial (upgrade sets one for free)
+		out.add("error", "buy: the %s is fitted on the car page, with a trial of arrows (a miss gives half back). Try: upgrade %s %s %d (free)." % [
+			pname, id, part, mini(Upgrades.max_level(part), SaveData.get_upgrades(id)[Upgrades.index_of(part)] + 1)])
+		return
 	var r := Economy.buy_upgrade(id, part)
 	match String(r.error):
 		"":
@@ -410,7 +415,10 @@ func _buy_part(id: String, word: String, out: Out) -> void:
 		"locked":
 			out.add("error", "buy: you don't own the %s. Try: buy %s (or car %s), then its parts." % [_car_name(id), id, id])
 		"max":
-			out.add("info", "The %s's %s is at level %d already, the top." % [_car_name(id), pname, Upgrades.MAX_LEVEL])
+			out.add("info", "The %s's %s is at level %d already, the top." % [_car_name(id), pname, Upgrades.max_level(part)])
+		"needs":
+			var n := Upgrades.needs(part)
+			out.add("error", "buy: the %s's %s opens at %s level %d. Try: buy %s %s" % [_car_name(id), pname, String(n.part), int(n.level), id, String(n.part)])
 		"money":
 			out.add("error", "buy: the %s's %s level %d costs %s and you have %s: %s short. Try: money %d" % [_car_name(id), pname,
 				SaveData.get_upgrades(id)[Upgrades.index_of(part)] + 1, UiFormat.money(int(r.price)), UiFormat.money(SaveData.get_money()),
@@ -447,7 +455,8 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 	if args.is_empty():
 		for id: String in Cars.ids():
 			out.row(_car_name(id), _levels_text(SaveData.get_upgrades(id)) if SaveData.owns_car(id) else "not yours")
-		out.add("info", "upgrade <car> <part> <level> sets one (0 to %d), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays." % Upgrades.MAX_LEVEL)
+		out.add("info", "upgrade <car> <part> <level> sets one (0 to %d; the supercharger 0 to %d), upgrade <car> max every part, upgrade all max every car; buy <car> <part> pays." % [
+			Upgrades.MAX_LEVEL, Upgrades.max_level("supercharger")])
 		return
 	var all := args[0] == "all"
 	var id := "" if all else car_id(args[0])
@@ -468,7 +477,7 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 		var pids := Upgrades.ids()
 		for i in pids.size():
 			var nxt := Upgrades.price(id, pids[i], lv[i] + 1)
-			out.row(String(Upgrades.PARTS[i].name), "level %d of %d%s" % [lv[i], Upgrades.MAX_LEVEL,
+			out.row(String(Upgrades.PARTS[i].name), "level %d of %d%s" % [lv[i], Upgrades.max_level(i),
 				", next %s" % UiFormat.money(nxt) if nxt > 0 else " (the top)"])
 		if not SaveData.owns_car(id):
 			out.add("info", "You don't own the %s: buy %s (or car %s) first." % [_car_name(id), id, id])
@@ -479,19 +488,34 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 		levels = Upgrades.stock()
 		if args[1] == "max":
 			levels.fill(Upgrades.MAX_LEVEL)
-		what = "every part at level %d" % levels[0]
+			levels = Upgrades.clean(levels) # (v6.34: the supercharger's top is 5)
+		what = "every part at level 0" if args[1] == "stock" else "every part at its top level (the supercharger at %d)" % Upgrades.max_level("supercharger")
 	elif args.size() == 3 and not all:
 		var part := Upgrades.part_id(args[1])
 		if part == "":
 			out.add("error", "upgrade: there is no part called %s. The parts: %s." % [_q(args[1]), _part_list()])
 			return
 		var n: Variant = parse_amount(args[2])
-		if n == null or args[2].begins_with("+") or args[2].begins_with("-") or int(n) < 0 or int(n) > Upgrades.MAX_LEVEL:
-			out.add("error", "upgrade: the level is 0 to %d. Try: upgrade %s %s %d" % [Upgrades.MAX_LEVEL, id, part, Upgrades.MAX_LEVEL])
+		var top := Upgrades.max_level(part)
+		if n == null or args[2].begins_with("+") or args[2].begins_with("-") or int(n) < 0 or int(n) > top:
+			out.add("error", "upgrade: the %s's level is 0 to %d. Try: upgrade %s %s %d" % [String(Upgrades.part(part).name).to_lower(), top, id, part, top])
 			return
 		levels = SaveData.get_upgrades(id)
 		levels[Upgrades.index_of(part)] = int(n)
+		if int(n) > 0 and not Upgrades.is_open(part, levels):
+			# (v6.34) the supercharger builds on engine level 5
+			var nd := Upgrades.needs(part)
+			out.add("error", "upgrade: the %s opens at %s level %d (the %s's is at %d). Try: upgrade %s %s %d, then this again." % [
+				String(Upgrades.part(part).name).to_lower(), String(Upgrades.part(String(nd.part)).name).to_lower(), int(nd.level), _car_name(id),
+				levels[Upgrades.index_of(String(nd.part))], id, String(nd.part), int(nd.level)])
+			return
 		what = "%s level %d (%s)" % [String(Upgrades.part(part).name).to_lower(), int(n), Upgrades.effect(part, int(n))]
+		for p: Dictionary in Upgrades.PARTS: # (v6.34) the engine below 5: the supercharger comes off
+			var pi := Upgrades.index_of(String(p.id))
+			if levels[pi] > 0 and not Upgrades.is_open(String(p.id), levels):
+				levels[pi] = 0
+				what += " (the %s comes off: it needs %s level %d)" % [String(p.name).to_lower(), String(Upgrades.part(String(Upgrades.needs(String(p.id)).part)).name).to_lower(),
+					int(Upgrades.needs(String(p.id)).level)]
 	else:
 		out.add("error", "upgrade: try upgrade %s engine 3, upgrade %s max or upgrade all max (parts: %s)." % [
 			"dune" if all else id, "dune" if all else id, _part_list()])

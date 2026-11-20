@@ -127,6 +127,7 @@ func _init() -> void:
 		var chip: Button = PartChip.new()
 		chip.part_id = String(p.id)
 		chip.part_name = String(p.name)
+		chip.short_name = String(p.get("chip", ""))
 		chip.pressed.connect(func() -> void: upgrade.emit(String(p.id)))
 		parts_grid.add_child(chip)
 		part_chips.append(chip)
@@ -270,16 +271,24 @@ func refresh() -> void:
 		var p: Dictionary = parts[k]
 		var level: int = lv[k]
 		var nxt := UiData.upgrade_cost(car, String(p.id), level + 1)
-		chip.show_part(String(p.id), String(p.name), level, int(p.max), nxt, have >= nxt, not owned)
+		# (v6.34) a part another one opens (the supercharger: engine 5) says so while it is shut
+		var need: Dictionary = p.get("needs", {})
+		var shut := not need.is_empty() and lv[Upgrades.index_of(String(need.part))] < int(need.level)
+		var need_text := "%s %d" % [String(Upgrades.part(String(need.part)).name), int(need.level)] if shut else ""
+		chip.show_part(String(p.id), String(p.name), level, int(p.max), nxt, have >= nxt, not owned, need_text)
 		var now := "level %d of %d (%s)" % [level, int(p.max), Upgrades.effect(String(p.id), level)] if level > 0 else "stock (level 0 of %d)" % int(p.max)
+		var trial_note := " Each level is fitted with a quick trial of arrows: a miss gives half the price back." if bool(p.get("trial", false)) else ""
 		if not owned:
 			chip.tooltip_text = "%s: %s. Buy the %s first to upgrade it." % [p.name, p.what, cname]
+		elif shut:
+			chip.tooltip_text = "%s: %s. Opens once the %s's %s is at level %d.%s" % [p.name, p.what, cname, need_text.to_lower().get_slice(" ", 0),
+				int(need.level), trial_note]
 		elif level >= int(p.max):
 			chip.tooltip_text = "%s: %s. Every level bought (%s)." % [p.name, p.what, Upgrades.effect(String(p.id), level)]
 		else:
-			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s Medal times stay stock; the AI opponents keep their level 3 car." % [
+			chip.tooltip_text = "%s of the %s: %s. Now %s. Level %d (%s) costs %s; you have %s.%s%s Medal times stay stock; the AI opponents keep their level 3 car." % [
 				p.name, cname, p.what, now, level + 1, Upgrades.effect(String(p.id), level + 1), UiFormat.money(nxt), UiFormat.money(have),
-				"" if have >= nxt else " %s more to go." % UiFormat.money(nxt - have)]
+				"" if have >= nxt else " %s more to go." % UiFormat.money(nxt - have), trial_note]
 	car_desc_name.text = cname
 	car_desc.text = info.description
 	car_desc.tooltip_text = "%s: %s" % [cname, info.description]
@@ -381,7 +390,7 @@ func handle_keys(inp: Object) -> void:
 
 ## Gamepad: the highlight is on the picked car's card (_pad_at null), a part chip or START. On the
 ## cards the d-pad picks the nearest card; down from the last row goes to the parts (or START), down
-## from the parts to START, up back again. LB / RB pick the previous / next car. A starts (on a card or
+## from the parts to START (the second row of chips first when they take two), up back again. LB / RB pick the previous / next car. A starts (on a card or
 ## START) or buys the part's next level. The highlight shows while the pad is the last input used.
 func _handle_pad(inp: Object) -> void:
 	var dir: String = inp.nav_dir()
@@ -403,10 +412,11 @@ func _handle_pad(inp: Object) -> void:
 		elif at == start_btn:
 			if dir == "up" or dir == "left":
 				at = parts[parts.size() - 1] if not parts.is_empty() else null
-		elif dir == "up":
-			at = null
+		elif dir == "up": # (v6.34: two rows of chips when narrow) the row above, else the car
+			at = PadNav.nearest_control(at, "up", parts)
 		elif dir == "down":
-			at = start_btn
+			var below := PadNav.nearest_control(at, "down", parts)
+			at = below if below != null else start_btn
 		else:
 			var next := PadNav.nearest_control(at, dir, parts)
 			if next != null:
@@ -441,7 +451,8 @@ func _on_layout(w: float) -> void:
 	# the part chips: one row while a chip keeps room for its name, pips and price
 	var np := part_chips.size()
 	var chips_w := inner - _parts_cap.get_combined_minimum_size().x - UiStyle.S1
-	parts_grid.columns = np if (chips_w - (np - 1) * UiStyle.S1) / np >= CHIP_MIN_W else 3
+	# (v6.34: six parts) one row while they fit, else two rows of three
+	parts_grid.columns = np if (chips_w - (np - 1) * UiStyle.S1) / np >= CHIP_MIN_W else ceili(np / 2.0)
 	for c in cards:
 		c.stacked = card_w < 330.0
 		c.short_spec = card_w < 300.0

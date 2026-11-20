@@ -440,17 +440,20 @@ static func upgrade_price(car_id: String, part: String) -> int:
 
 
 ## Buy the next level of part `part` for car `car_id` (only an owned car, one level at a time, in
-## order): {ok, error: "" | "locked" (buy the car first) | "max" (every level bought) | "money" (not
-## enough: `short`) | "unknown", price, level (the part's level after it)}.
-static func buy_upgrade(car_id: String, part: String) -> Dictionary:
+## order): {ok, error: "" | "locked" (buy the car first) | "max" (every level bought) | "needs"
+## (v6.34: the part that opens it is short of its level) | "money" (not enough: `short`) |
+## "unknown", price, level (the part's level after it), refund}.
+## (v6.34) fitted false: the trial of a supercharger level was missed: half the price comes back
+## (`refund`), the level stays where it was; ok is still true (the money changed hands).
+static func buy_upgrade(car_id: String, part: String, fitted: bool = true) -> Dictionary:
 	var i: int = Upgrades.index_of(part)
 	if i < 0 or not Cars.has_car(car_id):
-		return {ok = false, error = "unknown", price = 0, level = 0, short = 0}
+		return {ok = false, error = "unknown", price = 0, level = 0, short = 0, refund = 0}
 	var now: int = SaveData.get_upgrades(car_id)[i]
 	var p: int = Upgrades.price(car_id, part, now + 1)
-	var err: String = SaveData.purchase_upgrade(car_id, part, now + 1, p)
+	var err: String = SaveData.purchase_upgrade(car_id, part, now + 1, p, fitted)
 	return {ok = err == "", error = err, price = p if err != "max" else 0, level = SaveData.get_upgrades(car_id)[i],
-		short = maxi(0, p - SaveData.get_money()) if err == "money" else 0}
+		short = maxi(0, p - SaveData.get_money()) if err == "money" else 0, refund = p / 2 if err == "" and not fitted else 0}
 
 
 # ---------------------------------------------------------------- balance

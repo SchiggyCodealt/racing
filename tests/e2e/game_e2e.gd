@@ -98,11 +98,13 @@ extends SceneTree
 ##             picker (level 0, the next price, greyed while the money is short, a locked car's off);
 ##             the stock Racer drives Rookie Oval with the medal autopilot of the author run (the
 ##             author time); then money (the terminal's money) buys every level of every part by
-##             clicking the chips (40 clicks: each asks first: Buy for $...), the bars show what they add in
+##             clicking the chips (each asks first: Buy for $...; v6.34: the supercharger's five levels each
+##             with its trial of arrows, the first try missed on purpose: half back), the bars show what they add in
 ##             green; Drive again with the same autopilot (the author run's settings): faster than
 ##             the author time (the medal times stay stock), the record and ghost keep the levels, R: the ghost replays the
 ##             upgraded run within 3 cm; the menu fits 1280 x 720. Shots: upgrades_menu,
-##             upgrades_ask, upgrades_max, upgrades_race, upgrades_finish.
+##             upgrades_ask, upgrades_trial_ask, upgrades_trial_missed, upgrades_trial(_fitted),
+##             upgrades_max, upgrades_race, upgrades_finish.
 ##   audio     sound and music (v6.12.0), best run under Movie Maker (--write-movie out.avi: the
 ##             audio is mixed in lockstep with the 60 fps frames, so every number is exact; without
 ##             it the dummy driver mixes in real time and the checks hold within a few frames).
@@ -2236,6 +2238,29 @@ func unlock() -> void:
 
 # ---------------------------------------------------------------- upgrades (v6.11.0)
 
+## (v6.34) Play the open trial screen with the keys (arrows and WASD): every arrow, or (`miss`) the
+## first right and the second wrong; `shot_name`: a shot half way. Returns the result line.
+func play_trial(miss: bool, shot_name: String = "") -> String:
+	var tr: TrialScreen = app.ui.menu.trial
+	await wait_until(func() -> bool: return tr.trial.state == "go", 5.0)
+	var keys := {"up": KEY_UP, "down": KEY_S, "left": KEY_LEFT, "right": KEY_D}
+	var seq := tr.trial.sequence
+	for i in seq.size():
+		if miss and i == 1:
+			await key(keys["up" if seq[i] != "up" else "down"])
+			break
+		if shot_name != "" and i == seq.size() / 2:
+			await shot(shot_name)
+		await key(keys[seq[i]])
+	await frames(3)
+	var result := tr.status_text
+	if shot_name != "":
+		await shot(shot_name + "_fitted")
+	await wait_until(func() -> bool: return not tr.visible, 5.0)
+	await frames(4)
+	return result
+
+
 func upgrades() -> void:
 	var menu: MainMenu = app.ui.menu
 	var page: CarScreen = menu.car_page # (v6.19: the upgrades are on the car page, after a race is chosen)
@@ -2249,10 +2274,10 @@ func upgrades() -> void:
 	auto_start = false
 	await key(KEY_ENTER)
 	await frames(4)
-	var shown := chips.size() == 5 and page.is_open
+	var shown: bool = chips.size() == 6 and page.is_open and chips[5].call("price_text") == "Engine 5"
 	for c: Button in chips:
 		shown = shown and c.is_visible_in_tree() and not c.disabled and int(c.get("level")) == 0 and not bool(c.get("affordable"))
-	check(shown, "Enter (a time trial): the car page with the Racer's five part chips (the fifth: Weight, v6.21): level 0, the next level's price (grey: $0)")
+	check(shown, "Enter (a time trial): the car page with the Racer's six part chips (Weight since v6.21; the Supercharger since v6.34, reading Engine 5): level 0, the next level's price (grey: $0)")
 	# the Kestrel (not yours): its chips are off and its description shows
 	while UiData.picked_car() != "kestrel":
 		await key(KEY_C)
@@ -2283,6 +2308,8 @@ func upgrades() -> void:
 	# money (the terminal), then the chips buy every level of every part
 	await key(KEY_QUOTELEFT)
 	var need := Upgrades.car_total("racer")
+	var s1 := Upgrades.price("racer", "supercharger", 1)
+	need += s1 - s1 / 2 # (v6.34: the supercharger's first trial is missed on purpose: half of level 1's price is gone)
 	await type_text("money %d" % (need + 5000 - UiData.money()))
 	await key(KEY_QUOTELEFT)
 	await frames(6)
@@ -2300,27 +2327,41 @@ func upgrades() -> void:
 	var money0 := UiData.money()
 	await click(chips[0])
 	await frames(6)
-	check(app.message.asking and msg.text.contains("Level 1 of 10") and msg.text.contains("Medal times and the AI opponents stay"), "the Engine chip (clicked) asks first: %s" % msg.text.left(90))
+	check(app.message.asking and msg.text.contains("Level 1 of 10") and msg.text.contains("Medal times and the AI opponents (every part at level 3) stay"), "the Engine chip (clicked) asks first: %s" % msg.text.left(90))
 	await shot("upgrades_ask")
 	await click(app.message.get("_yes"))
 	await frames(4)
 	check(SaveData.get_upgrades("racer")[0] == 1 and UiData.money() == money0 - Upgrades.price("racer", "engine", 1) and money_l.text == UiFormat.money(UiData.money()) and
 		not app.message.visible, "Buy (clicked): the engine at level 1, %s left" % money_l.text)
 	var asked := 1
+	var trials: PackedStringArray = []
 	for k in chips.size():
-		while int(chips[k].get("level")) < Upgrades.MAX_LEVEL and asked < 60:
+		var pid := String(chips[k].get("part_id"))
+		while int(chips[k].get("level")) < Upgrades.max_level(pid) and asked < 70:
 			await click(chips[k])
 			await frames(3)
 			asked += 1
 			if app.message.asking:
+				if Upgrades.has_trial(pid) and int(chips[k].get("level")) == 0 and trials.is_empty():
+					await shot("upgrades_trial_ask")
 				await click(app.message.get("_yes"))
 				await frames(3)
+			if menu.trial.visible:
+				# (v6.34) the supercharger's trial: the first try misses on purpose (half back), the rest are played
+				var lv := int(chips[k].get("level")) + 1
+				trials.append(await play_trial(trials.is_empty(), "upgrades_trial" if lv == 5 else ""))
+				if app.message.visible and not app.message.asking:
+					await shot("upgrades_trial_missed")
+					await click(app.message.close_button)
+					await frames(3)
 	await frames(6)
 	var maxed := true
 	for c: Button in chips:
 		maxed = maxed and c.disabled and c.call("price_text") == "MAX"
-	check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10, 10]) and maxed and UiData.money() == 5000 and asked == 50,
-		"50 clicks (each asked and bought): every part at level 10, the chips read MAX, %s spent, $5,000 left" % UiFormat.money(need))
+	check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10, 10, 5]) and maxed and UiData.money() == 5000 and asked == 56 and
+		trials == PackedStringArray(["MISSED: WRONG ARROW", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED"]),
+		"56 clicks (each asked): every part at its top (the supercharger at 5 after six trials, the first missed on purpose: %s of %s back), the chips read MAX, %s left" % [
+		UiFormat.money(s1 / 2), UiFormat.money(s1), UiFormat.money(UiData.money())])
 	var card: Control = menu.car_card()
 	var b0: Dictionary = UiData.car_info("racer").bars
 	var bu: Dictionary = card.get("bars_up")
@@ -2332,7 +2373,7 @@ func upgrades() -> void:
 	await key(KEY_ENTER)
 	auto_start = true
 	m = app.mode
-	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10, 10])), "Enter drives the upgraded Racer"):
+	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10, 10, 5])), "Enter drives the upgraded Racer"):
 		return
 	autopilot(float(run.aLat), float(run.lookK))
 	fast(true)
@@ -2351,7 +2392,7 @@ func upgrades() -> void:
 	# (the autopilot keeps the stock car's author settings: its corner speeds don't use the extra grip, and the
 	# quicker car arrives at the corners faster, so it gains less than a sweep tuned for it would)
 	var w3: int = int((m.get("score") as ScoreState).counts.wall_hits)
-	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([10, 10, 10, 10, 10]),
+	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([10, 10, 10, 10, 10, 5]),
 		"the upgraded Racer, the same autopilot (the author run's settings): %s against %s stock (%.1f %% quicker; the author time stays %s); the record keeps the levels; wall contacts %d (stock %d)" % [
 		RaceState.format_time(t3), RaceState.format_time(t0), (1.0 - t3 / t0) * 100.0, RaceState.format_time(float(medals.author)), w3, w0])
 	await shot("upgrades_finish")

@@ -536,7 +536,8 @@ func buy_car(car_id: String) -> Dictionary:
 
 ## The car picker's part chip: buy the next level of part `part` for car `car_id`, asking first
 ## (what it does, what it costs, what is left), or say why it can't be bought (the car isn't
-## yours, every level is bought, the money is short).
+## yours, every level is bought, the part that opens it is short, the money is short). (v6.34) A
+## supercharger level is fitted with a trial (start_trial): a miss pays half back.
 func offer_upgrade(car_id: String, part: String) -> void:
 	var p := Upgrades.part(part)
 	if p.is_empty():
@@ -545,10 +546,18 @@ func offer_upgrade(car_id: String, part: String) -> void:
 	if not UiData.owns_car(car_id):
 		refuse("The %s is locked" % cname, "Buy the %s first: then its engine, tyres, nitro, loose grip and weight can be upgraded." % cname)
 		return
-	var lv: int = UiData.upgrade_levels(car_id)[Upgrades.index_of(part)]
-	if lv >= Upgrades.MAX_LEVEL:
-		refuse("%s: every level" % p.name, "The %s's %s is at level %d of %d already (%s)." % [cname, String(p.name).to_lower(), lv, Upgrades.MAX_LEVEL,
+	var levels := UiData.upgrade_levels(car_id)
+	var lv: int = levels[Upgrades.index_of(part)]
+	var top := Upgrades.max_level(part)
+	if lv >= top:
+		refuse("%s: every level" % p.name, "The %s's %s is at level %d of %d already (%s)." % [cname, String(p.name).to_lower(), lv, top,
 			Upgrades.effect(part, lv)])
+		return
+	if not Upgrades.is_open(part, levels):
+		var n := Upgrades.needs(part)
+		var np := Upgrades.part(String(n.part))
+		refuse("%s: %s %d first" % [p.name, np.name, int(n.level)], "The %s opens once the %s's %s is at level %d (now %d): it builds on it." % [
+			String(p.name).to_lower(), cname, String(np.name).to_lower(), int(n.level), levels[Upgrades.index_of(String(n.part))]])
 		return
 	var price := UiData.upgrade_price(car_id, part)
 	var have := UiData.money()
@@ -558,10 +567,50 @@ func offer_upgrade(car_id: String, part: String) -> void:
 		return
 	ui.menu.input = null
 	UiSound.play("ui_confirm")
+	if Upgrades.has_trial(part):
+		var r := TuneTrial.rule(lv + 1)
+		message.ask("Fit the %s's %s?" % [cname, String(p.name).to_lower()],
+			"Level %d of %d: %s (%s on top of the engine's). It costs %s; you have %s. Fitting it takes a steady hand: press %d arrows in the order shown, within %s s (arrow keys, WASD, the d-pad or a click). A miss fits nothing and gives half back (%s), so it costs %s; you can try again. Medal times and the AI opponents stay as they are." % [
+				lv + 1, top, p.what, Upgrades.effect(part, lv + 1), UiFormat.money(price), UiFormat.money(have), int(r.count), String.num(float(r.limit), 2),
+				UiFormat.money(price / 2), UiFormat.money(price - price / 2)],
+			"Pay %s and fit it" % UiFormat.money(price), start_trial.bind(car_id, part))
+		return
 	message.ask("Upgrade the %s's %s?" % [cname, String(p.name).to_lower()],
 		"Level %d of %d: %s over the stock car (%s). It costs %s; you have %s, so %s is left. It counts in every race you drive with the %s and when your own AI drives or trains it. Medal times and the AI opponents (every part at level 3) stay as they are." % [
 			lv + 1, Upgrades.MAX_LEVEL, Upgrades.effect(part, lv + 1), p.what, UiFormat.money(price), UiFormat.money(have), UiFormat.money(have - price), cname],
 		"Buy for %s" % UiFormat.money(price), buy_upgrade.bind(car_id, part))
+
+
+## (v6.34) Fit the next level of part `part` (the supercharger) on car `car_id`: the trial screen
+## over the car page; its result buys the level (won) or takes half the price (missed).
+func start_trial(car_id: String, part: String) -> void:
+	var p := Upgrades.part(part)
+	var lv: int = UiData.upgrade_levels(car_id)[Upgrades.index_of(part)] + 1
+	var price := UiData.upgrade_price(car_id, part)
+	var t: TrialScreen = ui.menu.trial
+	for c: Dictionary in t.finished.get_connections():
+		t.finished.disconnect(c.callable)
+	t.finished.connect(trial_done.bind(car_id, part), CONNECT_ONE_SHOT)
+	t.start("Fit the %s" % String(p.name).to_lower(), "%s level %d of %d for the %s (%s, %s). Press the arrows in order before the bar runs out: a miss fits nothing and gives %s back." % [
+		p.name, lv, Upgrades.max_level(part), Cars.get_car(car_id).name, Upgrades.effect(part, lv), UiFormat.money(price), UiFormat.money(price / 2)], lv)
+
+
+## (v6.34) The trial of car `car_id`'s part `part` ended: fit the level and take the price (won), or
+## take half of it (missed) and say so. Returns Economy.buy_upgrade's answer.
+func trial_done(won: bool, car_id: String, part: String) -> Dictionary:
+	var p := Upgrades.part(part)
+	var r := UiData.buy_upgrade(car_id, part, won)
+	if r.ok and won:
+		audio.play("cash")
+	elif r.ok:
+		show_message("Missed: no %s level %d" % [String(p.name).to_lower(), int(r.level) + 1],
+			"The %s didn't fit: %s of the %s came back, so the try cost %s. The %s is still at level %d; try again whenever you like." % [
+				String(p.name).to_lower(), UiFormat.money(int(r.refund)), UiFormat.money(int(r.price)), UiFormat.money(int(r.price) - int(r.refund)),
+				String(p.name).to_lower(), int(r.level)])
+	elif r.error == "money":
+		refuse("Not enough money", "That costs %s: %s more to go." % [UiFormat.money(int(r.price)), UiFormat.money(int(r.short))])
+	ui.menu.refresh()
+	return r
 
 
 ## Buy the next level of part `part` for car `car_id` now: {ok, error, price, level, short}.

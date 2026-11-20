@@ -480,15 +480,16 @@ static func buy_car(id: String) -> Dictionary:
 
 # ---------------------------------------------------------------- car upgrades (v6.11.0)
 
-## The parts, in the picker's order: [{id, name, what, max}].
+## The parts, in the picker's order: [{id, name, what, max, needs ({part, level} or {}), trial}].
 static func upgrade_parts() -> Array:
 	var out: Array = []
 	for p: Dictionary in Upgrades.PARTS:
-		out.append({"id": p.id, "name": p.name, "what": p.what, "max": Upgrades.MAX_LEVEL})
+		out.append({"id": p.id, "name": p.name, "what": p.what, "max": Upgrades.max_level(String(p.id)),
+			"needs": Upgrades.needs(String(p.id)), "trial": Upgrades.has_trial(String(p.id)), "chip": String(p.get("chip", ""))})
 	return out
 
 
-## Car `id`'s upgrade levels [engine, tyres, nitro, loose, weight] (all 0 for a car not owned).
+## Car `id`'s upgrade levels [engine, tyres, nitro, loose, weight, super] (all 0 for a car not owned).
 static func upgrade_levels(id: String) -> PackedInt32Array:
 	if _save:
 		return SaveData.get_upgrades(id)
@@ -509,23 +510,28 @@ static func upgrade_price(id: String, part: String) -> int:
 
 
 ## Buy the next level of part `part` for car `id` (Economy.buy_upgrade in the game):
-## {ok, error ("" | "locked" | "max" | "money" | "unknown"), price, level, short}.
-static func buy_upgrade(id: String, part: String) -> Dictionary:
+## {ok, error ("" | "locked" | "max" | "needs" | "money" | "unknown"), price, level, short, refund}.
+## (v6.34) fitted false: a missed trial (half the price back, no level).
+static func buy_upgrade(id: String, part: String, fitted: bool = true) -> Dictionary:
 	if _save:
-		return Economy.buy_upgrade(id, part)
+		return Economy.buy_upgrade(id, part, fitted)
 	var i := Upgrades.index_of(part)
 	if i < 0 or not car_ids().has(id):
-		return {"ok": false, "error": "unknown", "price": 0, "level": 0, "short": 0}
+		return {"ok": false, "error": "unknown", "price": 0, "level": 0, "short": 0, "refund": 0}
 	var lv := upgrade_levels(id)
 	var p := Upgrades.price(id, part, lv[i] + 1)
 	var c: Dictionary = store.career
 	var err := ""
 	if not owns_car(id):
 		err = "locked"
-	elif lv[i] >= Upgrades.MAX_LEVEL:
+	elif lv[i] >= Upgrades.max_level(i):
 		err = "max"
+	elif not Upgrades.is_open(part, lv):
+		err = "needs"
 	elif int(c.money) < p:
 		err = "money"
+	elif not fitted:
+		c.money = int(c.money) - (p - p / 2)
 	else:
 		c.money = int(c.money) - p
 		lv[i] += 1
@@ -533,7 +539,7 @@ static func buy_upgrade(id: String, part: String) -> Dictionary:
 			c.upgrades = {}
 		c.upgrades[id] = Array(lv)
 	return {"ok": err == "", "error": err, "price": p if err != "max" else 0, "level": upgrade_levels(id)[i],
-		"short": p - int(c.money) if err == "money" else 0}
+		"short": p - int(c.money) if err == "money" else 0, "refund": p / 2 if err == "" and not fitted else 0}
 
 
 ## Car `id`'s stat bars with the upgrades bought (car_info(id).bars are the stock car's).
