@@ -1,6 +1,6 @@
 extends SceneTree
 ## upgrades.gd (v6.11.0; v6.16.0: ten levels; v6.21.0: the weight part; v6.34-6.35: the supercharger
-## and the aero tune; v6.36.0: the brakes): measures what the car
+## and the aero tune; v6.36.0: the brakes; v6.37.0: the suspension): measures what the car
 ## upgrades (sim/upgrades.gd) do, with the real physics.
 ## ------------------------------------------------------------------
 ##   godot --headless --path <copy> --script res://tools/upgrades.gd [-- options]
@@ -32,6 +32,7 @@ const MEASURED_PARTS: Array = [
 	["supercharger", "S", 5, ["top", "accel100", "accel200"], [5, 0, 0, 0, 0, 0]],
 	["aero", "A", 6, ["top", "accel100", "accel200"], [0, 0, 0, 0, 5, 0, 0]],
 	["brakes", "B", 7, ["brake100", "brake200"], [0, 0, 0, 0, 0, 0, 0, 0]],
+	["suspension", "U", 8, ["brake100"], [0, 0, 0, 0, 0, 0, 0, 0, 0]],
 ]
 const LOOSE_SETS: Array = [["stock", [0, 0, 0, 0, 0]], ["L3", [0, 0, 0, 3, 0]], ["L10", [0, 0, 0, 10, 0]], ["T10", [0, 10, 0, 0, 0]],
 	["all3", [3, 3, 3, 3, 3]], ["all10", [10, 10, 10, 10, 10]]]
@@ -39,12 +40,12 @@ const LAP_SETS: Array = [
 	["stock", [0, 0, 0, 0, 0]], ["all3", [3, 3, 3, 3, 3]], ["E10", [10, 0, 0, 0, 0]], ["T10", [0, 10, 0, 0, 0]], ["N10", [0, 0, 10, 0, 0]],
 	["L10", [0, 0, 0, 10, 0]], ["W10", [0, 0, 0, 0, 10]], ["all10", [10, 10, 10, 10, 10]],
 	["E5S5", [5, 0, 0, 0, 0, 5]], ["W5A5", [0, 0, 0, 0, 5, 0, 5]], ["B5", [0, 0, 0, 0, 0, 0, 0, 5]],
-	["max", [10, 10, 10, 10, 10, 5, 5, 5]],
+	["U5", [0, 0, 0, 0, 0, 0, 0, 0, 5]], ["max", [10, 10, 10, 10, 10, 5, 5, 5, 5]],
 ]
 const SLIP_SETS: Array = ["all3", "all10", "max"]
 
 ## The parts measured (--parts=; all of MEASURED_PARTS by default).
-var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger", "aero", "brakes"]
+var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger", "aero", "brakes", "suspension"]
 var _lap_sets: PackedStringArray = []
 
 
@@ -153,7 +154,7 @@ func _stats(cars: PackedStringArray) -> void:
 			print(CarStats.table_row("%s %s" % [id.left(4), set[0]], asphalt["%s|%s" % [id, set[0]]]))
 		print("")
 	# the share each level adds over stock (the "3-5 % a level" check)
-	print("gain over stock (%): top / 0-100 / 0-200 (time, - = quicker) for E1-E10; grip / fast for T1-T10; 0-100 / 0-200 / 100-0 (m) / grip / fast for W1-W10; 100-0 / 200-0 for B1-B5; tank for N3, N10; all3, all10")
+	print("gain over stock (%): top / 0-100 / 0-200 (time, - = quicker) for E1-E10; grip / fast for T1-T10; 0-100 / 0-200 / 100-0 (m) / grip / fast for W1-W10; 100-0 / 200-0 for B1-B5; 100-0 / 0-100 / drift for U1-U5; tank for N3, N10; all3, all10")
 	for id: String in cars:
 		var s: Dictionary = asphalt["%s|stock" % id]
 		var parts: PackedStringArray = []
@@ -179,6 +180,11 @@ func _stats(cars: PackedStringArray) -> void:
 			parts.append("B%d 100-0 %+.1f 200-0 %+.1f" % [k, _pc(m.brake100, s.brake100), _pc(m.brake200, s.brake200)])
 		if _parts.has("brakes"):
 			parts.append("200-0 stock %.1f m" % float(s.brake200))
+		for k in range(1, Upgrades.max_level("suspension") + 1):
+			if not _parts.has("suspension"):
+				break
+			var m: Dictionary = asphalt["%s|U%d" % [id, k]]
+			parts.append("U%d 100-0 %+.1f 0-100 %+.1f drift %.2f" % [k, _pc(m.brake100, s.brake100), _pc(m.accel100, s.accel100), float(m.drift)])
 		if full:
 			for n: String in ["N3", "N10"]:
 				parts.append("%s tank %+.1f" % [n, _pc(asphalt["%s|%s" % [id, n]].tankTime, s.tankTime)])

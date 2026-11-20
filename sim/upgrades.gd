@@ -35,6 +35,12 @@ extends RefCounted
 ##   brakes  (v6.36) five levels, open from the start and bought like the first five: +8 % brake
 ##           force a level (level 5 +40 %), the same front/rear bias. The tyres still cap what each
 ##           axle can take, so a car whose brakes already lock its rear gains less than 40 %
+##   susp    (v6.37) the suspension: five levels, open from the start and bought like the brakes. A
+##           lower, stiffer car: the centre of gravity -6 % a level (less weight moves onto the front
+##           wheels under braking and onto the rear under power, so the car pitches less and the
+##           rear stays planted when it lands braking), hard landings cost -10 % a level less speed
+##           and take a harder hit (+10 % a level) before they cost any. Level 5 keeps the Drifter
+##           and the Dune from spinning on crooked landings with everything else at its top
 ## Never changed: max_speed (it scales the AI's speed input, so a network sees the same range in an
 ## upgraded car), the steering and the stability control: an upgraded car keeps its character. Levels 0, 0, 0, 0, 0 are the stock car itself (Cars.spec(id), the same object), so
 ## stock runs stay bit for bit what they were.
@@ -51,23 +57,23 @@ extends RefCounted
 ## measured with the real physics for the car picker's bars (`tools/upgrades.gd --check` measures
 ## again and compares; the tests check each level's gain is in range).
 ##
-##   Upgrades.ids() -> ["engine", "tyres", "nitro", "loose", "weight", "supercharger", "aero", "brakes"];  Upgrades.part(id) -> {...} or {}
-##   Upgrades.index_of(id) -> 0..7 (-1 unknown);  Upgrades.part_id(word) -> id for a part name
+##   Upgrades.ids() -> ["engine", "tyres", "nitro", "loose", "weight", "supercharger", "aero", "brakes", "suspension"];  Upgrades.part(id) -> {...} or {}
+##   Upgrades.index_of(id) -> 0..8 (-1 unknown);  Upgrades.part_id(word) -> id for a part name
 ##       or alias ("tires", "grip", "dirt", "lighter", "supercharger" ...), "" unknown
-##   Upgrades.max_level(id) -> 10 (5 for the supercharger, the aero tune and the brakes);  Upgrades.needs(id) ->
+##   Upgrades.max_level(id) -> 10 (5 for the supercharger, the aero tune, the brakes and the suspension);  Upgrades.needs(id) ->
 ##       {part, level} or {} (the supercharger: engine 5; the aero tune: weight 5);  Upgrades.is_open(id, levels) -> the needed part is there
 ##   Upgrades.has_trial(id) -> its levels are fitted with a trial (a miss: half back)
-##   Upgrades.stock() -> PackedInt32Array [0, 0, 0, 0, 0, 0, 0, 0];  Upgrades.is_stock(levels)
-##   Upgrades.clean(v) -> PackedInt32Array of 8 levels 0..max_level from anything (junk: 0; over
+##   Upgrades.stock() -> PackedInt32Array [0, 0, 0, 0, 0, 0, 0, 0, 0];  Upgrades.is_stock(levels)
+##   Upgrades.clean(v) -> PackedInt32Array of 9 levels 0..max_level from anything (junk: 0; over
 ##       the top: the part's top; a shorter list from an older version (four before v6.21, five
-##       before v6.34, six before v6.35, seven before v6.36): the missing parts stock)
+##       before v6.34, six before v6.35, seven before v6.36, eight before v6.37): the missing parts stock)
 ##   Upgrades.changes(car_id, levels) -> the CarSpec fields that differ (JS names)
 ##   Upgrades.spec(car_id, levels) -> CarSpec (cached; stock levels: Cars.spec(car_id))
 ##   Upgrades.player_spec(car_id) -> the car with the levels the save file holds
 ##   Upgrades.price(car_id, part, level) -> $ for that level (1..MAX_LEVEL), 0 otherwise
 ##   Upgrades.car_total(car_id) / total_all() -> $ for every level of every part
-##   Upgrades.code(levels) -> "E2 T1 N0 L3 W0" ("E5 T1 N0 L3 W5 S2 A1 B3" with a supercharger, an
-##       aero tune and brakes); Upgrades.text(levels) -> "engine 2, tyres 1, ..." (those two only when fitted)
+##   Upgrades.code(levels) -> "E2 T1 N0 L3 W0" ("E5 T1 N0 L3 W5 S2 A1 B3 U1" with a supercharger, an
+##       aero tune, brakes and suspension); Upgrades.text(levels) -> "engine 2, tyres 1, ..." (those two only when fitted)
 ##   Upgrades.stats(car_id, levels) -> the car's stats (sim/cars.gd) with the measured upgrades
 ##   Upgrades.bars(car_id, levels) -> Cars.stat_bars of those stats (the car picker)
 ##   Upgrades.effect(part, level) -> "+10 % power", "-6 % weight" (the page's and the terminal's words)
@@ -84,6 +90,9 @@ const LEVEL_SHARE: Array[float] = [0.1, 0.2, 0.35, 0.55, 0.8, 1.1, 1.45, 1.85, 2
 const TRIAL_SHARE: Array[float] = [1.1, 1.45, 1.85, 2.3, 2.8]
 ## The base price of a car that costs nothing in the shop (the Racer: between the Kestrel and the Drifter).
 const FREE_CAR_BASE: int = 12000
+## (v6.37) What each suspension level takes off a hard landing's speed loss and adds to the hit a
+## landing takes before it costs speed (level 5: half the loss, from a 1.5 × harder hit).
+const SUSP_LANDING: float = 0.1
 ## Prices are rounded to this many dollars.
 const ROUND: int = 50
 
@@ -96,7 +105,7 @@ const ROUND: int = 50
 ## over: what the trial's question measures the effect against ("on top of the engine's").
 ## (v6.36) share: the five levels' price shares in place of TRIAL_SHARE (the brakes, open from the
 ## start, cost about what a ten-level part's first five do).
-## The order is the save file's (a car's `up` list) and the keys' (1-7): new parts go at the end.
+## The order is the save file's (a car's `up` list) and the keys' (1-9): new parts go at the end.
 const PARTS: Array[Dictionary] = [
 	{id = "engine", name = "Engine", short = "E", step = 0.05, cost = 1.25, alias = ["power", "motor"],
 		what = "more power: quicker acceleration and a little more top speed", effect = "+%d %% power"},
@@ -119,6 +128,9 @@ const PARTS: Array[Dictionary] = [
 	{id = "brakes", name = "Brakes", short = "B", step = 0.08, cost = 0.8, max = 5, extra = true, share = [0.15, 0.3, 0.55, 0.85, 1.25],
 		alias = ["brake", "braking", "stopping", "pads", "discs"],
 		what = "stronger brakes: a shorter stop from any speed (the tyres still set the limit)", effect = "+%d %% brake force"},
+	{id = "suspension", name = "Suspension", chip = "Susp", short = "U", step = 0.06, cost = 0.75, max = 5, extra = true, share = [0.15, 0.3, 0.55, 0.85, 1.25],
+		alias = ["susp", "springs", "dampers", "shocks", "suspention", "suspencion", "ride", "landing", "landings"],
+		what = "a lower, stiffer car: it pitches less, and hard landings cost less speed and spin it less", effect = "-%d %% pitch, softer landings"},
 ]
 
 ## Measured with the real physics by tools/upgrades.gd (tools/car_stats.gd's measurements of the
@@ -126,7 +138,8 @@ const PARTS: Array[Dictionary] = [
 ## levels 1-10 {grip, gripFast}, (v6.21) the weight's levels 1-10 {top, accel100, accel200,
 ## brake100, grip, gripFast} and (v6.34) the supercharger's levels 1-5, measured on engine level 5
 ## {top, accel100, accel200}, (v6.35) the aero tune's, measured on weight level 5, and (v6.36) the
-## brakes' levels 1-5 {brake100}; the car page's bars use them. Filled by the tool; tests check it.
+## brakes' levels 1-5 {brake100, brake200} and (v6.37) the suspension's {brake100}; the car page's bars use
+## them. Filled by the tool; tests check it.
 const MEASURED: Dictionary = {
 	racer = {
 		engine = [{top = 282.7, accel100 = 2.57, accel200 = 9.23}, {top = 286.2, accel100 = 2.47, accel200 = 8.77}, {top = 289.5, accel100 = 2.37, accel200 = 8.33}, {top = 292, accel100 = 2.28, accel200 = 8.03}, {top = 294.2, accel100 = 2.25, accel200 = 7.8}, {top = 295.9, accel100 = 2.22, accel200 = 7.6}, {top = 297.2, accel100 = 2.18, accel200 = 7.45}, {top = 297.2, accel100 = 2.17, accel200 = 7.35}, {top = 297.2, accel100 = 2.15, accel200 = 7.27}, {top = 297.2, accel100 = 2.13, accel200 = 7.22}],
@@ -135,6 +148,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 297.2, accel100 = 2.17, accel200 = 7.35}, {top = 297.3, accel100 = 2.12, accel200 = 6.98}, {top = 297.3, accel100 = 2.08, accel200 = 6.68}, {top = 297.3, accel100 = 2.07, accel200 = 6.43}, {top = 297.3, accel100 = 2.05, accel200 = 6.2}],
 		aero = [{top = 283.9, accel100 = 2.35, accel200 = 8.42}, {top = 290, accel100 = 2.35, accel200 = 8.32}, {top = 296.7, accel100 = 2.35, accel200 = 8.22}, {top = 304.1, accel100 = 2.35, accel200 = 8.12}, {top = 312.3, accel100 = 2.35, accel200 = 8.03}],
 		brakes = [{brake100 = 29.4, brake200 = 113.2}, {brake100 = 28.2, brake200 = 108.1}, {brake100 = 27.2, brake200 = 104.3}, {brake100 = 26.3, brake200 = 100.9}, {brake100 = 25.5, brake200 = 97.7}],
+		suspension = [{brake100 = 30.5}, {brake100 = 30.3}, {brake100 = 30.2}, {brake100 = 30.2}, {brake100 = 30.2}],
 	},
 	kestrel = {
 		engine = [{top = 233, accel100 = 2.35, accel200 = 10.52}, {top = 235.6, accel100 = 2.27, accel200 = 9.87}, {top = 237.7, accel100 = 2.2, accel200 = 9.3}, {top = 239.4, accel100 = 2.15, accel200 = 8.9}, {top = 240.8, accel100 = 2.12, accel200 = 8.58}, {top = 241.9, accel100 = 2.08, accel200 = 8.33}, {top = 242.9, accel100 = 2.07, accel200 = 8.15}, {top = 243.6, accel100 = 2.05, accel200 = 8.02}, {top = 244.2, accel100 = 2.03, accel200 = 7.9}, {top = 244.5, accel100 = 2.03, accel200 = 7.83}],
@@ -143,6 +157,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 243.6, accel100 = 2.05, accel200 = 8.02}, {top = 245.5, accel100 = 2, accel200 = 7.55}, {top = 245.5, accel100 = 1.97, accel200 = 7.15}, {top = 245.5, accel100 = 1.93, accel200 = 6.8}, {top = 245.5, accel100 = 1.92, accel200 = 6.52}],
 		aero = [{top = 235.3, accel100 = 2.2, accel200 = 9.58}, {top = 240.5, accel100 = 2.2, accel200 = 9.32}, {top = 246.2, accel100 = 2.2, accel200 = 9.08}, {top = 252.4, accel100 = 2.18, accel200 = 8.87}, {top = 259.4, accel100 = 2.18, accel200 = 8.67}],
 		brakes = [{brake100 = 26.7, brake200 = 104.9}, {brake100 = 25.7, brake200 = 101.3}, {brake100 = 24.9, brake200 = 98}, {brake100 = 24.1, brake200 = 94.9}, {brake100 = 23.5, brake200 = 92.1}],
+		suspension = [{brake100 = 27.4}, {brake100 = 27.1}, {brake100 = 26.8}, {brake100 = 26.5}, {brake100 = 26.2}],
 	},
 	thunder = {
 		engine = [{top = 318.7, accel100 = 2.58, accel200 = 7.8}, {top = 323.8, accel100 = 2.52, accel200 = 7.48}, {top = 327.9, accel100 = 2.47, accel200 = 7.18}, {top = 331.1, accel100 = 2.43, accel200 = 6.98}, {top = 333.8, accel100 = 2.42, accel200 = 6.82}, {top = 334.9, accel100 = 2.38, accel200 = 6.67}, {top = 334.9, accel100 = 2.37, accel200 = 6.57}, {top = 334.9, accel100 = 2.35, accel200 = 6.48}, {top = 334.9, accel100 = 2.35, accel200 = 6.42}, {top = 334.9, accel100 = 2.33, accel200 = 6.38}],
@@ -151,6 +166,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 334.9, accel100 = 2.35, accel200 = 6.48}, {top = 334.9, accel100 = 2.32, accel200 = 6.22}, {top = 334.9, accel100 = 2.3, accel200 = 6}, {top = 334.9, accel100 = 2.3, accel200 = 5.82}, {top = 335, accel100 = 2.3, accel200 = 5.65}],
 		aero = [{top = 319.5, accel100 = 2.47, accel200 = 7.22}, {top = 326.1, accel100 = 2.47, accel200 = 7.17}, {top = 333.3, accel100 = 2.47, accel200 = 7.12}, {top = 341.3, accel100 = 2.47, accel200 = 7.07}, {top = 350, accel100 = 2.45, accel200 = 7.03}],
 		brakes = [{brake100 = 32.1, brake200 = 124.7}, {brake100 = 30.8, brake200 = 117.8}, {brake100 = 29.7, brake200 = 112.2}, {brake100 = 28.7, brake200 = 107.5}, {brake100 = 28.1, brake200 = 103.9}],
+		suspension = [{brake100 = 33.6}, {brake100 = 33.6}, {brake100 = 33.6}, {brake100 = 33.6}, {brake100 = 33.6}],
 	},
 	drifter = {
 		engine = [{top = 268.5, accel100 = 2.45, accel200 = 8.77}, {top = 272.3, accel100 = 2.38, accel200 = 8.35}, {top = 275.7, accel100 = 2.35, accel200 = 7.98}, {top = 278.3, accel100 = 2.32, accel200 = 7.73}, {top = 280.5, accel100 = 2.28, accel200 = 7.52}, {top = 282.3, accel100 = 2.27, accel200 = 7.35}, {top = 283.8, accel100 = 2.25, accel200 = 7.22}, {top = 285, accel100 = 2.23, accel200 = 7.12}, {top = 285.5, accel100 = 2.22, accel200 = 7.05}, {top = 285.5, accel100 = 2.22, accel200 = 7}],
@@ -159,6 +175,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 284.9, accel100 = 2.23, accel200 = 7.13}, {top = 285.5, accel100 = 2.18, accel200 = 6.78}, {top = 285.5, accel100 = 2.17, accel200 = 6.52}, {top = 285.5, accel100 = 2.15, accel200 = 6.27}, {top = 285.5, accel100 = 2.15, accel200 = 6.07}],
 		aero = [{top = 270.1, accel100 = 2.35, accel200 = 8.08}, {top = 276, accel100 = 2.33, accel200 = 7.98}, {top = 282.5, accel100 = 2.33, accel200 = 7.87}, {top = 289.6, accel100 = 2.33, accel200 = 7.77}, {top = 297.5, accel100 = 2.33, accel200 = 7.68}],
 		brakes = [{brake100 = 31.8, brake200 = 121.6}, {brake100 = 30.6, brake200 = 117.3}, {brake100 = 29.5, brake200 = 113.3}, {brake100 = 28.6, brake200 = 109.7}, {brake100 = 27.6, brake200 = 106.3}],
+		suspension = [{brake100 = 32.6}, {brake100 = 32.2}, {brake100 = 31.8}, {brake100 = 31.4}, {brake100 = 31}],
 	},
 	dune = {
 		engine = [{top = 225.8, accel100 = 2.78, accel200 = 11.73}, {top = 228.9, accel100 = 2.72, accel200 = 10.95}, {top = 231.6, accel100 = 2.67, accel200 = 10.28}, {top = 233.7, accel100 = 2.62, accel200 = 9.83}, {top = 235.4, accel100 = 2.58, accel200 = 9.47}, {top = 236.9, accel100 = 2.55, accel200 = 9.18}, {top = 238.1, accel100 = 2.52, accel200 = 8.97}, {top = 238.5, accel100 = 2.5, accel200 = 8.8}, {top = 238.5, accel100 = 2.48, accel200 = 8.68}, {top = 238.5, accel100 = 2.48, accel200 = 8.62}],
@@ -167,6 +184,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 238.5, accel100 = 2.5, accel200 = 8.82}, {top = 238.5, accel100 = 2.43, accel200 = 8.28}, {top = 238.5, accel100 = 2.38, accel200 = 7.83}, {top = 238.5, accel100 = 2.33, accel200 = 7.43}, {top = 238.5, accel100 = 2.28, accel200 = 7.1}],
 		aero = [{top = 227.4, accel100 = 2.67, accel200 = 10.75}, {top = 232.4, accel100 = 2.65, accel200 = 10.38}, {top = 237.8, accel100 = 2.65, accel200 = 10.05}, {top = 243.9, accel100 = 2.65, accel200 = 9.78}, {top = 250.6, accel100 = 2.65, accel200 = 9.53}],
 		brakes = [{brake100 = 30.6, brake200 = 117.2}, {brake100 = 29.5, brake200 = 113.4}, {brake100 = 28.5, brake200 = 109.9}, {brake100 = 27.7, brake200 = 106.7}, {brake100 = 26.8, brake200 = 103.6}],
+		suspension = [{brake100 = 31.3}, {brake100 = 30.8}, {brake100 = 30.4}, {brake100 = 29.9}, {brake100 = 29.5}],
 	},
 	vortex = {
 		engine = [{top = 328.5, accel100 = 2.45, accel200 = 5.92}, {top = 335.3, accel100 = 2.33, accel200 = 5.63}, {top = 342, accel100 = 2.25, accel200 = 5.4}, {top = 347.1, accel100 = 2.22, accel200 = 5.27}, {top = 350.8, accel100 = 2.2, accel200 = 5.17}, {top = 353.9, accel100 = 2.18, accel200 = 5.08}, {top = 356.4, accel100 = 2.17, accel200 = 5.02}, {top = 358.4, accel100 = 2.15, accel200 = 4.97}, {top = 359.9, accel100 = 2.15, accel200 = 4.93}, {top = 360.9, accel100 = 2.13, accel200 = 4.92}],
@@ -175,6 +193,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 358.3, accel100 = 2.15, accel200 = 4.97}, {top = 365.4, accel100 = 2.12, accel200 = 4.82}, {top = 372.3, accel100 = 2.08, accel200 = 4.67}, {top = 378.8, accel100 = 2.03, accel200 = 4.55}, {top = 384.2, accel100 = 2, accel200 = 4.43}],
 		aero = [{top = 328.3, accel100 = 2.25, accel200 = 5.4}, {top = 335.2, accel100 = 2.25, accel200 = 5.38}, {top = 342.6, accel100 = 2.23, accel200 = 5.35}, {top = 350.8, accel100 = 2.23, accel200 = 5.32}, {top = 359.9, accel100 = 2.23, accel200 = 5.3}],
 		brakes = [{brake100 = 27.5, brake200 = 104.4}, {brake100 = 26.4, brake200 = 99.1}, {brake100 = 25.5, brake200 = 94.6}, {brake100 = 24.7, brake200 = 90.9}, {brake100 = 24.6, brake200 = 88.5}],
+		suspension = [{brake100 = 28.8}, {brake100 = 28.8}, {brake100 = 28.8}, {brake100 = 28.8}, {brake100 = 28.8}],
 	},
 	apex = {
 		engine = [{top = 288.5, accel100 = 2.58, accel200 = 6.12}, {top = 292.9, accel100 = 2.58, accel200 = 5.95}, {top = 297, accel100 = 2.58, accel200 = 5.82}, {top = 299.7, accel100 = 2.58, accel200 = 5.72}, {top = 302, accel100 = 2.58, accel200 = 5.63}, {top = 303.8, accel100 = 2.58, accel200 = 5.57}, {top = 305.4, accel100 = 2.58, accel200 = 5.52}, {top = 306.6, accel100 = 2.58, accel200 = 5.48}, {top = 307.5, accel100 = 2.58, accel200 = 5.47}, {top = 308, accel100 = 2.58, accel200 = 5.45}],
@@ -183,6 +202,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 306.5, accel100 = 2.58, accel200 = 5.48}, {top = 309.8, accel100 = 2.58, accel200 = 5.37}, {top = 309.8, accel100 = 2.58, accel200 = 5.27}, {top = 309.8, accel100 = 2.58, accel200 = 5.2}, {top = 309.9, accel100 = 2.58, accel200 = 5.13}],
 		aero = [{top = 289.8, accel100 = 2.57, accel200 = 5.83}, {top = 295.9, accel100 = 2.57, accel200 = 5.77}, {top = 302.6, accel100 = 2.57, accel200 = 5.72}, {top = 309.9, accel100 = 2.55, accel200 = 5.67}, {top = 317.7, accel100 = 2.55, accel200 = 5.63}],
 		brakes = [{brake100 = 20.7, brake200 = 68.1}, {brake100 = 20.7, brake200 = 66.5}, {brake100 = 20.7, brake200 = 65.6}, {brake100 = 20.7, brake200 = 65}, {brake100 = 20.7, brake200 = 64.9}],
+		suspension = [{brake100 = 20.7}, {brake100 = 20.6}, {brake100 = 20.6}, {brake100 = 20.6}, {brake100 = 20.6}],
 	},
 	quadra = {
 		engine = [{top = 248.5, accel100 = 2.42, accel200 = 8.45}, {top = 251.9, accel100 = 2.37, accel200 = 8.02}, {top = 255.1, accel100 = 2.32, accel200 = 7.65}, {top = 257.5, accel100 = 2.28, accel200 = 7.38}, {top = 259.6, accel100 = 2.25, accel200 = 7.17}, {top = 261.3, accel100 = 2.23, accel200 = 7}, {top = 261.6, accel100 = 2.22, accel200 = 6.88}, {top = 261.6, accel100 = 2.22, accel200 = 6.78}, {top = 261.6, accel100 = 2.2, accel200 = 6.72}, {top = 261.6, accel100 = 2.2, accel200 = 6.68}],
@@ -191,6 +211,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 261.6, accel100 = 2.22, accel200 = 6.8}, {top = 261.6, accel100 = 2.18, accel200 = 6.5}, {top = 261.6, accel100 = 2.17, accel200 = 6.25}, {top = 261.6, accel100 = 2.17, accel200 = 6.03}, {top = 261.7, accel100 = 2.15, accel200 = 5.83}],
 		aero = [{top = 250.3, accel100 = 2.32, accel200 = 7.78}, {top = 255.7, accel100 = 2.3, accel200 = 7.63}, {top = 261.7, accel100 = 2.3, accel200 = 7.5}, {top = 268.2, accel100 = 2.3, accel200 = 7.37}, {top = 275.5, accel100 = 2.3, accel200 = 7.25}],
 		brakes = [{brake100 = 30, brake200 = 112.4}, {brake100 = 28.9, brake200 = 108.5}, {brake100 = 27.9, brake200 = 104.8}, {brake100 = 27, brake200 = 101.5}, {brake100 = 26.2, brake200 = 98.4}],
+		suspension = [{brake100 = 30.8}, {brake100 = 30.4}, {brake100 = 30}, {brake100 = 29.6}, {brake100 = 29.2}],
 	},
 	sarthe = {
 		engine = [{top = 342.4, accel100 = 2.38, accel200 = 5.52}, {top = 348.7, accel100 = 2.28, accel200 = 5.25}, {top = 354.8, accel100 = 2.18, accel200 = 5.02}, {top = 359.5, accel100 = 2.12, accel200 = 4.85}, {top = 362.9, accel100 = 2.05, accel200 = 4.72}, {top = 365.7, accel100 = 2.02, accel200 = 4.62}, {top = 368, accel100 = 1.98, accel200 = 4.53}, {top = 369.8, accel100 = 1.98, accel200 = 4.47}, {top = 371.1, accel100 = 1.97, accel200 = 4.43}, {top = 371.9, accel100 = 1.97, accel200 = 4.42}],
@@ -199,6 +220,7 @@ const MEASURED: Dictionary = {
 		supercharger = [{top = 369.6, accel100 = 1.98, accel200 = 4.48}, {top = 376, accel100 = 1.93, accel200 = 4.3}, {top = 377, accel100 = 1.9, accel200 = 4.15}, {top = 377, accel100 = 1.87, accel200 = 4.02}, {top = 377, accel100 = 1.83, accel200 = 3.9}],
 		aero = [{top = 342.8, accel100 = 2.17, accel200 = 5.03}, {top = 349.7, accel100 = 2.17, accel200 = 5}, {top = 357, accel100 = 2.17, accel200 = 4.98}, {top = 365, accel100 = 2.17, accel200 = 4.97}, {top = 373.8, accel100 = 2.17, accel200 = 4.93}],
 		brakes = [{brake100 = 22.9, brake200 = 82.7}, {brake100 = 22.7, brake200 = 79.4}, {brake100 = 22.7, brake200 = 76.9}, {brake100 = 22.7, brake200 = 75.2}, {brake100 = 22.7, brake200 = 73.9}],
+		suspension = [{brake100 = 23.5}, {brake100 = 23.3}, {brake100 = 23.2}, {brake100 = 23}, {brake100 = 22.9}],
 	},
 }
 
@@ -296,7 +318,7 @@ static func has_trial(part_id: String) -> bool:
 	return bool(part(part_id).get("trial", false))
 
 
-## (v6.36) The parts with five levels, in words: "the supercharger, the aero tune and the brakes".
+## (v6.36) The parts with five levels, in words: "the supercharger, the aero tune, the brakes and the suspension".
 static func five_level_text() -> String:
 	var names: PackedStringArray = []
 	for p: Dictionary in PARTS:
@@ -331,6 +353,7 @@ static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
 	var sc: float = gain(5, lv[5])
 	var ae: float = gain(6, lv[6])
 	var bk: float = gain(7, lv[7])
+	var su: int = lv[8]
 	if e > 0.0 or sc > 0.0:
 		# (v6.34) the supercharger multiplies what the engine part gives
 		var tq: Array = []
@@ -363,10 +386,16 @@ static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
 	if bk > 0.0:
 		# (v6.36) the brakes: more force at full pedal, the same bias (the tyres' grip still caps each axle)
 		out.brakeForce = s.brake_force * (1.0 + bk)
+	if su > 0:
+		# (v6.37) the suspension: a lower centre of gravity (less weight transfer), and landings that
+		# take a harder hit before they cost speed and then cost less of it
+		out.brakeDive = s.brake_dive * (1.0 - gain(8, su))
+		out.hardLanding = s.hard_landing * (1.0 + SUSP_LANDING * su)
+		out.landingLoss = s.landing_loss * (1.0 - SUSP_LANDING * su)
 	return out
 
 
-## Car `car_id` with `levels` (8 ints: engine, tyres, nitro, loose, weight, supercharger, aero, brakes). Stock levels give the stock
+## Car `car_id` with `levels` (9 ints: engine, tyres, nitro, loose, weight, supercharger, aero, brakes, suspension). Stock levels give the stock
 ## spec itself; others are made once and cached (a spec is read-only once a car uses it).
 static func spec(car_id: String, levels: PackedInt32Array = PackedInt32Array()) -> CarSpec:
 	var id: String = car_id if Cars.has_car(car_id) else Cars.DEFAULT_CAR
@@ -478,9 +507,12 @@ static func stats(car_id: String, levels: PackedInt32Array) -> Dictionary:
 			for key: String in WEIGHT_KEYS:
 				if mw.has(key) and float(stock_stats.get(key, 0.0)) > 0.0:
 					out[key] = float(out[key]) * float(mw[key]) / float(stock_stats[key])
-	if lv[7] > 0 and m.get("brakes") is Array and (m.brakes as Array).size() >= lv[7] and float(stock_stats.get("brake100", 0.0)) > 0.0:
-		# (v6.36) the brakes' measured stop as a share of the stock one (on top of the weight's)
-		out.brake100 = float(out.brake100) * float(m.brakes[lv[7] - 1].brake100) / float(stock_stats.brake100)
+	for i: int in [7, 8]:
+		# (v6.36) the brakes' and (v6.37) the suspension's measured stop as a share of the stock one (on
+		# top of the weight's)
+		var pid := String(PARTS[i].id)
+		if lv[i] > 0 and m.get(pid) is Array and (m[pid] as Array).size() >= lv[i] and float(stock_stats.get("brake100", 0.0)) > 0.0:
+			out.brake100 = float(out.brake100) * float(m[pid][lv[i] - 1].brake100) / float(stock_stats.brake100)
 	# (v6.34-6.35) a part another one opens was measured on that part's level (the supercharger on
 	# engine 5, the aero tune on weight 5): its share over that goes on top
 	for i in PARTS.size():

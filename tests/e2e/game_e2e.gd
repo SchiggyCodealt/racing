@@ -2339,7 +2339,7 @@ func upgrades() -> void:
 	var trials: PackedStringArray = []
 	for k in chips.size():
 		var pid := String(chips[k].get("part_id"))
-		while int(chips[k].get("level")) < Upgrades.max_level(pid) and asked < 70:
+		while int(chips[k].get("level")) < Upgrades.max_level(pid) and asked < 75:
 			await click(chips[k])
 			await frames(3)
 			asked += 1
@@ -2361,9 +2361,9 @@ func upgrades() -> void:
 	var maxed := true
 	for c: Button in chips:
 		maxed = maxed and c.disabled and c.call("price_text") == "MAX"
-	check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5]) and maxed and UiData.money() == 5000 and asked == 66 and
+	check(SaveData.get_upgrades("racer") == PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5, 5]) and maxed and UiData.money() == 5000 and asked == 71 and
 		trials == PackedStringArray(["MISSED: WRONG ARROW", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED", "FITTED"]),
-		"66 clicks (each asked): every part at its top (the supercharger at 5 after six trials, the first missed on purpose: %s of %s back; the aero tune at 5 after five; the brakes at 5, bought, no trial), the chips read MAX, %s left" % [
+		"71 clicks (each asked): every part at its top (the supercharger at 5 after six trials, the first missed on purpose: %s of %s back; the aero tune at 5 after five; the brakes and the suspension at 5, bought, no trial), the chips read MAX, %s left" % [
 		UiFormat.money(s1 / 2), UiFormat.money(s1), UiFormat.money(UiData.money())])
 	var card: Control = menu.car_card()
 	var b0: Dictionary = UiData.car_info("racer").bars
@@ -2376,7 +2376,7 @@ func upgrades() -> void:
 	await key(KEY_ENTER)
 	auto_start = true
 	m = app.mode
-	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5])), "Enter drives the upgraded Racer"):
+	if not check(m != app.menu_mode and (m.get("car") as Car).spec == Upgrades.spec("racer", PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5, 5])), "Enter drives the upgraded Racer"):
 		return
 	autopilot(float(run.aLat), float(run.lookK))
 	fast(true)
@@ -2395,7 +2395,7 @@ func upgrades() -> void:
 	# (the autopilot keeps the stock car's author settings: its corner speeds don't use the extra grip, and the
 	# quicker car arrives at the corners faster, so it gains less than a sweep tuned for it would)
 	var w3: int = int((m.get("score") as ScoreState).counts.wall_hits)
-	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5]),
+	check(t3 < t0 * 0.995 and fs.get("medal", {}).get("got") == "author" and absf(float(rec.time) - t3) < 1e-9 and rec.up == PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5, 5]),
 		"the upgraded Racer, the same autopilot (the author run's settings): %s against %s stock (%.1f %% quicker; the author time stays %s); the record keeps the levels; wall contacts %d (stock %d)" % [
 		RaceState.format_time(t3), RaceState.format_time(t0), (1.0 - t3 / t0) * 100.0, RaceState.format_time(float(medals.author)), w3, w0])
 	await shot("upgrades_finish")

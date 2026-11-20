@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-20 (v6.36.0: round 9, item 1 of 8: the brakes, an eighth part (`PARTS[7]`, id `brakes`, five
+_Last updated: 2026-11-20 (v6.37.0: round 9, item 3 of 8 (item 2, the gearbox, skipped by the owner): the suspension,
+a ninth part (`PARTS[8]`, id `suspension`, five levels of -6 % nose dive (new CarSpec field `brake_dive`, also in
+native FleetSim) and softer landings, open from the start, bought with no trial; the maxed Drifter's and Dune's landing
+spins are gone); v6.36.0: round 9, item 1 of 8: the brakes, an eighth part (`PARTS[7]`, id `brakes`, five
 levels of +8 % brake force, open from the start, bought with no trial, priced by its own `share` list); v6.35.0: round 8, item 2 of 2, the last: the aero tune, a seventh part (`PARTS[6]`, id
 `aero`, five levels of -6 % drag with the top gear longer by the cube root, opens at weight 5), the same trial;
 v6.34.0: round 8, item 1 of 2: the supercharger, a sixth upgrade part (`sim/upgrades.gd`
@@ -78,9 +81,9 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.36.0, round 9 item 1 of 8 done (the brakes); next: item 2, the gearbox tune (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.37.0, round 9 items 1 and 3 of 8 done (the brakes; the suspension; item 2, the gearbox, skipped by the owner); next: item 4, the wing, as v6.38.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
-Round 9 (asked on 2026-11-20): eight upgrade ideas, one release each (v6.36.0 to v6.43.0): see [Round 9](#round-9-eight-upgrade-ideas-v6360-on).
+Round 9 (asked on 2026-11-20): eight upgrade ideas, one release each (v6.36.0 to v6.42.0, the gearbox skipped): see [Round 9](#round-9-eight-upgrade-ideas-v6360-on).
 
 Round 8 (asked on 2026-11-20): the supercharger with a trial (v6.34.0, done) and the aero tune (v6.35.0, done): see [Round 8](#round-8-supercharger-and-aero-tune-v6340-on).
 
@@ -1651,15 +1654,18 @@ The defaults the owner was told (in that order, one push each, a check-in about 
 items; AI cars and medal times stay stock):
 
 1. **Brakes (v6.36.0, done)**: five levels, +8 % brake force each, bought (no trial).
-2. **Gearbox (v6.37.0)**: a free setting per car and track, Short 2 to Long 2 (the final drive).
-3. **Suspension (v6.38.0)**: five levels; less speed lost on hard landings, less bounce on dirt; the maxed Drifter's
-   landing spin fixed.
-4. **Wing (v6.39.0)**: five levels of downforce with a little drag; can be turned down per track.
-5. **Tyres (v6.40.0)**: Soft, Medium, Hard or Rally per track; Soft grips most and wears in long races.
-6. **Nitro (v6.41.0)**: the Nitro part already is a bigger tank with a faster refill, so instead a five-level nitro
+2. **Gearbox (skipped)**: a free setting per car and track, Short 2 to Long 2 (the final drive). Built and measured,
+   but it moved lap times by under 1 % (the close six-speed boxes keep every engine near its peak power), so the owner
+   chose "Skip, do suspension". The work is kept on the branch `wip-6.37.0` (commit bcf2b33): its per-car, per-track
+   setups in the save file (`career.setups {car: {track: {gear}}}`) may serve the wing and the tyres.
+3. **Suspension (v6.37.0, done)**: five levels; less speed lost on hard landings; the maxed Drifter's landing spin
+   fixed (there is no bounce on dirt to cut: the bumps are drawn only).
+4. **Wing (v6.38.0)**: five levels of downforce with a little drag; can be turned down per track.
+5. **Tyres (v6.39.0)**: Soft, Medium, Hard or Rally per track; Soft grips most and wears in long races.
+6. **Nitro (v6.40.0)**: the Nitro part already is a bigger tank with a faster refill, so instead a five-level nitro
    tune opened at Nitro 5 for a stronger push, fitted with the arrow trial.
-7. **Cosmetics (v6.42.0)**: paint, five liveries, underglow; looks only.
-8. **Presets (v6.43.0)**: up to three named setups per car (gearbox, wing, tyres), loaded on any track.
+7. **Cosmetics (v6.41.0)**: paint, five liveries, underglow; looks only.
+8. **Presets (v6.42.0)**: up to three named setups per car (wing, tyres), loaded on any track.
 
 ### Item 1: the brakes (v6.36.0, done)
 
@@ -1681,6 +1687,31 @@ items; AI cars and medal times stay stock):
   four at 1280 x 720; keys 1-8). The terminal: `upgrade <car> brakes <0-5>`, `buy <car> brakes` buys a level (no
   trial). Tests: `_brakes()` in tests/test_sim.gd, the parts' checks, the UI's eight chips, the terminal, e2e (66
   clicks).
+
+### Item 3: the suspension (v6.37.0, done)
+
+- **The part.** `sim/upgrades.gd` `PARTS[8]`: id `suspension`, short "U", chip "Susp", `step 0.06`, `cost 0.75`,
+  `max 5`, `extra true`, the brakes' `share` list (the Racer's levels $1,350 to $11,250), no `needs`, no `trial`.
+  `changes()`: `brakeDive` × (1 - 0.06 × level), `hardLanding` × (1 + 0.1 × level), `landingLoss` × (1 - 0.1 × level)
+  (`SUSP_LANDING`).
+- **The physics.** New CarSpec field `brake_dive` (JS `brakeDive`, 1 for every stock car): in `sim/car.gd` the
+  longitudinal weight transfer uses `cg_height × brake_dive` while `_ax < 0` (slowing) and `cg_height` otherwise, so
+  stock cars are bit for bit as before. Ported to `native/src` (`Spec.brake_dive`, the spec field list, `car_step`)
+  and all four libraries in `bin/` rebuilt (scons; godot-cpp's libraries were already built). First tried: a lower
+  `cg_height` (the same landing fix), but it also cut the rear tyres' load under power: the rear-driven cars launched
+  up to 7 % slower and the Drifter lost 17 % on Hairpin Valley's snow.
+- **Measured.** Landing spins with every other part at its top, steer held through the flight: the Drifter 6, 5, 4,
+  3, 2, 0 at suspension 0-5, the Dune 1 then 0; every other car 0. `MEASURED.<car>.suspension` = five `{brake100}`
+  (`tools/upgrades.gd`); `stats()` scales `brake100` by it (on top of the brakes'). 100-0 km/h at level 5: 5-7 %
+  shorter for the Kestrel, the Drifter, the Dune and the Quadra, about nothing for the Vortex, the Apex and the
+  Thunder (their fronts already do the braking). The acceleration and top speed don't change. The medal autopilot's
+  laps (`--quick --sets=U5`, five tracks) are within about 1 % on most tracks either way (a little less front grip
+  on the brakes); the Drifter on Hairpin Valley (snow) is the outlier (see the README).
+- **Elsewhere.** `Opponents.UPGRADES` 9 ints (stock suspension). The car page's nine chips (keys 1-9). The terminal:
+  `upgrade <car> suspension <0-5>` (aliases springs, susp, shocks, dampers ...), `buy <car> suspension`. Tests:
+  `_suspension()` in tests/test_sim.gd (stops, landing speed, buying), the jumps test with every part at its top is
+  strict again (no `slides`), the parts' checks, the UI's nine chips, the terminal, FleetSim with the suspension
+  (test_ai), e2e (71 clicks).
 
 ## Round 8: supercharger and aero tune (v6.34.0 on)
 

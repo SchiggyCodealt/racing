@@ -209,7 +209,7 @@ FleetSim::FleetSim() {
 // and get_spec gives back. A new CarSpec field that the physics uses goes here too.
 #define TRACKRUSH_SPEC_FIELDS(X) \
 	X(mass, "mass") X(inertia, "inertia") X(cg_to_front, "cgToFront") X(cg_to_rear, "cgToRear") \
-	X(cg_height, "cgHeight") X(wheel_radius, "wheelRadius") \
+	X(cg_height, "cgHeight") X(brake_dive, "brakeDive") X(wheel_radius, "wheelRadius") \
 	X(mu, "mu") X(handbrake, "handbrake") X(handbrake_fast, "handbrakeFast") X(handbrake_rate, "handbrakeRate") \
 	X(load_sensitivity, "loadSensitivity") X(pac_b, "pacB") X(pac_c, "pacC") X(pac_e, "pacE") \
 	X(drag, "drag") X(downforce, "downforce") X(aero_front, "aeroFront") X(roll_resist, "rollResist") \

@@ -26,6 +26,7 @@ var inertia: float = 1850.0       # kg m², yaw
 var cg_to_front: float = 1.2      # m, centre of gravity to front axle
 var cg_to_rear: float = 1.4       # m, centre of gravity to rear axle (front ~54 % of the weight)
 var cg_height: float = 0.42       # m, for longitudinal weight transfer
+var brake_dive: float = 1.0       # (v6.37) the share of cg_height that counts while the car slows (its nose dive; the suspension upgrade lowers it)
 var wheel_radius: float = 0.34    # m
 # --- tyres --------------------------------------------------------------------------
 var mu: float = 1.6               # peak friction coefficient at the static axle load
@@ -135,7 +136,7 @@ var derived: bool = false
 
 ## The JS names of the spec fields, in CAR's order (to_dict / make).
 const KEYS: PackedStringArray = [
-	"id", "mass", "inertia", "cgToFront", "cgToRear", "cgHeight", "wheelRadius",
+	"id", "mass", "inertia", "cgToFront", "cgToRear", "cgHeight", "brakeDive", "wheelRadius",
 	"mu", "handbrake", "handbrakeFast", "handbrakeRate", "loadSensitivity", "pacB", "pacC", "pacE", "dirtGrip", "snowGrip",
 	"drag", "downforce", "aeroFront", "rollResist",
 	"idleRpm", "redline", "upshiftRpm", "downshiftRpm", "launchRpm", "torque", "gears", "finalDrive", "reverseRatio",

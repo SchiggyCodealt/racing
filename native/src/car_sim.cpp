@@ -846,7 +846,9 @@ void planar_step(CarState &c, const Spec &P, double h) {
 	// --- normal loads ---
 	double down = P.downforce * spd * spd;
 	double w = m * c.env_gn;
-	double tr = (m * c.ax * P.cg_height) / L; // longitudinal weight transfer
+	// longitudinal weight transfer (v6.37: while slowing, only brake_dive of the height counts)
+	double hc = c.ax >= 0.0 ? P.cg_height : P.cg_height * P.brake_dive;
+	double tr = (m * c.ax * hc) / L;
 	double load_f = (w * b) / L + down * P.aero_front - tr;
 	double load_r = (w * a) / L + down * (1.0 - P.aero_front) + tr;
 	double min_load = 0.03 * w;

@@ -222,10 +222,10 @@ func _menu_cars(t) -> void:
 			for r in rects:
 				all_shown = all_shown and r.end.y <= sz.y + 0.5
 			all_shown = all_shown and menu.car_page.start_btn.get_global_rect().end.y <= sz.y + 0.5 and menu.car_page.parts_row.is_visible_in_tree()
-		# (v6.34-6.36: eight parts) the chips: one row where each keeps the room for its name, pips and price, else two rows of four, else three rows
+		# (v6.34-6.37: nine parts) the chips: one row where each keeps the room for its name, pips and price, else two rows (five and four), else three rows of three
 		var chips: Array = menu.car_page.part_chips
 		var pg: GridContainer = menu.car_page.parts_grid
-		var chips_ok := chips.size() == 8 and pg.columns in [8, 4, 3]
+		var chips_ok := chips.size() == 9 and pg.columns in [9, 5, 3]
 		var pr := menu.car_page.panel.get_global_rect()
 		for c: Control in chips:
 			var r := c.get_global_rect()
@@ -989,9 +989,14 @@ func _upgrades(t) -> void:
 	var bk_open: bool = int(bk.get("level")) == 0 and int(bk.get("max_level")) == 5 and int(bk.get("price")) == Upgrades.price("racer", "brakes", 1) and \
 		not bk.disabled and bk.tooltip_text.contains("Level 1 (+8 %% brake force) costs %s" % UiFormat.money(Upgrades.price("racer", "brakes", 1))) and \
 		not bk.tooltip_text.contains("half the price back")
-	t.check(chips.size() == 8 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight", "Supercharger", "Aero tune", "Brakes"] and prices_ok and chips_in and sc_shut and ae_shut and
-		bk_open and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
-		"the Racer (yours) at 1280 x 720: eight part chips (Engine, Tyres, Nitro, Loose grip, Weight, since v6.34 the Supercharger, reading \"Engine 5\" until the engine is there, since v6.35 the Aero tune, reading \"Weight 5\", and since v6.36 the Brakes, open, five levels) %d a row inside the page, at level 0 with the next level's price, over the description line" % pcols)
+	# (v6.37) the ninth, the Suspension: open from the start too, five levels
+	var su: Button = chips[8]
+	var su_open: bool = int(su.get("level")) == 0 and int(su.get("max_level")) == 5 and int(su.get("price")) == Upgrades.price("racer", "suspension", 1) and \
+		not su.disabled and su.tooltip_text.contains("Level 1 (-6 %% pitch, softer landings) costs %s" % UiFormat.money(Upgrades.price("racer", "suspension", 1))) and \
+		su.tooltip_text.contains("landings") and not su.tooltip_text.contains("half the price back")
+	t.check(chips.size() == 9 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight", "Supercharger", "Aero tune", "Brakes", "Suspension"] and prices_ok and chips_in and sc_shut and ae_shut and
+		bk_open and su_open and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
+		"the Racer (yours) at 1280 x 720: nine part chips (Engine, Tyres, Nitro, Loose grip, Weight, since v6.34 the Supercharger, reading \"Engine 5\" until the engine is there, since v6.35 the Aero tune, reading \"Weight 5\", since v6.36 the Brakes and since v6.37 the Suspension, open, five levels) %d a row inside the page, at level 0 with the next level's price, over the description line" % pcols)
 	var wtip: String = (chips[4] as Control).tooltip_text
 	t.check(wtip.contains("Level 1 (-3 %% weight) costs %s" % UiFormat.money(Upgrades.price("racer", "weight", 1))) and wtip.contains("lighter car"),
 		"the Weight chip's tooltip: a lighter car, level 1 takes 3 %% off (%s)" % UiFormat.money(Upgrades.price("racer", "weight", 1)))
@@ -1005,7 +1010,7 @@ func _upgrades(t) -> void:
 	var r3 := UiData.buy_upgrade("racer", "turbo")
 	menu.refresh()
 	t.check(r1.ok and int(r1.level) == 1 and UiData.money() == 20000 - Upgrades.price("racer", "engine", 1) and r2.error == "locked" and r3.error == "unknown" and
-		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0, 0, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
+		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0, 0, 0, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
 		"buying the Racer's engine: level 1, the chip shows the next price; a locked car or an unknown part: nothing")
 	UiData.store.career.money = 10
 	menu.refresh()
@@ -1025,7 +1030,7 @@ func _upgrades(t) -> void:
 	var top3: float = float(menu.car_card().get("top_up"))
 	t.check(at3, "v6.16: everything at level 3 is not the top: each chip offers level 4 of 10 (the engine's %s)" % UiFormat.money(Upgrades.price("racer", "engine", 4)))
 	# everything at level 10: MAX, off; the card's bars and top speed with the upgrades
-	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10, 10, 5, 5, 5]}
+	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10, 10, 5, 5, 5, 5]}
 	menu.refresh()
 	var maxed := true
 	for c: Button in chips:
@@ -1039,7 +1044,7 @@ func _upgrades(t) -> void:
 		grew = grew and float(bu[k]) >= float(b3[k]) and (float(bu[k]) > float(b3[k]) or float(b3[k]) >= 1.0)
 	t.check(maxed and r5.error == "max" and float(bu.speed) > float(b0.speed) and float(bu.acceleration) > float(b0.acceleration) and float(bu.grip) > float(b0.grip) and
 		float(bu.nitro) > float(b0.nitro) and grew and float(card.get("top_up")) > top3 and top3 > float(UiData.car_info("racer").top) and
-		card.tooltip_text.contains("Upgrades: engine 10, tyres 10, nitro 10, loose grip 10, weight 10, supercharger 5, aero tune 5, brakes 5") and
+		card.tooltip_text.contains("Upgrades: engine 10, tyres 10, nitro 10, loose grip 10, weight 10, supercharger 5, aero tune 5, brakes 5, suspension 5") and
 		is_equal_approx(float(card.get("mass_up")), roundf(1250.0 * (1.0 - 0.03 * 6.5))) and card.tooltip_text.contains("1.01 t"),
 		"every level bought (10): the chips read MAX (off); the Racer's card shows the bars with the upgrades (speed %.2f -> %.2f -> %.2f, grip %.2f -> %.2f -> %.2f, stock -> 3 -> 10), %d -> %d km/h and the lighter car's 1.01 t (1.25 t stock)" % [
 		float(b0.speed), float(b3.speed), float(bu.speed), float(b0.grip), float(b3.grip), float(bu.grip), roundi(top3), roundi(float(card.get("top_up")))])
