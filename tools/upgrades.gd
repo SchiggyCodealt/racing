@@ -1,5 +1,6 @@
 extends SceneTree
-## upgrades.gd (v6.11.0; v6.16.0: ten levels; v6.21.0: the weight part): measures what the car
+## upgrades.gd (v6.11.0; v6.16.0: ten levels; v6.21.0: the weight part; v6.34-6.35: the supercharger
+## and the aero tune): measures what the car
 ## upgrades (sim/upgrades.gd) do, with the real physics.
 ## ------------------------------------------------------------------
 ##   godot --headless --path <copy> --script res://tools/upgrades.gd [-- options]
@@ -29,18 +30,19 @@ const MEASURED_PARTS: Array = [
 	["tyres", "T", 1, ["grip", "gripFast"], [0, 0, 0, 0, 0, 0]],
 	["weight", "W", 4, ["top", "accel100", "accel200", "brake100", "grip", "gripFast"], [0, 0, 0, 0, 0, 0]],
 	["supercharger", "S", 5, ["top", "accel100", "accel200"], [5, 0, 0, 0, 0, 0]],
+	["aero", "A", 6, ["top", "accel100", "accel200"], [0, 0, 0, 0, 5, 0, 0]],
 ]
 const LOOSE_SETS: Array = [["stock", [0, 0, 0, 0, 0]], ["L3", [0, 0, 0, 3, 0]], ["L10", [0, 0, 0, 10, 0]], ["T10", [0, 10, 0, 0, 0]],
 	["all3", [3, 3, 3, 3, 3]], ["all10", [10, 10, 10, 10, 10]]]
 const LAP_SETS: Array = [
 	["stock", [0, 0, 0, 0, 0]], ["all3", [3, 3, 3, 3, 3]], ["E10", [10, 0, 0, 0, 0]], ["T10", [0, 10, 0, 0, 0]], ["N10", [0, 0, 10, 0, 0]],
 	["L10", [0, 0, 0, 10, 0]], ["W10", [0, 0, 0, 0, 10]], ["all10", [10, 10, 10, 10, 10]],
-	["E5S5", [5, 0, 0, 0, 0, 5]], ["max", [10, 10, 10, 10, 10, 5]],
+	["E5S5", [5, 0, 0, 0, 0, 5]], ["W5A5", [0, 0, 0, 0, 5, 0, 5]], ["max", [10, 10, 10, 10, 10, 5, 5]],
 ]
 const SLIP_SETS: Array = ["all3", "all10", "max"]
 
 ## The parts measured (--parts=; all of MEASURED_PARTS by default).
-var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger"]
+var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger", "aero"]
 var _lap_sets: PackedStringArray = []
 
 

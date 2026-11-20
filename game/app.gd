@@ -537,7 +537,7 @@ func buy_car(car_id: String) -> Dictionary:
 ## The car picker's part chip: buy the next level of part `part` for car `car_id`, asking first
 ## (what it does, what it costs, what is left), or say why it can't be bought (the car isn't
 ## yours, every level is bought, the part that opens it is short, the money is short). (v6.34) A
-## supercharger level is fitted with a trial (start_trial): a miss pays half back.
+## supercharger or aero tune level (v6.35) is fitted with a trial (start_trial): a miss pays half back.
 func offer_upgrade(car_id: String, part: String) -> void:
 	var p := Upgrades.part(part)
 	if p.is_empty():
@@ -570,8 +570,8 @@ func offer_upgrade(car_id: String, part: String) -> void:
 	if Upgrades.has_trial(part):
 		var r := TuneTrial.rule(lv + 1)
 		message.ask("Fit the %s's %s?" % [cname, String(p.name).to_lower()],
-			"Level %d of %d: %s (%s on top of the engine's). It costs %s; you have %s. Fitting it takes a steady hand: press %d arrows in the order shown, within %s s (arrow keys, WASD, the d-pad or a click). A miss fits nothing and gives half back (%s), so it costs %s; you can try again. Medal times and the AI opponents stay as they are." % [
-				lv + 1, top, p.what, Upgrades.effect(part, lv + 1), UiFormat.money(price), UiFormat.money(have), int(r.count), String.num(float(r.limit), 2),
+			"Level %d of %d: %s (%s %s). It costs %s; you have %s. Fitting it takes a steady hand: press %d arrows in the order shown, within %s s (arrow keys, WASD, the d-pad or a click). A miss fits nothing and gives half back (%s), so it costs %s; you can try again. Medal times and the AI opponents stay as they are." % [
+				lv + 1, top, p.what, Upgrades.effect(part, lv + 1), String(p.get("over", "over the stock car")), UiFormat.money(price), UiFormat.money(have), int(r.count), String.num(float(r.limit), 2),
 				UiFormat.money(price / 2), UiFormat.money(price - price / 2)],
 			"Pay %s and fit it" % UiFormat.money(price), start_trial.bind(car_id, part))
 		return
@@ -581,7 +581,7 @@ func offer_upgrade(car_id: String, part: String) -> void:
 		"Buy for %s" % UiFormat.money(price), buy_upgrade.bind(car_id, part))
 
 
-## (v6.34) Fit the next level of part `part` (the supercharger) on car `car_id`: the trial screen
+## (v6.34) Fit the next level of part `part` (the supercharger, the aero tune) on car `car_id`: the trial screen
 ## over the car page; its result buys the level (won) or takes half the price (missed).
 func start_trial(car_id: String, part: String) -> void:
 	var p := Upgrades.part(part)

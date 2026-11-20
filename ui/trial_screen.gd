@@ -1,7 +1,7 @@
 class_name TrialScreen
 extends "res://ui/dialog_screen.gd"
-## trial_screen.gd (v6.34.0): the trial that fits a supercharger level (sim/tune_trial.gd has the
-## rules) over the car page.
+## trial_screen.gd (v6.34.0): the trial that fits a supercharger level (v6.35.0: or an aero tune
+## level; sim/tune_trial.gd has the rules) over the car page.
 ## ------------------------------------------------------------------
 ## A row of arrow plates and a time bar. The row shows for a moment ("Get ready"), then the clock
 ## runs ("Go"): press the arrows in order with the arrow keys, WASD, the d-pad or the four arrow

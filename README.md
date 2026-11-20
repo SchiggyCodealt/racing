@@ -227,7 +227,7 @@ On the menu:
 | Enter or Space | A | A time trial on the picked track: the **car page** opens first |
 | C / Shift+C | RB / LB | Next / previous car (on the menu: whose records you look at; on the car page: the car you drive) |
 | On the car page: arrows or W A S D | d-pad / left stick | Pick a car (down from the cars: its upgrades, then START) |
-| On the car page: 1-6 | A on a part | Buy the next level of that part (it asks first; the supercharger then has its trial of arrows) |
+| On the car page: 1-7 | A on a part | Buy the next level of that part (it asks first; the supercharger and the aero tune then have their trial of arrows) |
 | On the car page: Enter or Space / Esc | A / B | START (BUY when the car is not yours yet) / back to the menu |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
@@ -800,16 +800,17 @@ cup in progress).
 
 ### Upgrades
 
-Money also buys **upgrades** for the cars you own: six parts per car (weight since version 6.21.0, the
-[supercharger](#the-supercharger) since 6.34.0), ten levels each (version 6.16.0; three before; the supercharger five),
-bought one level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows six chips under the
+Money also buys **upgrades** for the cars you own: seven parts per car (weight since version 6.21.0, the
+[supercharger](#the-supercharger) since 6.34.0, the [aero tune](#the-aero-tune) since 6.35.0), ten levels each (version
+6.16.0; three before; the supercharger and the aero tune five),
+bought one level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows seven chips under the
 cards, each with the part's name, a pip per level (green: bought; levels 8-10 in a lighter green) and the next level's
 price (yellow when you can afford it, grey when not, MAX when all ten are bought; from $100,000 it is shortened, like
-$105k). Click a chip (or press its number, 1 to 6, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
+$105k). Click a chip (or press its number, 1 to 7, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
 its top speed and weight turn green when the top speed is higher or the car lighter (at 1280 x 720 and in narrower
-windows the six chips stand in two rows of three). The `upgrade` and `buy <car> <part>` commands of
+windows the seven chips stand in two rows, four and three; in a window under about 900 px wide, three rows). The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
 Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
@@ -859,12 +860,12 @@ did before version 6.16.0 ($248,200 for the six cars of that version, $519,700 f
 wins gold and beats the Expert on every track earns $193,200 per car driven (author and the Elite everywhere
 $328,440): the Racer at level 7 everywhere costs less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
-counts too). Every level of every part of every car costs $14,636,800 ($12,000,200 of it for the five parts in the
-table, the rest for [the supercharger](#the-supercharger)).
+counts too). Every level of every part of every car costs $16,956,650 ($12,000,200 of it for the five parts in the
+table, the rest for [the supercharger](#the-supercharger) and [the aero tune](#the-aero-tune)).
 
 - **Medal times stay stock, the AI opponents have their own upgrades.** The medal times were set by the stock cars,
   so an upgraded car makes medals easier. Since version 6.25.0 the AI opponents always drive their car with every
-  part at level 3, whatever you have bought (before, they drove stock cars; they have no supercharger), so beating
+  part at level 3, whatever you have bought (before, they drove stock cars; they have no supercharger or aero tune), so beating
   the Elite takes upgrades of your own or a very good run. Each reward is still paid only once.
 - **Where they count:** Drive, Race the AI and, with your own network (My AI), Watch the AI, Race my AI and the
   training screen all use the car with its upgrades. The AI opponents keep their own level 3 car.
@@ -898,8 +899,8 @@ than the engine's last levels add: from engine 5, the five supercharger levels t
 | Quadra | $35,750 / $47,150 / $60,150 / $74,750 / $91,000 | $308,800 | 7.17 → 5.83 s (6.68 s) | 260 → 262 |
 | Sarthe | $68,750 / $90,650 / $115,650 / $143,750 / $175,000 | $593,800 | 4.72 → 3.90 s (4.42 s) | 363 → 377 |
 
-The prices are those of engine levels 6-10 with a quarter more on top. Most cars hit the rev limiter in top gear
-before the extra power adds much top speed; the Vortex and the Sarthe, whose gearing leaves room, gain 14-33 km/h.
+The prices are those of engine levels 6-10. Most cars hit the rev limiter in top gear before the extra power adds
+much top speed (the aero tune below is for that); the Vortex and the Sarthe, whose gearing leaves room, gain 14-33 km/h.
 The measurements were made on engine level 5 (`tools/upgrades.gd`); the car page scales them to the car's engine.
 
 **Fitting it takes a trial.** Each level asks first (what it does, the price, the trial), then a row of arrows appears
@@ -920,11 +921,41 @@ and **half the price comes back** (the other half is gone). You can try again st
 again. The row is new every time and never has the same arrow three times in a row. The result shows for a moment
 (Enter, Space or A skips it). Presses before the bar starts are ignored, so there is no penalty for jumping the gun.
 `buy <car> supercharger` in the terminal doesn't fit it (it says to use the car page); `upgrade <car> supercharger <0-5>`
-sets it for free, on engine 5 or above (an engine set below 5 takes the supercharger off).
+sets it for free, on engine 5 or above (an engine set below 5 takes the supercharger off). The
+[aero tune](#the-aero-tune) is fitted the same way.
 
 | The supercharger's trial (level 5: eight arrows, half of them pressed) |
 | --- |
 | ![The trial over the car page: Fit the supercharger, a line with the level, price and what a miss costs, a row of eight slanted arrow plates with the first four green, the time bar half run out, GO in yellow and four arrow buttons with a Give up button](docs/screenshots/supercharger-trial.png) |
+
+#### The aero tune
+
+Version 6.35.0 adds a seventh part, the **aero tune**: a slipperier body for a higher top speed. Its chip reads
+"Weight 5" (greyed) until the car's weight part is at level 5, then it has **five levels**, each **-6 % drag** (level 5:
+-30 %). Less drag alone would add little on most cars, which already hit the rev limiter in top gear, so the tune also
+makes the top gear longer, by the cube root of the drag's share (level 5: 0.888 × the ratio): that is how much the speed
+where the engine's power meets the drag rises, so the new top speed is reachable. Nothing else changes: the power, the
+other gears, the downforce, the grip and the brakes stay as they were. It is fitted with the same
+[trial of arrows](#the-supercharger) (4 to 8 arrows, a miss gives half back) and priced like weight levels 6-10.
+
+| Car | Aero tune levels 1 / 2 / 3 / 4 / 5 | All five | Top speed (km/h): weight 5 → weight 5 + aero 5 | 0-200 km/h | Everything at its top: without → with the aero tune |
+| --- | --- | --- | --- | --- | --- |
+| Racer | $14,500 / $19,150 / $24,400 / $30,350 / $36,950 | $125,350 | 278 → 312 (+12 %) | 8.52 → 8.03 s | 297 → 335 km/h |
+| Kestrel | $12,100 / $15,950 / $20,350 / $25,300 / $30,800 | $104,500 | 231 → 259 (+13 %) | 9.88 → 8.67 s | 246 → 277 km/h |
+| Thunder | $26,600 / $35,100 / $44,750 / $55,650 / $67,750 | $229,850 | 313 → 350 (+12 %) | 7.27 → 7.03 s | 335 → 377 km/h |
+| Drifter | $16,950 / $22,350 / $28,500 / $35,400 / $43,100 | $146,300 | 265 → 298 (+12 %) | 8.20 → 7.68 s | 286 → 322 km/h |
+| Dune | $21,800 / $28,700 / $36,650 / $45,550 / $55,450 | $188,150 | 223 → 251 (+12 %) | 11.18 → 9.53 s | 239 → 269 km/h |
+| Vortex | $36,300 / $47,850 / $61,050 / $75,900 / $92,400 | $313,500 | 322 → 360 (+12 %) | 5.43 → 5.30 s | 392 → 440 km/h |
+| Apex | $48,400 / $63,800 / $81,400 / $101,200 / $123,200 | $418,000 | 284 → 318 (+12 %) | 5.88 → 5.63 s | 310 → 349 km/h |
+| Quadra | $31,450 / $41,450 / $52,900 / $65,800 / $80,100 | $271,700 | 245 → 276 (+12 %) | 7.95 → 7.25 s | 262 → 295 km/h |
+| Sarthe | $60,500 / $79,750 / $101,750 / $126,500 / $154,000 | $522,500 | 336 → 374 (+11 %) | 5.05 → 4.93 s | 377 → 425 km/h |
+
+Every level adds 4-9 km/h at the top, and the time to 200 km/h drops 2-15 % too (less drag to push through; most on
+the slower, draggier cars like the Dune and the Kestrel). The
+measurements were made on weight level 5 (`tools/upgrades.gd`); the last column measures each car with every part at
+its top. The nitro can't push the top speed further with the tune fitted: the longer top gear runs into the rev limiter
+at the new top speed. `buy <car> aero` points at the car page; `upgrade <car> aero <0-5>` sets it for free on weight 5
+or above (a weight set below 5 takes it off).
 
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
@@ -1526,8 +1557,8 @@ behind it shows the new money, points and cars straight away.
 | `points <n>` / `points set <n>` | The same for career points (`points 200`, `points set 1000`) |
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
 | `buy <name>` | Buys a car with your money, as BUY on the car page does (`buy kestrel`) |
-| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`, `weight`; the `supercharger` is fitted on the car page, with its trial) |
-| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10 (the supercharger 0 to 5, on engine 5 or above), without paying (`upgrade dune tyres 7`, `upgrade dune super 3`); `upgrade dune max` puts every part at its top (the supercharger at 5), `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
+| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`, `weight`; the `supercharger` and the `aero` tune are fitted on the car page, with their trial) |
+| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10 (the supercharger 0 to 5 on engine 5 or above, the aero tune 0 to 5 on weight 5 or above), without paying (`upgrade dune tyres 7`, `upgrade dune super 3`, `upgrade dune aero 2`); `upgrade dune max` puts every part at its top (the supercharger and the aero tune at 5), `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
 | `status` | Your money, points, the cars you own and their upgrades, how many medals you hold, how many tracks are open (and what opens the next one) and how many cup trophies you have |

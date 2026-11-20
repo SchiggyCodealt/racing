@@ -146,6 +146,7 @@ func run(checker: Variant) -> bool:
 	_faster_bronze()
 	_upgrades()
 	_supercharger()
+	_aero_tune()
 	_field()
 	_endurance()
 	_cups()
@@ -322,7 +323,7 @@ func _sectors() -> void:
 	var b5: PackedInt32Array = SaveData.submit_sectors("rookie-oval", "racer", [-1.0, NAN, 40.0])
 	var g: Array[Dictionary] = SaveData.get_sectors("rookie-oval")
 	t.check(b1 == PackedInt32Array([0, 2]) and b2 == PackedInt32Array([1, 2]) and b3.is_empty() and b4.is_empty() and b5.is_empty() and
-		g[0].car == "racer" and g[0].time == 24.5 and g[0].up == PackedInt32Array([3, 0, 0, 0, 1, 0]) and g[1].car == "kestrel" and g[1].time == 20.0 and
+		g[0].car == "racer" and g[0].time == 24.5 and g[0].up == PackedInt32Array([3, 0, 0, 0, 1, 0, 0]) and g[1].car == "kestrel" and g[1].time == 20.0 and
 		g[2].car == "kestrel" and g[2].time == 30.0 and Upgrades.is_stock(g[2].up) and str(g[0].date) != "" and SaveData.get_sectors("hairpin-valley")[0].is_empty(),
 		"the records: S1 24.500 Racer E3..W1, S2 20.000 and S3 30.000 Kestrel stock (beat the Racer's 30.250); an unknown car or track, a negative or NaN time or a slower one keep nothing")
 	SaveData.use_file(path) # (read back from the file)
@@ -386,7 +387,7 @@ func _top_lists() -> void:
 	SaveData.use_file(path)
 	var g0: Dictionary = SaveData.get_tops("rookie-oval")
 	var seeded: bool = (oval.laps == 3 and (g0.laps as Array).size() == 3 and is_equal_approx(float(g0.laps[0].time), 40.0) and
-		is_equal_approx(float(g0.laps[2].time), 42.0) and g0.laps[0].car == "racer" and g0.laps[0].up == PackedInt32Array([2, 0, 0, 0, 0, 0]) and
+		is_equal_approx(float(g0.laps[2].time), 42.0) and g0.laps[0].car == "racer" and g0.laps[0].up == PackedInt32Array([2, 0, 0, 0, 0, 0, 0]) and
 		(g0.sectors[0] as Array).size() == 1 and g0.sectors[0][0].time == 14.0 and g0.sectors[2][0].time == 12.0 and
 		(SaveData.get_tops("hairpin-valley").laps as Array).is_empty())
 	t.check(seeded, "loading a save from before 6.32 starts the lists, once, with the laps of each car's best run (40.000, 41.000, 42.000 from the Racer's record) and the sector records; nothing paid for them")
@@ -399,7 +400,7 @@ func _top_lists() -> void:
 		"a Kestrel run: laps 1st, 4th, 6th (45 points), S1 1st, 3rd, 4th (52), S2 2nd, 3rd, 4th (45), S3 1st, 3rd, 4th (52): 194 points paid, records in S1 and S3")
 	var sec: Array[Dictionary] = SaveData.get_sectors("rookie-oval")
 	t.check(sec[0].time == 13.5 and sec[0].car == "kestrel" and sec[1].time == 13.0 and sec[1].car == "racer" and sec[2].time == 11.0 and
-		sec[0].up == PackedInt32Array([0, 1, 0, 0, 0, 0]), "the sector records follow the lists' first places")
+		sec[0].up == PackedInt32Array([0, 1, 0, 0, 0, 0, 0]), "the sector records follow the lists' first places")
 	SaveData.use_file(path) # (read back from the file)
 	var g1: Dictionary = SaveData.get_tops("rookie-oval")
 	t.check((g1.laps as Array).size() == 6 and g1.laps[0].car == "kestrel" and g1.laps[0].time == 39.5 and g1.laps[1].car == "racer" and
@@ -2927,20 +2928,27 @@ func _upgrades() -> void:
 	for k in range(4, top + 1): # (levels 4-10: each adds less than the one before)
 		gains_ok = gains_ok and Upgrades.LEVEL_GAIN[k] - Upgrades.LEVEL_GAIN[k - 1] > 0.0 and \
 			Upgrades.LEVEL_GAIN[k] - Upgrades.LEVEL_GAIN[k - 1] < Upgrades.LEVEL_GAIN[k - 1] - Upgrades.LEVEL_GAIN[k - 2] - 1e-9
-	var ok: bool = Upgrades.ids() == PackedStringArray(["engine", "tyres", "nitro", "loose", "weight", "supercharger"]) and Upgrades.MAX_LEVEL == 10 and gains_ok and \
-		stock == PackedInt32Array([0, 0, 0, 0, 0, 0]) and Upgrades.part_id("supercharger") == "supercharger" and Upgrades.part_id("Supercharger") == "supercharger" and Upgrades.part_id("super") == "supercharger" and \
+	var ok: bool = Upgrades.ids() == PackedStringArray(["engine", "tyres", "nitro", "loose", "weight", "supercharger", "aero"]) and Upgrades.MAX_LEVEL == 10 and gains_ok and \
+		stock == PackedInt32Array([0, 0, 0, 0, 0, 0, 0]) and Upgrades.part_id("supercharger") == "supercharger" and Upgrades.part_id("Supercharger") == "supercharger" and Upgrades.part_id("super") == "supercharger" and \
 		Upgrades.part_id("Tires") == "tyres" and Upgrades.part_id("LOOSE GRIP") == "loose" and Upgrades.part_id("dirt") == "loose" and \
 		Upgrades.part_id("Engine") == "engine" and Upgrades.part_id("nos") == "" and Upgrades.part_id("") == "" and \
 		Upgrades.part_id("Weight") == "weight" and Upgrades.part_id("lighter") == "weight" and Upgrades.part_id("wheight") == "weight" and \
-		Upgrades.clean([12, -2, "x", 1.7, 5, 9]) == PackedInt32Array([10, 0, 0, 1, 5, 5]) and Upgrades.clean([9, 4, 7, 3]) == PackedInt32Array([9, 4, 7, 3, 0, 0]) and \
+		Upgrades.clean([12, -2, "x", 1.7, 5, 9]) == PackedInt32Array([10, 0, 0, 1, 5, 5, 0]) and Upgrades.clean([9, 4, 7, 3]) == PackedInt32Array([9, 4, 7, 3, 0, 0, 0]) and \
 		Upgrades.clean("junk") == stock and Upgrades.clean(null) == stock and Upgrades.code(PackedInt32Array([10, 4, 0, 7, 0])) == "E10 T4 N0 L7 W0" and \
-		Upgrades.clean([1, 2]) == PackedInt32Array([1, 2, 0, 0, 0, 0]) and Upgrades.clean([INF, NAN, 2, 2, 12]) == PackedInt32Array([0, 0, 2, 2, 10, 0]) and \
-		Upgrades.clean([3, 3, 3, 3, 3]) == PackedInt32Array([3, 3, 3, 3, 3, 0]) and Upgrades.code(PackedInt32Array([5, 0, 0, 0, 0, 3])) == "E5 T0 N0 L0 W0 S3" and \
-		Upgrades.text(PackedInt32Array([5, 0, 0, 0, 0, 3])) == "engine 5, tyres 0, nitro 0, loose grip 0, weight 0, supercharger 3" and \
+		Upgrades.clean([1, 2]) == PackedInt32Array([1, 2, 0, 0, 0, 0, 0]) and Upgrades.clean([INF, NAN, 2, 2, 12]) == PackedInt32Array([0, 0, 2, 2, 10, 0, 0]) and \
+		Upgrades.clean([3, 3, 3, 3, 3]) == PackedInt32Array([3, 3, 3, 3, 3, 0, 0]) and Upgrades.code(PackedInt32Array([5, 0, 0, 0, 0, 3, 0])) == "E5 T0 N0 L0 W0 S3" and \
+		Upgrades.text(PackedInt32Array([5, 0, 0, 0, 0, 3, 0])) == "engine 5, tyres 0, nitro 0, loose grip 0, weight 0, supercharger 3" and \
 		Upgrades.effect("supercharger", 1) == "+6 % power" and Upgrades.effect("supercharger", 5) == "+30 % power" and Upgrades.max_level("supercharger") == 5 and \
 		Upgrades.max_level("engine") == 10 and Upgrades.max_level(5) == 5 and Upgrades.needs("supercharger") == {part = "engine", level = 5} and \
 		Upgrades.needs("engine").is_empty() and not Upgrades.is_open("supercharger", PackedInt32Array([4, 10, 10, 10, 10])) and \
 		Upgrades.is_open("supercharger", PackedInt32Array([5])) and Upgrades.is_open("tyres", stock) and Upgrades.has_trial("supercharger") and not Upgrades.has_trial("engine") and \
+		Upgrades.part_id("aero") == "aero" and Upgrades.part_id("Aero tune") == "aero" and Upgrades.part_id("aerotune") == "aero" and Upgrades.part_id("aearo") == "aero" and \
+		Upgrades.effect("aero", 1) == "-6 % drag" and Upgrades.effect("aero", 5) == "-30 % drag" and Upgrades.max_level("aero") == 5 and Upgrades.max_level(6) == 5 and \
+		Upgrades.needs("aero") == {part = "weight", level = 5} and not Upgrades.is_open("aero", PackedInt32Array([10, 10, 10, 10, 4, 5])) and \
+		Upgrades.is_open("aero", PackedInt32Array([0, 0, 0, 0, 5])) and Upgrades.has_trial("aero") and \
+		Upgrades.clean([10, 10, 10, 10, 10, 10, 10, 10]) == PackedInt32Array([10, 10, 10, 10, 10, 5, 5]) and \
+		Upgrades.code(PackedInt32Array([5, 1, 0, 3, 5, 2, 1])) == "E5 T1 N0 L3 W5 S2 A1" and Upgrades.code(PackedInt32Array([0, 0, 0, 0, 5, 0, 4])) == "E0 T0 N0 L0 W5 A4" and \
+		Upgrades.text(PackedInt32Array([0, 0, 0, 0, 5, 0, 4])) == "engine 0, tyres 0, nitro 0, loose grip 0, weight 5, aero tune 4" and \
 		Upgrades.code(PackedInt32Array([2, 1, 0, 3, 6])) == "E2 T1 N0 L3 W6" and Upgrades.text(stock) == "stock" and \
 		Upgrades.text(PackedInt32Array([2, 1, 0, 3, 6])) == "engine 2, tyres 1, nitro 0, loose grip 3, weight 6" and \
 		Upgrades.effect("engine", 2) == "+10 % power" and Upgrades.effect("tyres", 0) == "stock" and Upgrades.effect("nitro", 10) == "+65 % tank and refill" and \
@@ -2950,14 +2958,14 @@ func _upgrades() -> void:
 			Upgrades.spec(id, all3) == Upgrades.spec(id, all3) and Upgrades.spec(id, all3) != Cars.spec(id) and Upgrades.spec(id, all3).id == id and \
 			Upgrades.spec(id, all10) != Upgrades.spec(id, all3) and Upgrades.spec(id, PackedInt32Array([99, 99, 99, 99, 99])) == Upgrades.spec(id, all10) and \
 			Upgrades.spec(id, Upgrades.clean([3, 3, 3, 3])) == Upgrades.spec(id, PackedInt32Array([3, 3, 3, 3, 0])) and Upgrades.spec(id, Upgrades.clean([3, 3, 3, 3])) != Upgrades.spec(id, all3)
-	t.check(ok, "the parts: engine, tyres, nitro, loose grip, weight (v6.21), ten levels each (a step each for 1-3, then %s: less and less), and (v6.34) the supercharger, five levels of +6 %% power, opened by engine 5 and fitted with a trial (in the code and text only when fitted); names and aliases (tires, loose grip, dirt, lighter, supercharger); junk levels clamp to 0..10 (the supercharger 0..5), a list of four or five leaves the newer parts stock; level 0 everywhere is the stock spec itself (the same object), an upgraded spec is made once" % [
+	t.check(ok, "the parts: engine, tyres, nitro, loose grip, weight (v6.21), ten levels each (a step each for 1-3, then %s: less and less), and (v6.34) the supercharger, five levels of +6 %% power, opened by engine 5, and (v6.35) the aero tune, five levels of -6 %% drag, opened by weight 5, both fitted with a trial (in the code and text only when fitted); names and aliases (tires, loose grip, dirt, lighter, super, aearo); junk levels clamp to 0..10 (those two 0..5), a list of four or five leaves the newer parts stock; level 0 everywhere is the stock spec itself (the same object), an upgraded spec is made once" % [
 		", ".join(Array(Upgrades.LEVEL_GAIN.slice(4)).map(func(x: float) -> String: return "%.1f" % x))])
 
 	# each part changes only its own numbers, by step x level of the stock value; max_speed (the
 	# AI's speed scale), the brakes and the steering never change, the mass only with the weight part
 	var bad: PackedStringArray = []
 	var want_keys: Dictionary = {engine = ["torque"], tyres = ["mu", "dirtGrip", "snowGrip"], nitro = ["nitroTime", "nitroRefill"], loose = ["dirtGrip", "snowGrip"],
-		weight = ["mass", "inertia"], supercharger = ["torque"]}
+		weight = ["mass", "inertia"], supercharger = ["torque"], aero = ["drag", "gears"]}
 	for id: String in ids:
 		var st: CarSpec = Cars.spec(id)
 		var sd: Dictionary = st.to_dict()
@@ -2968,8 +2976,8 @@ func _upgrades() -> void:
 				lv[i] = k
 				var up: CarSpec = Upgrades.spec(id, lv)
 				var d: Dictionary = up.to_dict()
-				# (1-3: step × level, bit for bit as v6.11; the supercharger: step × level)
-				var g: float = float(Upgrades.PARTS[i].step) * (k if k <= 3 or pid == "supercharger" else Upgrades.LEVEL_GAIN[k])
+				# (1-3: step × level, bit for bit as v6.11; the five-level parts: step × level)
+				var g: float = float(Upgrades.PARTS[i].step) * (k if k <= 3 or Upgrades.max_level(i) == 5 else Upgrades.LEVEL_GAIN[k])
 				var changed: Array = []
 				for key: String in d:
 					if not JsMath.same(var_to_str(d[key]), var_to_str(sd[key])):
@@ -2993,6 +3001,11 @@ func _upgrades() -> void:
 					"weight":
 						right = right and up.mass == st.mass * (1.0 - g) and up.inertia == st.inertia * (1.0 - g) and up.mu == st.mu and \
 							up.torque_nm == st.torque_nm and up.nitro_force == st.nitro_force and up.downforce == st.downforce and up.drag == st.drag
+					"aero": # (v6.35) less drag, the top gear longer by its cube root; the other gears, the downforce and the power as they were
+						var gl: int = st.gears.size() - 1
+						right = right and up.drag == st.drag * (1.0 - g) and up.gears[gl] == st.gears[gl] * pow(1.0 - g, 1.0 / 3.0) and \
+							up.gears.slice(0, gl) == st.gears.slice(0, gl) and up.final_drive == st.final_drive and up.downforce == st.downforce and \
+							up.torque_nm == st.torque_nm and up.redline == st.redline
 				right = right and up.max_speed == st.max_speed and (up.mass == st.mass or pid == "weight") and up.brake_force == st.brake_force
 				if not right:
 					bad.append("%s %s %d (changed %s)" % [id, pid, k, ",".join(PackedStringArray(changed))])
@@ -3004,7 +3017,7 @@ func _upgrades() -> void:
 		var b: CarSpec = Upgrades.spec(id, PackedInt32Array([0, 0, 0, 6, 0]))
 		both_ok = both_ok and absf(a.mu * a.dirt_grip - b.mu * b.dirt_grip) < 1e-12 and absf(a.mu * a.snow_grip - b.mu * b.snow_grip) < 1e-12 and \
 			b.mu * b.dirt_grip <= st.mu + 1e-12
-	t.check(bad.is_empty() and both_ok, "every part, every level 1-10, every car: only its own numbers change (engine: the torque curve x 1 + 5 %% a step; tyres: the asphalt grip x 1 + 4 %%, the grip on dirt and snow kept; nitro: the tank and the refill x 1 + 10 %%; loose grip: the dirt and snow shares x 1 + 5 %%, never above the asphalt grip; weight: the mass and the yaw inertia x 1 - 3 %%, level 10 -19.5 %%); the AI's speed scale and the brakes never, the mass with no other part; tyres 10 + loose grip 6 on dirt = loose grip 6 alone%s" % [
+	t.check(bad.is_empty() and both_ok, "every part, every level 1-10, every car: only its own numbers change (engine: the torque curve x 1 + 5 %% a step; tyres: the asphalt grip x 1 + 4 %%, the grip on dirt and snow kept; nitro: the tank and the refill x 1 + 10 %%; loose grip: the dirt and snow shares x 1 + 5 %%, never above the asphalt grip; weight: the mass and the yaw inertia x 1 - 3 %%, level 10 -19.5 %%; the supercharger: the torque x 1 + 6 %%; the aero tune: the drag x 1 - 6 %%, the top gear x its cube root); the AI's speed scale and the brakes never, the mass with no other part; tyres 10 + loose grip 6 on dirt = loose grip 6 alone%s" % [
 		"" if bad.is_empty() else "; WRONG: " + ", ".join(bad)])
 
 	# what the levels do, measured (Upgrades.MEASURED, from tools/upgrades.gd; car_stats' tolerance):
@@ -3108,20 +3121,21 @@ func _upgrades() -> void:
 			ok = ok and r0.finished and r3.finished and r10.finished and float(r3.time) < float(r0.time) * 0.99 and float(r10.time) < float(r3.time) * 0.99
 			laps.append("%s %s %s -> %s -> %s" % [tr.name, id, RaceState.format_time(float(r0.time)), RaceState.format_time(float(r3.time)), RaceState.format_time(float(r10.time))])
 	t.check(ok, "everything at level 3 is faster than stock and everything at level 10 faster again (the medal autopilot, 20 m/s², nitro; stock -> 3 -> 10): %s" % ", ".join(laps))
-	_jumps(ids, all10)
-	_lane_keeping(ids, all10)
+	var top_all := Upgrades.clean([10, 10, 10, 10, 10, 10, 10]) # (v6.34-6.35: the supercharger and the aero tune at 5 too)
+	_jumps(ids, top_all)
+	_lane_keeping(ids, top_all)
 	var spins: PackedStringArray = []
 	ok = true
 	for sid: String in ["asphalt", "dirt", "snow"]:
 		CarStats.surface = sid
 		var worst_beta: float = 0.0
 		for id: String in ids:
-			var cb: Dictionary = _curve_brake(Upgrades.spec(id, all10), 120.0, 4.5)
+			var cb: Dictionary = _curve_brake(Upgrades.spec(id, top_all), 120.0, 4.5)
 			ok = ok and not cb.spun and cb.beta < 5.0 and cb.wall == 0
 			worst_beta = maxf(worst_beta, cb.beta)
 		spins.append("%s at most %.1f°" % [sid, worst_beta])
 	CarStats.surface = "asphalt"
-	t.check(ok, "everything at level 10: braking hard in a 120 m curve from 0.45 g, no car spins (sideslip %s)" % ", ".join(spins))
+	t.check(ok, "every part at its top (10; the supercharger and the aero tune 5): braking hard in a 120 m curve from 0.45 g, no car spins (sideslip %s)" % ", ".join(spins))
 
 	# prices: they rise with every level, scale with the car's price (the Racer counts as $12,000),
 	# and every part of every car costs well over the cars themselves
@@ -3142,7 +3156,7 @@ func _upgrades() -> void:
 				prev_p = pk
 			ok = ok and Upgrades.price(id, pid, 0) == 0 and Upgrades.price(id, pid, Upgrades.max_level(pid) + 1) == 0
 			for k in range(1, 4):
-				if pid != "weight" and pid != "supercharger": # (the four parts of v6.11: their prices are as they were)
+				if pid != "weight" and Upgrades.max_level(pid) == top: # (the four parts of v6.11: their prices are as they were)
 					low3 += Upgrades.price(id, pid, k)
 		rows.append("%s %s" % [id, UiFormat.money(Upgrades.car_total(id))])
 	ok = ok and Upgrades.price("vortex", "engine", 3) > Upgrades.price("kestrel", "engine", 3) * 2.9 and Upgrades.price("bus", "engine", 1) == 0 and \
@@ -3157,7 +3171,7 @@ func _upgrades() -> void:
 	var racer7: int = 0
 	var racer810: int = 0
 	for pid: String in Upgrades.ids():
-		if pid == "supercharger": # (v6.34: the five parts of v6.21 here; the supercharger in _supercharger())
+		if Upgrades.max_level(pid) != top: # (v6.34-6.35: the five parts of v6.21 here; the supercharger and the aero tune in _supercharger())
 			continue
 		for k in range(1, 8):
 			racer7 += Upgrades.price("racer", pid, k)
@@ -3204,7 +3218,7 @@ func _upgrades() -> void:
 	ok = not u0.ok and u0.error == "money" and int(u0.short) == e1 and int(u0.level) == 0 and u1.ok and int(u1.level) == 1 and int(u1.price) == e1 and \
 		skip == "order" and u2.ok and int(u2.price) == e2 and u3.ok and int(u3.level) == 3 and up_ok and not u4.ok and u4.error == "max" and \
 		Economy.upgrade_price("racer", "engine") == 0 and not lk.ok and lk.error == "locked" and un.error == "unknown" and ub.error == "unknown" and \
-		SaveData.get_money() == 500 and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 0, 0, 0])
+		SaveData.get_money() == 500 and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 0, 0, 0, 0])
 	SaveData.add_money(Upgrades.price("racer", "nitro", 1) - 500 - 1)
 	var short: Dictionary = Economy.buy_upgrade("racer", "nitro")
 	ok = ok and not short.ok and short.error == "money" and int(short.short) == 1 and SaveData.get_upgrades("racer")[2] == 0
@@ -3214,11 +3228,11 @@ func _upgrades() -> void:
 	var money_before: int = SaveData.get_money()
 	SaveData.use_file(path) # read back from the file
 	var disk: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
-	ok = ok and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 0, 0, 0]) and SaveData.get_upgrades("kestrel") == PackedInt32Array([0, 0, 0, 1, 0, 0]) and \
+	ok = ok and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 0, 0, 0, 0]) and SaveData.get_upgrades("kestrel") == PackedInt32Array([0, 0, 0, 1, 0, 0, 0]) and \
 		SaveData.get_upgrades("vortex") == stock and SaveData.get_money() == money_before and disk is Dictionary and \
-		JsMath.same(disk.get("version"), 5) and SaveData.VERSION == 5 and Upgrades.clean(disk.career.upgrades.racer) == PackedInt32Array([10, 0, 0, 0, 0, 0])
+		JsMath.same(disk.get("version"), 5) and SaveData.VERSION == 5 and Upgrades.clean(disk.career.upgrades.racer) == PackedInt32Array([10, 0, 0, 0, 0, 0, 0])
 	ok = ok and not SaveData.set_upgrades("vortex", all3) and SaveData.set_upgrades("kestrel", PackedInt32Array([1, 19, -1, 2, 0])) and \
-		SaveData.get_upgrades("kestrel") == PackedInt32Array([1, 10, 0, 2, 0, 0]) and Upgrades.player_spec("kestrel") == Upgrades.spec("kestrel", PackedInt32Array([1, 10, 0, 2, 0])) and \
+		SaveData.get_upgrades("kestrel") == PackedInt32Array([1, 10, 0, 2, 0, 0, 0]) and Upgrades.player_spec("kestrel") == Upgrades.spec("kestrel", PackedInt32Array([1, 10, 0, 2, 0])) and \
 		Upgrades.player_spec("vortex") == Cars.spec("vortex")
 	SaveData.reset_career()
 	ok = ok and SaveData.get_upgrades("racer") == stock and SaveData.get_upgrades("kestrel") == stock
@@ -3239,7 +3253,7 @@ func _upgrades() -> void:
 	ok = ok and SaveData.get_upgrades("racer") == stock and disk.career.get("upgrades") == {}
 	write.call("{\"version\": 5, \"career\": {\"money\": 9, \"cars\": [\"racer\", \"dune\"], \"upgrades\": {\"racer\": [19, \"x\", -1, 2, 7], \"dune\": [3, 2, 1, 3], \"kestrel\": [1, 1, 1, 1], \"bus\": [3, 3, 3, 3]}}}")
 	SaveData.use_file(path)
-	ok = ok and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 2, 7, 0]) and SaveData.get_upgrades("kestrel") == stock and SaveData.get_upgrades("dune") == PackedInt32Array([3, 2, 1, 3, 0, 0])
+	ok = ok and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 2, 7, 0, 0]) and SaveData.get_upgrades("kestrel") == stock and SaveData.get_upgrades("dune") == PackedInt32Array([3, 2, 1, 3, 0, 0, 0])
 	var junk_ok: int = 0
 	for j: String in ["5", "[]", "\"x\"", "{\"racer\": \"max\"}", "{\"racer\": {\"engine\": 3}}"]:
 		write.call("{\"version\": 5, \"career\": {\"money\": 9, \"cars\": [\"racer\"], \"upgrades\": %s}}" % j)
@@ -3253,7 +3267,7 @@ func _upgrades() -> void:
 	write.call(JSON.stringify({version = 5, career = {money = 0, cars = ["racer"]}}))
 	SaveData.use_file(path)
 	var rr: BuiltTrack = by_id("ramp-rally")
-	var lv_run := PackedInt32Array([10, 7, 4, 10, 6, 0]) # (v6.16: levels 4-10; v6.21: the weight; v6.34: six parts)
+	var lv_run := PackedInt32Array([10, 7, 4, 10, 6, 0, 0]) # (v6.16: levels 4-10; v6.21: the weight; v6.34: six parts)
 	var spec3: CarSpec = Upgrades.spec("racer", lv_run)
 	var car := Car.new(rr, rr.start_idx, spec3)
 	var race := RaceState.new(rr)
@@ -3359,12 +3373,12 @@ func _supercharger() -> void:
 	var ok := true
 	for id: String in Cars.ids():
 		var st: CarSpec = Cars.spec(id)
-		var e5 := Upgrades.spec(id, PackedInt32Array([5, 0, 0, 0, 0, 0]))
-		var s3 := Upgrades.spec(id, PackedInt32Array([5, 0, 0, 0, 0, 3]))
+		var e5 := Upgrades.spec(id, PackedInt32Array([5, 0, 0, 0, 0, 0, 0]))
+		var s3 := Upgrades.spec(id, PackedInt32Array([5, 0, 0, 0, 0, 3, 0]))
 		for q in st.torque_nm.size():
 			ok = ok and absf(s3.torque_nm[q] - st.torque_nm[q] * 1.225 * 1.18) < 1e-6 and absf(e5.torque_nm[q] - st.torque_nm[q] * 1.225) < 1e-6
 		ok = ok and s3.mass == st.mass and s3.mu == st.mu and s3.drag == st.drag and s3.max_speed == st.max_speed and s3.gears == st.gears
-		ok = ok and Opponents.spec(id) == Upgrades.spec(id, PackedInt32Array([3, 3, 3, 3, 3])) and Upgrades.spec(id, PackedInt32Array([10, 0, 0, 0, 0, 9])) == Upgrades.spec(id, PackedInt32Array([10, 0, 0, 0, 0, 5]))
+		ok = ok and Opponents.spec(id) == Upgrades.spec(id, PackedInt32Array([3, 3, 3, 3, 3])) and Upgrades.spec(id, PackedInt32Array([10, 0, 0, 0, 0, 9, 0])) == Upgrades.spec(id, PackedInt32Array([10, 0, 0, 0, 0, 5, 0]))
 	# measured on engine 5 (MEASURED.supercharger): every level quicker to 200 km/h than the one before, never slower at the top
 	var meas: PackedStringArray = []
 	for id: String in Cars.ids():
@@ -3380,7 +3394,7 @@ func _supercharger() -> void:
 		var e5m: Dictionary = m.engine[4]
 		var s5m: Dictionary = m.supercharger[4]
 		ok = ok and float(s5m.accel200) < float(e5m.accel200) * 0.92 # (the Apex, tyre-bound off the line, gains 9 %)
-		var st3 := Upgrades.stats(id, PackedInt32Array([5, 0, 0, 0, 0, 3]))
+		var st3 := Upgrades.stats(id, PackedInt32Array([5, 0, 0, 0, 0, 3, 0]))
 		ok = ok and absf(float(st3.accel200) - float(m.supercharger[2].accel200)) < 1e-9 and absf(float(st3.top) - float(m.supercharger[2].top)) < 1e-9
 		meas.append("%s %.2f -> %.2f s" % [id, float(e5m.accel200), float(s5m.accel200)])
 	t.check(ok, "the supercharger: +6 %% power a level over the engine's (level 3 on engine 5: x 1.225 x 1.18), nothing else changed; the AI keeps none; measured 0-200 km/h on engine 5 -> supercharger 5: %s (each level quicker, at least 8 %% at level 5)" % ", ".join(meas))
@@ -3399,7 +3413,7 @@ func _supercharger() -> void:
 		sum += prices[k - 1]
 	SaveData.add_money(sum + prices[0] + 1000)
 	var shut := Economy.buy_upgrade("racer", "supercharger")
-	SaveData.set_upgrades("racer", PackedInt32Array([5, 0, 0, 0, 0, 0]))
+	SaveData.set_upgrades("racer", PackedInt32Array([5, 0, 0, 0, 0, 0, 0]))
 	var m0 := SaveData.get_money()
 	var miss := Economy.buy_upgrade("racer", "supercharger", false)
 	var m1 := SaveData.get_money()
@@ -3413,7 +3427,7 @@ func _supercharger() -> void:
 	SaveData.use_file(path)
 	ok = not shut.ok and shut.error == "needs" and miss.ok and int(miss.level) == 0 and int(miss.refund) == prices[0] / 2 and m0 - m1 == prices[0] - prices[0] / 2 and \
 		fit.ok and int(fit.level) == 1 and int(fit.refund) == 0 and m1 - m2 == prices[0] and rest and not over.ok and over.error == "max" and \
-		SaveData.get_upgrades("racer") == PackedInt32Array([5, 0, 0, 0, 0, 5]) and SaveData.get_money() == 1000 + prices[0] / 2 and \
+		SaveData.get_upgrades("racer") == PackedInt32Array([5, 0, 0, 0, 0, 5, 0]) and SaveData.get_money() == 1000 + prices[0] / 2 and \
 		prices == PackedInt32Array([16500, 21750, 27750, 34500, 42000]) and Upgrades.price("racer", "supercharger", 6) == 0 and Upgrades.price("sarthe", "supercharger", 5) == 175000
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	for f: String in [path, path + ".bad", path + ".tmp"]:
@@ -3422,6 +3436,78 @@ func _supercharger() -> void:
 	t.check(ok, "buying it: shut until engine 5; a missed trial takes %s of the %s and fits nothing, a fitted one takes the %s and is level 1; levels 2-5 (%s), then the top; read back from the file (the Racer: %s for all five)" % [
 		UiFormat.money(prices[0] - prices[0] / 2), UiFormat.money(prices[0]), UiFormat.money(prices[0]),
 		", ".join(Array(prices).map(func(x: int) -> String: return UiFormat.money(x))), UiFormat.money(sum)])
+
+
+## v6.35.0: the aero tune: -6 % drag a level and the top gear longer by the cube root of it, nothing
+## else; measured on weight 5 (MEASURED.aero): every level faster at the top; opened by weight 5,
+## fitted through the same trial, a miss pays half back.
+func _aero_tune() -> void:
+	t.section("the aero tune (v6.35.0, sim/upgrades.gd)")
+	var ok := true
+	for id: String in Cars.ids():
+		var st: CarSpec = Cars.spec(id)
+		var w5 := Upgrades.spec(id, PackedInt32Array([0, 0, 0, 0, 5, 0, 0]))
+		var a3 := Upgrades.spec(id, PackedInt32Array([0, 0, 0, 0, 5, 0, 3]))
+		var gl: int = st.gears.size() - 1
+		ok = ok and absf(a3.drag - st.drag * 0.82) < 1e-12 and absf(a3.gears[gl] - st.gears[gl] * pow(0.82, 1.0 / 3.0)) < 1e-12 and \
+			a3.gears.slice(0, gl) == st.gears.slice(0, gl) and a3.mass == w5.mass and a3.inertia == w5.inertia and a3.torque_nm == st.torque_nm and \
+			a3.max_speed == st.max_speed and a3.downforce == st.downforce and a3.mu == st.mu and a3.redline == st.redline and \
+			Opponents.spec(id).drag == st.drag and Opponents.spec(id).gears == st.gears
+	# measured on weight 5: every level faster at the top than the one before (11-13 % at level 5), never slower to 200 km/h
+	var meas: PackedStringArray = []
+	for id: String in Cars.ids():
+		var m: Dictionary = Upgrades.MEASURED.get(id, {})
+		if not (m.get("aero") is Array and (m.aero as Array).size() == 5):
+			ok = false
+			continue
+		var w5m: Dictionary = m.weight[4]
+		var prev: Dictionary = w5m
+		for k in 5:
+			var ak: Dictionary = m.aero[k]
+			ok = ok and float(ak.top) > float(prev.top) + 3.0 and float(ak.accel200) <= float(prev.accel200) + 1e-9 and float(ak.accel100) <= float(prev.accel100) + 0.02
+			prev = ak
+		var a5m: Dictionary = m.aero[4]
+		ok = ok and float(a5m.top) > float(w5m.top) * 1.1
+		var st3 := Upgrades.stats(id, PackedInt32Array([0, 0, 0, 0, 5, 0, 3]))
+		ok = ok and absf(float(st3.top) - float(m.aero[2].top)) < 1e-9 and absf(float(st3.accel200) - float(m.aero[2].accel200)) < 1e-9
+		meas.append("%s %.1f -> %.1f" % [id, float(w5m.top), float(a5m.top)])
+	t.check(ok, "the aero tune: -6 %% drag a level and the top gear x the cube root (level 3: drag x 0.82, top gear x %.4f), nothing else changed; the AI keeps none; measured top speed (km/h) on weight 5 -> aero 5: %s (every level faster, over 10 %% at level 5)" % [
+		pow(0.82, 1.0 / 3.0), ", ".join(meas)])
+
+	# buying: it opens at weight 5; a missed trial takes half the price; prices like weight levels 6-10
+	var path: String = "user://test_aero_save.json"
+	for f: String in [path, path + ".bad", path + ".tmp"]:
+		if FileAccess.file_exists(f):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	SaveData.use_file(path)
+	var prices: PackedInt32Array = []
+	var sum := 0
+	for k in range(1, 6):
+		prices.append(Upgrades.price("racer", "aero", k))
+		sum += prices[k - 1]
+	SaveData.add_money(sum + prices[0] + 1000)
+	SaveData.set_upgrades("racer", PackedInt32Array([10, 0, 0, 0, 4, 5, 0]))
+	var shut := Economy.buy_upgrade("racer", "aero")
+	SaveData.set_upgrades("racer", PackedInt32Array([10, 0, 0, 0, 5, 5, 0]))
+	var m0 := SaveData.get_money()
+	var miss := Economy.buy_upgrade("racer", "aero", false)
+	var m1 := SaveData.get_money()
+	var rest := true
+	for k in range(1, 6):
+		var r := Economy.buy_upgrade("racer", "aero")
+		rest = rest and r.ok and int(r.level) == k and int(r.price) == prices[k - 1]
+	var over := Economy.buy_upgrade("racer", "aero")
+	SaveData.use_file(path)
+	ok = not shut.ok and shut.error == "needs" and miss.ok and int(miss.level) == 0 and int(miss.refund) == prices[0] / 2 and m0 - m1 == prices[0] - prices[0] / 2 and \
+		rest and not over.ok and over.error == "max" and SaveData.get_upgrades("racer") == PackedInt32Array([10, 0, 0, 0, 5, 5, 5]) and \
+		SaveData.get_money() == 1000 + prices[0] / 2 and prices == PackedInt32Array([14500, 19150, 24400, 30350, 36950]) and \
+		Upgrades.price("sarthe", "aero", 5) == 154000 and Upgrades.price("racer", "aero", 5) == Upgrades.price("racer", "weight", 10)
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	for f: String in [path, path + ".bad", path + ".tmp"]:
+		if FileAccess.file_exists(f):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	t.check(ok, "buying it: shut until weight 5; a missed trial takes %s of the %s and fits nothing; levels 1-5 (%s, like weight levels 6-10), then the top; read back from the file" % [
+		UiFormat.money(prices[0] - prices[0] / 2), UiFormat.money(prices[0]), ", ".join(Array(prices).map(func(x: int) -> String: return UiFormat.money(x)))])
 
 
 ## SaveData.reset_everything(): a backup of the save next to it (an older backup kept, renamed), then

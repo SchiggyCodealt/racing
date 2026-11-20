@@ -7,7 +7,7 @@ extends Button
 ## the accent when the money is there, grey when not), MAX when every level is bought. Pressing it
 ## emits `pressed` (the menu asks the game to buy it, which asks first). A car you don't own
 ## shows its parts greyed out (disabled): buy the car first. (v6.34) A part that another one opens
-## (the supercharger: engine 5) shows what it needs ("Engine 5") in place of the price, greyed but
+## (the supercharger: engine 5; the aero tune: weight 5) shows what it needs ("Engine 5") in place of the price, greyed but
 ## still pressable (the game says why it can't be bought yet). Drawn by hand over the ChipButton plate.
 
 var part_id := ""
