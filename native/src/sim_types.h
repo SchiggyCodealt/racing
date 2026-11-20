@@ -20,6 +20,7 @@ namespace trackrush {
 struct Spec {
 	// chassis
 	double mass = 1250.0, inertia = 1850.0, cg_to_front = 1.2, cg_to_rear = 1.4, cg_height = 0.42, wheel_radius = 0.34;
+	double brake_dive = 1.0; // (v6.37) the share of cg_height that counts while the car slows
 	// tyres
 	double mu = 1.6, handbrake = 0.8, handbrake_fast = 0.55, handbrake_rate = 6.0, load_sensitivity = 0.08;
 	double pac_b = 13.0, pac_c = 1.9, pac_e = 0.97;

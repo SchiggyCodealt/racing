@@ -780,7 +780,10 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	# --- normal loads ------------------------------------------------------
 	var down: float = P.downforce * spd * spd
 	var w: float = m * _env_gn
-	var tr: float = (m * _ax * P.cg_height) / L # longitudinal weight transfer
+	# longitudinal weight transfer (v6.37: while slowing, only brake_dive of the height counts: the
+	# suspension upgrade keeps more weight on the rear wheels; 1 for every stock car, so the same numbers)
+	var hc: float = P.cg_height if _ax >= 0.0 else P.cg_height * P.brake_dive
+	var tr: float = (m * _ax * hc) / L
 	var load_f: float = (w * b) / L + down * P.aero_front - tr
 	var load_r: float = (w * a) / L + down * (1.0 - P.aero_front) + tr
 	var min_load: float = 0.03 * w

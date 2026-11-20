@@ -53,7 +53,7 @@ const MIN_GAP: float = 1.04
 ## (v6.25) The upgrade levels of every AI opponent's car (sim/upgrades.gd order: engine, tyres, nitro,
 ## loose, weight; the nitro does nothing, as the AI races without it; v6.34: no supercharger). The
 ## levels' times are measured in this car; the medals stay the stock car's.
-const UPGRADES: PackedInt32Array = [3, 3, 3, 3, 3, 0, 0, 0] # (v6.34-6.36: no supercharger, no aero tune, stock brakes)
+const UPGRADES: PackedInt32Array = [3, 3, 3, 3, 3, 0, 0, 0, 0] # (v6.34-6.37: no supercharger, no aero tune, stock brakes and suspension)
 
 static var _files: Dictionary = {}
 static var _mutex: Mutex = Mutex.new()

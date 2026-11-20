@@ -1,4 +1,4 @@
-Track Rush 6.36.0 for Windows (64-bit)
+Track Rush 6.37.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-three tracks (seven of them
@@ -10,12 +10,16 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.36.0: brakes. Every car gets an eighth upgrade part, open from the
-start: five levels of brakes, each 8 % more brake force (level 5: 40 %).
-Most cars stop 15-17 % shorter from 100 km/h at level 5. The Apex already
-brakes at its tyres' limit, so it gains only from high speed.
+New in 6.37.0: suspension. Every car gets a ninth upgrade part, open from
+the start: five levels, each with 6 % less nose dive when braking (the rear
+tyres keep more grip) and softer landings (level 5: half the speed lost on
+a hard landing). With every part at its top, the Drifter and the Dune no
+longer spin when they land crooked. Up to 7 % shorter stops, the same launch.
 
 Earlier versions, newest first:
+6.36.0  brakes: an eighth upgrade part, open from the start: five levels of
+        8 % more brake force each; most cars stop 15-17 % shorter from
+        100 km/h at level 5.
 6.35.0  the aero tune: once the weight is at level 5, five levels of 6 %
         less drag each and a longer top gear, for about 12 % more top
         speed; fitted with the same trial of arrows.
