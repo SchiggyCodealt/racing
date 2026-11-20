@@ -98,11 +98,7 @@ func _tooltip() -> void:
 		return
 	var up := ""
 	if _upgraded():
-		var names := ["engine", "tyres", "nitro", "loose grip", "weight"]
-		var parts: PackedStringArray = []
-		for i in mini(levels.size(), names.size()):
-			parts.append("%s %d" % [names[i], levels[i]])
-		up = " Upgrades: %s (green: what they add)." % ", ".join(parts)
+		up = " Upgrades: %s (green: what they add)." % Upgrades.text(levels) # (v6.34: the supercharger once it has a level)
 	tooltip_text = "%s (%d km/h, %.2f t): %s%s%s (C changes the car)" % [info.name, roundi(_top()), _mass() / 1000.0, info.description,
 		(" Locked: it costs %s." % UiFormat.money(price)) if locked else "", up]
 

@@ -97,6 +97,8 @@ var terminal: TerminalScreen
 var cups: CupScreen
 ## (v6.19) the car page (ui/car_screen.gd): opens when a race is chosen
 var car_page: CarScreen
+## (v6.34) the trial that fits a supercharger level (ui/trial_screen.gd), over the car page
+var trial: TrialScreen
 ## what the car page's START starts: "drive", "race_ghost", "race_field", "cup_start" (args: cup id,
 ## level) or "cup_next"
 var pending := ""
@@ -208,6 +210,8 @@ func _init() -> void:
 	car_page.car_picked.connect(func(id: String) -> void:
 		car_selected.emit(id)
 		refresh())
+	trial = TrialScreen.new() # (v6.34: over the car page)
+	add_child(trial)
 	terminal = TerminalScreen.new() # (over Settings when opened from it)
 	add_child(terminal)
 	settings.action.connect(func(key: String) -> void:
@@ -1056,6 +1060,10 @@ func handle_keys(inp: Object) -> void:
 		return
 	if records.visible:
 		records.handle_keys(inp)
+		inp.clear_pressed()
+		return
+	if trial.visible: # (v6.34) the supercharger's trial: its arrows, nothing else
+		trial.handle_keys(inp)
 		inp.clear_pressed()
 		return
 	if car_page.visible:

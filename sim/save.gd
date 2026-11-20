@@ -1021,8 +1021,8 @@ static func reset_career() -> void:
 
 # ---- car upgrades (v6.11.0; sim/upgrades.gd, sim/economy.gd buy_upgrade) -----------------
 
-## The upgrade levels of car `car_id`: [engine, tyres, nitro, loose, weight], each 0..Upgrades.MAX_LEVEL
-## (all 0 for a car not owned or never upgraded).
+## The upgrade levels of car `car_id`: [engine, tyres, nitro, loose, weight, super], each 0..its
+## part's top (Upgrades.max_level; all 0 for a car not owned or never upgraded).
 static func get_upgrades(car_id: String) -> PackedInt32Array:
 	_mutex.lock()
 	var c: Dictionary = _career()
@@ -1035,8 +1035,11 @@ static func get_upgrades(car_id: String) -> PackedInt32Array:
 
 ## Buy level `level` of part `part` for car `car_id` at `price`: "" (bought: the money taken and
 ## the level kept, in one write), "unknown" (car or part), "locked" (the car isn't owned), "max"
-## (the part is at the top level), "order" (`level` isn't the next one), "money" (not enough).
-static func purchase_upgrade(car_id: String, part: String, level: int, price: int) -> String:
+## (the part is at the top level), "order" (`level` isn't the next one), "needs" (v6.34: the part
+## that opens it isn't there yet: the supercharger needs engine 5), "money" (not enough).
+## (v6.34) fitted false: a missed trial, so the level is not kept and half the price comes back
+## (price - price / 2 is taken).
+static func purchase_upgrade(car_id: String, part: String, level: int, price: int, fitted: bool = true) -> String:
 	var i: int = Upgrades.index_of(part)
 	if not Cars.has_car(car_id) or i < 0:
 		return "unknown"
@@ -1046,16 +1049,21 @@ static func purchase_upgrade(car_id: String, part: String, level: int, price: in
 	var lv: PackedInt32Array = Upgrades.clean((c.upgrades as Dictionary).get(car_id))
 	if not (c.cars as Array).has(car_id):
 		err = "locked"
-	elif lv[i] >= Upgrades.MAX_LEVEL:
+	elif lv[i] >= Upgrades.max_level(i):
 		err = "max"
 	elif level != lv[i] + 1:
 		err = "order"
+	elif not Upgrades.is_open(part, lv):
+		err = "needs"
 	elif int(c.money) < price:
 		err = "money"
-	else:
+	elif fitted:
 		c.money = int(c.money) - maxi(0, price)
 		lv[i] = level
 		c.upgrades[car_id] = Array(lv)
+		_write()
+	else:
+		c.money = int(c.money) - maxi(0, price - price / 2)
 		_write()
 	_mutex.unlock()
 	return err

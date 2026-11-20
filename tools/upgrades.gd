@@ -22,22 +22,25 @@ extends SceneTree
 
 const CarStats = preload("res://tools/car_stats.gd")
 
-## The parts with a MEASURED table: [id, the sets' letter, the index in a levels list, the stats kept].
+## The parts with a MEASURED table: [id, the sets' letter, the index in a levels list, the stats kept,
+## (v6.34) the levels the part is measured on (the supercharger: engine 5, which opens it)].
 const MEASURED_PARTS: Array = [
-	["engine", "E", 0, ["top", "accel100", "accel200"]],
-	["tyres", "T", 1, ["grip", "gripFast"]],
-	["weight", "W", 4, ["top", "accel100", "accel200", "brake100", "grip", "gripFast"]],
+	["engine", "E", 0, ["top", "accel100", "accel200"], [0, 0, 0, 0, 0, 0]],
+	["tyres", "T", 1, ["grip", "gripFast"], [0, 0, 0, 0, 0, 0]],
+	["weight", "W", 4, ["top", "accel100", "accel200", "brake100", "grip", "gripFast"], [0, 0, 0, 0, 0, 0]],
+	["supercharger", "S", 5, ["top", "accel100", "accel200"], [5, 0, 0, 0, 0, 0]],
 ]
 const LOOSE_SETS: Array = [["stock", [0, 0, 0, 0, 0]], ["L3", [0, 0, 0, 3, 0]], ["L10", [0, 0, 0, 10, 0]], ["T10", [0, 10, 0, 0, 0]],
 	["all3", [3, 3, 3, 3, 3]], ["all10", [10, 10, 10, 10, 10]]]
 const LAP_SETS: Array = [
 	["stock", [0, 0, 0, 0, 0]], ["all3", [3, 3, 3, 3, 3]], ["E10", [10, 0, 0, 0, 0]], ["T10", [0, 10, 0, 0, 0]], ["N10", [0, 0, 10, 0, 0]],
 	["L10", [0, 0, 0, 10, 0]], ["W10", [0, 0, 0, 0, 10]], ["all10", [10, 10, 10, 10, 10]],
+	["E5S5", [5, 0, 0, 0, 0, 5]], ["max", [10, 10, 10, 10, 10, 5]],
 ]
-const SLIP_SETS: Array = ["all3", "all10"]
+const SLIP_SETS: Array = ["all3", "all10", "max"]
 
 ## The parts measured (--parts=; all of MEASURED_PARTS by default).
-var _parts: PackedStringArray = ["engine", "tyres", "weight"]
+var _parts: PackedStringArray = ["engine", "tyres", "weight", "supercharger"]
 var _lap_sets: PackedStringArray = []
 
 
@@ -48,8 +51,8 @@ func _stat_sets() -> Array:
 	for mp: Array in MEASURED_PARTS:
 		if not _parts.has(mp[0]):
 			continue
-		for k in range(1, Upgrades.MAX_LEVEL + 1):
-			var lv: Array = [0, 0, 0, 0, 0]
+		for k in range(1, Upgrades.max_level(String(mp[0])) + 1):
+			var lv: Array = (mp[4] as Array).duplicate()
 			lv[int(mp[2])] = k
 			out.append(["%s%d" % [mp[1], k], lv])
 	if _parts.size() == MEASURED_PARTS.size():
@@ -210,7 +213,7 @@ func _measured_text(cars: PackedStringArray, m: Dictionary) -> String:
 		var rows: PackedStringArray = []
 		for mp: Array in MEASURED_PARTS:
 			var cells: PackedStringArray = []
-			for k in range(1, Upgrades.MAX_LEVEL + 1):
+			for k in range(1, Upgrades.max_level(String(mp[0])) + 1):
 				var src: Dictionary = {}
 				if _parts.has(mp[0]):
 					src = m["%s|%s%d" % [id, mp[1], k]]
@@ -243,7 +246,7 @@ func _check(cars: PackedStringArray) -> int:
 		var stored: Dictionary = Upgrades.MEASURED.get(id, {})
 		for k in range(1, Upgrades.MAX_LEVEL + 1):
 			for mp: Array in MEASURED_PARTS:
-				if not _parts.has(mp[0]):
+				if not _parts.has(mp[0]) or k > Upgrades.max_level(String(mp[0])):
 					continue
 				var tag: String = "%s%d" % [mp[1], k]
 				var m: Dictionary = _results["%s|%s" % [id, tag]]

@@ -34,6 +34,7 @@ func run(t) -> bool:
 	_finish(t)
 	_career(t)
 	_upgrades(t)
+	_trial_ui(t)
 	_unlocks(t)
 	_field_ui(t)
 	_cup_ui(t)
@@ -221,16 +222,16 @@ func _menu_cars(t) -> void:
 			for r in rects:
 				all_shown = all_shown and r.end.y <= sz.y + 0.5
 			all_shown = all_shown and menu.car_page.start_btn.get_global_rect().end.y <= sz.y + 0.5 and menu.car_page.parts_row.is_visible_in_tree()
-		# (v6.21: five parts) the chips: one row where each keeps the room for its name, pips and price, else three a row
+		# (v6.34: six parts) the chips: one row where each keeps the room for its name, pips and price, else two rows of three
 		var chips: Array = menu.car_page.part_chips
 		var pg: GridContainer = menu.car_page.parts_grid
-		var chips_ok := chips.size() == 5 and pg.columns == (5 if sz.x >= 1280 else pg.columns) and (pg.columns == 5 or pg.columns == 3)
+		var chips_ok := chips.size() == 6 and (pg.columns == 6 or pg.columns == 3)
 		var pr := menu.car_page.panel.get_global_rect()
 		for c: Control in chips:
 			var r := c.get_global_rect()
 			chips_ok = chips_ok and r.size.x >= CarScreen.CHIP_MIN_W - 0.5 and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5
 		t.check(menu.car_page.is_open and cards.size() == 9 and inside and not overlap and cols_ok and all_shown and chips_ok,
-			"%dx%d: %d cards, %d a row, inside the window and apart%s; the five part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
+			"%dx%d: %d cards, %d a row, inside the window and apart%s; the six part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
 		# (v6.33) Race the field on a circuit: the race length row over the money and START, inside the panel
 		var hidden_before := not menu.car_page.laps_row.is_visible_in_tree()
@@ -964,17 +965,24 @@ func _upgrades(t) -> void:
 	var desc_row: Control = menu.car_page.desc_row
 	var names: Array = chips.map(func(c: Control) -> String: return str(c.get("part_name")))
 	var prices_ok := true
-	for k in chips.size():
+	for k in 5:
 		var pid: String = UiData.upgrade_parts()[k].id
 		prices_ok = prices_ok and int(chips[k].get("price")) == Upgrades.price("racer", pid, 1) and int(chips[k].get("level")) == 0 and \
 			bool(chips[k].get("affordable")) and not (chips[k] as Button).disabled
 	var chips_in := true
 	var page_rect: Rect2 = menu.car_page.panel.get_global_rect()
+	var pcols: int = menu.car_page.parts_grid.columns
 	for k in chips.size():
 		var cr: Rect2 = (chips[k] as Control).get_global_rect()
-		chips_in = chips_in and cr.position.x >= page_rect.position.x and cr.end.x <= page_rect.end.x + 0.5 and (k == 0 or cr.position.x >= (chips[k - 1] as Control).get_global_rect().end.x - 0.5)
-	t.check(chips.size() == 5 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight"] and prices_ok and chips_in and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
-		"the Racer (yours) at 1280 x 720: five part chips (Engine, Tyres, Nitro, Loose grip and, since v6.21, Weight) in one row inside the page, at level 0 with the next level's price, over the description line")
+		chips_in = chips_in and cr.position.x >= page_rect.position.x and cr.end.x <= page_rect.end.x + 0.5 and \
+			(k % pcols == 0 or cr.position.x >= (chips[k - 1] as Control).get_global_rect().end.x - 0.5)
+	# (v6.34) the sixth, the Supercharger, shut until the engine is at level 5: it says so in place of the price
+	var sc: Button = chips[5]
+	var sc_shut: bool = int(sc.get("level")) == 0 and int(sc.get("max_level")) == 5 and sc.call("price_text") == "Engine 5" and \
+		sc.tooltip_text.contains("Opens once the Racer's engine is at level 5") and sc.tooltip_text.contains("half the price back")
+	t.check(chips.size() == 6 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight", "Supercharger"] and prices_ok and chips_in and sc_shut and
+		parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
+		"the Racer (yours) at 1280 x 720: six part chips (Engine, Tyres, Nitro, Loose grip, Weight and, since v6.34, the Supercharger, which reads \"Engine 5\" until the engine is there) %d a row inside the page, at level 0 with the next level's price, over the description line" % pcols)
 	var wtip: String = (chips[4] as Control).tooltip_text
 	t.check(wtip.contains("Level 1 (-3 %% weight) costs %s" % UiFormat.money(Upgrades.price("racer", "weight", 1))) and wtip.contains("lighter car"),
 		"the Weight chip's tooltip: a lighter car, level 1 takes 3 %% off (%s)" % UiFormat.money(Upgrades.price("racer", "weight", 1)))
@@ -988,7 +996,7 @@ func _upgrades(t) -> void:
 	var r3 := UiData.buy_upgrade("racer", "turbo")
 	menu.refresh()
 	t.check(r1.ok and int(r1.level) == 1 and UiData.money() == 20000 - Upgrades.price("racer", "engine", 1) and r2.error == "locked" and r3.error == "unknown" and
-		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
+		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
 		"buying the Racer's engine: level 1, the chip shows the next price; a locked car or an unknown part: nothing")
 	UiData.store.career.money = 10
 	menu.refresh()
@@ -1000,14 +1008,15 @@ func _upgrades(t) -> void:
 	UiData.store.career.money = 100000
 	menu.refresh()
 	var at3 := true
-	for k in chips.size():
+	for k in 5:
 		at3 = at3 and not (chips[k] as Button).disabled and int(chips[k].get("level")) == 3 and int(chips[k].get("max_level")) == 10 and \
 			int(chips[k].get("price")) == Upgrades.price("racer", UiData.upgrade_parts()[k].id, 4)
+	at3 = at3 and (chips[5] as Button).call("price_text") == "Engine 5" # (a save from before v6.34: five parts, the sixth at 0)
 	var b3: Dictionary = (menu.car_card().get("bars_up") as Dictionary).duplicate()
 	var top3: float = float(menu.car_card().get("top_up"))
 	t.check(at3, "v6.16: everything at level 3 is not the top: each chip offers level 4 of 10 (the engine's %s)" % UiFormat.money(Upgrades.price("racer", "engine", 4)))
 	# everything at level 10: MAX, off; the card's bars and top speed with the upgrades
-	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10, 10]}
+	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10, 10, 5]}
 	menu.refresh()
 	var maxed := true
 	for c: Button in chips:
@@ -1021,7 +1030,7 @@ func _upgrades(t) -> void:
 		grew = grew and float(bu[k]) >= float(b3[k]) and (float(bu[k]) > float(b3[k]) or float(b3[k]) >= 1.0)
 	t.check(maxed and r5.error == "max" and float(bu.speed) > float(b0.speed) and float(bu.acceleration) > float(b0.acceleration) and float(bu.grip) > float(b0.grip) and
 		float(bu.nitro) > float(b0.nitro) and grew and float(card.get("top_up")) > top3 and top3 > float(UiData.car_info("racer").top) and
-		card.tooltip_text.contains("Upgrades: engine 10, tyres 10, nitro 10, loose grip 10, weight 10") and
+		card.tooltip_text.contains("Upgrades: engine 10, tyres 10, nitro 10, loose grip 10, weight 10, supercharger 5") and
 		is_equal_approx(float(card.get("mass_up")), roundf(1250.0 * (1.0 - 0.03 * 6.5))) and card.tooltip_text.contains("1.01 t"),
 		"every level bought (10): the chips read MAX (off); the Racer's card shows the bars with the upgrades (speed %.2f -> %.2f -> %.2f, grip %.2f -> %.2f -> %.2f, stock -> 3 -> 10), %d -> %d km/h and the lighter car's 1.01 t (1.25 t stock)" % [
 		float(b0.speed), float(b3.speed), float(bu.speed), float(b0.grip), float(b3.grip), float(bu.grip), roundi(top3), roundi(float(card.get("top_up")))])
@@ -1053,6 +1062,90 @@ func _upgrades(t) -> void:
 		"the pad: down from the Quadra (bottom row) to its part chips, right along them, A asks to buy one (%s), up back to the car" % [asked])
 	menu.handle_keys(_press(inp, ["Digit2"]))
 	t.check(asked.size() == 2 and asked[1] == "tyres", "the 2 key asks to buy the second part's next level (tyres)")
+	hm[0].free()
+	UiData.reset()
+
+
+## (v6.34) The supercharger's trial screen (ui/trial_screen.gd) over the car page: the row shows
+## ("GET READY", presses ignored), then the clock runs; arrow keys, WASD, the d-pad (both of its codes
+## in one press) and the arrow buttons; a win ("FITTED"), a wrong arrow, the clock, Esc; the result
+## stays for a moment (Enter skips it) and `finished` comes once; the keys don't reach the car page.
+func _trial_ui(t) -> void:
+	UiData.reset()
+	Fx.save_data_v5()
+	UiData.set_setting("car", "racer")
+	var hm := _menu(t)
+	var menu: MainMenu = hm[1]
+	menu.ask_car("drive")
+	_settle(hm[0])
+	var tr: TrialScreen = menu.trial
+	var got: Array = []
+	tr.finished.connect(func(won: bool) -> void: got.append(won))
+	var inp := Fx.FakeInput.new()
+	const CODE := {"up": ["ArrowUp"], "down": ["KeyS"], "left": ["PadLeft", "NavLeft"], "right": ["KeyD"]}
+	# a level 1 trial: four arrows; presses before the clock starts don't count
+	tr.start("Fit the supercharger", "Supercharger level 1 of 5 for the Racer", 1, 7)
+	_settle(hm[0])
+	var ready_ok: bool = tr.visible and tr.running and tr.status_text == "GET READY" and tr.trial.sequence.size() == 4 and tr.trial.level == 1
+	menu.handle_keys(_press(inp, CODE[tr.trial.sequence[0]]))
+	ready_ok = ready_ok and tr.trial.done == 0 and tr.trial.state == "ready" and menu.car_page.visible and UiData.picked_car() == "racer"
+	tr.step(TuneTrial.READY_TIME + 0.05)
+	var go_ok: bool = tr.status_text == "GO" and tr.trial.state == "go"
+	var seq: PackedStringArray = tr.trial.sequence
+	for k in seq.size():
+		if k == 2:
+			(tr._arrow_btns[seq[k]] as Button).pressed.emit() # (a click on the arrow button)
+		else:
+			menu.handle_keys(_press(inp, CODE[seq[k]], seq[k] == "left"))
+		tr.step(0.1)
+	var won_ok: bool = tr.trial.state == "won" and tr.status_text == "FITTED" and not tr.running and tr.visible and got.is_empty() and \
+		(tr._arrow_btns["up"] as Button).disabled
+	tr.step(TrialScreen.RESULT_TIME + 0.05)
+	t.check(ready_ok and go_ok and won_ok and got == [true] and not tr.visible and menu.car_page.visible and UiData.picked_car() == "racer",
+		"the trial screen: GET READY (a press doesn't count, nor reach the car page), GO, four arrows by keys, the d-pad and a click: FITTED; the result stays %.1f s, then finished(won) once" % TrialScreen.RESULT_TIME)
+	# a level 5 trial: eight arrows; a wrong one is a miss at once, Enter skips the result
+	got.clear()
+	tr.start("Fit the supercharger", "level 5", 5, 3)
+	tr.step(TuneTrial.READY_TIME + 0.05)
+	var eight: bool = tr.trial.sequence.size() == 8 and is_equal_approx(tr.trial.limit, 3.6)
+	menu.handle_keys(_press(inp, CODE[tr.trial.sequence[0]]))
+	var wrong: String = "up" if tr.trial.sequence[1] != "up" else "down"
+	menu.handle_keys(_press(inp, CODE[wrong]))
+	var wrong_ok: bool = tr.status_text == "MISSED: WRONG ARROW" and tr.trial.done == 1 and tr.visible
+	menu.handle_keys(_press(inp, ["Enter"]))
+	t.check(eight and wrong_ok and got == [false] and not tr.visible, "level 5: eight arrows in 3.6 s; a wrong arrow is a miss at once (MISSED: WRONG ARROW), Enter skips the result")
+	# the clock running out; Esc giving up; Give up (close) after the result sends nothing more
+	got.clear()
+	tr.start("Fit the supercharger", "level 3", 3, 11)
+	tr.step(TuneTrial.READY_TIME + 0.05)
+	tr.step(1.0)
+	var mid := tr.trial.left()
+	tr.step(3.0)
+	var time_ok: bool = tr.status_text == "MISSED: OUT OF TIME" and mid > 2.5 and mid < 2.8
+	tr.close()
+	var one: bool = got == [false]
+	tr.start("Fit the supercharger", "level 2", 2, 5)
+	menu.handle_keys(_press(inp, ["Escape"]))
+	var quit_ok: bool = tr.status_text == "MISSED: GAVE UP" and tr.visible and menu.car_page.visible
+	tr.close()
+	tr.close()
+	t.check(time_ok and one and quit_ok and got == [false, false] and not tr.visible and menu.car_page.visible,
+		"out of time (%.2f s left after 1 s of 3.72): MISSED: OUT OF TIME; Esc even while GET READY: MISSED: GAVE UP (the car page stays); one finished each" % mid)
+	# the eight plates and the arrow buttons inside the panel, the panel inside the window
+	for sz: Vector2 in [Vector2(1280, 720), Vector2(700, 900)]:
+		hm[0].size = sz
+		tr.start("Fit the supercharger", "Supercharger level 5 of 5 for the Racer (+30 % power, $42,000). Press the arrows in order before the bar runs out: a miss fits nothing and gives $21,000 back.", 5, 1)
+		_settle(hm[0])
+		var pr: Rect2 = tr.panel.get_global_rect()
+		var rr: Rect2 = tr._row.get_global_rect()
+		var need: float = 8 * TrialScreen.PLATE + 7 * TrialScreen.PLATE_GAP
+		var btn_in := true
+		for d: String in tr._arrow_btns:
+			btn_in = btn_in and pr.encloses((tr._arrow_btns[d] as Control).get_global_rect())
+		t.check(Rect2(Vector2.ZERO, sz).encloses(pr) and pr.encloses(rr) and rr.size.x >= need and btn_in,
+			"%dx%d: the trial's panel inside the window, the row (%d px) holds eight plates (%d px), the arrow buttons inside" % [sz.x, sz.y, roundi(rr.size.x), roundi(need)])
+		tr.give_up()
+		tr.close()
 	hm[0].free()
 	UiData.reset()
 

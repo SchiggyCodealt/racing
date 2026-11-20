@@ -6,7 +6,9 @@ extends Button
 ## has more than five levels, the last three in a brighter green) and the next level's price (in
 ## the accent when the money is there, grey when not), MAX when every level is bought. Pressing it
 ## emits `pressed` (the menu asks the game to buy it, which asks first). A car you don't own
-## shows its parts greyed out (disabled): buy the car first. Drawn by hand over the ChipButton plate.
+## shows its parts greyed out (disabled): buy the car first. (v6.34) A part that another one opens
+## (the supercharger: engine 5) shows what it needs ("Engine 5") in place of the price, greyed but
+## still pressable (the game says why it can't be bought yet). Drawn by hand over the ChipButton plate.
 
 var part_id := ""
 var part_name := ""
@@ -15,6 +17,10 @@ var max_level := 10
 var price := 0
 var affordable := false
 var locked := false
+## (v6.34) What opens the part, while it is shut ("Engine 5"); "" when it can be bought.
+var needs_text := ""
+## (v6.34) A shorter name for a narrow chip ("Super" for the Supercharger); "" none.
+var short_name := ""
 
 
 func _init() -> void:
@@ -28,7 +34,8 @@ func _init() -> void:
 
 ## What the chip shows: `lv` levels of `max` bought, the next costs `p` (`can`: the money is
 ## there), `is_locked`: the car isn't owned.
-func show_part(id: String, name_: String, lv: int, max_: int, p: int, can: bool, is_locked: bool) -> void:
+func show_part(id: String, name_: String, lv: int, max_: int, p: int, can: bool, is_locked: bool, needs: String = "") -> void:
+	needs_text = needs
 	part_id = id
 	part_name = name_
 	level = lv
@@ -48,6 +55,8 @@ func is_max() -> bool:
 func price_text() -> String:
 	if is_max():
 		return "MAX"
+	if needs_text != "":
+		return needs_text
 	if price >= 100000:
 		return "$%sk" % String.num(price / 1000.0, 1).trim_suffix(".0")
 	return UiFormat.money(price)
@@ -60,7 +69,8 @@ func _draw() -> void:
 	var base := _baseline(font)
 	# the price (right), the pips (before it), the name (left, cut short when narrow)
 	var pt := price_text()
-	var pcol := UiStyle.GOOD if is_max() else (UiStyle.TEXT_3 if locked or not affordable else UiStyle.ACCENT)
+	var shut := needs_text != "" and not is_max()
+	var pcol := UiStyle.GOOD if is_max() else (UiStyle.TEXT_3 if locked or shut or not affordable else UiStyle.ACCENT)
 	var pw := font.get_string_size(pt, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x
 	var px := size.x - pad - pw
 	draw_string(font, Vector2(px, base), pt, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S, pcol)
@@ -77,13 +87,15 @@ func _draw() -> void:
 		var col := UiStyle.GOOD if on else UiStyle.BG_4
 		if on and many and k >= max_level - 3: # (levels 8-10: the late-career ones)
 			col = UiStyle.GOOD.lightened(0.35)
-		if locked:
+		if locked or shut:
 			col = UiStyle.BG_3.lightened(0.05)
 		_skewed(r, col)
 	var nf := UiStyle.font("text_semi", UiStyle.FS_S, 0, true)
-	var ncol := UiStyle.TEXT_3 if locked else (UiStyle.TEXT if hover else UiStyle.TEXT_2)
+	var ncol := UiStyle.TEXT_3 if locked or shut else (UiStyle.TEXT if hover else UiStyle.TEXT_2)
 	var room := pips_x - UiStyle.S2 - pad
 	var nm := part_name
+	if nf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x > room and short_name != "":
+		nm = short_name # ("Supercharger" -> "Super" when narrow)
 	if nf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x > room and nm.contains(" "):
 		nm = nm.get_slice(" ", 0) # ("Loose grip" -> "Loose" when narrow)
 	if nf.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, UiStyle.FS_S).x > room:
