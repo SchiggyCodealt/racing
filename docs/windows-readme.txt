@@ -1,4 +1,4 @@
-Track Rush 6.34.0 for Windows (64-bit)
+Track Rush 6.35.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-three tracks (seven of them
@@ -10,16 +10,18 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.34.0: the supercharger. Once a car's engine is at upgrade level
-5, its sixth part opens: a supercharger with five levels, each +6 % power
-on top of the engine's (level 5: +30 %), much quicker to 200 km/h. Each
-level is fitted with a trial: a row of arrows appears, then press them in
-order before the bar runs out (arrow keys, WASD, the d-pad or a click).
-Every level has more arrows and less time for each (4 to 8). A wrong
-arrow, running out of time or giving up is a miss: nothing is fitted and
-half the price comes back; you can try again.
+New in 6.35.0: the aero tune. Once a car's weight upgrade is at level 5,
+its seventh part opens: an aero tune with five levels, each 6 % less drag
+(level 5: 30 % less) and a longer top gear, for a higher top speed: about
+12 % more at level 5 (the Racer 278 to 312 km/h). Like the supercharger,
+each level is fitted with the trial of arrows; a miss fits nothing and
+half the price comes back.
 
 Earlier versions, newest first:
+6.34.0  the supercharger: once the engine is at level 5, five levels of +6 %
+        power each, each fitted with a trial: press a row of arrows in order
+        before the bar runs out (4 to 8, faster every level); a miss gives
+        half the price back.
 6.33.0  Le Mans (track 23, 13.63 km a lap) and endurance races: Race the
         field on a circuit for 10, 20, 30 or 40 laps with ten cars, the
         chequered flag, a pause on Esc, pay by place.

@@ -271,7 +271,7 @@ func refresh() -> void:
 		var p: Dictionary = parts[k]
 		var level: int = lv[k]
 		var nxt := UiData.upgrade_cost(car, String(p.id), level + 1)
-		# (v6.34) a part another one opens (the supercharger: engine 5) says so while it is shut
+		# (v6.34) a part another one opens (the supercharger: engine 5; the aero tune: weight 5) says so while it is shut
 		var need: Dictionary = p.get("needs", {})
 		var shut := not need.is_empty() and lv[Upgrades.index_of(String(need.part))] < int(need.level)
 		var need_text := "%s %d" % [String(Upgrades.part(String(need.part)).name), int(need.level)] if shut else ""
@@ -451,8 +451,13 @@ func _on_layout(w: float) -> void:
 	# the part chips: one row while a chip keeps room for its name, pips and price
 	var np := part_chips.size()
 	var chips_w := inner - _parts_cap.get_combined_minimum_size().x - UiStyle.S1
-	# (v6.34: six parts) one row while they fit, else two rows of three
-	parts_grid.columns = np if (chips_w - (np - 1) * UiStyle.S1) / np >= CHIP_MIN_W else ceili(np / 2.0)
+	# (v6.34-6.35: seven parts) one row while they fit, else two rows (four and three), else three
+	var cols_p := ceili(np / 3.0)
+	for c: int in [np, ceili(np / 2.0)]:
+		if (chips_w - (c - 1) * UiStyle.S1) / c >= CHIP_MIN_W:
+			cols_p = c
+			break
+	parts_grid.columns = cols_p
 	for c in cards:
 		c.stacked = card_w < 330.0
 		c.short_spec = card_w < 300.0

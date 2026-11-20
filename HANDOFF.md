@@ -4,7 +4,9 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-20 (v6.34.0: round 8, item 1 of 2: the supercharger, a sixth upgrade part (`sim/upgrades.gd`
+_Last updated: 2026-11-20 (v6.35.0: round 8, item 2 of 2, the last: the aero tune, a seventh part (`PARTS[6]`, id
+`aero`, five levels of -6 % drag with the top gear longer by the cube root, opens at weight 5), the same trial;
+v6.34.0: round 8, item 1 of 2: the supercharger, a sixth upgrade part (`sim/upgrades.gd`
 `PARTS[5]`, id `supercharger`, five levels of +6 % power on top of the engine, opens at engine 5: `needs`), fitted
 through a trial of arrows (`sim/tune_trial.gd` `TuneTrial`, `ui/trial_screen.gd` `TrialScreen`, `GameApp.start_trial` /
 `trial_done`); a miss pays half back (`Economy.buy_upgrade(car, part, fitted = false)`);
@@ -75,9 +77,9 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.34.0, round 8 item 1 of 2 done (the supercharger with its trial of arrows); next: the aero tune (after a check-in with the owner about their usage limit); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.35.0, round 8 done (the supercharger with its trial of arrows; the aero tune); nothing open; round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
-Round 8 (asked on 2026-11-20): the supercharger with a trial (v6.34.0, done), then the aero tune: see [Round 8](#round-8-supercharger-and-aero-tune-v6340-on).
+Round 8 (asked on 2026-11-20): the supercharger with a trial (v6.34.0, done) and the aero tune (v6.35.0, done): see [Round 8](#round-8-supercharger-and-aero-tune-v6340-on).
 
 Round 5 (asked on 2026-11-12, eight items, built one at a time and pushed after each): see
 [Round 5](#round-5-eight-items-v6180-on) for the list, the order, the defaults chosen and what is done.
@@ -1644,14 +1646,11 @@ making the cars drive faster on top speed, the rest should stay same as previous
 The order and the defaults (the owner was told): 6.34.0 the supercharger, pushed; a check-in about the owner's weekly
 usage limit (they want work stopped at 80 %); then 6.35.0 the aero tune.
 
-1. **The supercharger (v6.34.0, done)**: opens at engine 5; five levels, +6 % power each on top of the engine; priced like
-   engine levels 6-10 × 1.25; each level fitted through the trial; a miss fits nothing and pays half back.
-2. **The aero tune (v6.35.0, next)**: opens at weight 5; five levels, -6 % drag (`CarSpec.drag`) each, the same trial and
-   half-back rule. Plan: top speed is limited by the rev limiter in top gear on most cars (the Racer 297 km/h at engine
-   10), so a lower drag alone adds little: lengthen the top gear with it (`gears[last] × (drag_new / drag_old)^(1/3)`,
-   the speed where power meets drag) so the higher top speed is reachable; measure `MEASURED.aero` on weight 5 with
-   `tools/upgrades.gd`; a seventh part at the end of `PARTS` (save index 6), `extra = true`, `needs = ["weight", 5]`,
-   `trial = true`. The trial's levels and the shared screen need no change.
+1. **The supercharger (v6.34.0, done)**: opens at engine 5; five levels, +6 % power each on top of the engine; priced
+   exactly like engine levels 6-10; each level fitted through the trial; a miss fits nothing and pays half back.
+2. **The aero tune (v6.35.0, done)**: opens at weight 5; five levels, -6 % drag each and a longer top gear; priced like
+   weight levels 6-10; the same trial and half-back rule. The owner was asked about their usage limit between the two
+   (they want work stopped at 80 % of their weekly limit) and tapped "Go ahead".
 
 ### Item 1: the supercharger (v6.34.0, done)
 
@@ -1686,6 +1685,31 @@ usage limit (they want work stopped at 80 %); then 6.35.0 the aero tune.
   layout at 1280 x 720 and 700 x 900) and six-chip checks, `test_game` `_app_trial` (shut, ask, miss, win) and terminal
   checks, `test_ai` a supercharged spec through FleetSim, the e2e `upgrades` scenario (all 56 clicks, six trials played
   with the keys, the first missed on purpose).
+
+### Item 2: the aero tune (v6.35.0, done)
+
+- **The part.** `PARTS[6]`: id `aero`, name "Aero tune", chip "Aero", short "A", `step 0.06`, `cost 1.1` (the weight's:
+  levels 1-5 cost what weight levels 6-10 do), `max 5`, `needs ["weight", 5]`, `trial`, `extra`; `over` (also on the
+  supercharger) is what the app's question measures the effect against. `changes()`: `drag × (1 - a)` and the last gear
+  × `(1 - a)^(1/3)`, where `a` is 0.06 × level. Why the gear: top speed was rev-limited in top gear on most cars, so less
+  drag alone added a few km/h; v ∝ drag^(-1/3) where power meets drag, so the gear grows by the same factor. The
+  upshift into top gear still lands well above the downshift rpm on every car (checked by hand). `max_speed` (the AI
+  input scale) stays. FleetSim takes drag and gears from the spec numbers: no native change.
+- **Measured.** `tools/upgrades.gd --parts=aero` (MEASURED_PARTS row with base levels weight 5): top speed +11-13 % at
+  aero 5 on every car (Racer 278 → 312 km/h), 0-200 km/h 2-15 % quicker. Every part at its top, measured with
+  `CarStats.run`: Racer 297 → 335 km/h, Vortex 392 → 440, Sarthe 377 → 425. `stats()` now scales any part with
+  `needs` by its measured row over the base part's row at the needed level (one loop for both trial parts,
+  `TRIAL_KEYS`).
+- **Car page.** Seven chips: one row while they fit, else two rows (4 + 3), else three (3 + 3 + 1, under ~900 px).
+- **Stability.** The sim tests' keyboard lane keeping and curve braking now run with every part at its top
+  (`Upgrades.clean([10, ...])`: the supercharger and the aero tune at 5), and the jumps both at all 10 (as before) and at
+  the top. At the top the Drifter spins after 7 of its 50 test landings (6 with the steer held through the flight; it
+  was 3 with the supercharger alone in 6.34.0, 2 with the aero tune alone): `_jumps(ids, lv, slides)` counts the
+  Drifter apart and allows at most 1 spin without the steer held. Physics changes would need the native FleetSim
+  changed too (it must stay bit for bit), so this is documented in the README as the Drifter's character.
+- **Tests.** `test_sim` `_aero_tune` (spec, measured rows, stats, buying), the parts and per-level checks with `aero`,
+  `test_ui` seven chips, `test_game` the aero chip shut at weight 4 and terminal checks, the e2e `upgrades` scenario
+  (61 clicks, eleven trials).
 
 ## Round 7: money, nitro, top-10 lists, Le Mans (v6.30.0 on)
 
