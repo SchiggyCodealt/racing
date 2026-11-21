@@ -42,9 +42,10 @@ extends RefCounted
 ##           they cost any. Level 5 keeps the Drifter and the Dune from spinning on crooked landings
 ##           with everything else at its top
 ##   wing    (v6.38) the wing: five levels, open from the start and bought like the brakes. Each adds
-##           downforce worth 5 % of the stock car's weight at 180 km/h (WING_DOWN, WING_KMH; level 5:
-##           25 %, on top of the car's own, with its front/rear split) and 2 % of its stock drag
-##           (WING_DRAG). More grip the faster the corner, a little less top speed. The car page sets
+##           downforce worth 5 % of the stock car's weight at 180 km/h (its step, WING_KMH; level 5:
+##           25 %, on top of the car's own), 70 % of it on the rear wheels (WING_FRONT: a rear wing
+##           keeps the tail planted, so a keyboard driver's car doesn't weave more at speed), and 2 %
+##           of its stock drag (WING_DRAG). More grip the faster the corner, a little less top speed. The car page sets
 ##           how much of it a car uses on each track (SaveData's setups: `wing` 0..5; with_setup())
 ## Never changed: max_speed (it scales the AI's speed input, so a network sees the same range in an
 ## upgraded car), the steering and the stability control: an upgraded car keeps its character. Levels 0, 0, 0, 0, 0 are the stock car itself (Cars.spec(id), the same object), so
@@ -104,6 +105,10 @@ const SUSP_LANDING: float = 0.1
 ## speed, and its drag as a share of the stock drag.
 const WING_KMH: float = 180.0
 const WING_DRAG: float = 0.02
+## (v6.38) The share of the wing's downforce on the front axle (the car's own keeps its aeroFront): with
+## the car's own split the fully upgraded Thunder weaved 1.5° more than stock under the keyboard at
+## 240 km/h; with most of it at the back, no car weaves more than 0.2° beyond its stock self.
+const WING_FRONT: float = 0.3
 ## Prices are rounded to this many dollars.
 const ROUND: int = 50
 
@@ -165,7 +170,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 283.9, accel100 = 2.35, accel200 = 8.42}, {top = 290, accel100 = 2.35, accel200 = 8.32}, {top = 296.7, accel100 = 2.35, accel200 = 8.22}, {top = 304.1, accel100 = 2.35, accel200 = 8.12}, {top = 312.3, accel100 = 2.35, accel200 = 8.03}],
 		brakes = [{brake100 = 29.4, brake200 = 113.2}, {brake100 = 28.2, brake200 = 108.1}, {brake100 = 27.2, brake200 = 104.3}, {brake100 = 26.3, brake200 = 100.9}, {brake100 = 25.5, brake200 = 97.7}],
 		suspension = [{brake100 = 30.5}, {brake100 = 30.3}, {brake100 = 30.2}, {brake100 = 30.2}, {brake100 = 30.2}],
-		wing = [{top = 275.3, accel100 = 2.7, accel200 = 9.83, brake100 = 30.6, grip = 1.68, gripFast = 1.61}, {top = 273, accel100 = 2.7, accel200 = 9.88, brake100 = 30.6, grip = 1.72, gripFast = 1.64}, {top = 270.7, accel100 = 2.7, accel200 = 9.93, brake100 = 30.5, grip = 1.72, gripFast = 1.7}, {top = 268.5, accel100 = 2.7, accel200 = 9.98, brake100 = 30.5, grip = 1.74, gripFast = 1.73}, {top = 266.3, accel100 = 2.7, accel200 = 10.05, brake100 = 30.4, grip = 1.75, gripFast = 1.76}],
+		wing = [{top = 275.3, accel100 = 2.7, accel200 = 9.83, brake100 = 30.6, grip = 1.68, gripFast = 1.61}, {top = 273, accel100 = 2.7, accel200 = 9.88, brake100 = 30.6, grip = 1.68, gripFast = 1.61}, {top = 270.7, accel100 = 2.7, accel200 = 9.93, brake100 = 30.5, grip = 1.72, gripFast = 1.64}, {top = 268.5, accel100 = 2.7, accel200 = 9.98, brake100 = 30.4, grip = 1.72, gripFast = 1.67}, {top = 266.3, accel100 = 2.7, accel200 = 10.05, brake100 = 30.4, grip = 1.75, gripFast = 1.7}],
 	},
 	kestrel = {
 		engine = [{top = 233, accel100 = 2.35, accel200 = 10.52}, {top = 235.6, accel100 = 2.27, accel200 = 9.87}, {top = 237.7, accel100 = 2.2, accel200 = 9.3}, {top = 239.4, accel100 = 2.15, accel200 = 8.9}, {top = 240.8, accel100 = 2.12, accel200 = 8.58}, {top = 241.9, accel100 = 2.08, accel200 = 8.33}, {top = 242.9, accel100 = 2.07, accel200 = 8.15}, {top = 243.6, accel100 = 2.05, accel200 = 8.02}, {top = 244.2, accel100 = 2.03, accel200 = 7.9}, {top = 244.5, accel100 = 2.03, accel200 = 7.83}],
@@ -175,7 +180,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 235.3, accel100 = 2.2, accel200 = 9.58}, {top = 240.5, accel100 = 2.2, accel200 = 9.32}, {top = 246.2, accel100 = 2.2, accel200 = 9.08}, {top = 252.4, accel100 = 2.18, accel200 = 8.87}, {top = 259.4, accel100 = 2.18, accel200 = 8.67}],
 		brakes = [{brake100 = 26.7, brake200 = 104.9}, {brake100 = 25.7, brake200 = 101.3}, {brake100 = 24.9, brake200 = 98}, {brake100 = 24.1, brake200 = 94.9}, {brake100 = 23.5, brake200 = 92.1}],
 		suspension = [{brake100 = 27.4}, {brake100 = 27.1}, {brake100 = 26.8}, {brake100 = 26.5}, {brake100 = 26.2}],
-		wing = [{top = 229, accel100 = 2.43, accel200 = 11.43, brake100 = 27.6, grip = 1.78, gripFast = 1.62}, {top = 227.7, accel100 = 2.45, accel200 = 11.6, brake100 = 27.5, grip = 1.81, gripFast = 1.65}, {top = 226.5, accel100 = 2.45, accel200 = 11.75, brake100 = 27.4, grip = 1.82, gripFast = 1.68}, {top = 225.3, accel100 = 2.45, accel200 = 11.93, brake100 = 27.3, grip = 1.82, gripFast = 1.68}, {top = 224.1, accel100 = 2.45, accel200 = 12.12, brake100 = 27.2, grip = 1.85, gripFast = 1.68}],
+		wing = [{top = 229, accel100 = 2.45, accel200 = 11.43, brake100 = 27.6, grip = 1.78, gripFast = 1.6}, {top = 227.7, accel100 = 2.45, accel200 = 11.6, brake100 = 27.5, grip = 1.78, gripFast = 1.62}, {top = 226.5, accel100 = 2.45, accel200 = 11.77, brake100 = 27.3, grip = 1.82, gripFast = 1.65}, {top = 225.3, accel100 = 2.45, accel200 = 11.93, brake100 = 27.2, grip = 1.82, gripFast = 1.68}, {top = 224.1, accel100 = 2.45, accel200 = 12.12, brake100 = 27.1, grip = 1.82, gripFast = 1.68}],
 	},
 	thunder = {
 		engine = [{top = 318.7, accel100 = 2.58, accel200 = 7.8}, {top = 323.8, accel100 = 2.52, accel200 = 7.48}, {top = 327.9, accel100 = 2.47, accel200 = 7.18}, {top = 331.1, accel100 = 2.43, accel200 = 6.98}, {top = 333.8, accel100 = 2.42, accel200 = 6.82}, {top = 334.9, accel100 = 2.38, accel200 = 6.67}, {top = 334.9, accel100 = 2.37, accel200 = 6.57}, {top = 334.9, accel100 = 2.35, accel200 = 6.48}, {top = 334.9, accel100 = 2.35, accel200 = 6.42}, {top = 334.9, accel100 = 2.33, accel200 = 6.38}],
@@ -185,7 +190,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 319.5, accel100 = 2.47, accel200 = 7.22}, {top = 326.1, accel100 = 2.47, accel200 = 7.17}, {top = 333.3, accel100 = 2.47, accel200 = 7.12}, {top = 341.3, accel100 = 2.47, accel200 = 7.07}, {top = 350, accel100 = 2.45, accel200 = 7.03}],
 		brakes = [{brake100 = 32.1, brake200 = 124.7}, {brake100 = 30.8, brake200 = 117.8}, {brake100 = 29.7, brake200 = 112.2}, {brake100 = 28.7, brake200 = 107.5}, {brake100 = 28.1, brake200 = 103.9}],
 		suspension = [{brake100 = 33.6}, {brake100 = 33.6}, {brake100 = 33.6}, {brake100 = 33.6}, {brake100 = 33.6}],
-		wing = [{top = 309.8, accel100 = 2.68, accel200 = 8.23, brake100 = 33.7, grip = 1.5, gripFast = 1.59}, {top = 306.9, accel100 = 2.68, accel200 = 8.27, brake100 = 33.7, grip = 1.5, gripFast = 1.62}, {top = 304.1, accel100 = 2.68, accel200 = 8.28, brake100 = 33.6, grip = 1.5, gripFast = 1.68}, {top = 301.4, accel100 = 2.7, accel200 = 8.32, brake100 = 33.6, grip = 1.53, gripFast = 1.71}, {top = 298.8, accel100 = 2.7, accel200 = 8.33, brake100 = 33.6, grip = 1.53, gripFast = 1.77}],
+		wing = [{top = 309.8, accel100 = 2.68, accel200 = 8.23, brake100 = 33.7, grip = 1.47, gripFast = 1.56}, {top = 306.9, accel100 = 2.68, accel200 = 8.27, brake100 = 33.7, grip = 1.5, gripFast = 1.59}, {top = 304.1, accel100 = 2.68, accel200 = 8.28, brake100 = 33.6, grip = 1.5, gripFast = 1.59}, {top = 301.4, accel100 = 2.7, accel200 = 8.32, brake100 = 33.6, grip = 1.5, gripFast = 1.62}, {top = 298.8, accel100 = 2.7, accel200 = 8.33, brake100 = 33.5, grip = 1.53, gripFast = 1.64}],
 	},
 	drifter = {
 		engine = [{top = 268.5, accel100 = 2.45, accel200 = 8.77}, {top = 272.3, accel100 = 2.38, accel200 = 8.35}, {top = 275.7, accel100 = 2.35, accel200 = 7.98}, {top = 278.3, accel100 = 2.32, accel200 = 7.73}, {top = 280.5, accel100 = 2.28, accel200 = 7.52}, {top = 282.3, accel100 = 2.27, accel200 = 7.35}, {top = 283.8, accel100 = 2.25, accel200 = 7.22}, {top = 285, accel100 = 2.23, accel200 = 7.12}, {top = 285.5, accel100 = 2.22, accel200 = 7.05}, {top = 285.5, accel100 = 2.22, accel200 = 7}],
@@ -195,7 +200,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 270.1, accel100 = 2.35, accel200 = 8.08}, {top = 276, accel100 = 2.33, accel200 = 7.98}, {top = 282.5, accel100 = 2.33, accel200 = 7.87}, {top = 289.6, accel100 = 2.33, accel200 = 7.77}, {top = 297.5, accel100 = 2.33, accel200 = 7.68}],
 		brakes = [{brake100 = 31.8, brake200 = 121.6}, {brake100 = 30.6, brake200 = 117.3}, {brake100 = 29.5, brake200 = 113.3}, {brake100 = 28.6, brake200 = 109.7}, {brake100 = 27.6, brake200 = 106.3}],
 		suspension = [{brake100 = 32.6}, {brake100 = 32.2}, {brake100 = 31.8}, {brake100 = 31.4}, {brake100 = 31}],
-		wing = [{top = 262.3, accel100 = 2.5, accel200 = 9.28, brake100 = 32.9, grip = 1.62, gripFast = 1.55}, {top = 260.3, accel100 = 2.5, accel200 = 9.33, brake100 = 32.8, grip = 1.62, gripFast = 1.58}, {top = 258.4, accel100 = 2.5, accel200 = 9.38, brake100 = 32.7, grip = 1.65, gripFast = 1.64}, {top = 256.6, accel100 = 2.5, accel200 = 9.45, brake100 = 32.5, grip = 1.65, gripFast = 1.67}, {top = 254.8, accel100 = 2.5, accel200 = 9.5, brake100 = 32.4, grip = 1.68, gripFast = 1.7}],
+		wing = [{top = 262.3, accel100 = 2.5, accel200 = 9.28, brake100 = 32.9, grip = 1.62, gripFast = 1.52}, {top = 260.3, accel100 = 2.5, accel200 = 9.33, brake100 = 32.7, grip = 1.62, gripFast = 1.55}, {top = 258.4, accel100 = 2.5, accel200 = 9.38, brake100 = 32.6, grip = 1.65, gripFast = 1.58}, {top = 256.6, accel100 = 2.5, accel200 = 9.45, brake100 = 32.4, grip = 1.65, gripFast = 1.61}, {top = 254.8, accel100 = 2.5, accel200 = 9.5, brake100 = 32.3, grip = 1.65, gripFast = 1.64}],
 	},
 	dune = {
 		engine = [{top = 225.8, accel100 = 2.78, accel200 = 11.73}, {top = 228.9, accel100 = 2.72, accel200 = 10.95}, {top = 231.6, accel100 = 2.67, accel200 = 10.28}, {top = 233.7, accel100 = 2.62, accel200 = 9.83}, {top = 235.4, accel100 = 2.58, accel200 = 9.47}, {top = 236.9, accel100 = 2.55, accel200 = 9.18}, {top = 238.1, accel100 = 2.52, accel200 = 8.97}, {top = 238.5, accel100 = 2.5, accel200 = 8.8}, {top = 238.5, accel100 = 2.48, accel200 = 8.68}, {top = 238.5, accel100 = 2.48, accel200 = 8.62}],
@@ -205,7 +210,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 227.4, accel100 = 2.67, accel200 = 10.75}, {top = 232.4, accel100 = 2.65, accel200 = 10.38}, {top = 237.8, accel100 = 2.65, accel200 = 10.05}, {top = 243.9, accel100 = 2.65, accel200 = 9.78}, {top = 250.6, accel100 = 2.65, accel200 = 9.53}],
 		brakes = [{brake100 = 30.6, brake200 = 117.2}, {brake100 = 29.5, brake200 = 113.4}, {brake100 = 28.5, brake200 = 109.9}, {brake100 = 27.7, brake200 = 106.7}, {brake100 = 26.8, brake200 = 103.6}],
 		suspension = [{brake100 = 31.3}, {brake100 = 30.8}, {brake100 = 30.4}, {brake100 = 29.9}, {brake100 = 29.5}],
-		wing = [{top = 221, accel100 = 2.87, accel200 = 12.92, brake100 = 31.6, grip = 1.71, gripFast = 1.48}, {top = 219.5, accel100 = 2.87, accel200 = 13.17, brake100 = 31.4, grip = 1.74, gripFast = 1.53}, {top = 218.1, accel100 = 2.87, accel200 = 13.43, brake100 = 31.3, grip = 1.74, gripFast = 1.55}, {top = 216.7, accel100 = 2.87, accel200 = 13.73, brake100 = 31.2, grip = 1.77, gripFast = 1.58}, {top = 215.3, accel100 = 2.87, accel200 = 14.07, brake100 = 31.1, grip = 1.78, gripFast = 1.55}],
+		wing = [{top = 221, accel100 = 2.87, accel200 = 12.92, brake100 = 31.5, grip = 1.71, gripFast = 1.45}, {top = 219.5, accel100 = 2.87, accel200 = 13.17, brake100 = 31.4, grip = 1.74, gripFast = 1.48}, {top = 218.1, accel100 = 2.87, accel200 = 13.45, brake100 = 31.2, grip = 1.74, gripFast = 1.5}, {top = 216.7, accel100 = 2.87, accel200 = 13.75, brake100 = 31.1, grip = 1.74, gripFast = 1.53}, {top = 215.3, accel100 = 2.87, accel200 = 14.07, brake100 = 30.9, grip = 1.77, gripFast = 1.55}],
 	},
 	vortex = {
 		engine = [{top = 328.5, accel100 = 2.45, accel200 = 5.92}, {top = 335.3, accel100 = 2.33, accel200 = 5.63}, {top = 342, accel100 = 2.25, accel200 = 5.4}, {top = 347.1, accel100 = 2.22, accel200 = 5.27}, {top = 350.8, accel100 = 2.2, accel200 = 5.17}, {top = 353.9, accel100 = 2.18, accel200 = 5.08}, {top = 356.4, accel100 = 2.17, accel200 = 5.02}, {top = 358.4, accel100 = 2.15, accel200 = 4.97}, {top = 359.9, accel100 = 2.15, accel200 = 4.93}, {top = 360.9, accel100 = 2.13, accel200 = 4.92}],
@@ -215,7 +220,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 328.3, accel100 = 2.25, accel200 = 5.4}, {top = 335.2, accel100 = 2.25, accel200 = 5.38}, {top = 342.6, accel100 = 2.23, accel200 = 5.35}, {top = 350.8, accel100 = 2.23, accel200 = 5.32}, {top = 359.9, accel100 = 2.23, accel200 = 5.3}],
 		brakes = [{brake100 = 27.5, brake200 = 104.4}, {brake100 = 26.4, brake200 = 99.1}, {brake100 = 25.5, brake200 = 94.6}, {brake100 = 24.7, brake200 = 90.9}, {brake100 = 24.6, brake200 = 88.5}],
 		suspension = [{brake100 = 28.8}, {brake100 = 28.8}, {brake100 = 28.8}, {brake100 = 28.8}, {brake100 = 28.8}],
-		wing = [{top = 320.3, accel100 = 2.57, accel200 = 6.23, brake100 = 28.8, grip = 1.68, gripFast = 1.81}, {top = 320.3, accel100 = 2.57, accel200 = 6.25, brake100 = 28.8, grip = 1.72, gripFast = 1.88}, {top = 320.3, accel100 = 2.57, accel200 = 6.27, brake100 = 28.8, grip = 1.72, gripFast = 1.92}, {top = 319, accel100 = 2.57, accel200 = 6.27, brake100 = 28.8, grip = 1.75, gripFast = 1.99}, {top = 316.6, accel100 = 2.57, accel200 = 6.28, brake100 = 28.8, grip = 1.75, gripFast = 2.07}],
+		wing = [{top = 320.3, accel100 = 2.57, accel200 = 6.23, brake100 = 28.8, grip = 1.68, gripFast = 1.78}, {top = 320.3, accel100 = 2.57, accel200 = 6.25, brake100 = 28.8, grip = 1.68, gripFast = 1.81}, {top = 320.3, accel100 = 2.57, accel200 = 6.27, brake100 = 28.8, grip = 1.72, gripFast = 1.85}, {top = 319, accel100 = 2.57, accel200 = 6.27, brake100 = 28.8, grip = 1.72, gripFast = 1.88}, {top = 316.6, accel100 = 2.57, accel200 = 6.28, brake100 = 28.8, grip = 1.72, gripFast = 1.92}],
 	},
 	apex = {
 		engine = [{top = 288.5, accel100 = 2.58, accel200 = 6.12}, {top = 292.9, accel100 = 2.58, accel200 = 5.95}, {top = 297, accel100 = 2.58, accel200 = 5.82}, {top = 299.7, accel100 = 2.58, accel200 = 5.72}, {top = 302, accel100 = 2.58, accel200 = 5.63}, {top = 303.8, accel100 = 2.58, accel200 = 5.57}, {top = 305.4, accel100 = 2.58, accel200 = 5.52}, {top = 306.6, accel100 = 2.58, accel200 = 5.48}, {top = 307.5, accel100 = 2.58, accel200 = 5.47}, {top = 308, accel100 = 2.58, accel200 = 5.45}],
@@ -225,7 +230,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 289.8, accel100 = 2.57, accel200 = 5.83}, {top = 295.9, accel100 = 2.57, accel200 = 5.77}, {top = 302.6, accel100 = 2.57, accel200 = 5.72}, {top = 309.9, accel100 = 2.55, accel200 = 5.67}, {top = 317.7, accel100 = 2.55, accel200 = 5.63}],
 		brakes = [{brake100 = 20.7, brake200 = 68.1}, {brake100 = 20.7, brake200 = 66.5}, {brake100 = 20.7, brake200 = 65.6}, {brake100 = 20.7, brake200 = 65}, {brake100 = 20.7, brake200 = 64.9}],
 		suspension = [{brake100 = 20.7}, {brake100 = 20.6}, {brake100 = 20.6}, {brake100 = 20.6}, {brake100 = 20.6}],
-		wing = [{top = 281.6, accel100 = 2.58, accel200 = 6.32, brake100 = 20.5, grip = 2.05, gripFast = 2.42}, {top = 279, accel100 = 2.57, accel200 = 6.33, brake100 = 20.4, grip = 2.09, gripFast = 2.42}, {top = 276.4, accel100 = 2.57, accel200 = 6.33, brake100 = 20.3, grip = 2.1, gripFast = 2.42}, {top = 274, accel100 = 2.55, accel200 = 6.35, brake100 = 20.2, grip = 2.14, gripFast = 2.37}, {top = 271.6, accel100 = 2.53, accel200 = 6.37, brake100 = 20.1, grip = 2.18, gripFast = 2.37}],
+		wing = [{top = 281.6, accel100 = 2.58, accel200 = 6.32, brake100 = 20.5, grip = 2.05, gripFast = 2.42}, {top = 279, accel100 = 2.57, accel200 = 6.32, brake100 = 20.4, grip = 2.1, gripFast = 2.37}, {top = 276.4, accel100 = 2.55, accel200 = 6.33, brake100 = 20.3, grip = 2.1, gripFast = 2.37}, {top = 274, accel100 = 2.53, accel200 = 6.33, brake100 = 20.2, grip = 2.14, gripFast = 2.37}, {top = 271.6, accel100 = 2.53, accel200 = 6.35, brake100 = 20.1, grip = 2.14, gripFast = 2.33}],
 	},
 	quadra = {
 		engine = [{top = 248.5, accel100 = 2.42, accel200 = 8.45}, {top = 251.9, accel100 = 2.37, accel200 = 8.02}, {top = 255.1, accel100 = 2.32, accel200 = 7.65}, {top = 257.5, accel100 = 2.28, accel200 = 7.38}, {top = 259.6, accel100 = 2.25, accel200 = 7.17}, {top = 261.3, accel100 = 2.23, accel200 = 7}, {top = 261.6, accel100 = 2.22, accel200 = 6.88}, {top = 261.6, accel100 = 2.22, accel200 = 6.78}, {top = 261.6, accel100 = 2.2, accel200 = 6.72}, {top = 261.6, accel100 = 2.2, accel200 = 6.68}],
@@ -235,7 +240,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 250.3, accel100 = 2.32, accel200 = 7.78}, {top = 255.7, accel100 = 2.3, accel200 = 7.63}, {top = 261.7, accel100 = 2.3, accel200 = 7.5}, {top = 268.2, accel100 = 2.3, accel200 = 7.37}, {top = 275.5, accel100 = 2.3, accel200 = 7.25}],
 		brakes = [{brake100 = 30, brake200 = 112.4}, {brake100 = 28.9, brake200 = 108.5}, {brake100 = 27.9, brake200 = 104.8}, {brake100 = 27, brake200 = 101.5}, {brake100 = 26.2, brake200 = 98.4}],
 		suspension = [{brake100 = 30.8}, {brake100 = 30.4}, {brake100 = 30}, {brake100 = 29.6}, {brake100 = 29.2}],
-		wing = [{top = 243, accel100 = 2.47, accel200 = 9, brake100 = 31.1, grip = 1.62, gripFast = 1.55}, {top = 241.2, accel100 = 2.47, accel200 = 9.08, brake100 = 31, grip = 1.62, gripFast = 1.58}, {top = 239.4, accel100 = 2.47, accel200 = 9.15, brake100 = 30.9, grip = 1.65, gripFast = 1.63}, {top = 237.7, accel100 = 2.45, accel200 = 9.23, brake100 = 30.7, grip = 1.65, gripFast = 1.66}, {top = 236, accel100 = 2.45, accel200 = 9.32, brake100 = 30.6, grip = 1.68, gripFast = 1.69}],
+		wing = [{top = 243, accel100 = 2.47, accel200 = 9, brake100 = 31.1, grip = 1.62, gripFast = 1.55}, {top = 241.2, accel100 = 2.47, accel200 = 9.08, brake100 = 30.9, grip = 1.62, gripFast = 1.58}, {top = 239.4, accel100 = 2.47, accel200 = 9.17, brake100 = 30.8, grip = 1.62, gripFast = 1.58}, {top = 237.7, accel100 = 2.47, accel200 = 9.25, brake100 = 30.6, grip = 1.65, gripFast = 1.6}, {top = 236, accel100 = 2.47, accel200 = 9.32, brake100 = 30.5, grip = 1.65, gripFast = 1.63}],
 	},
 	sarthe = {
 		engine = [{top = 342.4, accel100 = 2.38, accel200 = 5.52}, {top = 348.7, accel100 = 2.28, accel200 = 5.25}, {top = 354.8, accel100 = 2.18, accel200 = 5.02}, {top = 359.5, accel100 = 2.12, accel200 = 4.85}, {top = 362.9, accel100 = 2.05, accel200 = 4.72}, {top = 365.7, accel100 = 2.02, accel200 = 4.62}, {top = 368, accel100 = 1.98, accel200 = 4.53}, {top = 369.8, accel100 = 1.98, accel200 = 4.47}, {top = 371.1, accel100 = 1.97, accel200 = 4.43}, {top = 371.9, accel100 = 1.97, accel200 = 4.42}],
@@ -245,7 +250,7 @@ const MEASURED: Dictionary = {
 		aero = [{top = 342.8, accel100 = 2.17, accel200 = 5.03}, {top = 349.7, accel100 = 2.17, accel200 = 5}, {top = 357, accel100 = 2.17, accel200 = 4.98}, {top = 365, accel100 = 2.17, accel200 = 4.97}, {top = 373.8, accel100 = 2.17, accel200 = 4.93}],
 		brakes = [{brake100 = 22.9, brake200 = 82.7}, {brake100 = 22.7, brake200 = 79.4}, {brake100 = 22.7, brake200 = 76.9}, {brake100 = 22.7, brake200 = 75.2}, {brake100 = 22.7, brake200 = 73.9}],
 		suspension = [{brake100 = 23.5}, {brake100 = 23.3}, {brake100 = 23.2}, {brake100 = 23}, {brake100 = 22.9}],
-		wing = [{top = 332.5, accel100 = 2.5, accel200 = 5.83, brake100 = 23.6, grip = 1.86, gripFast = 2.43}, {top = 329.1, accel100 = 2.5, accel200 = 5.83, brake100 = 23.5, grip = 1.9, gripFast = 2.53}, {top = 325.8, accel100 = 2.5, accel200 = 5.85, brake100 = 23.4, grip = 1.9, gripFast = 2.63}, {top = 322.6, accel100 = 2.5, accel200 = 5.87, brake100 = 23.4, grip = 1.94, gripFast = 2.74}, {top = 319.5, accel100 = 2.5, accel200 = 5.87, brake100 = 23.3, grip = 1.94, gripFast = 2.74}],
+		wing = [{top = 332.5, accel100 = 2.5, accel200 = 5.83, brake100 = 23.6, grip = 1.86, gripFast = 2.38}, {top = 329.1, accel100 = 2.5, accel200 = 5.83, brake100 = 23.5, grip = 1.86, gripFast = 2.43}, {top = 325.8, accel100 = 2.5, accel200 = 5.85, brake100 = 23.4, grip = 1.9, gripFast = 2.53}, {top = 322.6, accel100 = 2.5, accel200 = 5.87, brake100 = 23.3, grip = 1.9, gripFast = 2.58}, {top = 319.5, accel100 = 2.5, accel200 = 5.87, brake100 = 23.2, grip = 1.9, gripFast = 2.63}],
 	},
 }
 
@@ -423,7 +428,9 @@ static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
 		# (v6.38) the wing: downforce worth step x level of the stock car's weight at WING_KMH, and a
 		# little drag (with the aero tune: on top of it, above)
 		var v: float = WING_KMH / 3.6
-		out.downforce = s.downforce + gain(9, wg) * s.mass * CarSpec.G / (v * v)
+		var add: float = gain(9, wg) * s.mass * CarSpec.G / (v * v)
+		out.downforce = s.downforce + add
+		out.aeroFront = (s.downforce * s.aero_front + add * WING_FRONT) / (s.downforce + add)
 		if ae <= 0.0:
 			out.drag = s.drag * (1.0 + WING_DRAG * wg)
 	return out

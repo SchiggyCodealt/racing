@@ -1722,8 +1722,11 @@ items; AI cars and medal times stay stock):
 - **The part.** `sim/upgrades.gd` `PARTS[9]`: id `wing`, short "D" (W is the weight), `step 0.05`, `cost 0.9`,
   `max 5`, `extra true`, the brakes' `share` list (the Racer's levels $1,600 to $13,500), no `needs`, no `trial`;
   aliases wings, downforce, spoiler, df. `changes()`: `downforce` + gain × mass × g / v² with v = 180 km/h
-  (`WING_KMH`), so a level presses down 5 % of the weight at 180 km/h, and `drag` × (1 + 0.02 × level) (`WING_DRAG`),
-  on top of the aero tune's drag cut. No native change: downforce and drag are existing CarSpec fields.
+  (`WING_KMH`), so a level presses down 5 % of the weight at 180 km/h, 30 % of that on the front axle (`WING_FRONT`:
+  `aeroFront` becomes the weighted mix with the car's own split), and `drag` × (1 + 0.02 × level) (`WING_DRAG`), on top
+  of the aero tune's drag cut. No native change: downforce, aeroFront and drag are existing CarSpec fields. With the
+  car's own split the keyboard lane-keeping test failed: the fully upgraded Thunder weaved 5.7° against 4.2° stock at
+  speed; with the rear bias 4.4°, and every car's sideslip is lower than without the wing.
 - **Per-track setup.** The first car setup in the save file: `career.setups {car: {track: {wing}}}`, kept only where
   it isn't the default (`SaveData.SETUP_KEYS {wing: [0, 5, 5]}`: lowest, highest, default; 5 = all the car has, so a
   level bought later is used). `SaveData.get_setup(car, track)` / `set_setup(car, track, key, value)` (owned cars,
@@ -1736,11 +1739,14 @@ items; AI cars and medal times stay stock):
   a cup's first track or its next one; "" hides the row): the Wing row (← Less, "3 of 3" / "Off" / "None", More →, and
   a note with grip at speed and top speed with and without it, from `Upgrades.stats`), `step_wing`, F / Shift+F, the
   pad reaches the two buttons, `setup_picked` → `UiData.set_setup`. Ten chips: one row wide, two rows of five at
-  1280 x 720, rows of four when narrow; keys 1-9 and 0 (`PART_KEYS`, `_part_keys_text`).
+  1280 x 720, rows of four or three when narrower (`_on_layout`); keys 1-9 and 0 (`PART_KEYS`, `_part_keys_text`).
 - **Measured.** `MEASURED.<car>.wing` = five `{top, accel100, accel200, brake100, grip, gripFast}` (`tools/upgrades.gd`
-  measures `D1`-`D5`); `stats()` applies them as shares. Level 5: gripFast +6 to +18 %, top speed -1.5 to -5 %, 0-200
+  measures `D1`-`D5`); `stats()` applies them as shares. Level 5: gripFast +5 to +12 %, top speed -1.5 to -5 %, 0-200
   km/h up to 11 % slower (the Dune). The Apex's gripFast doesn't rise: its 120 m skidpad run is steering-limited at
-  2.42 g, so only the drag shows (-2 %); the tests allow it. LAPS_TODO
+  2.42 g and the rear-biased wing adds understeer (-4 %); the tests allow it. Laps (`--quick --sets=D5`, five tracks):
+  Rookie Oval -1.5 to -4.3 % (the Apex +0.7 %), Technical Trial -1.3 to -2.7 %, Silverstone -0.9 to -2.2 %, Monaco -1
+  to -1.6 %, Banked Speedway +0.3 to +3.1 % (the Thunder -1.5 %): the per-track setting matters. (With the car's own
+  split the gains were about half as big again, but the Thunder weaved.)
 - **Elsewhere.** `Opponents.UPGRADES` 10 ints (no wing). The terminal: `upgrade <car> wing <0-5>`, `buy <car> wing`.
   Tests: `_wing()` in tests/test_sim.gd (measured gains, setups in the save file, buying), `start_play` with a setup in
   tests/test_game.gd, the Wing row in tests/test_ui.gd, the parts' checks, the UI's ten chips, the terminal, e2e (76

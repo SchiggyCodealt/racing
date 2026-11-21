@@ -3020,7 +3020,7 @@ func _upgrades() -> void:
 	var bad: PackedStringArray = []
 	var want_keys: Dictionary = {engine = ["torque"], tyres = ["mu", "dirtGrip", "snowGrip"], nitro = ["nitroTime", "nitroRefill"], loose = ["dirtGrip", "snowGrip"],
 		weight = ["mass", "inertia"], supercharger = ["torque"], aero = ["drag", "gears"], brakes = ["brakeForce"],
-		suspension = ["brakeDive", "hardLanding", "landingLoss"], wing = ["drag", "downforce"]}
+		suspension = ["brakeDive", "hardLanding", "landingLoss"], wing = ["drag", "downforce", "aeroFront"]}
 	for id: String in ids:
 		var st: CarSpec = Cars.spec(id)
 		var sd: Dictionary = st.to_dict()
@@ -3067,10 +3067,12 @@ func _upgrades() -> void:
 						right = right and up.brake_dive == st.brake_dive * (1.0 - g) and st.brake_dive == 1.0 and up.cg_height == st.cg_height and \
 							up.hard_landing == st.hard_landing * (1.0 + Upgrades.SUSP_LANDING * k) and up.landing_loss == st.landing_loss * (1.0 - Upgrades.SUSP_LANDING * k) and \
 							up.mu == st.mu and up.air_steer == st.air_steer
-					"wing": # (v6.38) downforce worth 5 % of the stock weight at 180 km/h a level, 2 % more drag a level
+					"wing": # (v6.38) downforce worth 5 % of the stock weight at 180 km/h a level, 70 % of it on the rear axle, 2 % more drag a level
 						var v: float = Upgrades.WING_KMH / 3.6
-						right = right and up.downforce == st.downforce + g * st.mass * CarSpec.G / (v * v) and up.drag == st.drag * (1.0 + Upgrades.WING_DRAG * k) and \
-							up.aero_front == st.aero_front and up.mu == st.mu and up.mass == st.mass
+						var add: float = g * st.mass * CarSpec.G / (v * v)
+						right = right and is_equal_approx(up.downforce, st.downforce + add) and up.drag == st.drag * (1.0 + Upgrades.WING_DRAG * k) and \
+							is_equal_approx(up.aero_front, (st.downforce * st.aero_front + add * Upgrades.WING_FRONT) / (st.downforce + add)) and up.aero_front < st.aero_front + 0.001 and \
+							up.mu == st.mu and up.mass == st.mass
 				right = right and up.max_speed == st.max_speed and (up.mass == st.mass or pid == "weight") and (up.brake_force == st.brake_force or pid == "brakes")
 				if not right:
 					bad.append("%s %s %d (changed %s)" % [id, pid, k, ",".join(PackedStringArray(changed))])
@@ -3788,7 +3790,7 @@ func _wing() -> void:
 	var file_ok: bool = fs is Dictionary and (fs as Dictionary).keys() == ["racer"] and (fs.racer as Dictionary).keys() == ["monaco"] and JsMath.same(fs.racer.monaco.get("wing"), 1) and \
 		(fs.racer.monaco as Dictionary).size() == 1
 	# a hand-edited file: junk values, a car not owned, an empty entry
-	disk.career.setups = {racer = {monaco = {wing = 99}, "rookie-oval": {wing = "x"}, silverstone = {}}, vortex = {monaco = {wing = 1}}, junk = 3}
+	disk.career.setups = {"racer": {"monaco": {"wing": 99}, "rookie-oval": {"wing": "x"}, "silverstone": {}}, "vortex": {"monaco": {"wing": 1}}, "junk": 3}
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify(disk))
 	f.close()

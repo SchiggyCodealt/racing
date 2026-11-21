@@ -12,10 +12,11 @@ good.
 
 New in 6.38.0: a downforce wing. Every car gets a tenth upgrade part, open
 from the start (key 0 on the car page): five levels, each pressing the car
-down with 5 % of its weight at 180 km/h, for up to 18 % more grip in fast
-corners, at the cost of 2-5 % top speed. The car page has a Wing row for the
-race's track (F more, Shift+F less): turn the wing down or off there for a
-fast track; it is free and kept for each car and track.
+down with 5 % of its weight at 180 km/h, mostly on the rear wheels, for up
+to 12 % more grip in fast corners, at the cost of 1.5-5 % top speed. The
+car page has a Wing row for the race's track (F more, Shift+F less): turn
+the wing down or off there for a fast track; it is free and kept for each
+car and track.
 
 Earlier versions, newest first:
 6.37.0  suspension: a ninth upgrade part, open from the start: five levels

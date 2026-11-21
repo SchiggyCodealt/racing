@@ -222,16 +222,16 @@ func _menu_cars(t) -> void:
 			for r in rects:
 				all_shown = all_shown and r.end.y <= sz.y + 0.5
 			all_shown = all_shown and menu.car_page.start_btn.get_global_rect().end.y <= sz.y + 0.5 and menu.car_page.parts_row.is_visible_in_tree()
-		# (v6.34-6.38: ten parts) the chips: one row where each keeps the room for its name, pips and price, else two rows of five, else three rows (four, four, two)
+		# (v6.34-6.38: ten parts) the chips: one row where each keeps the room for its name, pips and price, else two rows of five, else rows of four or three
 		var chips: Array = menu.car_page.part_chips
 		var pg: GridContainer = menu.car_page.parts_grid
-		var chips_ok := chips.size() == 10 and pg.columns in [10, 5, 4]
+		var chips_ok := chips.size() == 10 and pg.columns in [10, 5, 4, 3]
 		var pr := menu.car_page.panel.get_global_rect()
 		for c: Control in chips:
 			var r := c.get_global_rect()
 			chips_ok = chips_ok and r.size.x >= CarScreen.CHIP_MIN_W - 0.5 and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5
 		t.check(menu.car_page.is_open and cards.size() == 9 and inside and not overlap and cols_ok and all_shown and chips_ok,
-			"%dx%d: %d cards, %d a row, inside the window and apart%s; the seven part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
+			"%dx%d: %d cards, %d a row, inside the window and apart%s; the ten part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
 		# (v6.33) Race the field on a circuit: the race length row over the money and START, inside the panel
 		var hidden_before := not menu.car_page.laps_row.is_visible_in_tree()

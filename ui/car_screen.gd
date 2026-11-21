@@ -570,9 +570,11 @@ func _on_layout(w: float) -> void:
 	# the part chips: one row while a chip keeps room for its name, pips and price
 	var np := part_chips.size()
 	var chips_w := inner - _parts_cap.get_combined_minimum_size().x - UiStyle.S1
-	# (v6.34-6.35: seven parts) one row while they fit, else two rows (four and three), else three
-	var cols_p := ceili(np / 3.0)
-	for c: int in [np, ceili(np / 2.0)]:
+	# (v6.34-6.38: ten parts) one row while they fit, else two rows of five, else rows of four, three
+	# or two, the widest that keeps every chip CHIP_MIN_W wide
+	var tries: Array[int] = [np, ceili(np / 2.0), ceili(np / 3.0), ceili(np / 4.0), ceili(np / 5.0)]
+	var cols_p: int = tries[-1]
+	for c: int in tries:
 		if (chips_w - (c - 1) * UiStyle.S1) / c >= CHIP_MIN_W:
 			cols_p = c
 			break

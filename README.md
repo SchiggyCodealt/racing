@@ -812,7 +812,7 @@ $105k). Click a chip (or press its number, 1 to 9 and 0 for the tenth, or highli
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
 its top speed and weight turn green when the top speed is higher or the car lighter (at 1280 x 720 and in narrower
-windows the ten chips stand in two rows of five; in a window under about 900 px wide, three rows of four, four and two). The `upgrade` and `buy <car> <part>` commands of
+windows the ten chips stand in two rows of five; in narrower windows, rows of four or three). The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
 Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
@@ -956,7 +956,7 @@ other gears, the downforce, the grip and the brakes stay as they were. It is fit
 Every level adds 4-9 km/h at the top, and the time to 200 km/h drops 2-15 % too (less drag to push through; most on
 the slower, draggier cars like the Dune and the Kestrel). The
 measurements were made on weight level 5 (`tools/upgrades.gd`); the last column measures each car with every part at
-its top. The nitro can't push the top speed further with the tune fitted: the longer top gear runs into the rev limiter
+its top (as of version 6.35.0: [the wing](#the-wing) at 5 takes 1.5-5 % off again, so turn it down on a fast track). The nitro can't push the top speed further with the tune fitted: the longer top gear runs into the rev limiter
 at the new top speed. `buy <car> aero` points at the car page; `upgrade <car> aero <0-5>` sets it for free on weight 5
 or above (a weight set below 5 takes it off).
 
@@ -1032,26 +1032,28 @@ suspension <0-5>` sets it for free. The AI opponents keep the stock suspension.
 Version 6.38.0 adds a tenth part, the **wing**: five levels, open from the start and bought like the brakes (no trial;
 key 0 on the car page; 0.15, 0.3, 0.55, 0.85, 1.25 × the car's price × 0.9). Each level adds downforce worth **5 % of
 the car's weight at 180 km/h** (level 5: 25 %; downforce grows with the square of the speed, so at 90 km/h it is a
-quarter of that) and **2 % more drag**. It is the opposite trade to [the aero tune](#the-aero-tune): grip in fast
+quarter of that), 70 % of it on the rear wheels, and **2 % more drag**. With the wing pressing mostly on the back the car
+stays as steady at speed as before (with the car's own front/rear split the fully upgraded Thunder weaved under the
+keyboard at 240 km/h). It is the opposite trade to [the aero tune](#the-aero-tune): grip in fast
 corners for a little top speed.
 
 | Car | Wing levels 1 / 2 / 3 / 4 / 5 | All five | Grip in a fast corner (120 m circle): stock → wing 5 | Top speed: stock → wing 5 |
 | --- | --- | --- | --- | --- |
-| Racer | $1,600 / $3,250 / $5,950 / $9,200 / $13,500 | $33,500 | 1.58 → 1.76 g (+11 %) | 278 → 266 km/h (-4 %) |
+| Racer | $1,600 / $3,250 / $5,950 / $9,200 / $13,500 | $33,500 | 1.58 → 1.70 g (+8 %) | 278 → 266 km/h (-4 %) |
 | Kestrel | $1,350 / $2,700 / $4,950 / $7,650 / $11,250 | $27,900 | 1.59 → 1.68 g (+6 %) | 230 → 224 km/h (-3 %) |
-| Thunder | $2,950 / $5,950 / $10,900 / $16,850 / $24,750 | $61,400 | 1.56 → 1.77 g (+13 %) | 313 → 299 km/h (-4 %) |
-| Drifter | $1,900 / $3,800 / $6,950 / $10,700 / $15,750 | $39,100 | 1.52 → 1.70 g (+12 %) | 264 → 255 km/h (-4 %) |
+| Thunder | $2,950 / $5,950 / $10,900 / $16,850 / $24,750 | $61,400 | 1.56 → 1.64 g (+5 %) | 313 → 299 km/h (-4 %) |
+| Drifter | $1,900 / $3,800 / $6,950 / $10,700 / $15,750 | $39,100 | 1.52 → 1.64 g (+8 %) | 264 → 255 km/h (-4 %) |
 | Dune | $2,450 / $4,850 / $8,900 / $13,750 / $20,250 | $50,200 | 1.43 → 1.55 g (+8 %) | 222 → 215 km/h (-3 %) |
-| Vortex | $4,050 / $8,100 / $14,850 / $22,950 / $33,750 | $83,700 | 1.75 → 2.07 g (+18 %) | 321 → 317 km/h (-1.5 %) |
-| Apex | $5,400 / $10,800 / $19,800 / $30,600 / $45,000 | $111,600 | 2.42 → 2.37 g (see below) | 284 → 272 km/h (-4 %) |
-| Quadra | $3,500 / $7,000 / $12,850 / $19,900 / $29,250 | $72,500 | 1.52 → 1.69 g (+11 %) | 245 → 236 km/h (-4 %) |
-| Sarthe | $6,750 / $13,500 / $24,750 / $38,250 / $56,250 | $139,500 | 2.34 → 2.74 g (+17 %) | 336 → 320 km/h (-5 %) |
+| Vortex | $4,050 / $8,100 / $14,850 / $22,950 / $33,750 | $83,700 | 1.75 → 1.92 g (+10 %) | 321 → 317 km/h (-1.5 %) |
+| Apex | $5,400 / $10,800 / $19,800 / $30,600 / $45,000 | $111,600 | 2.42 → 2.33 g (see below) | 284 → 272 km/h (-4 %) |
+| Quadra | $3,500 / $7,000 / $12,850 / $19,900 / $29,250 | $72,500 | 1.52 → 1.63 g (+7 %) | 245 → 236 km/h (-4 %) |
+| Sarthe | $6,750 / $13,500 / $24,750 / $38,250 / $56,250 | $139,500 | 2.34 → 2.63 g (+12 %) | 336 → 320 km/h (-5 %) |
 
-Slow corners change less (the 30 m circle: 4-6 % more grip at level 5) and the stops get a little shorter (up to 3 %).
+Slow corners change less (the 30 m circle: 2-4 % more grip at level 5) and the stops get a little shorter (up to 3 %).
 The cars with little power lose some acceleration at high speed: the Dune takes 14.1 s to 200 km/h instead of 12.7,
-the Kestrel 12.1 instead of 11.3; the others 1-4 % longer. The **Apex**'s number doesn't move: on the 120 m circle
-its steering, not its grip, is the limit (2.42 g with any wing), so that test can't show what the wing adds; its grip
-on the slow circle rises 6 %.
+the Kestrel 12.1 instead of 11.3; the others 1-4 % longer. The **Apex**'s number doesn't rise: on the 120 m circle
+its steering, not its grip, is the limit (2.42 g stock), and the wing's weight on the rear wheels makes it run a
+little wider there; its grip on the slow circle rises 4 %, and it is quicker with the wing on twisty tracks.
 
 **Set it for each track.** When you choose a race, the car page shows a **Wing** row for that race's track: ← Less,
 how much of its wing the car uses there ("3 of 3", "2 of 3", "Off"; "None" until a level is bought) and More →, with
@@ -1059,12 +1061,15 @@ what that does to the car's grip in fast corners and its top speed. F gives more
 the row, then A). It is free and kept for each car and track (in the save file); where you haven't turned it down a car
 uses all its wing, levels bought later included. Every race uses the setting (Drive, Race the AI, Race the field, the
 cups, and My AI's runs); the training screen uses the whole wing. Records and ghosts remember the levels the run used.
-LAPS_TODO `buy <car> wing` buys the next level; `upgrade <car> wing <0-5>` sets it for free. The AI opponents
+On a lap (the medal autopilot, every car with the wing at 5 against none): 1.5-4.5 % quicker on Rookie Oval (the
+Apex 0.7 % slower: its steering is its limit there too), 1-3 % on Technical Trial, 1-2 % on Silverstone and 1-1.5 % in
+Monaco. On Banked Speedway, flat out round the banking, most cars are up to 3 % slower with it (the Thunder, which
+needs the grip there, 1.5 % quicker): turn it down or off there. `buy <car> wing` buys the next level; `upgrade <car> wing <0-5>` sets it for free. The AI opponents
 have no wing, and the medal times stay stock.
 
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 338 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension and the Wing at MAX with five, in two rows of five](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension and the Wing at MAX with five, in two rows of five, and under them the Wing row for Rookie Oval: 5 of 5, grip at speed 1.86 → 2.08 g, top speed 338 → 324 km/h](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 
