@@ -112,6 +112,9 @@ var car_def: Dictionary = {}
 ## the AI ghost: the player's levels for the player's car and own network, Opponents.UPGRADES for an
 ## AI opponent (v6.25; stock before)
 var levels: PackedInt32Array = Upgrades.stock()
+## (v6.39) the tyre compounds (sim/tyres.gd) of the main car and of the AI ghost: they wear as they go
+var compound: int = Tyres.DEFAULT
+var ai_compound: int = Tyres.DEFAULT
 var car_spec: CarSpec = null
 var ai_levels: PackedInt32Array = Upgrades.stock()
 var ai_spec: CarSpec = null
@@ -205,9 +208,12 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	# was the stock car), the player's own network the player's car (its upgrades)
 	# ((v6.38) your car, and your own network's, with your setup for this track: the wing turned down)
 	ai_levels = Upgrades.race_levels(String(ai_def.id), track.id) if level == "" else Opponents.UPGRADES
-	ai_spec = Upgrades.spec(String(ai_def.id), ai_levels)
+	# ((v6.39) and on the tyres you chose for this track; an opponent level on Medium, the stock tyre)
+	ai_compound = int(SaveData.get_setup(String(ai_def.id), track.id).compound) if level == "" else Tyres.DEFAULT
+	ai_spec = Tyres.fit(Upgrades.spec(String(ai_def.id), ai_levels), ai_compound)
 	levels = Upgrades.race_levels(String(car_def.id), track.id) if driver == "human" else ai_levels
-	car_spec = Upgrades.spec(String(car_def.id), levels)
+	compound = int(SaveData.get_setup(String(car_def.id), track.id).compound) if driver == "human" else ai_compound
+	car_spec = Tyres.fit(Upgrades.spec(String(car_def.id), levels), compound)
 	var sp: CarSpec = car_spec
 	_rev_spec = {"idle_rpm": sp.idle_rpm, "redline": sp.redline, "upshift_rpm": sp.upshift_rpm}
 	cones = Cones.new(track) if track.open_edges else null
@@ -300,6 +306,7 @@ func _exit_view() -> void:
 func restart() -> void:
 	var tops := _save_sectors() # (v6.26: the sector times of the run left behind count; v6.32: its laps too)
 	car = Car.new(track, track.start_idx, car_spec) # a full nitro tank (the player's upgrades, v6.11)
+	car.fit_tyres(compound) # (v6.39) a new set of tyres
 	if not nitro_on:
 		car.nitro = 0.0 # (v6.15: no nitro in races against the AI)
 	race = RaceState.new(track, race_laps)
@@ -334,6 +341,7 @@ func restart() -> void:
 		# (v6.27) its own cones, so its race is the one OpponentRace measures (the world shows its knocks)
 		ghost.cones = Cones.new(track) if track.open_edges else null
 		(ghost.car as Car).nitro = 0.0 # (v6.15: the AI races without nitro, as its levels were measured; v6.31: you have yours)
+		(ghost.car as Car).fit_tyres(ai_compound)
 		(ghost.ai as Object).set("refill", false)
 	watch = _new_watch(car, 0.0)
 	ai_note = 0.0
@@ -690,6 +698,14 @@ func _score_state(keep: bool = true) -> Dictionary:
 	}
 
 
+## (v6.39) The HUD's tyre note: {name, grip (the share of new grip left)} once the tyres have started to
+## wear (in long races), else null (hidden).
+func _tyre_state() -> Variant:
+	if car == null or car.tyre_compound < 0 or car.tyre_grip >= 1.0:
+		return null
+	return {"name": String(Tyres.def(car.tyre_compound).name), "grip": car.tyre_grip}
+
+
 ## (v6.33) Whether this run counts for the records, medals, ghost and unlocks (false: an endurance race,
 ## whose laps aren't the track's own).
 func counts_for_records() -> bool:
@@ -1001,6 +1017,7 @@ func _render_hud(dt: float) -> void:
 		"ghost_text": gt,
 		"pad": app.input.pad_active, # key hints name the gamepad buttons
 		"minimap": _minimap_state(), # (v6.26)
+		"tyres": _tyre_state(), # (v6.39)
 	}
 	_hud_extra(s)
 	hud.update(s, dt)

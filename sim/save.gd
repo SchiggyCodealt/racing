@@ -44,8 +44,10 @@ extends RefCounted
 ##                                                    "order" (not the next level), "max", "money", "unknown"
 ##   SaveData.set_upgrades(car_id, levels)            set the levels without paying (the terminal); false
 ##                                                    for a car not owned
-##   SaveData.get_setup(car_id, track_id) -> {wing}   (v6.38) how much of its wing the car uses there, 0..5
-##                                                    (5: all it has, the default); Upgrades.with_setup applies it
+##   SaveData.get_setup(car_id, track_id) -> {wing, compound}   (v6.38) how much of its wing the car uses
+##                                                    there, 0..5 (5: all it has, the default); Upgrades.with_setup
+##                                                    applies it; (v6.39) its tyres, 0 soft, 1 medium (the
+##                                                    default), 2 hard, 3 rally (Tyres.fit)
 ##   SaveData.set_setup(car_id, track_id, key, value) set it (free; false for a car not owned)
 ## The terminal (v6.7.0, game/terminal.gd) also uses:
 ##   SaveData.tracks_unlocked() -> bool                every track open whatever the medals (the terminal's
@@ -95,9 +97,10 @@ extends RefCounted
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
 ## tracks_open, upgrades: {car: [engine, tyres, nitro, loose, weight]}, cups?: {paid: [cup reward ids], trophies: {cup:
-## {level: best place}}, run?: the cup in progress}, setups? (v6.38): {car: {track: {wing}}}}}.
-## (setups, v6.38.0: how much of its wing a car uses on a track, only where it isn't all of it; absent =
-## every car's whole wing everywhere; version 5 stays. A reset career drops them.)
+## {level: best place}}, run?: the cup in progress}, setups? (v6.38): {car: {track: {wing?, compound?}}}}}.
+## (setups, v6.38.0: how much of its wing a car uses on a track, only where it isn't all of it; v6.39.0:
+## its tyre compound, only where it isn't Medium; absent = every car's whole wing and Medium tyres
+## everywhere; version 5 stays. A reset career drops them.)
 ## (cups, v6.14.0: absent in older files = no trophies, nothing paid, no cup in progress; version 5 stays.
 ## A reset career keeps the trophies (like the records) but not the cup payouts or the cup in progress.)
 ## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
@@ -1111,11 +1114,11 @@ static func set_upgrades(car_id: String, levels: PackedInt32Array) -> bool:
 	return ok
 
 
-# ---- car setups (v6.38.0: the wing per track; Upgrades.with_setup applies them) --------------
+# ---- car setups (v6.38.0: the wing per track, Upgrades.with_setup; v6.39.0: the tyres, Tyres.fit) ----
 
 ## The keys a setup holds, each [lowest, highest, default] (v6.38: the wing, 0 off .. 5; the default, 5,
-## uses whatever wing the car has).
-const SETUP_KEYS: Dictionary = {wing = [0, 5, 5]}
+## uses whatever wing the car has; v6.39: the tyre compound, Tyres.DEFS' index, Medium the default).
+const SETUP_KEYS: Dictionary = {wing = [0, 5, 5], compound = [0, 3, 1]}
 
 
 ## Every key of SETUP_KEYS from `d` (a file's entry): numbers clamped to their range, anything else the default.
@@ -1137,7 +1140,7 @@ static func _setup_set(d: Dictionary) -> Dictionary:
 	return out
 
 
-## Car `car_id`'s setup on track `track_id`: {wing} (the defaults for a car not owned or never set up
+## Car `car_id`'s setup on track `track_id`: {wing, compound} (the defaults for a car not owned or never set up
 ## there). Upgrades.with_setup(levels, setup) gives the levels it races with.
 static func get_setup(car_id: String, track_id: String) -> Dictionary:
 	_mutex.lock()
@@ -1150,7 +1153,7 @@ static func get_setup(car_id: String, track_id: String) -> Dictionary:
 	return out
 
 
-## Set key `key` (SETUP_KEYS: "wing") of car `car_id`'s setup on track `track_id` to `value` (clamped
+## Set key `key` (SETUP_KEYS: "wing", "compound") of car `car_id`'s setup on track `track_id` to `value` (clamped
 ## to its range; the default drops it). False for a car not owned or unknown, an unknown key or no
 ## track. Free.
 static func set_setup(car_id: String, track_id: String, key: String, value: int) -> bool:

@@ -41,6 +41,7 @@ extends RefCounted
 ##   car.step(track, ctrl, 1.0 / 60.0)              #   (- = brake/reverse), handbrake, nitro 0..1
 ##   car.place(track, idx, car.snapshot())           # respawn (keeps the nitro tank)
 ##   car.add_nitro(0.25)
+##   car.fit_tyres(Tyres.DEFAULT)                    # (v6.39) wear the tyres by distance (play mode only)
 ##
 ## Fields: the JS car's fields in snake_case (x, y, z, vx, vy, vz, yaw, speed,
 ## forward_speed, side_speed, grounded, air_time, drifting, idx, lat, bank,
@@ -162,6 +163,12 @@ var wall_nz: float = 0.0
 var nitro: float = 1.0
 var boost: float = 0.0
 var boosting: bool = false
+## (v6.39) tyre wear (sim/tyres.gd): the compound that wears (-1: none, the default: training, the tools
+## and FleetSim never wear), the km driven on it and the share of its new grip left (both axles' grip
+## is multiplied by it; at 1 nothing is multiplied, so the physics stay bit for bit)
+var tyre_compound: int = -1
+var tyre_km: float = 0.0
+var tyre_grip: float = 1.0
 # internal state
 var _sc: float = 0.0
 var _ax: float = 0.0
@@ -231,6 +238,14 @@ func _init(track: BuiltTrack = null, sample_idx: int = -1, car_spec: CarSpec = n
 	rpm = spec.idle_rpm
 	if track != null:
 		place(track, track.start_idx if sample_idx == -1 else sample_idx)
+
+
+## (v6.39) A new set of tyres of compound `compound` (Tyres: 0 soft .. 3 rally) that wears with the
+## distance driven from now on (the spec carries the compound's grip: Tyres.fit). -1: no wear.
+func fit_tyres(compound: int) -> void:
+	tyre_compound = compound
+	tyre_km = 0.0
+	tyre_grip = 1.0
 
 
 ## Add `amount` (a share of a full tank, may be negative) to the nitro tank, clamped to 0..1.
@@ -416,6 +431,9 @@ func step(track: BuiltTrack, ctrl: Controls, dt: float) -> void:
 	wheel_rot = fmod(wheel_rot + (forward_speed / P.wheel_radius) * dt, 2.0 * PI)
 	if wheel_rot < 0.0:
 		wheel_rot += 2.0 * PI
+	if tyre_compound >= 0: # (v6.39) the tyres wear with the distance driven
+		tyre_km += speed * dt * 0.001
+		tyre_grip = Tyres.wear(tyre_compound, tyre_km)
 
 	# derived "drifting" flag and slip amount (for effects)
 	var a_r: float = absf(_slip_r)
@@ -795,6 +813,9 @@ func _planar_step(P: CarSpec, h: float) -> void:
 	var load_r0: float = (m * G * a) / L
 	var cap_f: float = _mu_at(P, load_f, load_f0) * load_f
 	var cap_r: float = _mu_at(P, load_r, load_r0) * load_r
+	if tyre_grip != 1.0: # (v6.39) worn tyres
+		cap_f *= tyre_grip
+		cap_r *= tyre_grip
 	var loose: bool = _env_loose # dirt / snow under an axle (v6.3)
 	if loose:
 		cap_f *= _env_gf

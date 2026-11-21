@@ -24,6 +24,8 @@ extends Control
 ##   countdown(text), split(label, time, delta), score_pops(events)   the same as events
 ##   show_panel(state) / hide_panel()   the finish panel (FinishPanel.update's state)
 ##   show_watch(on) / watch_net(net)   the AI's network, live (Watch the AI)
+## v6.39.0, tyre wear: state.tyres {name, grip (0..1 of the new grip)} shows "Soft tyres 93 %" above the
+## nitro gauge (in the accent yellow under 95 %); absent or null: hidden (the play mode sends it once they wear).
 ## v6.13.0, Race the field: state.field {pos, of, rows: [{code, name, color, gap (s against you: - ahead,
 ## + behind; null for you), me, finished, dnf}], ahead / behind: {code, gap} or {}} (FieldRace.board)
 ## shows a block at the top right: your place (P3/6) and the gaps to the cars ahead and behind; and
@@ -108,6 +110,9 @@ var _tower_hidden := false     # under the finish panel
 var _nitro: Control
 var _nitro_off: Label
 var _nitro_off_on := false
+## (v6.39) the tyres' wear above the nitro gauge, once they have started to wear (state.tyres)
+var _tyres_l: Label
+var _tyres_on := false
 var _speed_row: Control
 var _speed: Label
 var _rev: Control
@@ -276,6 +281,11 @@ func _build() -> void:
 	UiStyle.add_shadow(_nitro_off, Color(0, 0, 0, 0.45), 1, 4)
 	_nitro_off.visible = false
 	add_child(_nitro_off)
+	_tyres_l = UiStyle.label("", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.08, true, false, false, UiStyle.FS_S)
+	_tyres_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	UiStyle.add_shadow(_tyres_l, Color(0, 0, 0, 0.45), 1, 4)
+	_tyres_l.visible = false
+	add_child(_tyres_l)
 	_speed = UiStyle.label("0", "display_bold", UiStyle.FS_SPEED, UiStyle.TEXT, 0.0, false, false, false, UiStyle.FS_SPEED)
 	UiStyle.add_shadow(_speed, Color(0, 0, 0, 0.45), 2, 8)
 	var unit := UiStyle.caption("km/h", UiStyle.TEXT_2, UiStyle.FS_S)
@@ -464,6 +474,13 @@ func update(s: Dictionary, dt: float) -> void:
 		_nitro.set_level(float(s.nitro), bool(s.get("boosting", false)))
 	_nitro_off_on = bool(s.get("nitro_off", false))
 	_nitro_off.visible = _nitro_off_on and not panel_open
+	var ty: Variant = s.get("tyres")
+	_tyres_on = ty is Dictionary
+	if _tyres_on:
+		var pct := floori(float(ty.grip) * 100.0)
+		_tyres_l.text = "%s tyres %d %%" % [ty.name, pct]
+		_tyres_l.add_theme_color_override("font_color", UiStyle.TEXT_2 if pct >= 95 else UiStyle.ACCENT)
+	_tyres_l.visible = _tyres_on and not panel_open
 	_update_score(s.get("score"), dt)
 	if bool(s.get("pad", false)) != _pad and not _keys_data.is_empty():
 		set_keys(_keys_data, bool(s.get("pad", false)))
@@ -720,6 +737,7 @@ func _apply_panel_visibility() -> void:
 		_rev.visible = false
 		_nitro.visible = false
 	_nitro_off.visible = _nitro_off_on and not panel_open
+	_tyres_l.visible = _tyres_on and not panel_open
 	# the parts the panel would cover go (as the web does in narrow windows, and here also when a
 	# short window's panel reaches the score column or the best-time column): the panel shows them all
 	var fr := Rect2(finish.position, finish.size)
@@ -796,6 +814,7 @@ func _layout() -> void:
 	var nw := 240.0 if not narrow else 170.0
 	_pin(_nitro, 1, 1, x, 125 if not narrow else 89, Vector2(nw, 16))
 	_pin(_nitro_off, 1, 1, x, 125 if not narrow else 89, Vector2(nw, 16))
+	_pin(_tyres_l, 1, 1, x, 147 if not narrow else 109, Vector2(nw, 16))
 	_pin(_speed_row, 1, 1, x, 54 if not narrow else 44)
 	_pin(_rev, 1, 1, x, UiStyle.S5 if not narrow else UiStyle.S3, Vector2(nw, 26))
 	_pin(_keys, 0, 1, x, UiStyle.S5 if not narrow else 64, Vector2(w * 0.45 if narrow else w - 2 * x - 260, 0))

@@ -155,6 +155,7 @@ func run(checker: Variant) -> bool:
 	_brakes()
 	_suspension()
 	_wing()
+	_tyres()
 	_field()
 	_endurance()
 	_cups()
@@ -3777,12 +3778,12 @@ func _wing() -> void:
 	clear.call()
 	SaveData.use_file(path)
 	SaveData.set_upgrades("racer", lv)
-	var def_ok: bool = SaveData.get_setup("racer", "monaco") == {wing = 5} and Upgrades.race_levels("racer", "monaco") == Upgrades.clean(lv)
+	var def_ok: bool = SaveData.get_setup("racer", "monaco") == {wing = 5, compound = 1} and Upgrades.race_levels("racer", "monaco") == Upgrades.clean(lv)
 	var set_ok: bool = SaveData.set_setup("racer", "monaco", "wing", 1) and SaveData.set_setup("racer", "silverstone", "wing", 0) and \
 		not SaveData.set_setup("vortex", "monaco", "wing", 1) and not SaveData.set_setup("racer", "monaco", "gear", 1) and not SaveData.set_setup("racer", "", "wing", 1)
 	SaveData.use_file(path) # (read back from the file)
-	var back_ok: bool = SaveData.get_setup("racer", "monaco") == {wing = 1} and SaveData.get_setup("racer", "silverstone") == {wing = 0} and \
-		SaveData.get_setup("racer", "rookie-oval") == {wing = 5} and SaveData.get_setup("vortex", "monaco") == {wing = 5} and \
+	var back_ok: bool = SaveData.get_setup("racer", "monaco") == {wing = 1, compound = 1} and SaveData.get_setup("racer", "silverstone") == {wing = 0, compound = 1} and \
+		SaveData.get_setup("racer", "rookie-oval") == {wing = 5, compound = 1} and SaveData.get_setup("vortex", "monaco") == {wing = 5, compound = 1} and \
 		Upgrades.race_levels("racer", "monaco")[9] == 1 and Upgrades.race_levels("racer", "silverstone")[9] == 0 and Upgrades.race_levels("racer", "monaco")[0] == 3
 	SaveData.set_setup("racer", "silverstone", "wing", 5) # (back to the default: dropped from the file)
 	var disk: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -3795,10 +3796,10 @@ func _wing() -> void:
 	f.store_string(JSON.stringify(disk))
 	f.close()
 	SaveData.use_file(path)
-	var repair_ok: bool = SaveData.get_setup("racer", "monaco") == {wing = 5} and SaveData.get_setup("racer", "rookie-oval") == {wing = 5} and \
-		SaveData.get_setup("vortex", "monaco") == {wing = 5}
+	var repair_ok: bool = SaveData.get_setup("racer", "monaco") == {wing = 5, compound = 1} and SaveData.get_setup("racer", "rookie-oval") == {wing = 5, compound = 1} and \
+		SaveData.get_setup("vortex", "monaco") == {wing = 5, compound = 1}
 	SaveData.reset_career()
-	var reset_ok: bool = SaveData.get_upgrades("racer") != Upgrades.clean(lv) and SaveData.get_setup("racer", "monaco") == {wing = 5}
+	var reset_ok: bool = SaveData.get_upgrades("racer") != Upgrades.clean(lv) and SaveData.get_setup("racer", "monaco") == {wing = 5, compound = 1}
 	SaveData.use_file(SaveData.DEFAULT_PATH)
 	clear.call()
 	t.check(ok and def_ok and set_ok and back_ok and file_ok and repair_ok and reset_ok,
@@ -3825,6 +3826,85 @@ func _wing() -> void:
 	clear.call()
 	t.check(ok, "buying it: open on a stock car, no trial; levels 1-5 (%s, %s in all), then the top; read back from the file; the AI races without one" % [
 		", ".join(Array(prices).map(func(x: int) -> String: return UiFormat.money(x))), UiFormat.money(sum)])
+
+
+## (v6.39) The tyre compounds: their grip on each surface (Medium is the stock car itself), the wear by
+## distance, the wear in the physics (only on a car fitted with tyres; none leaves the car bit for bit
+## as before), the compound per car and track in the save file.
+func _tyres() -> void:
+	t.section("the tyre compounds (v6.39.0, sim/tyres.gd, Car.fit_tyres; the compound per track: sim/save.gd setups)")
+	var ok := Tyres.count() == 4 and Tyres.DEFAULT == 1 and Tyres.index_of("soft") == 0 and Tyres.index_of("Rally") == 3 and Tyres.index_of("x") == -1 and \
+		String(Tyres.def(9).id) == "rally" and Tyres.text(0).begins_with("5 % more grip on asphalt")
+	for id: String in Cars.ids():
+		var st: CarSpec = Cars.spec(id)
+		ok = ok and Tyres.fit(st, 1) == st and Tyres.fit(st, -1) == st and Tyres.fit(st, 7) == st
+		for i: int in [0, 2, 3]:
+			var d: Dictionary = Tyres.def(i)
+			var s: CarSpec = Tyres.fit(st, i)
+			ok = ok and is_equal_approx(s.mu, st.mu * float(d.asphalt)) and is_equal_approx(s.mu * s.dirt_grip, st.mu * st.dirt_grip * float(d.loose)) and \
+				is_equal_approx(s.mu * s.snow_grip, st.mu * st.snow_grip * float(d.loose)) and s.torque_nm == st.torque_nm and s.mass == st.mass and \
+				s.downforce == st.downforce and s.brake_force == st.brake_force and s.surface_grip.size() == st.surface_grip.size()
+	t.check(ok, "four compounds: Soft +5 % grip on asphalt, Hard -4 % everywhere, Rally +10 % on dirt and snow and -8 % on asphalt, Medium the stock car itself; nothing else changes")
+	# wear: by distance, from `from` km on, never below `floor`; Soft worn down to Medium's grip by about 30 km
+	ok = Tyres.wear(0, 0.0) == 1.0 and Tyres.wear(0, 10.0) == 1.0 and is_equal_approx(Tyres.wear(0, 30.0), 0.95) and Tyres.wear(0, 500.0) == 0.88 and \
+		Tyres.wear(1, 60.0) == 1.0 and is_equal_approx(Tyres.wear(1, 90.0), 0.97) and Tyres.wear(1, 500.0) == 0.94 and Tyres.wear(2, 1000.0) == 1.0 and \
+		Tyres.wear(3, 500.0) == 0.94 and Tyres.wear(-1, 100.0) == 1.0 and 1.05 * Tyres.wear(0, 29.0) > 1.0 and 1.05 * Tyres.wear(0, 29.1) < 1.0 and \
+		1.05 * Tyres.wear(0, 500.0) < 0.96 and 0.94 < 0.96
+	t.check(ok, "the wear: Soft from 10 km, 0.25 % a km, to 88 % (Medium's grip at 29 km); Medium and Rally from 60 km, 0.1 % a km, to 94 %; Hard never")
+
+	# in the physics: tyres fitted but not yet worn change nothing; the km add up; worn tyres grip less
+	var road: BuiltTrack = straight_road("tyres", 41, 40.0)
+	var a := Car.new(road, 20, Cars.spec("racer"))
+	var b := Car.new(road, 20, Cars.spec("racer"))
+	b.fit_tyres(Tyres.DEFAULT)
+	var same := true
+	for k in 600:
+		var c := ctrl(0.3 * sin(k * 0.02), 1.0)
+		a.step(road, c, DT)
+		b.step(road, c, DT)
+		same = same and a.to_state() == b.to_state()
+	var km_ok: bool = a.tyre_compound == -1 and a.tyre_km == 0.0 and b.tyre_compound == 1 and b.tyre_km > 0.3 and b.tyre_grip == 1.0
+	# full lock at 100 km/h for a second: new tyres turn the car further than worn ones (Soft at its floor)
+	var turns: Array[float] = []
+	for worn: bool in [false, true]:
+		var c2 := Car.new(road, 20, Cars.spec("racer"))
+		c2.place(road, 20, {x = road.px[20], z = road.pz[20], yaw = 0.0, vx = 0.0, vz = 100.0 / 3.6, idx = 20, laps = 0})
+		c2.fit_tyres(0)
+		if worn:
+			c2.tyre_km = 400.0
+		for k in 60:
+			c2.step(road, ctrl(1.0, 0.0), DT)
+		turns.append(absf(c2.yaw))
+	var worn_ok: bool = turns[1] < turns[0] * 0.97
+	t.check(same and km_ok and worn_ok, "in the physics: a car on Medium under 60 km is bit for bit the car without tyre wear (600 steps), its km add up (%.2f km), and the Racer on worn-out Soft turns %.1f° in a second at full lock against %.1f° new" % [
+		b.tyre_km, rad_to_deg(turns[1]), rad_to_deg(turns[0])])
+
+	# the compound per track in the save file: Medium unless set; only what isn't Medium kept; cleaned
+	var path: String = "user://test_tyres_save.json"
+	var clear := func() -> void:
+		for f: String in [path, path + ".bad", path + ".tmp"]:
+			if FileAccess.file_exists(f):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	clear.call()
+	SaveData.use_file(path)
+	ok = SaveData.get_setup("racer", "monaco") == {wing = 5, compound = 1} and SaveData.set_setup("racer", "monaco", "compound", 0) and \
+		SaveData.set_setup("racer", "le-mans", "compound", 2) and SaveData.set_setup("racer", "le-mans", "wing", 2) and not SaveData.set_setup("vortex", "monaco", "compound", 0)
+	SaveData.use_file(path)
+	ok = ok and SaveData.get_setup("racer", "monaco") == {wing = 5, compound = 0} and SaveData.get_setup("racer", "le-mans") == {wing = 2, compound = 2} and \
+		SaveData.get_setup("racer", "silverstone") == {wing = 5, compound = 1}
+	SaveData.set_setup("racer", "le-mans", "compound", 1) # (back to Medium: only the wing stays)
+	var disk: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var fs: Dictionary = disk.career.setups
+	ok = ok and JsMath.same(fs.racer.monaco.get("compound"), 0) and (fs.racer.monaco as Dictionary).size() == 1 and (fs.racer["le-mans"] as Dictionary).keys() == ["wing"]
+	disk.career.setups = {"racer": {"monaco": {"compound": 99}, "silverstone": {"compound": "soft"}}}
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(disk))
+	f.close()
+	SaveData.use_file(path)
+	ok = ok and int(SaveData.get_setup("racer", "monaco").compound) == 3 and int(SaveData.get_setup("racer", "silverstone").compound) == 1
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	clear.call()
+	t.check(ok, "the compound per car and track: Medium unless set, for an owned car; only what isn't Medium kept in the file (beside the wing), read back; a hand-edited file cleaned")
 
 
 ## SaveData.reset_everything(): a backup of the save next to it (an older backup kept, renamed), then

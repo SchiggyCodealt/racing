@@ -133,6 +133,7 @@ func _init(t: BuiltTrack, lineup: Array, drivers: Array, player_car: Car, player
 		r.slot = k if k < ps else k + 1
 		r.driver = drivers[k]
 		r.car = Car.new(t, t.start_idx, Opponents.spec(String(e.car))) # (v6.25: the AI's upgraded car)
+		r.car.fit_tyres(Tyres.DEFAULT) # (v6.39: on Medium, which wears in an endurance race as yours do)
 		r.race = RaceState.new(t, player_race.laps) # (v6.33: as many laps as yours: an endurance race's)
 		racers.append(r)
 	var p := Racer.new()

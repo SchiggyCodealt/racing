@@ -602,8 +602,11 @@ func _app_field(t, app: GameApp) -> void:
 	var ahead := true
 	for k in 5:
 		ahead = ahead and fr.racers[k].car.prog > car.prog and fr.racers[k].car != car
-	t.check(fr.racers[fr.player_index].car == car and absf(car.prog - float(track.start_idx)) < 0.05 and ahead and m.get("phase") == "countdown",
-		"the grid: your car last, on the usual start spot (sample %d), the five AI ahead of it" % track.start_idx)
+	var tyres_ok := car.tyre_compound == Tyres.DEFAULT # (v6.39) every car on new tyres that wear: the AI's on Medium
+	for k in 5:
+		tyres_ok = tyres_ok and fr.racers[k].car.tyre_compound == Tyres.DEFAULT and fr.racers[k].car.tyre_km == 0.0
+	t.check(fr.racers[fr.player_index].car == car and absf(car.prog - float(track.start_idx)) < 0.05 and ahead and m.get("phase") == "countdown" and tyres_ok,
+		"the grid: your car last, on the usual start spot (sample %d), the five AI ahead of it; every car on new tyres (the AI on Medium)" % track.start_idx)
 	for i in 5:
 		m.update(1.0 / 60.0)
 	t.check(m.get("nitro_on") == false and car.nitro == 0.0 and not (app.ui.hud.get("_nitro") as Control).visible and (app.ui.hud.get("_nitro_off") as Label).visible and
@@ -1264,6 +1267,20 @@ func _app_upgrades(t, app: GameApp) -> void:
 		app.tracks[0].name, app.tracks[1].name])
 	app.show_menu()
 	SaveData.set_setup("racer", app.tracks[0].id, "wing", 5)
+	# (v6.39) Soft tyres on this track: the car has their grip and wears them; another track stays on Medium
+	SaveData.set_setup("racer", app.tracks[0].id, "compound", 0)
+	m = app.start_play({"track": app.tracks[0], "driver": "human"})
+	var soft: Car = m.get("car")
+	var soft_ok: bool = int(m.get("compound")) == 0 and soft.tyre_compound == 0 and is_equal_approx(soft.spec.mu, up_spec.mu * 1.05) and soft.spec.mass == up_spec.mass
+	app.show_menu()
+	m = app.start_play({"track": app.tracks[1], "driver": "human"})
+	soft_ok = soft_ok and (m.get("car") as Car).spec == up_spec and (m.get("car") as Car).tyre_compound == Tyres.DEFAULT
+	m.call("restart")
+	soft_ok = soft_ok and (m.get("car") as Car).tyre_compound == Tyres.DEFAULT and (m.get("car") as Car).tyre_km == 0.0
+	t.check(soft_ok, "Soft tyres on %s: the race there has 5 %% more grip on asphalt, wearing as it goes; %s stays on Medium (the car itself), new tyres again on a restart" % [
+		app.tracks[0].name, app.tracks[1].name])
+	app.show_menu()
+	SaveData.set_setup("racer", app.tracks[0].id, "compound", 1)
 	var fixture := "res://tests/fixtures/game_net.json"
 	if AiLink.ready() and FileAccess.file_exists(fixture):
 		var parsed: Dictionary = AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(fixture)))

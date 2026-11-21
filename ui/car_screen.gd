@@ -17,9 +17,11 @@ extends "res://ui/dialog_screen.gd"
 ## (v6.38) The wing for the race's track (`track_id`, set by the menu; "" hides it): how many of the
 ## levels bought the picked car uses there (0 off .. all), with what that does to its grip at speed and
 ## top speed; free, kept per car and track (UiData.get_setup); F / Shift+F more / less (`setup_picked`).
+## (v6.39) Beside it the tyres for that track: Soft, Medium, Hard or Rally (sim/tyres.gd), free and kept
+## the same way; T / Shift+T the next / previous compound.
 ##
 ## Keys: arrows / WASD move over the cars, C / Shift+C next / previous car, 1-9 and 0 buy the next level
-## of that part, F / Shift+F the wing, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
+## of that part, F / Shift+F the wing, T / Shift+T the tyres, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
 ## (down to the parts, then to START), LB / RB the car, A starts or presses, B goes back.
 
 ## START was pressed (the menu starts what was chosen; the game refuses a car you don't own).
@@ -30,7 +32,7 @@ signal upgrade(part: String)
 ## (v6.33) a race length was picked (0: normal, else an endurance race's laps)
 signal laps_picked(laps: int)
 ## (v6.38) the picked car's setup on `track_id` changed (key "wing": the levels it uses there, 0..5;
-## 5 for all it has)
+## 5 for all it has; (v6.39) key "compound": its tyres, 0..3, Tyres' index)
 signal setup_picked(key: String, value: int)
 
 const CarCard := preload("res://ui/car_card.gd")
@@ -83,11 +85,13 @@ var track_id := "":
 		track_id = v
 		if _setup_wrap != null:
 			_setup_wrap.visible = v != ""
-var setup_row: HBoxContainer
+var setup_row: Container
 var wing_less: Button
 var wing_more: Button
 var wing_l: Label
-var wing_note: Label
+var wing_note: Label # (v6.39: under the row: what the wing and the tyres do there)
+## (v6.39) the tyre compound chips (Tyres' order: Soft, Medium, Hard, Rally)
+var tyre_btns: Array = []
 var _setup_wrap: Control
 
 
@@ -170,9 +174,13 @@ func _init() -> void:
 	var dm := UiStyle.margin([0, UiStyle.S2, 0, 0])
 	dm.add_child(desc_row)
 	body.add_child(dm)
-	# (v6.38) the wing for the race's track
-	setup_row = UiStyle.hbox(UiStyle.S1)
-	setup_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# (v6.38) the wing and (v6.39) the tyres for the race's track (side by side, the tyres on a line of
+	# their own in a narrow window), and a line on what they do there
+	setup_row = HFlowContainer.new()
+	setup_row.add_theme_constant_override("h_separation", UiStyle.S5)
+	setup_row.add_theme_constant_override("v_separation", UiStyle.S1)
+	setup_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var wing_box := UiStyle.hbox(UiStyle.S1)
 	var wcap := UiStyle.label("Wing", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
 	wcap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	wcap.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -181,36 +189,52 @@ func _init() -> void:
 	wm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	wm.mouse_filter = Control.MOUSE_FILTER_PASS
 	wm.add_child(wcap)
-	setup_row.add_child(wm)
+	wing_box.add_child(wm)
 	wing_less = UiStyle.button("← Less", "ChipButton", 26)
 	wing_less.custom_minimum_size.x = 84
 	wing_less.tooltip_text = "Less wing on this track: a higher top speed, less grip in fast corners (Shift+F)"
 	wing_less.pressed.connect(func() -> void: step_wing(-1))
-	setup_row.add_child(wing_less)
+	wing_box.add_child(wing_less)
 	wing_l = UiStyle.label("None", "text_semi", UiStyle.FS_S, UiStyle.TEXT, 0.0, false, false, false, 18)
 	wing_l.custom_minimum_size.x = 64
 	wing_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	wing_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	setup_row.add_child(wing_l)
+	wing_box.add_child(wing_l)
 	wing_more = UiStyle.button("More →", "ChipButton", 26)
 	wing_more.custom_minimum_size.x = 84
 	wing_more.tooltip_text = "More wing on this track: more grip in fast corners, a lower top speed (F)"
 	wing_more.pressed.connect(func() -> void: step_wing(1))
-	setup_row.add_child(wing_more)
+	wing_box.add_child(wing_more)
+	setup_row.add_child(wing_box)
+	var tyre_box := UiStyle.hbox(UiStyle.S1)
+	var tcap := UiStyle.label("Tyres", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	tcap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tcap.mouse_filter = Control.MOUSE_FILTER_PASS
+	tcap.tooltip_text = "The tyres the car races on at this track, free and kept for each car and track: Soft grips most but wears from 10 km, Medium is the stock tyre, Hard never wears, Rally grips on dirt and snow. Medal times stay stock."
+	var tm := UiStyle.margin([0, 0, UiStyle.S1, 0])
+	tm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tm.mouse_filter = Control.MOUSE_FILTER_PASS
+	tm.add_child(tcap)
+	tyre_box.add_child(tm)
+	for i in Tyres.count():
+		var d: Dictionary = Tyres.def(i)
+		var b := UiStyle.button(String(d.name), "ChipButton", 26)
+		b.custom_minimum_size.x = 70
+		b.set_meta("compound", i)
+		b.tooltip_text = "%s tyres: %s (T / Shift+T)" % [d.name, d.what]
+		b.pressed.connect(func() -> void: pick_compound(i))
+		tyre_box.add_child(b)
+		tyre_btns.append(b)
+	setup_row.add_child(tyre_box)
 	wing_note = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_3, 0.0, false, false, false, 18)
-	wing_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	wing_note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	wing_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	wing_note.custom_minimum_size.x = 1
 	wing_note.mouse_filter = Control.MOUSE_FILTER_PASS
-	var wnm := UiStyle.margin([UiStyle.S2, 0, 0, 0])
-	wnm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	wnm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	wnm.mouse_filter = Control.MOUSE_FILTER_PASS
-	wnm.add_child(wing_note)
-	setup_row.add_child(wnm)
+	var sbox := UiStyle.vbox(UiStyle.S1)
+	sbox.add_child(setup_row)
+	sbox.add_child(wing_note)
 	var srm := UiStyle.margin([0, UiStyle.S2, 0, 0])
-	srm.add_child(setup_row)
+	srm.add_child(sbox)
 	body.add_child(srm)
 	_setup_wrap = srm
 	srm.visible = track_id != ""
@@ -303,7 +327,7 @@ func _style_laps() -> void:
 
 func _hint_text() -> void:
 	if _hint != null:
-		_hint.text = "C next car · %s upgrade a part · %s%sEnter start" % [_part_keys_text(), "F wing · " if track_id != "" else "", "L laps · " if laps_choice else ""]
+		_hint.text = "C next car · %s upgrade a part · %s%sEnter start" % [_part_keys_text(), "F wing · T tyres · " if track_id != "" else "", "L laps · " if laps_choice else ""]
 
 
 ## (v6.38) The part keys in the hint: "1-9", "1-9, 0" with a tenth part.
@@ -326,6 +350,19 @@ func step_wing(step: int) -> void:
 		return
 	UiSound.play("ui_move")
 	setup_picked.emit("wing", to if to < have else int(SaveData.SETUP_KEYS.wing[2]))
+	refresh()
+
+
+## (v6.39) Put the picked car on tyre compound `i` (Tyres) at `track_id`: free; a car you don't own,
+## or the compound it is on already: nothing.
+func pick_compound(i: int) -> void:
+	var car := UiData.picked_car()
+	if track_id == "" or not UiData.owns_car(car) or i < 0 or i >= Tyres.count():
+		return
+	if int(UiData.get_setup(car, track_id).compound) == i:
+		return
+	UiSound.play("ui_move")
+	setup_picked.emit("compound", i)
 	refresh()
 
 
@@ -397,7 +434,7 @@ func refresh() -> void:
 
 ## (v6.38) The wing row for car `car` on `track_id`: the levels it uses there of those bought, the
 ## buttons (off at the ends, for a car not yours or one without a wing) and what that does to its grip at
-## speed and top speed (Upgrades.stats).
+## speed and top speed (Upgrades.stats); (v6.39) the tyre chips (the compound lit) and what it does.
 func _refresh_setup(car: String, owned: bool, cname: String, lv: PackedInt32Array) -> void:
 	_hint_text()
 	if track_id == "":
@@ -409,19 +446,29 @@ func _refresh_setup(car: String, owned: bool, cname: String, lv: PackedInt32Arra
 	wing_less.disabled = not owned or use <= 0
 	wing_more.disabled = not owned or use >= have
 	var tname := String(Tracks.def(track_id).get("name", track_id))
+	# (v6.39) the tyres
+	var ci := clampi(int(UiData.get_setup(car, track_id).compound), 0, Tyres.count() - 1)
+	for btn: Button in tyre_btns:
+		btn.theme_type_variation = "ChipOnButton" if int(btn.get_meta("compound")) == ci and owned else "ChipButton"
+		btn.disabled = not owned
+	var tyre_text := "%s tyres: %s" % [Tyres.def(ci).name, Tyres.text(ci)]
+	var wing_text := ""
 	if not owned:
-		wing_note.text = "Buy the %s to fit a wing" % cname
-	elif have == 0:
-		wing_note.text = "No wing yet: the Wing chip buys one"
+		wing_note.text = "Buy the %s to fit a wing and choose its tyres" % cname
 	else:
-		var used := Upgrades.with_setup(lv, {"wing": use})
-		var off := lv.duplicate()
-		off[wi] = 0
-		var st := Upgrades.stats(car, used)
-		var st0 := Upgrades.stats(car, off)
-		wing_note.text = "On %s · grip at speed %.2f → %.2f g · top speed %d → %d km/h" % [tname, float(st0.gripFast), float(st.gripFast),
-			roundi(float(st0.top)), roundi(float(st.top))]
-	wing_note.tooltip_text = "%s's wing on %s: %s (without it → with it). Free; kept for this car and track." % [cname, tname, wing_l.text.to_lower()]
+		if have == 0:
+			wing_text = "no wing yet (the Wing chip buys one)"
+		else:
+			var used := Upgrades.with_setup(lv, {"wing": use})
+			var off := lv.duplicate()
+			off[wi] = 0
+			var st := Upgrades.stats(car, used)
+			var st0 := Upgrades.stats(car, off)
+			wing_text = "wing: grip at speed %.2f → %.2f g, top speed %d → %d km/h" % [float(st0.gripFast), float(st.gripFast),
+				roundi(float(st0.top)), roundi(float(st.top))]
+		wing_note.text = "On %s · %s · %s" % [tname, wing_text, tyre_text]
+	wing_note.tooltip_text = "%s on %s: the wing %s (without it → with it); %s. Free; kept for this car and track." % [cname, tname,
+		wing_l.text.to_lower(), tyre_text]
 
 
 ## Pick car `id` (remembered: the "car" setting).
@@ -456,8 +503,9 @@ func press_start() -> void:
 ## (v6.33) And the race length chips, when they show.
 func _pad_parts() -> Array:
 	var all: Array = part_chips.duplicate()
-	if track_id != "": # (v6.38) the wing buttons
+	if track_id != "": # (v6.38) the wing buttons, (v6.39) the tyres
 		all.append_array([wing_less, wing_more])
+		all.append_array(tyre_btns)
 	if laps_choice:
 		all.append_array(laps_btns)
 	return all.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
@@ -490,6 +538,9 @@ func handle_keys(inp: Object) -> void:
 		cycle(-1 if inp.consume(["Shift+KeyC"]) else 1)
 	if track_id != "" and inp.consume(["KeyF"]): # (v6.38) the wing: F more, Shift+F less
 		step_wing(-1 if inp.consume(["Shift+KeyF"]) else 1)
+	if track_id != "" and inp.consume(["KeyT"]): # (v6.39) the tyres: T next, Shift+T previous
+		var now := int(UiData.get_setup(UiData.picked_car(), track_id).compound)
+		pick_compound(posmod(now + (-1 if inp.consume(["Shift+KeyT"]) else 1), Tyres.count()))
 	if laps_choice and inp.consume(["KeyL"]): # (v6.33) the next race length
 		var choices: Array = [0]
 		choices.append_array(Array(Field.ENDURANCE_LAPS))
