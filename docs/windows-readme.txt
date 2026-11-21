@@ -1,4 +1,4 @@
-Track Rush 6.37.0 for Windows (64-bit)
+Track Rush 6.38.0 for Windows (64-bit)
 ======================================
 
 A Trackmania-style racer with nine cars, twenty-three tracks (seven of them
@@ -10,13 +10,19 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.37.0: suspension. Every car gets a ninth upgrade part, open from
-the start: five levels, each with 6 % less nose dive when braking (the rear
-tyres keep more grip) and softer landings (level 5: half the speed lost on
-a hard landing). With every part at its top, the Drifter and the Dune no
-longer spin when they land crooked. Up to 7 % shorter stops, the same launch.
+New in 6.38.0: a downforce wing. Every car gets a tenth upgrade part, open
+from the start (key 0 on the car page): five levels, each pressing the car
+down with 5 % of its weight at 180 km/h, mostly on the rear wheels, for up
+to 12 % more grip in fast corners, at the cost of 1.5-5 % top speed. The
+car page has a Wing row for the race's track (F more, Shift+F less): turn
+the wing down or off there for a fast track; it is free and kept for each
+car and track.
 
 Earlier versions, newest first:
+6.37.0  suspension: a ninth upgrade part, open from the start: five levels
+        of 6 % less nose dive when braking and softer landings; with every
+        part at its top, the Drifter and the Dune no longer spin when they
+        land crooked.
 6.36.0  brakes: an eighth upgrade part, open from the start: five levels of
         8 % more brake force each; most cars stop 15-17 % shorter from
         100 km/h at level 5.

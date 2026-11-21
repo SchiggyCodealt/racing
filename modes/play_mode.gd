@@ -203,9 +203,10 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 		return_to = app.show_menu
 	# the AI ghost / the watched AI: an opponent level drives the AI's car (v6.25: Opponents.UPGRADES; it
 	# was the stock car), the player's own network the player's car (its upgrades)
-	ai_levels = SaveData.get_upgrades(String(ai_def.id)) if level == "" else Opponents.UPGRADES
+	# ((v6.38) your car, and your own network's, with your setup for this track: the wing turned down)
+	ai_levels = Upgrades.race_levels(String(ai_def.id), track.id) if level == "" else Opponents.UPGRADES
 	ai_spec = Upgrades.spec(String(ai_def.id), ai_levels)
-	levels = SaveData.get_upgrades(String(car_def.id)) if driver == "human" else ai_levels
+	levels = Upgrades.race_levels(String(car_def.id), track.id) if driver == "human" else ai_levels
 	car_spec = Upgrades.spec(String(car_def.id), levels)
 	var sp: CarSpec = car_spec
 	_rev_spec = {"idle_rpm": sp.idle_rpm, "redline": sp.redline, "upshift_rpm": sp.upshift_rpm}
