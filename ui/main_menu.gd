@@ -207,6 +207,8 @@ func _init() -> void:
 	car_page.start.connect(_start_pending)
 	car_page.laps_picked.connect(func(_n: int) -> void: car_page.event_text = event_text(pending, pending_args)) # (v6.33)
 	car_page.upgrade.connect(func(part: String) -> void: upgrade.emit(part))
+	car_page.setup_picked.connect(func(key: String, value: int) -> void: # (v6.38) the wing per track, free
+		UiData.set_setup(UiData.picked_car(), car_page.track_id, key, value))
 	car_page.car_picked.connect(func(id: String) -> void:
 		car_selected.emit(id)
 		refresh())
@@ -900,10 +902,26 @@ func ask_car(kind: String, args: Array = []) -> void:
 	# (v6.33) Race the field on a circuit offers a race length (Normal, or an endurance race's laps)
 	car_page.laps_choice = kind == "race_field" and String(Tracks.def(UiData.track_id(selected_track)).get("type", "")) == "circuit"
 	car_page.set_laps(0)
+	car_page.track_id = race_track(kind, args) # (v6.38) the wing row is for this track
 	car_page.event_text = event_text(kind, args)
 	UiSound.play("ui_confirm")
 	_ring.set_target(null)
 	car_page.open()
+
+
+## (v6.38) The track race `kind` runs on (a cup: its first race, or the next one): the car page's wing
+## row is for it ("" when unknown).
+func race_track(kind: String, args: Array = []) -> String:
+	match kind:
+		"drive", "race_ghost", "race_field":
+			return UiData.track_id(selected_track)
+		"cup_start":
+			var ts := Cups.tracks_of(String(args[0])) if not args.is_empty() else PackedStringArray()
+			return ts[0] if not ts.is_empty() else ""
+		"cup_next":
+			var v: Dictionary = cups.run_view.call() if cups.run_view.is_valid() else {}
+			return String((v.get("next", {}) as Dictionary).get("id", ""))
+	return ""
 
 
 ## The car page's line for race `kind`: what is about to start.

@@ -4,7 +4,11 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-20 (v6.37.0: round 9, item 3 of 8 (item 2, the gearbox, skipped by the owner): the suspension,
+_Last updated: 2026-11-21 (v6.38.0: round 9, item 4 of 8: the wing, a tenth part (`PARTS[9]`, id `wing`, five levels
+of downforce worth 5 % of the car's weight at 180 km/h with 2 % more drag each, open from the start, bought with no
+trial; key 0 on the car page) and the first per-car, per-track setup: the car page's Wing row (F / Shift+F) sets how
+many of the bought levels the car uses on the race's track (`SaveData.get_setup` / `set_setup`, `career.setups`,
+`Upgrades.with_setup` / `race_levels`); v6.37.0: round 9, item 3 of 8 (item 2, the gearbox, skipped by the owner): the suspension,
 a ninth part (`PARTS[8]`, id `suspension`, five levels of -6 % nose dive (new CarSpec field `brake_dive`, also in
 native FleetSim) and softer landings, open from the start, bought with no trial; the maxed Drifter's and Dune's landing
 spins are gone); v6.36.0: round 9, item 1 of 8: the brakes, an eighth part (`PARTS[7]`, id `brakes`, five
@@ -81,7 +85,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.37.0, round 9 items 1 and 3 of 8 done (the brakes; the suspension; item 2, the gearbox, skipped by the owner); next: item 4, the wing, as v6.38.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.38.0, round 9 items 1, 3 and 4 of 8 done (the brakes; the suspension; the wing; item 2, the gearbox, skipped by the owner); next: item 5, the tyre compounds, as v6.39.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 9 (asked on 2026-11-20): eight upgrade ideas, one release each (v6.36.0 to v6.42.0, the gearbox skipped): see [Round 9](#round-9-eight-upgrade-ideas-v6360-on).
 
@@ -1660,7 +1664,7 @@ items; AI cars and medal times stay stock):
    setups in the save file (`career.setups {car: {track: {gear}}}`) may serve the wing and the tyres.
 3. **Suspension (v6.37.0, done)**: five levels; less speed lost on hard landings; the maxed Drifter's landing spin
    fixed (there is no bounce on dirt to cut: the bumps are drawn only).
-4. **Wing (v6.38.0)**: five levels of downforce with a little drag; can be turned down per track.
+4. **Wing (v6.38.0, done)**: five levels of downforce with a little drag; can be turned down per track.
 5. **Tyres (v6.39.0)**: Soft, Medium, Hard or Rally per track; Soft grips most and wears in long races.
 6. **Nitro (v6.40.0)**: the Nitro part already is a bigger tank with a faster refill, so instead a five-level nitro
    tune opened at Nitro 5 for a stronger push, fitted with the arrow trial.
@@ -1712,6 +1716,35 @@ items; AI cars and medal times stay stock):
   `_suspension()` in tests/test_sim.gd (stops, landing speed, buying), the jumps test with every part at its top is
   strict again (no `slides`), the parts' checks, the UI's nine chips, the terminal, FleetSim with the suspension
   (test_ai), e2e (71 clicks).
+
+### Item 4: the wing (v6.38.0, done)
+
+- **The part.** `sim/upgrades.gd` `PARTS[9]`: id `wing`, short "D" (W is the weight), `step 0.05`, `cost 0.9`,
+  `max 5`, `extra true`, the brakes' `share` list (the Racer's levels $1,600 to $13,500), no `needs`, no `trial`;
+  aliases wings, downforce, spoiler, df. `changes()`: `downforce` + gain × mass × g / v² with v = 180 km/h
+  (`WING_KMH`), so a level presses down 5 % of the weight at 180 km/h, and `drag` × (1 + 0.02 × level) (`WING_DRAG`),
+  on top of the aero tune's drag cut. No native change: downforce and drag are existing CarSpec fields.
+- **Per-track setup.** The first car setup in the save file: `career.setups {car: {track: {wing}}}`, kept only where
+  it isn't the default (`SaveData.SETUP_KEYS {wing: [0, 5, 5]}`: lowest, highest, default; 5 = all the car has, so a
+  level bought later is used). `SaveData.get_setup(car, track)` / `set_setup(car, track, key, value)` (owned cars,
+  free, writes the file); `_repair_career` cleans hand-edited entries; a reset career drops them. Apply with
+  `Upgrades.with_setup(levels, setup)` (caps `levels[9]`) or `Upgrades.race_levels(car, track)`. `PlayMode` races with
+  `race_levels` (the player's car, and My AI's when `level == ""`); training keeps the whole wing; records and ghosts
+  store the levels raced. The tyre compounds (item 5) and the presets (item 8) should extend `SETUP_KEYS` rather than
+  add a second store. (The skipped gearbox's setups on `wip-6.37.0` were not merged.)
+- **The car page.** `CarScreen.track_id` (the menu sets it from `MainMenu.race_track(kind, args)`: the picked track,
+  a cup's first track or its next one; "" hides the row): the Wing row (← Less, "3 of 3" / "Off" / "None", More →, and
+  a note with grip at speed and top speed with and without it, from `Upgrades.stats`), `step_wing`, F / Shift+F, the
+  pad reaches the two buttons, `setup_picked` → `UiData.set_setup`. Ten chips: one row wide, two rows of five at
+  1280 x 720, rows of four when narrow; keys 1-9 and 0 (`PART_KEYS`, `_part_keys_text`).
+- **Measured.** `MEASURED.<car>.wing` = five `{top, accel100, accel200, brake100, grip, gripFast}` (`tools/upgrades.gd`
+  measures `D1`-`D5`); `stats()` applies them as shares. Level 5: gripFast +6 to +18 %, top speed -1.5 to -5 %, 0-200
+  km/h up to 11 % slower (the Dune). The Apex's gripFast doesn't rise: its 120 m skidpad run is steering-limited at
+  2.42 g, so only the drag shows (-2 %); the tests allow it. LAPS_TODO
+- **Elsewhere.** `Opponents.UPGRADES` 10 ints (no wing). The terminal: `upgrade <car> wing <0-5>`, `buy <car> wing`.
+  Tests: `_wing()` in tests/test_sim.gd (measured gains, setups in the save file, buying), `start_play` with a setup in
+  tests/test_game.gd, the Wing row in tests/test_ui.gd, the parts' checks, the UI's ten chips, the terminal, e2e (76
+  clicks).
 
 ## Round 8: supercharger and aero tune (v6.34.0 on)
 

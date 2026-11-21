@@ -542,6 +542,40 @@ static func buy_upgrade(id: String, part: String, fitted: bool = true) -> Dictio
 		"short": p - int(c.money) if err == "money" else 0, "refund": p / 2 if err == "" and not fitted else 0}
 
 
+## (v6.38) Car `id`'s setup on track `track_id` ({wing}: how much of its wing it uses there, 0..5; 5,
+## all of it, when not set or the car isn't owned).
+static func get_setup(id: String, track_id: String) -> Dictionary:
+	if _save:
+		return SaveData.get_setup(id, track_id)
+	var out := {"wing": int(SaveData.SETUP_KEYS.wing[2])}
+	var sets: Variant = store.career.get("setups")
+	if owns_car(id) and sets is Dictionary and (sets as Dictionary).get(id) is Dictionary and sets[id].get(track_id) is Dictionary:
+		var w: Variant = sets[id][track_id].get("wing")
+		if w is int or w is float:
+			out.wing = clampi(int(w), int(SaveData.SETUP_KEYS.wing[0]), int(SaveData.SETUP_KEYS.wing[1]))
+	return out
+
+
+## (v6.38) Set key `key` ("wing") of car `id`'s setup on track `track_id` (free); false for a car not owned.
+static func set_setup(id: String, track_id: String, key: String, value: int) -> bool:
+	if _save:
+		return SaveData.set_setup(id, track_id, key, value)
+	if not owns_car(id) or not SaveData.SETUP_KEYS.has(key) or track_id == "":
+		return false
+	var r: Array = SaveData.SETUP_KEYS[key]
+	var c: Dictionary = store.career
+	if not (c.get("setups") is Dictionary):
+		c.setups = {}
+	if not (c.setups.get(id) is Dictionary):
+		c.setups[id] = {}
+	var v := clampi(value, int(r[0]), int(r[1]))
+	if v == int(r[2]):
+		(c.setups[id] as Dictionary).erase(track_id)
+	else:
+		c.setups[id][track_id] = {key: v}
+	return true
+
+
 ## Car `id`'s stat bars with the upgrades bought (car_info(id).bars are the stock car's).
 static func car_bars(id: String) -> Dictionary:
 	return Upgrades.bars(id, upgrade_levels(id))
