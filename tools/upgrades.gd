@@ -42,6 +42,10 @@ const LAP_SETS: Array = [
 	["L10", [0, 0, 0, 10, 0]], ["W10", [0, 0, 0, 0, 10]], ["all10", [10, 10, 10, 10, 10]],
 	["E5S5", [5, 0, 0, 0, 0, 5]], ["W5A5", [0, 0, 0, 0, 5, 0, 5]], ["B5", [0, 0, 0, 0, 0, 0, 0, 5]],
 	["U5", [0, 0, 0, 0, 0, 0, 0, 0, 5]], ["D5", [0, 0, 0, 0, 0, 0, 0, 0, 0, 5]], ["max", [10, 10, 10, 10, 10, 5, 5, 5, 5, 5]],
+	# (v6.39) the stock car on other tyres (sim/tyres.gd: [compound, the share of its grip left]): new,
+	# and worn down to its floor
+	["soft", [0, 0, 0, 0, 0], 0, 1.0], ["hard", [0, 0, 0, 0, 0], 2, 1.0], ["rally", [0, 0, 0, 0, 0], 3, 1.0],
+	["softW", [0, 0, 0, 0, 0], 0, 0.88], ["medW", [0, 0, 0, 0, 0], 1, 0.94],
 ]
 const SLIP_SETS: Array = ["all3", "all10", "max"]
 
@@ -326,6 +330,20 @@ static func max_slip(t: BuiltTrack, car_id: String, spec: CarSpec, a_lat: float,
 	return worst
 
 
+## (v6.39) A lap set's spec on its tyres: [name, levels, compound, the share of the grip left] (worn
+## tyres scale every surface's grip, as Car.tyre_grip does); sets without a compound: `spec`.
+static func _tyred(spec: CarSpec, set: Array) -> CarSpec:
+	if set.size() < 3:
+		return spec
+	var s: CarSpec = Tyres.fit(spec, int(set[2]))
+	var w: float = float(set[3]) if set.size() > 3 else 1.0
+	if w == 1.0:
+		return s
+	var worn: CarSpec = CarSpec.make({mu = s.mu * w}, s)
+	worn.surface_grip = s.surface_grip.duplicate() # (the compound's shares: Tyres.fit)
+	return worn
+
+
 func _laps(tracks: PackedStringArray, cars: PackedStringArray, quick: bool) -> void:
 	var built: Dictionary = {}
 	for tid: String in tracks:
@@ -335,7 +353,7 @@ func _laps(tracks: PackedStringArray, cars: PackedStringArray, quick: bool) -> v
 	for tid: String in tracks:
 		for id: String in cars:
 			for set: Array in lap_sets:
-				var spec: CarSpec = Upgrades.spec(id, _lv(set[1]))
+				var spec: CarSpec = _tyred(Upgrades.spec(id, _lv(set[1])), set)
 				jobs.append({key = "%s|%s|%s" % [tid, id, set[0]], fn = best_race.bind(built[tid], id, spec, quick)})
 	_run_jobs(jobs)
 	print("the medal autopilot's best race (%s), with nitro and the style score's refills: stock, level 3 and level 10" % ("10 settings" if quick else "50 settings, as the author time"))

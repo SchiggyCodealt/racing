@@ -229,6 +229,7 @@ On the menu:
 | On the car page: arrows or W A S D | d-pad / left stick | Pick a car (down from the cars: its upgrades, then START) |
 | On the car page: 1-9, 0 | A on a part | Buy the next level of that part (it asks first; the supercharger and the aero tune then have their trial of arrows) |
 | On the car page: F / Shift+F | A on More / Less | More / less [wing](#the-wing) for the race's track (free, kept per car and track) |
+| On the car page: T / Shift+T | A on a compound | The next / previous [tyres](#tyres) for the race's track: Soft, Medium, Hard, Rally (free, kept per car and track) |
 | On the car page: Enter or Space / Esc | A / B | START (BUY when the car is not yours yet) / back to the menu |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
@@ -1067,9 +1068,40 @@ Monaco. On Banked Speedway, flat out round the banking, most cars are up to 3 % 
 needs the grip there, 1.5 % quicker): turn it down or off there. `buy <car> wing` buys the next level; `upgrade <car> wing <0-5>` sets it for free. The AI opponents
 have no wing, and the medal times stay stock.
 
+#### Tyres
+
+Version 6.39.0 adds **tyre compounds**. Next to the Wing row on the car page, a **Tyres** row picks what the car races
+on at that race's track: **Soft**, **Medium** (the stock tyre), **Hard** or **Rally**. Like the wing it is free and kept
+for each car and track (T gives the next compound, Shift+T the one before; on the gamepad: down to the row, then A),
+and the line under the row says what the compound does.
+
+| Compound | Grip on asphalt | Grip on dirt, gravel, snow, ice, sand, mud | Wear | A race on asphalt, new (Rookie Oval, Technical Trial, Silverstone) |
+| --- | --- | --- | --- | --- |
+| **Soft** | +5 % | as Medium | from 10 km: 0.25 % a km, down to 88 % of new (Medium's grip after 29 km) | 1.5-3 % quicker (the Apex 0.7-3 %) |
+| **Medium** | stock | stock | from 60 km: 0.1 % a km, down to 94 % | the stock car |
+| **Hard** | -3 % | -3 % | never | 0.6-2 % slower |
+| **Rally** | -8 % | +10 % | as Medium | 2.5-5 % slower |
+
+Tyres wear with the distance the car drives in that race, from a new set at the start (a restart fits a new set too).
+Every time trial and normal race is shorter than 30 km (Le Mans, the longest lap, is 13.6 km), so Soft is the quick
+choice there and Medium never wears. In an endurance race (10 to 40 laps, 33 km at Monaco up to 545 km at Le Mans)
+the choice matters: worn-out Soft tyres lap 2-5 % slower than new Medium ones (the medal autopilot on the same three
+tracks), worn-out Medium ones 1.5-4 %. Over a whole race, Soft is ahead of Medium up to about 55 km, and Hard ahead
+of Medium beyond about 160 km (Le Mans from 20 laps, Silverstone from 30, Spielberg 40). Once the tyres start to
+wear, the race screen shows what is left above the nitro gauge ("Soft tyres 93 %", yellow under 95 %).
+
+**Rally** tyres are for loose ground. In the medal autopilot's races most cars were 2-7 % quicker on them on Forest
+Rally (dirt), 3.5-6 % on Pine Ridge (gravel), 1-8.5 % on Northern Lights (packed snow) and 4-6 % on Frozen Lake
+(snow and ice). On tracks with less loose ground (Ramp Rally, Hairpin Valley) they lose on the asphalt about what they
+gain off it, so it depends on the car; on asphalt they are 2.5-5 % slower. The Dune, which already keeps almost all of
+its grip on dirt, gains least.
+
+The AI opponents race on Medium (in an endurance race theirs wear as yours do), the training screen uses Medium
+without wear, and the medal times stay stock. Records and ghosts note the car's levels but not its tyres.
+
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension and the Wing at MAX with five, in two rows of five, and under them the Wing row for Rookie Oval: 5 of 5, grip at speed 1.86 → 2.01 g, top speed 338 → 324 km/h](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension and the Wing at MAX with five, in two rows of five, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally), with a line saying what they do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 

@@ -4,7 +4,10 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-21 (v6.38.0: round 9, item 4 of 8: the wing, a tenth part (`PARTS[9]`, id `wing`, five levels
+_Last updated: 2026-11-21 (v6.39.0: round 9, item 5 of 8: tyre compounds (`sim/tyres.gd` `Tyres`): Soft, Medium
+(stock), Hard or Rally per car and track (`setups.compound`, the car page's Tyres row, T / Shift+T), free; grip on
+asphalt and loose ground by compound (`Tyres.fit`), wear by distance in races (`Car.fit_tyres`, `Car.tyre_grip`;
+never in training or FleetSim), the race screen's tyre note; v6.38.0: round 9, item 4 of 8: the wing, a tenth part (`PARTS[9]`, id `wing`, five levels
 of downforce worth 5 % of the car's weight at 180 km/h with 2 % more drag each, open from the start, bought with no
 trial; key 0 on the car page) and the first per-car, per-track setup: the car page's Wing row (F / Shift+F) sets how
 many of the bought levels the car uses on the race's track (`SaveData.get_setup` / `set_setup`, `career.setups`,
@@ -85,7 +88,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.38.0, round 9 items 1, 3 and 4 of 8 done (the brakes; the suspension; the wing; item 2, the gearbox, skipped by the owner); next: item 5, the tyre compounds, as v6.39.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.39.0, round 9 items 1, 3, 4 and 5 of 8 done (the brakes; the suspension; the wing; the tyre compounds; item 2, the gearbox, skipped by the owner); next: item 6, the nitro tune, as v6.40.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 9 (asked on 2026-11-20): eight upgrade ideas, one release each (v6.36.0 to v6.42.0, the gearbox skipped): see [Round 9](#round-9-eight-upgrade-ideas-v6360-on).
 
@@ -1665,7 +1668,7 @@ items; AI cars and medal times stay stock):
 3. **Suspension (v6.37.0, done)**: five levels; less speed lost on hard landings; the maxed Drifter's landing spin
    fixed (there is no bounce on dirt to cut: the bumps are drawn only).
 4. **Wing (v6.38.0, done)**: five levels of downforce with a little drag; can be turned down per track.
-5. **Tyres (v6.39.0)**: Soft, Medium, Hard or Rally per track; Soft grips most and wears in long races.
+5. **Tyres (v6.39.0, done)**: Soft, Medium, Hard or Rally per track; Soft grips most and wears in long races.
 6. **Nitro (v6.40.0)**: the Nitro part already is a bigger tank with a faster refill, so instead a five-level nitro
    tune opened at Nitro 5 for a stronger push, fitted with the arrow trial.
 7. **Cosmetics (v6.41.0)**: paint, five liveries, underglow; looks only.
@@ -1751,6 +1754,37 @@ items; AI cars and medal times stay stock):
   Tests: `_wing()` in tests/test_sim.gd (measured gains, setups in the save file, buying), `start_play` with a setup in
   tests/test_game.gd, the Wing row in tests/test_ui.gd, the parts' checks, the UI's ten chips, the terminal, e2e (76
   clicks).
+
+### Item 5: the tyre compounds (v6.39.0, done)
+
+- **The compounds.** `sim/tyres.gd` `Tyres.DEFS` (index = the save's `compound`): Soft (asphalt × 1.05, loose × 1,
+  wears from 10 km by 0.25 % a km to 88 %), Medium (stock: `Tyres.fit` returns the spec itself; from 60 km, 0.1 % a km,
+  to 94 %), Hard (× 0.97 everywhere, never wears), Rally (asphalt × 0.92, loose × 1.1, wears as Medium). Not a bought
+  part and not in the upgrade levels: a setup, free.
+- **Grip.** `Tyres.fit(spec, i)`: `mu` × asphalt, then the spec's `surface_grip` shares (every surface but asphalt)
+  set to the input's × loose / asphalt after the spec is derived. That way a share can pass 1, which
+  `Surfaces.car_grips` caps for gravel (scale 1.06): with the dirt-grip field rescaled instead, Rally tyres lost 8 % on
+  gravel for the Dune and other high-dirt-grip cars. A spec made from a fitted one with `CarSpec.make` derives the
+  shares again (tools/upgrades.gd `_tyred` copies them for its worn sets). FleetSim takes `surface_grip` from the spec,
+  so nothing native changed (and training never fits tyres).
+- **Wear.** `Car.fit_tyres(compound)`: `tyre_compound` (-1, no wear, by default), `tyre_km` (speed × dt each step),
+  `tyre_grip = Tyres.wear(compound, km)`, which multiplies both axles' tyre capacity in `_planar_step` only when it
+  isn't 1, so an unworn car is bit for bit as before (test_sim checks 600 steps). `PlayMode` fits the player's
+  compound (`compound`) and the AI ghost's (`ai_compound`: Medium for an opponent level, your setup for My AI) on every
+  restart; `FieldRace` fits Medium on every AI car. HUD: `state.tyres {name, grip}` once `tyre_grip < 1`
+  (`PlayMode._tyre_state`), drawn above the nitro gauge.
+- **Car page.** The setup row is an `HFlowContainer` (the wing group and the tyre group wrap in a narrow window) with
+  the note (`wing_note`) on its own line under it: the wing's effect and the compound's `what`. `tyre_btns`,
+  `pick_compound(i)`, T / Shift+T; `setup_picked("compound", i)`. `UiData.get_setup` / `set_setup` (the store path)
+  handle every key of `SaveData.SETUP_KEYS` (`{wing: [0, 5, 5], compound: [0, 3, 1]}`).
+- **Measured.** `tools/upgrades.gd` lap sets `soft`, `hard`, `rally` (new tyres) and `softW`, `medW` (at their floor).
+  Asphalt (Rookie Oval, Technical Trial, Silverstone): Soft -0.7 to -3.2 %, Hard (× 0.97) +0.6 to +2.2 %, Rally +2.5 to +4.9 %, worn
+  Soft +2.2 to +4.8 %, worn Medium +1.6 to +3.9 %. Rally on loose tracks, most cars: Forest Rally -2 to -7 %, Pine Ridge -3.5 to -6 %, Northern Lights -1 to -8.4 %,
+  Frozen Lake -4 to -6 %; Ramp Rally and Hairpin Valley (mostly asphalt) mixed. The medal autopilot is noisy on snow and gravel with
+  less grip (single cars +15 to +25 %), so those runs are not quoted.
+- **Not done.** Records, ghosts and top-10 entries keep the levels but not the compound.
+- **Tests.** `_tyres()` in tests/test_sim.gd (the compounds' grip, the wear table, the physics with and without wear,
+  the save file), the field's and the player's tyres in tests/test_game.gd, the Tyres row in tests/test_ui.gd.
 
 ## Round 8: supercharger and aero tune (v6.34.0 on)
 

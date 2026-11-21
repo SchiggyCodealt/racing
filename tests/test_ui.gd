@@ -1016,6 +1016,24 @@ func _upgrades(t) -> void:
 	cp.call("step_wing", 1)
 	var w_back: bool = wl.text == "3 of 3" and int(UiData.get_setup("racer", tid).wing) == 5 and \
 		not ((UiData.store.career.get("setups", {}) as Dictionary).get("racer", {}) as Dictionary).has(tid)
+	# (v6.39) the tyres beside it: four chips, Medium lit; Soft picked: lit, kept, the note says so; T the
+	# next (Medium), Shift+T the one before (Rally from Soft); Medium again: nothing kept
+	var tb: Array = cp.get("tyre_btns")
+	var lit := func() -> Array:
+		return tb.filter(func(b: Button) -> bool: return b.theme_type_variation == "ChipOnButton").map(func(b: Button) -> int: return int(b.get_meta("compound")))
+	var note := func() -> String: return (cp.get("wing_note") as Label).text
+	var t_def: bool = tb.size() == 4 and lit.call() == [1] and note.call().contains("Medium tyres: the stock tyre") and str(cp.get("_hint").text).contains("T tyres")
+	cp.call("pick_compound", 0)
+	var t_soft: bool = lit.call() == [0] and int(UiData.get_setup("racer", tid).compound) == 0 and note.call().contains("Soft tyres: 5 % more grip on asphalt")
+	var tinp := Fx.FakeInput.new()
+	cp.call("handle_keys", _press(tinp, ["KeyT"]))
+	var t_next: bool = lit.call() == [1] and int(UiData.get_setup("racer", tid).compound) == 1
+	cp.call("pick_compound", 0)
+	cp.call("handle_keys", _press(tinp, ["KeyT", "Shift+KeyT"]))
+	var t_prev: bool = lit.call() == [3] and int(UiData.get_setup("racer", tid).compound) == 3 and note.call().contains("Rally tyres")
+	cp.call("pick_compound", 1)
+	var t_back: bool = lit.call() == [1] and not ((UiData.store.career.get("setups", {}) as Dictionary).get("racer", {}) as Dictionary).has(tid)
+	t.check(t_def and t_soft and t_next and t_prev and t_back, "the tyres (v6.39) beside the wing: four chips, Medium lit; Soft: lit and kept for that car and track, the note says what it does; T the next, Shift+T the one before; Medium again: nothing kept")
 	UiData.store.career.upgrades = {}
 	menu.refresh()
 	t.check(row_shown and w_full and w_down and w_back and str(cp.get("_hint").text).contains("F wing"),
