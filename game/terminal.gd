@@ -488,7 +488,7 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 		levels = Upgrades.stock()
 		if args[1] == "max":
 			levels.fill(Upgrades.MAX_LEVEL)
-			levels = Upgrades.clean(levels) # (v6.34-6.36: the supercharger's, the aero tune's and the brakes' top is 5)
+			levels = Upgrades.clean(levels) # (v6.34-6.40: the five-level parts' top is 5)
 		what = "every part at level 0" if args[1] == "stock" else "every part at its top level (%s at %d)" % [Upgrades.five_level_text(), Upgrades.max_level("supercharger")]
 	elif args.size() == 3 and not all:
 		var part := Upgrades.part_id(args[1])
@@ -503,14 +503,14 @@ func _upgrade(args: PackedStringArray, out: Out) -> void:
 		levels = SaveData.get_upgrades(id)
 		levels[Upgrades.index_of(part)] = int(n)
 		if int(n) > 0 and not Upgrades.is_open(part, levels):
-			# (v6.34) the supercharger builds on engine level 5, the aero tune (v6.35) on weight level 5
+			# (v6.34) the supercharger builds on engine level 5, the aero tune (v6.35) on weight level 5, the nitro tune (v6.40) on nitro level 5
 			var nd := Upgrades.needs(part)
 			out.add("error", "upgrade: the %s opens at %s level %d (the %s's is at %d). Try: upgrade %s %s %d, then this again." % [
 				String(Upgrades.part(part).name).to_lower(), String(Upgrades.part(String(nd.part)).name).to_lower(), int(nd.level), _car_name(id),
 				levels[Upgrades.index_of(String(nd.part))], id, String(nd.part), int(nd.level)])
 			return
 		what = "%s level %d (%s)" % [String(Upgrades.part(part).name).to_lower(), int(n), Upgrades.effect(part, int(n))]
-		for p: Dictionary in Upgrades.PARTS: # (v6.34) the engine below 5: the supercharger comes off (the weight: the aero tune)
+		for p: Dictionary in Upgrades.PARTS: # (v6.34) the engine below 5: the supercharger comes off (the weight: the aero tune; the nitro: the nitro tune)
 			var pi := Upgrades.index_of(String(p.id))
 			if levels[pi] > 0 and not Upgrades.is_open(String(p.id), levels):
 				levels[pi] = 0

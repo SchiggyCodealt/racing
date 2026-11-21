@@ -537,7 +537,7 @@ func buy_car(car_id: String) -> Dictionary:
 ## The car picker's part chip: buy the next level of part `part` for car `car_id`, asking first
 ## (what it does, what it costs, what is left), or say why it can't be bought (the car isn't
 ## yours, every level is bought, the part that opens it is short, the money is short). (v6.34) A
-## supercharger or aero tune level (v6.35) is fitted with a trial (start_trial): a miss pays half back.
+## supercharger, aero tune (v6.35) or nitro tune (v6.40) level is fitted with a trial (start_trial): a miss pays half back.
 func offer_upgrade(car_id: String, part: String) -> void:
 	var p := Upgrades.part(part)
 	if p.is_empty():
@@ -581,7 +581,7 @@ func offer_upgrade(car_id: String, part: String) -> void:
 		"Buy for %s" % UiFormat.money(price), buy_upgrade.bind(car_id, part))
 
 
-## (v6.34) Fit the next level of part `part` (the supercharger, the aero tune) on car `car_id`: the trial screen
+## (v6.34) Fit the next level of part `part` (the supercharger, the aero tune, the nitro tune) on car `car_id`: the trial screen
 ## over the car page; its result buys the level (won) or takes half the price (missed).
 func start_trial(car_id: String, part: String) -> void:
 	var p := Upgrades.part(part)

@@ -42,6 +42,8 @@ const LAP_SETS: Array = [
 	["L10", [0, 0, 0, 10, 0]], ["W10", [0, 0, 0, 0, 10]], ["all10", [10, 10, 10, 10, 10]],
 	["E5S5", [5, 0, 0, 0, 0, 5]], ["W5A5", [0, 0, 0, 0, 5, 0, 5]], ["B5", [0, 0, 0, 0, 0, 0, 0, 5]],
 	["U5", [0, 0, 0, 0, 0, 0, 0, 0, 5]], ["D5", [0, 0, 0, 0, 0, 0, 0, 0, 0, 5]], ["max", [10, 10, 10, 10, 10, 5, 5, 5, 5, 5]],
+	# (v6.40) the nitro tune on nitro 5, which opens it, and everything at its top with and without it
+	["N5", [0, 0, 5, 0, 0]], ["N5X5", [0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 5]], ["maxX", [10, 10, 10, 10, 10, 5, 5, 5, 5, 5, 5]],
 	# (v6.39) the stock car on other tyres (sim/tyres.gd: [compound, the share of its grip left]): new,
 	# and worn down to its floor
 	["soft", [0, 0, 0, 0, 0], 0, 1.0], ["hard", [0, 0, 0, 0, 0], 2, 1.0], ["rally", [0, 0, 0, 0, 0], 3, 1.0],

@@ -47,6 +47,11 @@ extends RefCounted
 ##           keeps the tail planted, so a keyboard driver's car doesn't weave more at speed), and 2 %
 ##           of its stock drag (WING_DRAG). More grip the faster the corner, a little less top speed. The car page sets
 ##           how much of it a car uses on each track (SaveData's setups: `wing` 0..5; with_setup())
+##   ntune   (v6.40) the nitro tune: five levels, opened by nitro level 5 and fitted with the trial like
+##           the supercharger: +12 % nitro push a level (level 5 +60 %: nitro_force and nitro_power,
+##           so the push is stronger at every speed). The tank lasts as long (the nitro part makes it
+##           bigger) and the push still fades out at the same speed (nitro_top; most cars reach their
+##           rev limit in top gear first), so it is harder acceleration while it burns, not more top speed
 ## Never changed: max_speed (it scales the AI's speed input, so a network sees the same range in an
 ## upgraded car), the steering and the stability control: an upgraded car keeps its character. Levels 0, 0, 0, 0, 0 are the stock car itself (Cars.spec(id), the same object), so
 ## stock runs stay bit for bit what they were.
@@ -63,16 +68,17 @@ extends RefCounted
 ## measured with the real physics for the car picker's bars (`tools/upgrades.gd --check` measures
 ## again and compares; the tests check each level's gain is in range).
 ##
-##   Upgrades.ids() -> ["engine", "tyres", "nitro", "loose", "weight", "supercharger", "aero", "brakes", "suspension", "wing"];  Upgrades.part(id) -> {...} or {}
-##   Upgrades.index_of(id) -> 0..9 (-1 unknown);  Upgrades.part_id(word) -> id for a part name
+##   Upgrades.ids() -> ["engine", "tyres", "nitro", "loose", "weight", "supercharger", "aero", "brakes", "suspension", "wing", "nitrotune"];  Upgrades.part(id) -> {...} or {}
+##   Upgrades.index_of(id) -> 0..10 (-1 unknown);  Upgrades.part_id(word) -> id for a part name
 ##       or alias ("tires", "grip", "dirt", "lighter", "supercharger" ...), "" unknown
-##   Upgrades.max_level(id) -> 10 (5 for the supercharger, the aero tune, the brakes, the suspension and the wing);  Upgrades.needs(id) ->
-##       {part, level} or {} (the supercharger: engine 5; the aero tune: weight 5);  Upgrades.is_open(id, levels) -> the needed part is there
+##   Upgrades.max_level(id) -> 10 (5 for the supercharger, the aero tune, the brakes, the suspension, the wing and the nitro tune);  Upgrades.needs(id) ->
+##       {part, level} or {} (the supercharger: engine 5; the aero tune: weight 5; the nitro tune: nitro 5);  Upgrades.is_open(id, levels) -> the needed part is there
 ##   Upgrades.has_trial(id) -> its levels are fitted with a trial (a miss: half back)
-##   Upgrades.stock() -> PackedInt32Array [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];  Upgrades.is_stock(levels)
+##   Upgrades.stock() -> PackedInt32Array [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];  Upgrades.is_stock(levels)
 ##   Upgrades.clean(v) -> PackedInt32Array of 10 levels 0..max_level from anything (junk: 0; over
 ##       the top: the part's top; a shorter list from an older version (four before v6.21, five
-##       before v6.34, six before v6.35, seven before v6.36, eight before v6.37, nine before v6.38): the missing parts stock)
+##       before v6.34, six before v6.35, seven before v6.36, eight before v6.37, nine before v6.38, ten
+##       before v6.40): the missing parts stock)
 ##   Upgrades.changes(car_id, levels) -> the CarSpec fields that differ (JS names)
 ##   Upgrades.spec(car_id, levels) -> CarSpec (cached; stock levels: Cars.spec(car_id))
 ##   Upgrades.player_spec(car_id) -> the car with the levels the save file holds
@@ -80,8 +86,8 @@ extends RefCounted
 ##       on a track: the wing turned down to the track's setup
 ##   Upgrades.price(car_id, part, level) -> $ for that level (1..MAX_LEVEL), 0 otherwise
 ##   Upgrades.car_total(car_id) / total_all() -> $ for every level of every part
-##   Upgrades.code(levels) -> "E2 T1 N0 L3 W0" ("E5 T1 N0 L3 W5 S2 A1 B3 U1 D2" with a supercharger,
-##       an aero tune, brakes, suspension and a wing); Upgrades.text(levels) -> "engine 2, tyres 1, ..." (those two only when fitted)
+##   Upgrades.code(levels) -> "E2 T1 N0 L3 W0" ("E5 T1 N5 L3 W5 S2 A1 B3 U1 D2 X1" with a supercharger,
+##       an aero tune, brakes, suspension, a wing and a nitro tune); Upgrades.text(levels) -> "engine 2, tyres 1, ..." (those two only when fitted)
 ##   Upgrades.stats(car_id, levels) -> the car's stats (sim/cars.gd) with the measured upgrades
 ##   Upgrades.bars(car_id, levels) -> Cars.stat_bars of those stats (the car picker)
 ##   Upgrades.effect(part, level) -> "+10 % power", "-6 % weight" (the page's and the terminal's words)
@@ -121,7 +127,7 @@ const ROUND: int = 50
 ## over: what the trial's question measures the effect against ("on top of the engine's").
 ## (v6.36) share: the five levels' price shares in place of TRIAL_SHARE (the brakes, open from the
 ## start, cost about what a ten-level part's first five do).
-## The order is the save file's (a car's `up` list) and the keys' (1-9, 0 for the tenth): new parts go at the end.
+## The order is the save file's (a car's `up` list) and the keys' (1-9, 0 for the tenth, minus for the eleventh): new parts go at the end.
 const PARTS: Array[Dictionary] = [
 	{id = "engine", name = "Engine", short = "E", step = 0.05, cost = 1.25, alias = ["power", "motor"],
 		what = "more power: quicker acceleration and a little more top speed", effect = "+%d %% power"},
@@ -151,6 +157,10 @@ const PARTS: Array[Dictionary] = [
 		alias = ["wings", "downforce", "spoiler", "aerowing", "df"],
 		what = "a downforce wing: more grip the faster the corner, a little more drag (turn it down for a track on the car page)",
 		effect = "+%d %% of the weight in downforce at 180 km/h"},
+	{id = "nitrotune", name = "Nitro tune", chip = "Nitro+", short = "X", step = 0.12, cost = 0.6, max = 5, needs = ["nitro", 5], trial = true, extra = true,
+		alias = ["nitro-tune", "nitrotuning", "ntune", "nos", "nitrous", "nitrotunne", "nt"],
+		what = "a stronger nitro push: harder acceleration while it burns, from a tank that lasts as long", effect = "+%d %% nitro push",
+		over = "over the stock push"},
 ]
 
 ## Measured with the real physics by tools/upgrades.gd (tools/car_stats.gd's measurements of the
@@ -348,7 +358,7 @@ static func has_trial(part_id: String) -> bool:
 	return bool(part(part_id).get("trial", false))
 
 
-## (v6.36) The parts with five levels, in words: "the supercharger, the aero tune, the brakes, the suspension and the wing".
+## (v6.36) The parts with five levels, in words: "the supercharger, the aero tune, the brakes, the suspension, the wing and the nitro tune".
 static func five_level_text() -> String:
 	var names: PackedStringArray = []
 	for p: Dictionary in PARTS:
@@ -385,6 +395,7 @@ static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
 	var bk: float = gain(7, lv[7])
 	var su: int = lv[8]
 	var wg: int = lv[9]
+	var nt: float = gain(10, lv[10])
 	if e > 0.0 or sc > 0.0:
 		# (v6.34) the supercharger multiplies what the engine part gives
 		var tq: Array = []
@@ -433,10 +444,16 @@ static func changes(car_id: String, levels: PackedInt32Array) -> Dictionary:
 		out.aeroFront = (s.downforce * s.aero_front + add * WING_FRONT) / (s.downforce + add)
 		if ae <= 0.0:
 			out.drag = s.drag * (1.0 + WING_DRAG * wg)
+	if nt > 0.0:
+		# (v6.40) the nitro tune: a stronger push at every speed (the force at low speed and the power
+		# at speed); the tank lasts as long and the push still fades out at the same speed (nitroTop:
+		# most cars reach their rev limit in top gear before it anyway)
+		out.nitroForce = s.nitro_force * (1.0 + nt)
+		out.nitroPower = s.nitro_power * (1.0 + nt)
 	return out
 
 
-## Car `car_id` with `levels` (10 ints: engine, tyres, nitro, loose, weight, supercharger, aero, brakes, suspension, wing). Stock levels give the stock
+## Car `car_id` with `levels` (11 ints: engine, tyres, nitro, loose, weight, supercharger, aero, brakes, suspension, wing, nitro tune). Stock levels give the stock
 ## spec itself; others are made once and cached (a spec is read-only once a car uses it).
 static func spec(car_id: String, levels: PackedInt32Array = PackedInt32Array()) -> CarSpec:
 	var id: String = car_id if Cars.has_car(car_id) else Cars.DEFAULT_CAR

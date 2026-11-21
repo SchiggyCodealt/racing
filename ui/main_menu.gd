@@ -97,7 +97,7 @@ var terminal: TerminalScreen
 var cups: CupScreen
 ## (v6.19) the car page (ui/car_screen.gd): opens when a race is chosen
 var car_page: CarScreen
-## (v6.34) the trial that fits a supercharger or (v6.35) aero tune level (ui/trial_screen.gd), over the car page
+## (v6.34) the trial that fits a supercharger, (v6.35) aero tune or (v6.40) nitro tune level (ui/trial_screen.gd), over the car page
 var trial: TrialScreen
 ## what the car page's START starts: "drive", "race_ghost", "race_field", "cup_start" (args: cup id,
 ## level) or "cup_next"
@@ -1080,7 +1080,7 @@ func handle_keys(inp: Object) -> void:
 		records.handle_keys(inp)
 		inp.clear_pressed()
 		return
-	if trial.visible: # (v6.34) the supercharger's or the aero tune's trial: its arrows, nothing else
+	if trial.visible: # (v6.34) the supercharger's, the aero tune's or (v6.40) the nitro tune's trial: its arrows, nothing else
 		trial.handle_keys(inp)
 		inp.clear_pressed()
 		return

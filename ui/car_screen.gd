@@ -20,7 +20,7 @@ extends "res://ui/dialog_screen.gd"
 ## (v6.39) Beside it the tyres for that track: Soft, Medium, Hard or Rally (sim/tyres.gd), free and kept
 ## the same way; T / Shift+T the next / previous compound.
 ##
-## Keys: arrows / WASD move over the cars, C / Shift+C next / previous car, 1-9 and 0 buy the next level
+## Keys: arrows / WASD move over the cars, C / Shift+C next / previous car, 1-9, 0 and - buy the next level
 ## of that part, F / Shift+F the wing, T / Shift+T the tyres, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
 ## (down to the parts, then to START), LB / RB the car, A starts or presses, B goes back.
 
@@ -42,7 +42,8 @@ const PadNav := preload("res://ui/pad_nav.gd")
 ## The width a part chip needs for its name, ten pips and a price; narrower: the chips wrap.
 const CHIP_MIN_W := 172.0
 const PART_KEYS := [["Digit1", "Numpad1"], ["Digit2", "Numpad2"], ["Digit3", "Numpad3"], ["Digit4", "Numpad4"], ["Digit5", "Numpad5"],
-	["Digit6", "Numpad6"], ["Digit7", "Numpad7"], ["Digit8", "Numpad8"], ["Digit9", "Numpad9"], ["Digit0", "Numpad0"]]
+	["Digit6", "Numpad6"], ["Digit7", "Numpad7"], ["Digit8", "Numpad8"], ["Digit9", "Numpad9"], ["Digit0", "Numpad0"],
+	["Minus", "NumpadSubtract"]] # (v6.40: the eleventh part, the nitro tune)
 
 ## What is about to start, e.g. "Time trial · 03 Harbor Run".
 var event_text := "":
@@ -330,10 +331,10 @@ func _hint_text() -> void:
 		_hint.text = "C next car · %s upgrade a part · %s%sEnter start" % [_part_keys_text(), "F wing · T tyres · " if track_id != "" else "", "L laps · " if laps_choice else ""]
 
 
-## (v6.38) The part keys in the hint: "1-9", "1-9, 0" with a tenth part.
+## (v6.38) The part keys in the hint: "1-9", "1-9, 0" with a tenth part, (v6.40) "1-9, 0, -" with an eleventh.
 func _part_keys_text() -> String:
 	var n := mini(part_chips.size(), PART_KEYS.size())
-	return "1-%d" % n if n <= 9 else "1-9, 0"
+	return "1-%d" % n if n <= 9 else ("1-9, 0" if n == 10 else "1-9, 0, -")
 
 
 ## (v6.38) The picked car's wing on `track_id` one level more (1) or less (-1), between off and all it
@@ -393,7 +394,7 @@ func refresh() -> void:
 		var p: Dictionary = parts[k]
 		var level: int = lv[k]
 		var nxt := UiData.upgrade_cost(car, String(p.id), level + 1)
-		# (v6.34) a part another one opens (the supercharger: engine 5; the aero tune: weight 5) says so while it is shut
+		# (v6.34) a part another one opens (the supercharger: engine 5; the aero tune: weight 5; the nitro tune: nitro 5) says so while it is shut
 		var need: Dictionary = p.get("needs", {})
 		var shut := not need.is_empty() and lv[Upgrades.index_of(String(need.part))] < int(need.level)
 		var need_text := "%s %d" % [String(Upgrades.part(String(need.part)).name), int(need.level)] if shut else ""
@@ -621,8 +622,8 @@ func _on_layout(w: float) -> void:
 	# the part chips: one row while a chip keeps room for its name, pips and price
 	var np := part_chips.size()
 	var chips_w := inner - _parts_cap.get_combined_minimum_size().x - UiStyle.S1
-	# (v6.34-6.38: ten parts) one row while they fit, else two rows of five, else rows of four, three
-	# or two, the widest that keeps every chip CHIP_MIN_W wide
+	# (v6.34-6.40: eleven parts) one row while they fit, else two rows (six and five), else rows of
+	# four or three, the widest that keeps every chip CHIP_MIN_W wide
 	var tries: Array[int] = [np, ceili(np / 2.0), ceili(np / 3.0), ceili(np / 4.0), ceili(np / 5.0)]
 	var cols_p: int = tries[-1]
 	for c: int in tries:

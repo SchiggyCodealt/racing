@@ -222,16 +222,16 @@ func _menu_cars(t) -> void:
 			for r in rects:
 				all_shown = all_shown and r.end.y <= sz.y + 0.5
 			all_shown = all_shown and menu.car_page.start_btn.get_global_rect().end.y <= sz.y + 0.5 and menu.car_page.parts_row.is_visible_in_tree()
-		# (v6.34-6.38: ten parts) the chips: one row where each keeps the room for its name, pips and price, else two rows of five, else rows of four or three
+		# (v6.34-6.40: eleven parts) the chips: one row where each keeps the room for its name, pips and price, else two rows of six and five, else rows of four or three
 		var chips: Array = menu.car_page.part_chips
 		var pg: GridContainer = menu.car_page.parts_grid
-		var chips_ok := chips.size() == 10 and pg.columns in [10, 5, 4, 3]
+		var chips_ok := chips.size() == 11 and pg.columns in [11, 6, 4, 3]
 		var pr := menu.car_page.panel.get_global_rect()
 		for c: Control in chips:
 			var r := c.get_global_rect()
 			chips_ok = chips_ok and r.size.x >= CarScreen.CHIP_MIN_W - 0.5 and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5
 		t.check(menu.car_page.is_open and cards.size() == 9 and inside and not overlap and cols_ok and all_shown and chips_ok,
-			"%dx%d: %d cards, %d a row, inside the window and apart%s; the ten part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
+			"%dx%d: %d cards, %d a row, inside the window and apart%s; the eleven part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
 		# (v6.33) Race the field on a circuit: the race length row over the money and START, inside the panel
 		var hidden_before := not menu.car_page.laps_row.is_visible_in_tree()
@@ -998,9 +998,13 @@ func _upgrades(t) -> void:
 	var wg: Button = chips[9]
 	var wg_open: bool = int(wg.get("level")) == 0 and int(wg.get("max_level")) == 5 and int(wg.get("price")) == Upgrades.price("racer", "wing", 1) and \
 		not wg.disabled and wg.tooltip_text.contains("Level 1 (+5 %% of the weight in downforce at 180 km/h) costs %s" % UiFormat.money(Upgrades.price("racer", "wing", 1)))
-	t.check(chips.size() == 10 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight", "Supercharger", "Aero tune", "Brakes", "Suspension", "Wing"] and prices_ok and chips_in and sc_shut and ae_shut and
-		bk_open and su_open and wg_open and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
-		"the Racer (yours) at 1280 x 720: ten part chips (Engine, Tyres, Nitro, Loose grip, Weight, since v6.34 the Supercharger, reading \"Engine 5\" until the engine is there, since v6.35 the Aero tune, reading \"Weight 5\", since v6.36 the Brakes, since v6.37 the Suspension and since v6.38 the Wing, open, five levels) %d a row inside the page, at level 0 with the next level's price, over the description line" % pcols)
+	# (v6.40) the eleventh, the Nitro tune, shut until the nitro part is at level 5
+	var nt: Button = chips[10]
+	var nt_shut: bool = int(nt.get("level")) == 0 and int(nt.get("max_level")) == 5 and nt.call("price_text") == "Nitro 5" and \
+		nt.tooltip_text.contains("Opens once the Racer's nitro is at level 5") and nt.tooltip_text.contains("nitro push") and nt.tooltip_text.contains("half the price back")
+	t.check(chips.size() == 11 and names == ["Engine", "Tyres", "Nitro", "Loose grip", "Weight", "Supercharger", "Aero tune", "Brakes", "Suspension", "Wing", "Nitro tune"] and prices_ok and chips_in and sc_shut and ae_shut and
+		bk_open and su_open and wg_open and nt_shut and parts_row.is_visible_in_tree() and desc_row.is_visible_in_tree(),
+		"the Racer (yours) at 1280 x 720: eleven part chips (Engine, Tyres, Nitro, Loose grip, Weight, since v6.34 the Supercharger, reading \"Engine 5\" until the engine is there, since v6.35 the Aero tune, reading \"Weight 5\", since v6.36 the Brakes, since v6.37 the Suspension and since v6.38 the Wing, open, five levels, since v6.40 the Nitro tune, reading \"Nitro 5\") %d a row inside the page, at level 0 with the next level's price, over the description line" % pcols)
 	# (v6.38) the wing row for the race's track: no wing yet; three levels bought; turned down to 2 there; back up
 	var cp: Control = menu.car_page
 	var tid := String(cp.get("track_id"))
@@ -1051,7 +1055,7 @@ func _upgrades(t) -> void:
 	var r3 := UiData.buy_upgrade("racer", "turbo")
 	menu.refresh()
 	t.check(r1.ok and int(r1.level) == 1 and UiData.money() == 20000 - Upgrades.price("racer", "engine", 1) and r2.error == "locked" and r3.error == "unknown" and
-		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
+		UiData.upgrade_levels("racer") == PackedInt32Array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) and int(chips[0].get("level")) == 1 and int(chips[0].get("price")) == Upgrades.price("racer", "engine", 2),
 		"buying the Racer's engine: level 1, the chip shows the next price; a locked car or an unknown part: nothing")
 	UiData.store.career.money = 10
 	menu.refresh()
@@ -1071,7 +1075,7 @@ func _upgrades(t) -> void:
 	var top3: float = float(menu.car_card().get("top_up"))
 	t.check(at3, "v6.16: everything at level 3 is not the top: each chip offers level 4 of 10 (the engine's %s)" % UiFormat.money(Upgrades.price("racer", "engine", 4)))
 	# everything at level 10: MAX, off; the card's bars and top speed with the upgrades
-	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10, 10, 5, 5, 5, 5, 5]}
+	UiData.store.career.upgrades = {"racer": [10, 10, 10, 10, 10, 5, 5, 5, 5, 5, 5]}
 	menu.refresh()
 	var maxed := true
 	for c: Button in chips:
