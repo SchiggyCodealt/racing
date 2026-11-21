@@ -815,7 +815,7 @@ $105k). Click a chip (or press its number, 1 to 9, 0 for the tenth and - for the
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
 its top speed and weight turn green when the top speed is higher or the car lighter (at 1280 x 720 and in narrower
-windows the eleven chips stand in two rows, six and five; in narrower windows, rows of four or three). The `upgrade` and `buy <car> <part>` commands of
+windows the eleven chips stand in rows of four, the last row three; in narrower windows, rows of three). The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
 Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
@@ -1134,7 +1134,7 @@ moment you fire it: out of a slow corner, after a respawn, at the start.
 
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension, the Wing and the Nitro tune at MAX with five, in two rows of six and five, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally), with a line saying what they do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension, the Wing and the Nitro tune at MAX with five, in rows of four, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally), with a line saying what they do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 

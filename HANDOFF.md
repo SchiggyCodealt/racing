@@ -1771,7 +1771,7 @@ items; AI cars and medal times stay stock):
 - **Not done.** Raising `nitroTop` with the tune (cube root of the push) was tried: it only lifts the Vortex, the
   Apex and the Sarthe (the others hit the rev limiter first), by up to 34 km/h, so it was left out.
 - **Car page.** The eleventh chip: `PART_KEYS[10]` is Minus / NumpadSubtract (the hint reads "1-9, 0, -"); the chips
-  stand 11, or 6 + 5, or rows of 4 or 3.
+  stand 11, or 6 + 5, or rows of 4 (at 1280 x 720) or 3.
 - **Tests.** `_nitro_tune()` in tests/test_sim.gd (the spec, 0-200 km/h with nitro at every level, the tank as long,
   buying with the trial's miss), the terminal in tests/test_game.gd, the eleventh chip in tests/test_ui.gd, e2e
   upgrades (81 clicks, 16 trials).
