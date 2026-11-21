@@ -587,6 +587,47 @@ static func set_setup(id: String, track_id: String, key: String, value: int) -> 
 	return true
 
 
+## (v6.41) Car `id`'s looks: {paint, livery, glow} (sim/looks.gd indices; 0 = factory; all 0 for a car not owned).
+static func get_looks(id: String) -> Dictionary:
+	if _save:
+		return SaveData.get_looks(id)
+	var out := {}
+	var lk: Variant = store.career.get("looks")
+	var one: Variant = lk[id] if owns_car(id) and lk is Dictionary and (lk as Dictionary).get(id) is Dictionary else null
+	for k: String in Looks.KEYS:
+		var r: Array = Looks.KEYS[k]
+		var v: Variant = (one as Dictionary).get(k) if one is Dictionary else null
+		out[k] = clampi(int(v), int(r[0]), int(r[1])) if v is int or v is float else int(r[2])
+	return out
+
+
+## (v6.41) Set key `key` ("paint", "livery", "glow") of car `id`'s looks (free); false for a car not owned.
+## Factory values are dropped.
+static func set_look(id: String, key: String, value: int) -> bool:
+	if _save:
+		return SaveData.set_look(id, key, value)
+	if not owns_car(id) or not Looks.KEYS.has(key):
+		return false
+	var c: Dictionary = store.career
+	if not (c.get("looks") is Dictionary):
+		c.looks = {}
+	var one := get_looks(id)
+	one[key] = value
+	var keep := {}
+	for k: String in Looks.KEYS:
+		var r: Array = Looks.KEYS[k]
+		var v := clampi(int(one[k]), int(r[0]), int(r[1]))
+		if v != int(r[2]):
+			keep[k] = v
+	if keep.is_empty():
+		(c.looks as Dictionary).erase(id)
+	else:
+		c.looks[id] = keep
+	if (c.looks as Dictionary).is_empty():
+		c.erase("looks")
+	return true
+
+
 ## Car `id`'s stat bars with the upgrades bought (car_info(id).bars are the stock car's).
 static func car_bars(id: String) -> Dictionary:
 	return Upgrades.bars(id, upgrade_levels(id))

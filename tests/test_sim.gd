@@ -157,6 +157,7 @@ func run(checker: Variant) -> bool:
 	_wing()
 	_tyres()
 	_nitro_tune()
+	_looks()
 	_field()
 	_endurance()
 	_cups()
@@ -3997,6 +3998,63 @@ func _nitro_tune() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
 	t.check(ok, "buying it: shut until nitro 5; a missed trial takes %s of the %s and fits nothing; levels 1-5 (%s, like nitro levels 6-10), then the top; read back from the file" % [
 		UiFormat.money(prices[0] - prices[0] / 2), UiFormat.money(prices[0]), ", ".join(Array(prices).map(func(x: int) -> String: return UiFormat.money(x)))])
+
+
+## (v6.41) The looks: paint, liveries and underglow (sim/looks.gd), kept per car in the save file.
+func _looks() -> void:
+	t.section("the looks (v6.41.0, sim/looks.gd; per car: sim/save.gd looks)")
+	var ok := true
+	for key: String in Looks.KEYS:
+		var list: Array[Dictionary] = Looks.list(key)
+		var r: Array = Looks.KEYS[key]
+		var ids := {}
+		ok = ok and int(r[0]) == 0 and int(r[1]) == list.size() - 1 and int(r[2]) == 0 and not list[0].has("color")
+		for i in list.size():
+			var d: Dictionary = list[i]
+			ok = ok and not ids.has(d.id) and String(d.name) != "" and (i == 0 or key == "livery" or Color.html_is_valid(String(d.color)))
+			ids[d.id] = true
+	ok = ok and Looks.paint_count() == 14 and Looks.livery_count() == 6 and Looks.glow_count() == 8 and Looks.paint(99).id == "black" and Looks.paint(-3).id == "factory"
+	var own := true
+	for id: String in Cars.ids():
+		own = own and Looks.paint_color(id, 0).is_equal_approx(Color(String(Cars.get_car(id).look.color))) and Looks.paint_color(id, 7).is_equal_approx(Color("#3a86ff"))
+	var trims := Looks.trim(Color("#f1f2f4")).v < 0.2 and Looks.trim(Color("#f2c14e")).v < 0.2 and Looks.trim(Color("#24272e")).v > 0.9 and Looks.trim(Color("#24408e")).v > 0.9
+	var words := Looks.text({}) == "factory looks" and Looks.text({paint = 7, livery = 1, glow = 1}) == "Blue paint, Stripes livery, cyan underglow" and \
+		Looks.text({livery = 3}) == "Sash livery" and Looks.glow_color(0).a == 0.0 and Looks.glow_color(1).is_equal_approx(Color("#19e3ff"))
+	t.check(ok and own and trims and words, "the looks: 14 paints, 6 liveries, 8 underglows (the first of each factory or off), the save's ranges from the lists; paint 0 is each car's own colour; the trim dark on a light paint, white on a dark one; in words: \"%s\"" % Looks.text({paint = 7, livery = 1, glow = 1}))
+
+	# per car in the save file: factory unless set, for an owned car; only what isn't factory kept; cleaned
+	var path: String = "user://test_looks_save.json"
+	var clear := func() -> void:
+		for f: String in [path, path + ".bad", path + ".tmp"]:
+			if FileAccess.file_exists(f):
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(f))
+	clear.call()
+	SaveData.use_file(path)
+	var zero := {paint = 0, livery = 0, glow = 0}
+	ok = SaveData.get_looks("racer") == zero and SaveData.get_looks("vortex") == zero and not SaveData.set_look("vortex", "paint", 3) and \
+		not SaveData.set_look("racer", "wheels", 1) and not SaveData.set_look("nope", "paint", 1) and \
+		SaveData.set_look("racer", "paint", 7) and SaveData.set_look("racer", "livery", 1) and SaveData.set_look("racer", "glow", 99)
+	SaveData.use_file(path)
+	ok = ok and SaveData.get_looks("racer") == {paint = 7, livery = 1, glow = 7}
+	SaveData.set_look("racer", "livery", 0) # (back to factory: dropped from the file)
+	var disk: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and (disk.career.looks.racer as Dictionary).size() == 2 and JsMath.same(disk.career.looks.racer.paint, 7) and not (disk.career.looks.racer as Dictionary).has("livery")
+	SaveData.set_look("racer", "paint", 0)
+	SaveData.set_look("racer", "glow", 0)
+	disk = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and not (disk.career as Dictionary).has("looks")
+	disk.career.looks = {"racer": {"paint": 99, "livery": "red", "glow": -4, "wheels": 3}, "vortex": {"paint": 2}, "kestrel": "blue"}
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(JSON.stringify(disk))
+	f.close()
+	SaveData.use_file(path)
+	disk = JSON.parse_string(FileAccess.get_file_as_string(path))
+	ok = ok and SaveData.get_looks("racer") == {paint = 13, livery = 0, glow = 0} and SaveData.get_looks("vortex") == zero
+	SaveData.give_car("vortex")
+	ok = ok and SaveData.get_looks("vortex") == zero
+	SaveData.use_file(SaveData.DEFAULT_PATH)
+	clear.call()
+	t.check(ok, "the looks per car: factory unless set, for a car you own (not for one you don't, an unknown key or car); read back; a value past the end clamped; factory dropped from the file (no looks at all when every car is factory); a hand-edited file cleaned (a car not owned dropped)")
 
 
 ## SaveData.reset_everything(): a backup of the save next to it (an older backup kept, renamed), then

@@ -49,6 +49,9 @@ extends Node3D
 ## v6.11.0: opts.levels, the car's upgrade levels [engine, tyres, nitro, loose grip, weight]: what they
 ## add is drawn as one more skinned mesh with the car's material (CarBuild.upgrades: bigger
 ## exhaust tips, yellow tyre rings, blue nitro bands, mud flaps); not on a ghost.
+## v6.41.0: opts.looks, the car's cosmetics {paint, livery, glow} (sim/looks.gd, SaveData.get_looks): the
+## paint as its body colour (unless opts.color), the livery drawn by the car shader over the painted
+## body, and underglow: a coloured glow on the road under the car (a decal and a small light); not on a ghost.
 
 const Shapes = preload("res://world/car_shapes.gd")
 const CarBuild = preload("res://world/car_build.gd")
@@ -80,6 +83,11 @@ var opaque_mesh: MeshInstance3D
 var glass_mesh: MeshInstance3D = null
 ## (v6.11) the upgrades' parts (null: a stock car or a ghost) and the levels they show
 var upgrade_mesh: MeshInstance3D = null
+## (v6.41) the cosmetics this model shows ({paint, livery, glow}, all 0 when factory) and the underglow's
+## decal and light (null when off)
+var looks := {"paint": 0, "livery": 0, "glow": 0}
+var glow_decal: Decal = null
+var glow_light: OmniLight3D = null
 var levels := PackedInt32Array()
 ## The car's opaque material (a ShaderMaterial; a StandardMaterial3D for a ghost) and the glass's.
 var materials: Array[Material] = []
@@ -159,6 +167,12 @@ func _init(p_car_id := "racer", opts := {}) -> void:
 	detail = _forced_detail if _forced_detail >= 0 else 1
 	var look: Dictionary = Cars.get_car(car_id).get("look", {})
 	_paint = Color(opts["color"]) if opts.has("color") else Color(str(look.get("color", "#d7263d")))
+	if not ghost and opts.get("looks") is Dictionary:
+		for k: String in looks:
+			var r: Array = Looks.KEYS[k]
+			looks[k] = clampi(int(opts.looks.get(k, 0)), int(r[0]), int(r[1]))
+		if int(looks.paint) > 0 and not opts.has("color"):
+			_paint = Looks.paint_color(car_id, int(looks.paint))
 	name = "GhostCar" if ghost else "Car"
 	var shape := Shapes.shape_of(car_id)
 	rig = CarBuild.rig(car_id)
@@ -207,6 +221,9 @@ func _init(p_car_id := "racer", opts := {}) -> void:
 		_mat.set_shader_parameter("paint", _paint)
 		_mat.set_shader_parameter("accent", accent)
 		_mat.set_shader_parameter("stripe", stripe)
+		_mat.set_shader_parameter("livery", int(looks.livery)) # (v6.41)
+		_mat.set_shader_parameter("body_box", CarBuild.body_box(car_id))
+		_mat.set_shader_parameter("trim", Looks.trim(_paint))
 		var sa := PackedVector4Array()
 		var sb := PackedVector4Array()
 		for m: Array in rig["seams"]:
@@ -255,6 +272,8 @@ func _init(p_car_id := "racer", opts := {}) -> void:
 		blob.distance_fade_begin = 120.0
 		blob.distance_fade_length = 40.0
 		add_child(blob)
+		if int(looks.glow) > 0:
+			_add_underglow(shape, Looks.glow_color(int(looks.glow)))
 		smoke = CarEffects.TyreSmoke.new(64)
 		skids = CarEffects.SkidMarks.new(240)
 		sparks = CarEffects.Sparks.new(160)
@@ -328,6 +347,62 @@ static func upgrade_meshes(id: String, lv: PackedInt32Array, d: int) -> Dictiona
 	var out := {"mesh": kit.to_mesh(true), "triangles": kit.triangles()}
 	_mesh_cache[key] = out
 	return out
+
+
+## (v6.41) Underglow in colour `col`: a glowing decal on whatever is under the car (a little wider and
+## longer than the car, so it shows round it) and a small light under the floor; neither touches the car.
+func _add_underglow(shape: Dictionary, col: Color) -> void:
+	glow_decal = Decal.new()
+	glow_decal.name = "Underglow"
+	glow_decal.texture_albedo = _glow_texture(false)
+	glow_decal.texture_emission = _glow_texture(true) # (the emission isn't masked by the albedo's alpha: its own falloff)
+	glow_decal.modulate = col
+	glow_decal.emission_energy = 1.2
+	glow_decal.albedo_mix = 0.35
+	glow_decal.size = Vector3(4.2 * shape["width"] * (shape["track"] if not shape["fenders"] else 1.0), 1.4, 7.2 * (shape["front"] + shape["rear"]) / 2.0)
+	glow_decal.position = Vector3(0, 0.45, 0)
+	glow_decal.cull_mask = 0xFFFFF & ~CAR_LAYER
+	glow_decal.upper_fade = 0.3
+	glow_decal.lower_fade = 0.3
+	glow_decal.sorting_offset = 1.0 # (over the contact shadow)
+	glow_decal.distance_fade_enabled = true
+	glow_decal.distance_fade_begin = 140.0
+	glow_decal.distance_fade_length = 40.0
+	add_child(glow_decal)
+	glow_light = OmniLight3D.new()
+	glow_light.name = "UnderglowLight"
+	glow_light.light_color = col
+	glow_light.light_energy = 1.6
+	glow_light.omni_range = 3.2
+	glow_light.position = Vector3(0, 0.22, 0)
+	glow_light.shadow_enabled = false
+	glow_light.light_cull_mask = 0xFFFFF & ~CAR_LAYER
+	glow_light.distance_fade_enabled = true
+	glow_light.distance_fade_begin = 80.0
+	glow_light.distance_fade_length = 30.0
+	add_child(glow_light)
+
+
+static var _glow_tex := {}
+
+
+## The underglow's shape: full under the car, fading out round it from a rounded rectangle its size; as
+## alpha (the albedo's), or (`emission`) as the brightness on black.
+static func _glow_texture(emission: bool) -> ImageTexture:
+	if _glow_tex.has(emission):
+		return _glow_tex[emission]
+	var img := Image.create(64, 96, false, Image.FORMAT_RGBA8)
+	for y in 96:
+		for x in 64:
+			# how far outside a rounded rectangle about the car's size (0 at its edge, 1 at the image's edge)
+			var ox := maxf((absf(x - 31.5) / 32.0 - 0.5) / 0.5, 0.0)
+			var oy := maxf((absf(y - 47.5) / 48.0 - 0.64) / 0.36, 0.0)
+			var d := minf(sqrt(ox * ox + oy * oy), 1.0)
+			var a := pow(1.0 - d, 2.4)
+			img.set_pixel(x, y, Color(a, a, a, 1.0) if emission else Color(1, 1, 1, a))
+	img.generate_mipmaps()
+	_glow_tex[emission] = ImageTexture.create_from_image(img)
+	return _glow_tex[emission]
 
 
 static var _blob_tex: ImageTexture = null

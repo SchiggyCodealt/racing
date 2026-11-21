@@ -75,14 +75,17 @@ static func trophy(ci: CanvasItem, cx: float, top: float, h: float, col: Color) 
 ## The menu's side view of a car (menu.js silhouette): the profile's parts and wheels, the same
 ## scale for every car (5.6 m x 1.72 m shown) so their sizes compare, fitted to `r`. A part
 ## with a `color` (the driver's helmet, a roll cage) is drawn in it; `rim` colours the wheels.
-static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Color, accent: Color) -> void:
+static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Color, accent: Color, livery: int = 0) -> void:
 	const Z0 := -2.75
 	const Z1 := 2.85
 	const TOP := 1.72
 	var k := minf(r.size.x / (Z1 - Z0), r.size.y / TOP)
 	var o := r.position + (r.size - Vector2(Z1 - Z0, TOP) * k) * 0.5
+	var trim: Color = Looks.trim(paint)
 	if paint.get_luminance() < 0.2: # (v6.29: a near-black body, the Sarthe's, a little lighter, or it vanishes into the card)
 		paint = paint.lerp(Color("#8c93a0"), 0.35)
+	# (v6.41) the livery's shapes over the painted parts, in the profile's metres
+	var liv: Array = livery_shapes(profile, livery, paint, accent, trim) if livery > 0 else []
 	var fills := {"paint": paint, "accent": accent, "glass": Color("#2a3b52"), "carbon": Color("#121418"), "head": Color("#fff3d6")}
 	for part in profile.get("parts", []):
 		var src: PackedVector2Array = part.pts
@@ -98,6 +101,14 @@ static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Col
 		var ring := pts.duplicate()
 		ring.append(pts[0])
 		ci.draw_polyline(ring, col, 0.8, true) # (soft edges: polygons are not anti-aliased)
+		if part.get("mat") == "paint" and not liv.is_empty():
+			for sh: Array in liv:
+				for piece: PackedVector2Array in Geometry2D.intersect_polygons(src, sh[0]):
+					var q2 := PackedVector2Array()
+					for q in piece:
+						q2.append(o + Vector2(q.x - Z0, TOP - q.y) * k)
+					if q2.size() >= 3:
+						ci.draw_colored_polygon(q2, sh[1])
 	var rim: Color = profile.get("rim", Color("#a7adb8"))
 	if rim.get_luminance() < 0.25: # (dark rims: a little lighter, or they vanish into the tyre at card size)
 		rim = rim.lerp(Color("#a7adb8"), 0.3)
@@ -106,3 +117,77 @@ static func silhouette(ci: CanvasItem, r: Rect2, profile: Dictionary, paint: Col
 		ci.draw_circle(c, float(wh[1]) * k, Color("#0c0d10"), true, -1.0, true)
 		ci.draw_circle(c, float(wh[1]) * 0.62 * k, rim, true, -1.0, true)
 		ci.draw_circle(c, float(wh[1]) * 0.2 * k, Color("#0c0d10").lerp(rim, 0.4), true, -1.0, true)
+
+
+## (v6.41) A livery (sim/looks.gd; the car shader draws the same in 3D) as side-view shapes over
+## `profile`'s painted parts: [[PackedVector2Array of (z, y) m, Color]], drawn in order and clipped to
+## each painted part. Laid out in the painted body's box, as CarBuild.body_box.
+static func livery_shapes(profile: Dictionary, livery: int, paint: Color, accent: Color, trim: Color) -> Array:
+	var z0 := INF
+	var z1 := -INF
+	var y0 := INF
+	var y1 := -INF
+	var polys: Array = []
+	for part in profile.get("parts", []):
+		if part.get("mat") != "paint":
+			continue
+		polys.append(part.pts)
+		for q: Vector2 in part.pts:
+			z0 = minf(z0, q.x)
+			z1 = maxf(z1, q.x)
+			y0 = minf(y0, q.y)
+			y1 = maxf(y1, q.y)
+	if polys.is_empty() or z1 <= z0 or y1 <= y0:
+		return []
+	var L := z1 - z0
+	var H := y1 - y0
+	var at := func(u: float, v: float) -> Vector2: return Vector2(z0 + u * L, y0 + v * H)
+	var rect := func(ua: float, ub: float, va: float, vb: float) -> PackedVector2Array:
+		return PackedVector2Array([at.call(ua, va), at.call(ub, va), at.call(ub, vb), at.call(ua, vb)])
+	var out: Array = []
+	match livery:
+		1: # the stripes over the top: a thin band along the roofline (the side view's top edge) in its top half
+			var top := PackedVector2Array()
+			var low := PackedVector2Array()
+			for i in 49:
+				var z := z0 + L * i / 48.0
+				var y := -INF
+				for p: PackedVector2Array in polys:
+					for seg: PackedVector2Array in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([Vector2(z, y0 - 1.0), Vector2(z, y1 + 1.0)]), p):
+						for q in seg:
+							y = maxf(y, q.y)
+				if y > y0 + 0.45 * H:
+					top.append(Vector2(z, y + 0.02))
+					low.push_back(Vector2(z, y - 0.055))
+				elif top.size() >= 2:
+					break
+			if top.size() >= 2:
+				low.reverse()
+				top.append_array(low)
+				out.append([top, trim])
+		2: # two-tone: the lower body in the accent
+			out.append([rect.call(-0.1, 1.1, -0.2, 0.42), accent])
+		3: # a band rising towards the nose, edged in the accent (u - 0.5 = (v - 0.5) × 0.9 ± d)
+			for w: Array in [[0.11, accent], [0.085, trim]]:
+				var d: float = w[0]
+				out.append([PackedVector2Array([at.call(0.5 - 0.63 - d, -0.2), at.call(0.5 - 0.63 + d, -0.2), at.call(0.5 + 0.63 + d, 1.2),
+					at.call(0.5 + 0.63 - d, 1.2)]), w[1]])
+		4: # a chequered band (0.14 m squares in the car's frame)
+			var vy0 := y0 + 0.2 * H
+			var vy1 := y0 + 0.44 * H
+			var zi := floori(z0 / 0.14)
+			while zi * 0.14 < z1:
+				var yi := floori(vy0 / 0.14)
+				while yi * 0.14 < vy1:
+					var c: Color = Color(0.93, 0.93, 0.93) if posmod(zi + yi, 2) == 0 else Color(0.06, 0.06, 0.07)
+					var ya := maxf(yi * 0.14, vy0)
+					var yb := minf((yi + 1) * 0.14, vy1)
+					out.append([PackedVector2Array([Vector2(zi * 0.14, ya), Vector2((zi + 1) * 0.14, ya), Vector2((zi + 1) * 0.14, yb), Vector2(zi * 0.14, yb)]), c])
+					yi += 1
+				zi += 1
+		5: # the paint fading into the accent towards the tail, in ten steps
+			for i in 10:
+				var ua := 0.065 * i - 0.01
+				var t := 1.0 - smoothstep(0.12, 0.62, 0.065 * i + 0.0325)
+				out.append([rect.call(ua - 0.1 if i == 0 else ua, ua + 0.066, -0.2, 1.2), paint.lerp(accent, t)])
+	return out

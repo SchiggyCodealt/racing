@@ -112,6 +112,8 @@ var car_def: Dictionary = {}
 ## the AI ghost: the player's levels for the player's car and own network, Opponents.UPGRADES for an
 ## AI opponent (v6.25; stock before)
 var levels: PackedInt32Array = Upgrades.stock()
+## (v6.41) the car's cosmetics (SaveData.get_looks; {} for an opponent level's car)
+var looks: Dictionary = {}
 ## (v6.39) the tyre compounds (sim/tyres.gd) of the main car and of the AI ghost: they wear as they go
 var compound: int = Tyres.DEFAULT
 var ai_compound: int = Tyres.DEFAULT
@@ -214,6 +216,8 @@ func setup(p_app: GameApp, opts: Dictionary) -> void:
 	levels = Upgrades.race_levels(String(car_def.id), track.id) if driver == "human" else ai_levels
 	compound = int(SaveData.get_setup(String(car_def.id), track.id).compound) if driver == "human" else ai_compound
 	car_spec = Tyres.fit(Upgrades.spec(String(car_def.id), levels), compound)
+	# (v6.41) your car in the looks you gave it (your own network's too); an opponent level's car as it comes
+	looks = SaveData.get_looks(String(car_def.id)) if driver == "human" or level == "" else {}
 	var sp: CarSpec = car_spec
 	_rev_spec = {"idle_rpm": sp.idle_rpm, "redline": sp.redline, "upshift_rpm": sp.upshift_rpm}
 	cones = Cones.new(track) if track.open_edges else null
@@ -223,7 +227,7 @@ func enter() -> void:
 	app.show_track(track)
 	var world := app.world
 	# the player's car (or the watched AI's) in its own colours; the AI ghost is its car in purple
-	model = CarModel.new(car_def.id, {"levels": levels}) # (v6.11: its upgrades show on the model)
+	model = CarModel.new(car_def.id, {"levels": levels, "looks": looks}) # (v6.11: its upgrades show on the model; v6.41: its looks)
 	world.add_child(model)
 	car_audio = CarAudio.new(app.audio, car_def.id)
 	model.add_child(car_audio)

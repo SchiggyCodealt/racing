@@ -230,6 +230,7 @@ On the menu:
 | On the car page: 1-9, 0, - | A on a part | Buy the next level of that part (it asks first; the supercharger, the aero tune and the nitro tune then have their trial of arrows) |
 | On the car page: F / Shift+F | A on More / Less | More / less [wing](#the-wing) for the race's track (free, kept per car and track) |
 | On the car page: T / Shift+T | A on a compound | The next / previous [tyres](#tyres) for the race's track: Soft, Medium, Hard, Rally (free, kept per car and track) |
+| On the car page: P / V / G (Shift: back) | A on a Looks button | The next paint / livery / underglow for the picked car (its [looks](#looks-version-6410): free, kept per car; a right click on a button goes back) |
 | On the car page: Enter or Space / Esc | A / B | START (BUY when the car is not yours yet) / back to the menu |
 | H or ? | View | The **Controls** screen: every key and button (Esc, H or B closes it) |
 | O | highlight **Settings**, then A | The **Settings** screen |
@@ -1134,7 +1135,31 @@ moment you fire it: out of a slow corner, after a respawn, at the start.
 
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension, the Wing and the Nitro tune at MAX with five, in rows of four, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally), with a line saying what they do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension, the Wing and the Nitro tune at MAX with five, in rows of four, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally) and the Looks row (Factory paint, Factory livery, No glow), with a line saying what the wing and the tyres do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+
+### Looks (version 6.41.0)
+
+Version 6.41.0 lets you dress up every car you own. Beside the Wing and Tyres rows on the car page, a **Looks** row
+has three buttons for the picked car:
+
+- **Paint**: the car's factory colour or one of 13 others (Red, Orange, Yellow, Lime, Green, Teal, Blue, Navy, Purple,
+  Pink, White, Silver, Black).
+- **Livery**: a pattern painted over the body: Factory (the car's own stripes), **Stripes** (twin racing stripes over
+  the top, nose to tail), **Two-tone** (the lower body in the car's accent colour), **Sash** (a broad diagonal band
+  across the sides), **Chequer** (a chequered band along the sides) or **Fade** (the paint fading into the accent
+  colour towards the tail). The stripes and the sash are white on a dark paint and near-black on a light one.
+- **Glow**: an underglow, a coloured light on the road under the car: Off, Cyan, Magenta, Lime, Amber, Red, Blue or
+  White. It shows best at night, on Night Highway or Northern Lights.
+
+A click on a button picks the next one, a right click the one before (keys: P, V and G; with Shift, back). The
+looks are free, kept for each car on every track, and shown on its card (the paint and the livery) and on the car in
+every race you drive, the field races and the cups included, and when you watch your own AI network drive that car.
+They are looks only: the car drives exactly the same, and the AI opponents' cars and the ghosts stay as they
+come.
+
+| The car page with looks | The Thunder at night |
+| --- | --- |
+| ![The car page for a time trial on Night Highway: the cards show the Racer in purple with the Fade livery, the Drifter in yellow with the Chequer, the Vortex in black with the Sash, the Quadra in white with the Two-tone and the Sarthe with the Stripes; the Thunder is picked, in blue, and under the Upgrades the Looks row beside the Wing and the Tyres reads Blue paint (a blue swatch), Stripes livery and Cyan glow (a cyan swatch)](docs/screenshots/looks.png) | ![The blue Thunder from behind on Night Highway at 133 km/h, twin white stripes down its tail and a cyan underglow lighting the road round it](docs/screenshots/looks-race.png) |
 
 ### Your ghost
 
@@ -1764,7 +1789,7 @@ trained AI network of every car (a save file from version 6.0-6.1 had one networ
 and the career: money, points, the cars you own and their upgrades, the rewards already paid, the tracks medals have
 opened (and, since 6.23.0, how many tracks the game had when they were last checked, so tracks added later can open),
 whether the terminal's `unlock all` opened every track, and (6.14.0) the cup trophies, the cup payouts
-and a cup in progress, and (6.26.0) the sector records of every track with the car and upgrades that set them, and (6.32.0) its top 10s. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
+and a cup in progress, and (6.26.0) the sector records of every track with the car and upgrades that set them, and (6.32.0) its top 10s, and (6.38.0-6.39.0) each car's wing and tyres on every track, and (6.41.0) each car's looks. Next to it are `networks\` (the copies **Save best network** writes) and `logs\`
 (Godot's log files, useful when something goes wrong).
 
 The file is written safely (to a temporary file first, then swapped in), so a crash can't leave half a save. If

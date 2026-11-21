@@ -153,6 +153,7 @@ func _cars(t) -> void:
 	light.free()
 	full.free()
 	_car_upgrades(t)
+	_car_looks(t)
 
 
 ## v6.11.0: the upgrades' parts on the model (CarBuild.upgrades): one more skinned mesh with the car's
@@ -201,6 +202,40 @@ func _car_upgrades(t) -> void:
 	low.free()
 	none.free()
 	t.check(ok, "the upgrades on the model (one skinned mesh with the car's material, triangles with everything at 3: %s): bigger exhaust tips, tyre rings, nitro bands (more at each level), mud flaps where the car has none and has wheel arches, carbon wheel covers for the weight part (v6.21); fewer on low detail; v6.16: everything at 10 is the sum of the parts at 10, at most %.1f cm bigger round than at 3" % [", ".join(lines), grow_max * 100.0])
+
+
+## v6.41.0: the looks on the model: the paint, the livery and its box in the car shader, the trim that
+## stands out on the paint, the underglow (a decal and a light under the car that skip the car itself);
+## none of it on a ghost or a car without looks.
+func _car_looks(t) -> void:
+	var ok := true
+	var boxes: PackedStringArray = []
+	for id: String in Cars.ids():
+		var b: Vector4 = CarBuild.body_box(id)
+		ok = ok and b.x < b.y and b.z < b.w and b.y - b.x > 3.0 and b.y - b.x < 6.0 and b.w - b.z > 0.5 and b.w - b.z < 1.8 and b.z >= 0.0
+		boxes.append("%s %.1f x %.2f m" % [id, b.y - b.x, b.w - b.z])
+		var car := CarModel.new(id, {"looks": {"paint": 7, "livery": 3, "glow": 2}})
+		var mat: ShaderMaterial = car.get("_mat")
+		ok = ok and int(mat.get_shader_parameter("livery")) == 3 and (mat.get_shader_parameter("body_box") as Vector4) == b and \
+			(mat.get_shader_parameter("paint") as Color).is_equal_approx(Color("#3a86ff")) and (mat.get_shader_parameter("trim") as Color).v > 0.9 and \
+			car.glow_decal != null and car.glow_light != null and car.glow_decal.modulate.is_equal_approx(Color("#ff2bd6")) and \
+			car.glow_light.light_color.is_equal_approx(Color("#ff2bd6")) and car.glow_decal.cull_mask & CarModel.CAR_LAYER == 0 and \
+			car.glow_light.light_cull_mask & CarModel.CAR_LAYER == 0 and not car.glow_light.shadow_enabled
+		car.free()
+	var plain := CarModel.new("racer")
+	var pm: ShaderMaterial = plain.get("_mat")
+	var white := CarModel.new("racer", {"looks": {"paint": 11}})
+	var ghost := CarModel.new("racer", {"ghost": true, "looks": {"paint": 7, "livery": 3, "glow": 2}})
+	var tinted := CarModel.new("racer", {"color": Color("#ff0000"), "looks": {"paint": 7, "livery": 1}})
+	var tm: ShaderMaterial = tinted.get("_mat")
+	var rest: bool = int(pm.get_shader_parameter("livery")) == 0 and plain.glow_decal == null and plain.glow_light == null and \
+		(pm.get_shader_parameter("paint") as Color).is_equal_approx(Color(String(Cars.get_car("racer").look.color))) and \
+		((white.get("_mat") as ShaderMaterial).get_shader_parameter("trim") as Color).v < 0.2 and \
+		ghost.glow_decal == null and int(ghost.looks.livery) == 0 and int(ghost.looks.glow) == 0 and \
+		(tm.get_shader_parameter("paint") as Color).is_equal_approx(Color("#ff0000")) and int(tm.get_shader_parameter("livery")) == 1
+	for c: Node in [plain, white, ghost, tinted]:
+		c.free()
+	t.check(ok and rest, "the looks on the model (v6.41): blue paint, the sash livery inside the body's box (%s), white trim on blue, dark on white; a magenta underglow under it (a decal and a light, not on the car itself); none on a stock car or a ghost; a colour given by the caller wins over the paint" % ", ".join(boxes))
 
 
 static func _kit_box(kit: RefCounted) -> AABB:

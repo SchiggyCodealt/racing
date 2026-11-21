@@ -1281,6 +1281,18 @@ func _app_upgrades(t, app: GameApp) -> void:
 		app.tracks[0].name, app.tracks[1].name])
 	app.show_menu()
 	SaveData.set_setup("racer", app.tracks[0].id, "compound", 1)
+	# (v6.41) the looks given on the car page: the race's car wears them (the paint, the livery, the underglow)
+	SaveData.set_look("racer", "paint", 7)
+	SaveData.set_look("racer", "livery", 4)
+	SaveData.set_look("racer", "glow", 3)
+	m = app.start_play({"track": app.tracks[1], "driver": "human"})
+	var lm: CarModel = m.get("model")
+	t.check(m.get("looks") == {paint = 7, livery = 4, glow = 3} and lm.looks == {paint = 7, livery = 4, glow = 3} and lm.glow_light != null and \
+		int((lm.get("_mat") as ShaderMaterial).get_shader_parameter("livery")) == 4 and (m.get("car") as Car).spec == up_spec,
+		"the Racer's looks (Blue paint, Chequer livery, lime underglow): its car in the race wears them, and drives the same")
+	app.show_menu()
+	for k: String in ["paint", "livery", "glow"]:
+		SaveData.set_look("racer", k, 0)
 	var fixture := "res://tests/fixtures/game_net.json"
 	if AiLink.ready() and FileAccess.file_exists(fixture):
 		var parsed: Dictionary = AiLink.parse_network_file(JSON.parse_string(FileAccess.get_file_as_string(fixture)))

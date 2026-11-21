@@ -49,6 +49,8 @@ extends RefCounted
 ##                                                    applies it; (v6.39) its tyres, 0 soft, 1 medium (the
 ##                                                    default), 2 hard, 3 rally (Tyres.fit)
 ##   SaveData.set_setup(car_id, track_id, key, value) set it (free; false for a car not owned)
+##   SaveData.get_looks(car_id) -> {paint, livery, glow}   (v6.41) the car's cosmetics (sim/looks.gd; 0 = factory)
+##   SaveData.set_look(car_id, key, value)  set one (free; false for a car not owned)
 ## The terminal (v6.7.0, game/terminal.gd) also uses:
 ##   SaveData.tracks_unlocked() -> bool                every track open whatever the medals (the terminal's
 ##                                                    `unlock all` / `unlock tracks`)
@@ -97,10 +99,13 @@ extends RefCounted
 ## archive: {records | scores | ghosts: {track: {car: {sig: entry}}}},
 ## career: {money, points, cars: [car ids owned], paid: {track: {car: [reward ids]}}, welcome?, tracks_unlocked?,
 ## tracks_open, upgrades: {car: [engine, tyres, nitro, loose, weight]}, cups?: {paid: [cup reward ids], trophies: {cup:
-## {level: best place}}, run?: the cup in progress}, setups? (v6.38): {car: {track: {wing?, compound?}}}}}.
+## {level: best place}}, run?: the cup in progress}, setups? (v6.38): {car: {track: {wing?, compound?}}},
+## looks? (v6.41): {car: {paint?, livery?, glow?}}}}.
 ## (setups, v6.38.0: how much of its wing a car uses on a track, only where it isn't all of it; v6.39.0:
 ## its tyre compound, only where it isn't Medium; absent = every car's whole wing and Medium tyres
 ## everywhere; version 5 stays. A reset career drops them.)
+## (looks, v6.41.0: a car's paint, livery and underglow (sim/looks.gd indices), only what isn't factory;
+## absent = every car as it comes; version 5 stays. A reset career drops them.)
 ## (cups, v6.14.0: absent in older files = no trophies, nothing paid, no cup in progress; version 5 stays.
 ## A reset career keeps the trophies (like the records) but not the cup payouts or the cup in progress.)
 ## (tracks_unlocked, v6.7.0: true when the terminal opened every track; absent = false, so version 4
@@ -399,6 +404,19 @@ static func _repair_career(d: Dictionary) -> void:
 			c.erase("setups")
 		else:
 			c.setups = sets
+	# (v6.41) looks: owned cars only, values in range; factory entries dropped
+	if c.has("looks"):
+		var lk: Dictionary = {}
+		if c.looks is Dictionary:
+			for car: Variant in c.looks:
+				if cars.has(str(car)):
+					var one: Dictionary = _looks_set(_clean_looks(c.looks[car]))
+					if not one.is_empty():
+						lk[str(car)] = one
+		if lk.is_empty():
+			c.erase("looks")
+		else:
+			c.looks = lk
 
 
 ## Entries kept from older versions of a track: {signature: entry} (section: "records",
@@ -1179,6 +1197,64 @@ static func set_setup(car_id: String, track_id: String, key: String, value: int)
 			c.setups[car_id] = per
 		if (c.setups as Dictionary).is_empty():
 			c.erase("setups")
+		_write()
+	_mutex.unlock()
+	return ok
+
+
+# ---- looks (v6.41.0: paint, livery and underglow per car, sim/looks.gd) ------------------------
+
+## Every key of Looks.KEYS from `d` (a file's entry): numbers clamped to their range, anything else 0 (factory).
+static func _clean_looks(d: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	for k: String in Looks.KEYS:
+		var r: Array = Looks.KEYS[k]
+		var v: Variant = (d as Dictionary).get(k) if d is Dictionary else null
+		out[k] = clampi(int(v), int(r[0]), int(r[1])) if _is_num(v) and is_finite(float(v)) else int(r[2])
+	return out
+
+
+## Clean looks as the file keeps them: only the keys that aren't factory.
+static func _looks_set(d: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for k: String in d:
+		if Looks.KEYS.has(k) and int(d[k]) != int(Looks.KEYS[k][2]):
+			out[k] = int(d[k])
+	return out
+
+
+## Car `car_id`'s looks: {paint, livery, glow} (all 0, factory, for a car not owned or never changed).
+static func get_looks(car_id: String) -> Dictionary:
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var out: Dictionary = _clean_looks({})
+	var lk: Variant = c.get("looks")
+	if (c.cars as Array).has(car_id) and lk is Dictionary:
+		out = _clean_looks((lk as Dictionary).get(car_id))
+	_mutex.unlock()
+	return out
+
+
+## Set key `key` (Looks.KEYS: "paint", "livery", "glow") of car `car_id`'s looks to `value` (clamped to its
+## range; factory drops it). False for a car not owned or unknown, or an unknown key. Free.
+static func set_look(car_id: String, key: String, value: int) -> bool:
+	if not Cars.has_car(car_id) or not Looks.KEYS.has(key):
+		return false
+	_mutex.lock()
+	var c: Dictionary = _career()
+	var ok: bool = (c.cars as Array).has(car_id)
+	if ok:
+		if not (c.get("looks") is Dictionary):
+			c.looks = {}
+		var one: Dictionary = _clean_looks((c.looks as Dictionary).get(car_id))
+		one[key] = clampi(value, int(Looks.KEYS[key][0]), int(Looks.KEYS[key][1]))
+		one = _looks_set(one)
+		if one.is_empty():
+			(c.looks as Dictionary).erase(car_id)
+		else:
+			c.looks[car_id] = one
+		if (c.looks as Dictionary).is_empty():
+			c.erase("looks")
 		_write()
 	_mutex.unlock()
 	return ok

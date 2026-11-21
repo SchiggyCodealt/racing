@@ -18,6 +18,7 @@
 ##   CarBuild.profile("dune")                 # side view for the car picker
 ##   CarBuild.fleet_geometry("racer")         # {paint: Geo, dark: Geo} for the AI fleet's MultiMeshes
 ##   CarBuild.upgrades("racer", [3, 1, 2, 0], 1)  # v6.11: the parts the upgrades show (CarKit, cached)
+##   CarBuild.body_box("racer")               # v6.41: Vector4(rear z, front z, low y, high y) of the painted body
 ##
 ## Car frame: x = left, y = up, z = forward, the origin on the road between the axles.
 extends RefCounted
@@ -740,6 +741,29 @@ static func _driver(kit: Kit, s: Dictionary, detail: int, rig: Dictionary) -> vo
 # =============================================================================
 # side view (the car picker) and the AI fleet
 # =============================================================================
+
+## (v6.41) The box of car `id`'s painted body in its frame, from its side view (profile()):
+## Vector4(rear z, front z, lowest y, highest y). The car shader draws the liveries (sim/looks.gd) in it.
+static func body_box(id: String) -> Vector4:
+	var key := "box:" + id
+	if _cache.has(key):
+		return _cache[key]
+	var z0 := INF
+	var z1 := -INF
+	var y0 := INF
+	var y1 := -INF
+	for part: Dictionary in profile(id)["parts"]:
+		if part["mat"] != "paint":
+			continue
+		for q: Vector2 in part["pts"]:
+			z0 = minf(z0, q.x)
+			z1 = maxf(z1, q.x)
+			y0 = minf(y0, q.y)
+			y1 = maxf(y1, q.y)
+	var out := Vector4(z0, z1, y0, y1) if z1 > z0 and y1 > y0 else Vector4(-2.3, 2.5, 0.15, 1.1)
+	_cache[key] = out
+	return out
+
 
 ## Side view of car `id` for the car picker (plain numbers, same data as the 3D model):
 ## {parts: [{mat, pts: PackedVector2Array of (z, y)[, color]}], wheels: [Vector2(z, radius)], rim: Color}

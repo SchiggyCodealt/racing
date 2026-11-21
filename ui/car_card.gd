@@ -47,6 +47,9 @@ var bars_up: Dictionary = {}
 var top_up := 0.0
 var mass_up := 0.0   # (v6.21) kg with the weight part (0: the stock car's)
 var levels := PackedInt32Array()
+## (v6.41) the looks the car is drawn in: its paint (a Color, or null: its own) and livery (sim/looks.gd)
+var paint: Variant = null
+var livery := 0
 
 
 func _init() -> void:
@@ -101,6 +104,15 @@ func _tooltip() -> void:
 		up = " Upgrades: %s (green: what they add)." % Upgrades.text(levels) # (v6.34: the supercharger once it has a level)
 	tooltip_text = "%s (%d km/h, %.2f t): %s%s%s (C changes the car)" % [info.name, roundi(_top()), _mass() / 1000.0, info.description,
 		(" Locked: it costs %s." % UiFormat.money(price)) if locked else "", up]
+
+
+## (v6.41) Draw the car in paint `p` (null: its own colour) with livery `l` (sim/looks.gd; 0 none).
+func set_looks(p: Variant, l: int) -> void:
+	if (p == null and paint == null or p is Color and paint is Color and p == paint) and l == livery:
+		return
+	paint = p
+	livery = l
+	queue_redraw()
 
 
 ## Show the car as not owned (`on`), costing `p`; `can`: the money is there to buy it.
@@ -158,10 +170,11 @@ func _draw() -> void:
 		bars_x = px
 		bars_w = size.x - 2 * px
 		sil_rect = Rect2(px, py, sw, sh)
+	var body: Color = paint if paint is Color else info.color
 	if locked:
 		W.silhouette(self, sil_rect, profile, (info.color as Color).darkened(0.45), (info.accent as Color).darkened(0.45))
 	else:
-		W.silhouette(self, sil_rect, profile, info.color, info.accent)
+		W.silhouette(self, sil_rect, profile, body, info.accent, livery)
 	# head: name, then top speed and mass on the same baseline
 	var name_font := UiStyle.face("display")
 	var base := W.baseline(name_font, UiStyle.FS_L, head_top, UiStyle.FS_L)

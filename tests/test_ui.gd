@@ -230,6 +230,10 @@ func _menu_cars(t) -> void:
 		for c: Control in chips:
 			var r := c.get_global_rect()
 			chips_ok = chips_ok and r.size.x >= CarScreen.CHIP_MIN_W - 0.5 and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5
+		# (v6.41) the looks buttons beside the wing and the tyres, inside the panel
+		for b: Control in (menu.car_page.look_btns as Dictionary).values():
+			var r := b.get_global_rect()
+			chips_ok = chips_ok and b.is_visible_in_tree() and r.position.x >= pr.position.x and r.end.x <= pr.end.x + 0.5 and (sz.x < 1280 or r.end.y <= sz.y + 0.5)
 		t.check(menu.car_page.is_open and cards.size() == 9 and inside and not overlap and cols_ok and all_shown and chips_ok,
 			"%dx%d: %d cards, %d a row, inside the window and apart%s; the eleven part chips %d a row, each %d px or wider" % [sz.x, sz.y, cards.size(), grid.columns,
 			", all on screen" if sz.x >= 1280 else "", pg.columns, roundi((chips[0] as Control).size.x)])
@@ -1038,6 +1042,35 @@ func _upgrades(t) -> void:
 	cp.call("pick_compound", 1)
 	var t_back: bool = lit.call() == [1] and not ((UiData.store.career.get("setups", {}) as Dictionary).get("racer", {}) as Dictionary).has(tid)
 	t.check(t_def and t_soft and t_next and t_prev and t_back, "the tyres (v6.39) beside the wing: four chips, Medium lit; Soft: lit and kept for that car and track, the note says what it does; T the next, Shift+T the one before; Medium again: nothing kept")
+	# (v6.41) the looks: factory; P the next paint, Shift+P back round to Black; V the livery, G the glow; the
+	# card wears them; a car you don't own: the buttons off, nothing kept
+	var lbt: Dictionary = cp.get("look_btns")
+	var l_def: bool = (lbt.paint as Button).text == "Factory paint" and (lbt.livery as Button).text == "Factory livery" and (lbt.glow as Button).text == "No glow" and \
+		(lbt.paint as Button).theme_type_variation == "ChipButton" and not (lbt.paint as Button).disabled and str(cp.get("_hint").text).contains("P V G looks")
+	cp.call("handle_keys", _press(tinp, ["KeyP"]))
+	var l_p: bool = UiData.get_looks("racer") == {paint = 1, livery = 0, glow = 0} and (lbt.paint as Button).text == "Red paint" and \
+		(lbt.paint as Button).icon != null and (menu.car_card().get("paint") as Color).is_equal_approx(Color("#d7263d"))
+	cp.call("handle_keys", _press(tinp, ["KeyP", "Shift+KeyP"]))
+	cp.call("handle_keys", _press(tinp, ["KeyP", "Shift+KeyP"]))
+	var l_wrap: bool = int(UiData.get_looks("racer").paint) == 13 and (lbt.paint as Button).text == "Black paint"
+	cp.call("handle_keys", _press(tinp, ["KeyV"]))
+	cp.call("handle_keys", _press(tinp, ["KeyV"]))
+	cp.call("handle_keys", _press(tinp, ["KeyG"]))
+	var l_vg: bool = UiData.get_looks("racer") == {paint = 13, livery = 2, glow = 1} and (lbt.livery as Button).text == "Two-tone livery" and \
+		(lbt.glow as Button).text == "Cyan glow" and (lbt.glow as Button).icon != null and int(menu.car_card().get("livery")) == 2 and \
+		(lbt.livery as Button).tooltip_text.contains("the lower body in the car's accent colour")
+	(lbt.glow as Button).pressed.emit()
+	var l_click: bool = int(UiData.get_looks("racer").glow) == 2 and (lbt.glow as Button).text == "Magenta glow"
+	cp.call("pick", "vortex")
+	var l_locked: bool = (lbt.paint as Button).disabled and (lbt.glow as Button).disabled and (lbt.paint as Button).tooltip_text.contains("Buy the Vortex")
+	cp.call("step_look", "paint", 1)
+	l_locked = l_locked and UiData.get_looks("vortex").paint == 0 and not (UiData.store.career.get("looks", {}) as Dictionary).has("vortex")
+	cp.call("pick", "racer")
+	for k: String in ["paint", "livery", "glow"]:
+		UiData.set_look("racer", k, 0)
+	menu.refresh()
+	var l_back: bool = not (UiData.store.career as Dictionary).has("looks") and menu.car_card().get("paint") == null and int(menu.car_card().get("livery")) == 0
+	t.check(l_def and l_p and l_wrap and l_vg and l_click and l_locked and l_back, "the looks (v6.41) beside them: Factory paint, Factory livery, No glow; P: Red paint (a red swatch), on the card; Shift+P twice: round to Black; V twice: Two-tone; G: Cyan glow with a swatch; a click: Magenta; the Vortex (not yours): the buttons off, nothing kept; factory again: nothing kept, the card as it comes")
 	UiData.store.career.upgrades = {}
 	menu.refresh()
 	t.check(row_shown and w_full and w_down and w_back and str(cp.get("_hint").text).contains("F wing"),

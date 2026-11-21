@@ -4,7 +4,11 @@ Status notes for whoever (person or AI agent) picks this project up next.
 Read this first, then [README.md](README.md) for how the game works and how to run everything.
 The history of versions 1-5 (the browser game) is in [web/HANDOFF.md](web/HANDOFF.md).
 
-_Last updated: 2026-11-21 (v6.40.0: round 9, item 6 of 8: the nitro tune, an eleventh part (`PARTS[10]`, id
+_Last updated: 2026-11-21 (v6.41.0: round 9, item 7 of 8: looks per car (`sim/looks.gd` `Looks`): 14 paints, five
+liveries drawn by the car shader inside the body's box (`livery`, `body_box`, `trim` uniforms; `CarBuild.body_box`)
+and on the card's silhouette (`UiWidgets.livery_shapes`), and an underglow (a Decal and an OmniLight3D under the car);
+kept in `career.looks {car: {paint?, livery?, glow?}}` (`SaveData.get_looks` / `set_look`), the car page's Looks row
+(P, V, G; Shift or a right click back), looks only; v6.40.0: round 9, item 6 of 8: the nitro tune, an eleventh part (`PARTS[10]`, id
 `nitrotune`, five levels of +12 % nitro push: `nitroForce` and `nitroPower`, opens at nitro 5, fitted with the trial
 like the supercharger; key - on the car page); v6.39.0: round 9, item 5 of 8: tyre compounds (`sim/tyres.gd` `Tyres`): Soft, Medium
 (stock), Hard or Rally per car and track (`setups.compound`, the car page's Tyres row, T / Shift+T), free; grip on
@@ -90,7 +94,7 @@ tracks on three new themes; v6.3.0: feature 3, road surfaces: dirt and packed sn
 with every car; v6.1.0: feature 1, two more cars and detailed car models with a moving driver; v6.0.0 was the port
 from the browser to the Godot 4.7 engine)._
 
-## Status: v6.40.0, round 9 items 1, 3, 4, 5 and 6 of 8 done (the brakes; the suspension; the wing; the tyre compounds; the nitro tune; item 2, the gearbox, skipped by the owner); next: item 7, cosmetics, as v6.41.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
+## Status: v6.41.0, round 9 items 1, 3, 4, 5, 6 and 7 of 8 done (the brakes; the suspension; the wing; the tyre compounds; the nitro tune; the looks; item 2, the gearbox, skipped by the owner); next: item 8, presets, as v6.42.0 (see [Round 9](#round-9-eight-upgrade-ideas-v6360-on)); round 8 done (the supercharger with its trial of arrows; the aero tune); round 7 done (money for the author margin and the score; nitro back in Race the AI; top-10 laps and sectors with points; Le Mans and 10-car endurance races); round 6 done (cones and run-off instead of barriers on loose tracks, the HUD moves; Monaco, Silverstone and Spielberg; the Sarthe, a Le Mans prototype); round 5 done (all 9: the Reset button, the car page and tidier menu, the F1-style leaderboard, the weight upgrade, the Apex formula car, four rally stages, the Quadra rally car that the owner added on 2026-11-13, faster and closer AI opponents, the minimap with sectors and the sector records); round 4 done (AI nitro, upgrades to 10, reset everything); round 3 items 1-2 done (Race the field, championships); round 2 done (dirt and snow polish, car upgrades, sound and music); before them all nine features of round 1 (two more cars and detailed models; AI training with every car; dirt and snow; three new tracks; money, points and AI opponents; more forgiving corners; a terminal; tracks that open one at a time; a faster bronze)
 
 Round 9 (asked on 2026-11-20): eight upgrade ideas, one release each (v6.36.0 to v6.42.0, the gearbox skipped): see [Round 9](#round-9-eight-upgrade-ideas-v6360-on).
 
@@ -1673,7 +1677,7 @@ items; AI cars and medal times stay stock):
 5. **Tyres (v6.39.0, done)**: Soft, Medium, Hard or Rally per track; Soft grips most and wears in long races.
 6. **Nitro (v6.40.0, done)**: the Nitro part already is a bigger tank with a faster refill, so instead a five-level
    nitro tune opened at Nitro 5 for a stronger push, fitted with the arrow trial.
-7. **Cosmetics (v6.41.0)**: paint, five liveries, underglow; looks only.
+7. **Cosmetics (v6.41.0, done)**: paint, five liveries, underglow; looks only.
 8. **Presets (v6.42.0)**: up to three named setups per car (wing, tyres), loaded on any track.
 
 ### Item 1: the brakes (v6.36.0, done)
@@ -1756,6 +1760,35 @@ items; AI cars and medal times stay stock):
   Tests: `_wing()` in tests/test_sim.gd (measured gains, setups in the save file, buying), `start_play` with a setup in
   tests/test_game.gd, the Wing row in tests/test_ui.gd, the parts' checks, the UI's ten chips, the terminal, e2e (76
   clicks).
+
+### Item 7: the looks (v6.41.0, done)
+
+- **The lists.** `sim/looks.gd` (`Looks`): `PAINTS` (14: Factory, then 13 colours), `LIVERIES` (6: Factory, Stripes,
+  Two-tone, Sash, Chequer, Fade), `GLOWS` (8: Off, then 7 colours). The save keeps indices, so only append to them
+  (`Looks.KEYS` holds the ranges and must follow the lists; test_sim checks it). `Looks.trim(paint)`: the colour the
+  stripes and the sash use, near-black on a light paint (linear luminance over 0.4: yellow, lime, teal, silver, white), white on a dark one; the card uses it too.
+- **The save.** `career.looks {car: {paint?, livery?, glow?}}`, owned cars only, factory values dropped (no `looks`
+  key at all when every car is factory); cleaned on load like the setups; `SaveData.get_looks(car)` (all 0 for a car
+  not owned), `set_look(car, key, value)` (clamped; false for a car not owned or an unknown key); UiData mirrors both
+  for its fixture store. A career reset drops them with the rest of the career.
+- **On the car.** `CarModel` opts `looks` (play_mode passes `SaveData.get_looks` for the player's car and for the
+  player's own network's car; not for an opponent level's car, the ghosts or the field's AI cars). The paint replaces
+  `_paint` unless the caller gave a `color`. The car shader paints the livery over the PAINT kind only, in the body's
+  own box (`CarBuild.body_box(id)`: the `paint` parts of the profile, z and y in metres, cached), so it fits every car:
+  stripes on |x| 0.07-0.21 m above 12 % of the height (the top, the nose and the tail: the sides lie further out); two-tone the lower 42 % in the accent; a sash band
+  (accent, trim inside); a chequer band of 0.14 m squares at 20-44 % of the height; a fade to the accent towards the
+  tail. The underglow: a Decal (its own falloff texture as albedo, 0.35 mix, and as emission, since a decal's emission
+  isn't masked by the albedo's alpha) and an OmniLight3D at 0.22 m, both with the car's layer culled, no shadow.
+- **On the card.** `CarCard.set_looks(paint or null, livery)`; `UiWidgets.silhouette(..., livery)` clips
+  `UiWidgets.livery_shapes()` (side-view polygons) to each paint part. The underglow shows only in 3D.
+- **Car page.** A Looks group in `setup_row` (beside the wing and the tyres, which hide when `track_id` is ""; the
+  looks stay): three ChipButtons with a swatch icon for the paint and the glow; a click the next, a right click
+  (gui_input) the one before; P / V / G, Shift back (`LOOK_KEYS`); `look_picked(key, value)`, which MainMenu saves with
+  `UiData.set_look`. Off for a car not owned. At 1280 x 720 it fits on the same line as the wing and the tyres.
+- **Tests.** `_looks()` in tests/test_sim.gd (the lists, the save, a hand-edited file), `_car_looks()` in
+  tests/test_world.gd (the shader parameters, the trim, the underglow, none on a ghost), the race's car in
+  tests/test_game.gd, the Looks row and its keys in tests/test_ui.gd, e2e `looks` (the car page, the keys, a click and a
+  right click, the race's car on Night Highway; its shots are docs/screenshots/looks.png and looks-race.png).
 
 ### Item 6: the nitro tune (v6.40.0, done)
 

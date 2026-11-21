@@ -19,9 +19,13 @@ extends "res://ui/dialog_screen.gd"
 ## top speed; free, kept per car and track (UiData.get_setup); F / Shift+F more / less (`setup_picked`).
 ## (v6.39) Beside it the tyres for that track: Soft, Medium, Hard or Rally (sim/tyres.gd), free and kept
 ## the same way; T / Shift+T the next / previous compound.
+## (v6.41) Beside them the picked car's looks (sim/looks.gd): its paint, a livery and an underglow, free,
+## kept per car (on every track; shown on its card and on the car in the race); a button (or P, V, G)
+## the next one, a right click (or Shift) the one before (`look_picked`).
 ##
 ## Keys: arrows / WASD move over the cars, C / Shift+C next / previous car, 1-9, 0 and - buy the next level
-## of that part, F / Shift+F the wing, T / Shift+T the tyres, Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
+## of that part, F / Shift+F the wing, T / Shift+T the tyres, P / V / G the paint, livery and underglow
+## (Shift: back), Enter or Space starts, Esc or Backspace goes back. Gamepad: d-pad / stick over the cars
 ## (down to the parts, then to START), LB / RB the car, A starts or presses, B goes back.
 
 ## START was pressed (the menu starts what was chosen; the game refuses a car you don't own).
@@ -34,6 +38,8 @@ signal laps_picked(laps: int)
 ## (v6.38) the picked car's setup on `track_id` changed (key "wing": the levels it uses there, 0..5;
 ## 5 for all it has; (v6.39) key "compound": its tyres, 0..3, Tyres' index)
 signal setup_picked(key: String, value: int)
+## (v6.41) the picked car's looks changed (key "paint", "livery" or "glow": Looks' index; 0 factory)
+signal look_picked(key: String, value: int)
 
 const CarCard := preload("res://ui/car_card.gd")
 const PartChip := preload("res://ui/part_chip.gd")
@@ -44,6 +50,8 @@ const CHIP_MIN_W := 172.0
 const PART_KEYS := [["Digit1", "Numpad1"], ["Digit2", "Numpad2"], ["Digit3", "Numpad3"], ["Digit4", "Numpad4"], ["Digit5", "Numpad5"],
 	["Digit6", "Numpad6"], ["Digit7", "Numpad7"], ["Digit8", "Numpad8"], ["Digit9", "Numpad9"], ["Digit0", "Numpad0"],
 	["Minus", "NumpadSubtract"]] # (v6.40: the eleventh part, the nitro tune)
+## (v6.41) The looks buttons' keys (Shift: the one before) and what they read.
+const LOOK_KEYS := {"paint": "KeyP", "livery": "KeyV", "glow": "KeyG"}
 
 ## What is about to start, e.g. "Time trial · 03 Harbor Run".
 var event_text := "":
@@ -84,8 +92,9 @@ var _laps_wrap: Control
 var track_id := "":
 	set(v):
 		track_id = v
-		if _setup_wrap != null:
-			_setup_wrap.visible = v != ""
+		if _wing_box != null: # (v6.41: the looks stay, for every track)
+			_wing_box.visible = v != ""
+			_tyre_box.visible = v != ""
 var setup_row: Container
 var wing_less: Button
 var wing_more: Button
@@ -94,6 +103,11 @@ var wing_note: Label # (v6.39: under the row: what the wing and the tyres do the
 ## (v6.39) the tyre compound chips (Tyres' order: Soft, Medium, Hard, Rally)
 var tyre_btns: Array = []
 var _setup_wrap: Control
+var _wing_box: Control
+var _tyre_box: Control
+## (v6.41) the looks buttons: {"paint": Button, "livery": Button, "glow": Button}
+var look_btns := {}
+var _swatches := {}
 
 
 func _init() -> void:
@@ -227,6 +241,34 @@ func _init() -> void:
 		tyre_box.add_child(b)
 		tyre_btns.append(b)
 	setup_row.add_child(tyre_box)
+	_wing_box = wing_box
+	_tyre_box = tyre_box
+	wing_box.visible = track_id != ""
+	tyre_box.visible = track_id != ""
+	# (v6.41) the picked car's looks: paint, livery, underglow (a click the next, a right click the one before)
+	var looks_box := UiStyle.hbox(UiStyle.S1)
+	var lkcap := UiStyle.label("Looks", "display_bold", UiStyle.FS_S, UiStyle.TEXT_2, 0.1, true, false, false, UiStyle.FS_S)
+	lkcap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lkcap.mouse_filter = Control.MOUSE_FILTER_PASS
+	lkcap.tooltip_text = "How the picked car looks, free and kept for each car on every track: its paint, a livery painted over it and an underglow light on the road under it. A click picks the next one, a right click the one before. Looks only: the car drives the same."
+	var lkm := UiStyle.margin([0, 0, UiStyle.S1, 0])
+	lkm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lkm.mouse_filter = Control.MOUSE_FILTER_PASS
+	lkm.add_child(lkcap)
+	looks_box.add_child(lkm)
+	for key: String in ["paint", "livery", "glow"]:
+		var b := UiStyle.button("", "ChipButton", 26)
+		b.custom_minimum_size.x = 96
+		b.set_meta("look", key)
+		b.expand_icon = false
+		b.pressed.connect(func() -> void: step_look(key, 1))
+		b.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT and not b.disabled:
+				b.accept_event()
+				step_look(key, -1))
+		looks_box.add_child(b)
+		look_btns[key] = b
+	setup_row.add_child(looks_box)
 	wing_note = UiStyle.label("", "text", UiStyle.FS_S, UiStyle.TEXT_3, 0.0, false, false, false, 18)
 	wing_note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	wing_note.custom_minimum_size.x = 1
@@ -238,7 +280,6 @@ func _init() -> void:
 	srm.add_child(sbox)
 	body.add_child(srm)
 	_setup_wrap = srm
-	srm.visible = track_id != ""
 	# (v6.33) the race length (Race the field on a circuit)
 	laps_row = UiStyle.hbox(UiStyle.S1)
 	laps_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -328,7 +369,7 @@ func _style_laps() -> void:
 
 func _hint_text() -> void:
 	if _hint != null:
-		_hint.text = "C next car · %s upgrade a part · %s%sEnter start" % [_part_keys_text(), "F wing · T tyres · " if track_id != "" else "", "L laps · " if laps_choice else ""]
+		_hint.text = "C next car · %s upgrade a part · %sP V G looks · %sEnter start" % [_part_keys_text(), "F wing · T tyres · " if track_id != "" else "", "L laps · " if laps_choice else ""]
 
 
 ## (v6.38) The part keys in the hint: "1-9", "1-9, 0" with a tenth part, (v6.40) "1-9, 0, -" with an eleventh.
@@ -367,6 +408,30 @@ func pick_compound(i: int) -> void:
 	refresh()
 
 
+## (v6.41) The picked car's look `key` ("paint", "livery", "glow") one on (1) or back (-1), round the
+## list (Looks); free, for a car you own (else nothing).
+func step_look(key: String, step: int) -> void:
+	var car := UiData.picked_car()
+	if not UiData.owns_car(car) or not Looks.KEYS.has(key):
+		return
+	var n := Looks.list(key).size()
+	var to := posmod(int(UiData.get_looks(car).get(key, 0)) + step, n)
+	UiSound.play("ui_move")
+	look_picked.emit(key, to)
+	refresh()
+
+
+## (v6.41) A small square of colour `c` for a looks button's icon (kept per colour).
+func _swatch(c: Color) -> Texture2D:
+	var k := c.to_html()
+	if not _swatches.has(k):
+		var img := Image.create(12, 12, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0.55))
+		img.fill_rect(Rect2i(1, 1, 10, 10), c)
+		_swatches[k] = ImageTexture.create_from_image(img)
+	return _swatches[k]
+
+
 func close() -> void:
 	_ring.set_target(null)
 	super()
@@ -383,6 +448,8 @@ func refresh() -> void:
 		c.set_lock(not UiData.owns_car(c.car_id), p, have >= p)
 		var st := UiData.car_stats(c.car_id)
 		c.set_upgrades(UiData.car_bars(c.car_id), float(st.top), UiData.upgrade_levels(c.car_id), float(st.get("mass", 0.0)))
+		var lk := UiData.get_looks(c.car_id) # (v6.41) its paint and livery on the card
+		c.set_looks(Looks.paint_color(c.car_id, int(lk.paint)) if int(lk.paint) > 0 else null, int(lk.livery))
 	var info := UiData.car_info(car)
 	var owned := UiData.owns_car(car)
 	var price := UiData.car_price(car)
@@ -438,7 +505,10 @@ func refresh() -> void:
 ## speed and top speed (Upgrades.stats); (v6.39) the tyre chips (the compound lit) and what it does.
 func _refresh_setup(car: String, owned: bool, cname: String, lv: PackedInt32Array) -> void:
 	_hint_text()
+	_refresh_looks(car, owned, cname)
 	if track_id == "":
+		wing_note.text = ("%s: %s" % [cname, Looks.text(UiData.get_looks(car))]) if owned else "Buy the %s to choose its looks" % cname
+		wing_note.tooltip_text = wing_note.text
 		return
 	var wi := Upgrades.index_of("wing")
 	var have: int = lv[wi]
@@ -470,6 +540,32 @@ func _refresh_setup(car: String, owned: bool, cname: String, lv: PackedInt32Arra
 		wing_note.text = "On %s · %s · %s" % [tname, wing_text, tyre_text]
 	wing_note.tooltip_text = "%s on %s: the wing %s (without it → with it); %s. Free; kept for this car and track." % [cname, tname,
 		wing_l.text.to_lower(), tyre_text]
+
+
+## (v6.41) The looks buttons for car `car`: what it wears (the paint and the underglow with a swatch),
+## off for a car you don't own.
+func _refresh_looks(car: String, owned: bool, cname: String) -> void:
+	var lk := UiData.get_looks(car)
+	var p := int(lk.paint)
+	var l := int(lk.livery)
+	var g := int(lk.glow)
+	var pb: Button = look_btns.paint
+	var lb: Button = look_btns.livery
+	var gb: Button = look_btns.glow
+	pb.text = "%s paint" % Looks.paint(p).name
+	pb.icon = _swatch(Looks.paint_color(car, p))
+	lb.text = "%s livery" % Looks.livery(l).name
+	gb.text = "%s glow" % Looks.glow(g).name if g > 0 else "No glow"
+	gb.icon = _swatch(Looks.glow_color(g)) if g > 0 else null
+	var keys := " (P, Shift+P or a right click: the one before)"
+	pb.tooltip_text = "The %s's paint: %s%s. Free; looks only." % [cname, "its factory colour" if p == 0 else Looks.paint(p).name.to_lower(), keys]
+	lb.tooltip_text = "The %s's livery: %s, %s%s. Free; looks only." % [cname, Looks.livery(l).name, Looks.livery(l).what, keys.replace("P,", "V,").replace("+P", "+V")]
+	gb.tooltip_text = "The %s's underglow, a coloured light on the road under it: %s%s. Free; looks only." % [cname,
+		"off" if g == 0 else Looks.glow(g).name.to_lower(), keys.replace("P,", "G,").replace("+P", "+G")]
+	for b: Button in [pb, lb, gb]:
+		b.disabled = not owned
+		if not owned:
+			b.tooltip_text = "Buy the %s to choose its looks" % cname
 
 
 ## Pick car `id` (remembered: the "car" setting).
@@ -507,6 +603,7 @@ func _pad_parts() -> Array:
 	if track_id != "": # (v6.38) the wing buttons, (v6.39) the tyres
 		all.append_array([wing_less, wing_more])
 		all.append_array(tyre_btns)
+	all.append_array([look_btns.paint, look_btns.livery, look_btns.glow]) # (v6.41)
 	if laps_choice:
 		all.append_array(laps_btns)
 	return all.filter(func(c: Control) -> bool: return c.is_visible_in_tree() and not (c as BaseButton).disabled)
@@ -542,6 +639,9 @@ func handle_keys(inp: Object) -> void:
 	if track_id != "" and inp.consume(["KeyT"]): # (v6.39) the tyres: T next, Shift+T previous
 		var now := int(UiData.get_setup(UiData.picked_car(), track_id).compound)
 		pick_compound(posmod(now + (-1 if inp.consume(["Shift+KeyT"]) else 1), Tyres.count()))
+	for key: String in LOOK_KEYS: # (v6.41) the looks: P paint, V livery, G underglow (Shift: the one before)
+		if inp.consume([LOOK_KEYS[key]]):
+			step_look(key, -1 if inp.consume(["Shift+" + LOOK_KEYS[key]]) else 1)
 	if laps_choice and inp.consume(["KeyL"]): # (v6.33) the next race length
 		var choices: Array = [0]
 		choices.append_array(Array(Field.ENDURANCE_LAPS))
