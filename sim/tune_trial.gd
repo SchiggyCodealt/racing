@@ -1,7 +1,7 @@
 class_name TuneTrial
 extends RefCounted
 ## tune_trial.gd (v6.34.0): the trial that fits a supercharger level (and, from v6.35.0, an aero
-## tune level): a row of arrow prompts to press in order before the time runs out.
+## tune level; from v6.40.0, a nitro tune level): a row of arrow prompts to press in order before the time runs out.
 ## ------------------------------------------------------------------
 ## The car page asks first (the price, what a miss costs), then ui/trial_screen.gd runs one of
 ## these and draws it. The rules, all here so tests can play a trial without a screen:

@@ -227,7 +227,7 @@ On the menu:
 | Enter or Space | A | A time trial on the picked track: the **car page** opens first |
 | C / Shift+C | RB / LB | Next / previous car (on the menu: whose records you look at; on the car page: the car you drive) |
 | On the car page: arrows or W A S D | d-pad / left stick | Pick a car (down from the cars: its upgrades, then START) |
-| On the car page: 1-9, 0 | A on a part | Buy the next level of that part (it asks first; the supercharger and the aero tune then have their trial of arrows) |
+| On the car page: 1-9, 0, - | A on a part | Buy the next level of that part (it asks first; the supercharger, the aero tune and the nitro tune then have their trial of arrows) |
 | On the car page: F / Shift+F | A on More / Less | More / less [wing](#the-wing) for the race's track (free, kept per car and track) |
 | On the car page: T / Shift+T | A on a compound | The next / previous [tyres](#tyres) for the race's track: Soft, Medium, Hard, Rally (free, kept per car and track) |
 | On the car page: Enter or Space / Esc | A / B | START (BUY when the car is not yours yet) / back to the menu |
@@ -395,7 +395,8 @@ when it is low and reads EMPTY when it is empty. Every run starts with a full ta
 is left. The tank is **refilled by points** (see below): every 16,000 points you bank put one full tank back, so
 a clean lap refills about half a tank to a full one, depending on the track, and drifts and jumps fill it faster.
 Penalties take nothing out of the tank, and points banked at the finish refill nothing (the race is over).
-The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#upgrades)).
+The nitro upgrade makes the tank last longer and refill faster (see [Upgrades](#upgrades)), and from nitro level 5 the
+[nitro tune](#the-nitro-tune) makes the push itself stronger.
 
 **Nitro against a single AI** (version 6.31.0). In Race the AI, at any level and against My AI, you have your nitro
 again, as in a time trial: a full tank at the start, the gauge on the HUD, and clean driving refills it. The AI car
@@ -802,18 +803,19 @@ cup in progress).
 
 ### Upgrades
 
-Money also buys **upgrades** for the cars you own: ten parts per car (weight since version 6.21.0, the
+Money also buys **upgrades** for the cars you own: eleven parts per car (weight since version 6.21.0, the
 [supercharger](#the-supercharger) since 6.34.0, the [aero tune](#the-aero-tune) since 6.35.0, the [brakes](#the-brakes)
-since 6.36.0, the [suspension](#the-suspension) since 6.37.0, the [wing](#the-wing) since 6.38.0), ten levels each
-(version 6.16.0; three before; the supercharger, the aero tune, the brakes, the suspension and the wing five), bought one
-level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows ten chips under the
+since 6.36.0, the [suspension](#the-suspension) since 6.37.0, the [wing](#the-wing) since 6.38.0, the
+[nitro tune](#the-nitro-tune) since 6.40.0), ten levels each (version 6.16.0; three before; the supercharger, the aero
+tune, the brakes, the suspension, the wing and the nitro tune five), bought one
+level at a time and in order. They are on the car page (it opens when you choose a race): the picked car shows eleven chips under the
 cards, each with the part's name, a pip per level (green: bought; levels 8-10 in a lighter green) and the next level's
 price (yellow when you can afford it, grey when not, MAX when all ten are bought; from $100,000 it is shortened, like
-$105k). Click a chip (or press its number, 1 to 9 and 0 for the tenth, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
+$105k). Click a chip (or press its number, 1 to 9, 0 for the tenth and - for the eleventh, or highlight it with the gamepad: down from the cars, then A) to buy the next level: it asks
 first and says what the level does and what is left. A car you don't own shows its parts greyed out: buy the car
 first. The car's stat bars then show the stock car in white (yellow when picked) and what the upgrades add in green;
 its top speed and weight turn green when the top speed is higher or the car lighter (at 1280 x 720 and in narrower
-windows the ten chips stand in two rows of five; in narrower windows, rows of four or three). The `upgrade` and `buy <car> <part>` commands of
+windows the eleven chips stand in two rows, six and five; in narrower windows, rows of four or three). The `upgrade` and `buy <car> <part>` commands of
 [the terminal](#the-terminal) do the same.
 
 Levels 1-3 each add the part's full step (as in versions 6.11-6.15, exactly); levels 4-10 add less and less (0.8,
@@ -863,13 +865,13 @@ did before version 6.16.0 ($248,200 for the six cars of that version, $519,700 f
 wins gold and beats the Expert on every track earns $193,200 per car driven (author and the Elite everywhere
 $328,440): the Racer at level 7 everywhere costs less than one author-and-Elite career with it ($256,500), and its levels
 8-10 another $391,900, so a fully upgraded car is a late-career goal (money from other cars, Race the field and cups
-counts too). Every level of every part of every car costs $18,643,500 ($12,000,200 of it for the five parts in the
+counts too). Every level of every part of every car costs $19,908,850 ($12,000,200 of it for the five parts in the
 table, the rest for [the supercharger](#the-supercharger), [the aero tune](#the-aero-tune), [the brakes](#the-brakes),
-[the suspension](#the-suspension) and [the wing](#the-wing)).
+[the suspension](#the-suspension), [the wing](#the-wing) and [the nitro tune](#the-nitro-tune)).
 
 - **Medal times stay stock, the AI opponents have their own upgrades.** The medal times were set by the stock cars,
   so an upgraded car makes medals easier. Since version 6.25.0 the AI opponents always drive their car with every
-  part at level 3, whatever you have bought (before, they drove stock cars; they have no supercharger or aero tune), so beating
+  part at level 3, whatever you have bought (before, they drove stock cars; they have no supercharger, aero tune or nitro tune), so beating
   the Elite takes upgrades of your own or a very good run. Each reward is still paid only once.
 - **Where they count:** Drive, Race the AI and, with your own network (My AI), Watch the AI, Race my AI and the
   training screen all use the car with its upgrades. The AI opponents keep their own level 3 car.
@@ -926,7 +928,7 @@ again. The row is new every time and never has the same arrow three times in a r
 (Enter, Space or A skips it). Presses before the bar starts are ignored, so there is no penalty for jumping the gun.
 `buy <car> supercharger` in the terminal doesn't fit it (it says to use the car page); `upgrade <car> supercharger <0-5>`
 sets it for free, on engine 5 or above (an engine set below 5 takes the supercharger off). The
-[aero tune](#the-aero-tune) is fitted the same way.
+[aero tune](#the-aero-tune) and the [nitro tune](#the-nitro-tune) are fitted the same way.
 
 | The supercharger's trial (level 5: eight arrows, half of them pressed) |
 | --- |
@@ -1099,9 +1101,40 @@ its grip on dirt, gains least.
 The AI opponents race on Medium (in an endurance race theirs wear as yours do), the training screen uses Medium
 without wear, and the medal times stay stock. Records and ghosts note the car's levels but not its tyres.
 
+#### The nitro tune
+
+Version 6.40.0 adds an eleventh part, the **nitro tune**: a stronger nitro push. The [Nitro](#nitro) part makes the
+tank bigger and the refill faster; the tune makes what comes out of it hit harder. Its chip reads "Nitro 5" (greyed)
+until the car's nitro part is at level 5, then it has **five levels**, each **+12 % nitro push** (level 5: +60 %, at
+low speed and at speed alike). The tank lasts as long as before, and the push still fades out at the same speed just
+under the car's top speed with nitro (most cars hit the rev limiter in top gear there anyway), so it is harder
+acceleration while the nitro burns, not more top speed. Each level is fitted with the same
+[trial of arrows](#the-supercharger) as the supercharger (a miss fits nothing and gives half the price back), and
+costs what nitro levels 6-10 do (the Racer: $7,900 to $20,150, $68,350 for all five).
+
+| Car | 0-200 km/h with nitro from a full tank: nitro 5 → nitro 5 + tune 5 | Everything at its top: without → with the tune |
+| --- | --- | --- |
+| Racer | 6.52 → 5.60 s | 3.93 → 3.65 s |
+| Kestrel | 8.52 → 6.40 s | 4.00 → 3.70 s |
+| Thunder | 6.05 → 5.42 s | 3.78 → 3.60 s |
+| Drifter | 6.60 → 5.77 s | 3.95 → 3.68 s |
+| Dune | 8.93 → 6.73 s | 4.52 → 4.18 s |
+| Vortex | 4.92 → 4.32 s | 3.00 → 2.92 s |
+| Apex | 5.55 → 5.13 s | 3.45 → 3.38 s |
+| Quadra | 6.35 → 5.62 s | 3.93 → 3.70 s |
+| Sarthe | 4.40 → 4.00 s | 2.68 → 2.60 s |
+
+The light cars with a small engine (the Kestrel, the Dune) gain most: the push is a bigger share of what moves them.
+On a lap the nitro only burns for a few seconds at a time, so the tune is worth less there: with the medal autopilot
+(which uses its nitro on the straights), nitro 5 + tune 5 is 0.6-1 % quicker than nitro 5 alone on Rookie Oval and
+0.1-1.3 % on Silverstone, and with every other part at its top 0.3-0.6 % and 0.1-0.4 %. Where it shows is the
+moment you fire it: out of a slow corner, after a respawn, at the start.
+`buy <car> nitrotune` points to the car page; `upgrade <car> nitrotune <0-5>` sets it for free, on nitro 5 or above
+(a nitro part set below 5 takes the tune off). The AI opponents have no nitro tune, and the medal times stay stock.
+
 | The car page, every part of the Racer bought | On the car |
 | --- | --- |
-| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension and the Wing at MAX with five, in two rows of five, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally), with a line saying what they do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
+| ![The car page with the Racer fully upgraded (every part at its top): its card's stat bars with green on top of the stock values, 324 km/h and 1.01 t in green, and the Upgrades rows under the cards with Engine, Tyres, Nitro, Loose grip and Weight all at MAX with ten pips each and the Supercharger, the Aero tune, the Brakes, the Suspension, the Wing and the Nitro tune at MAX with five, in two rows of six and five, and under them the Wing row for Rookie Oval (5 of 5) beside the Tyres row (Soft, Medium lit, Hard, Rally), with a line saying what they do there](docs/screenshots/upgrades.png) | ![The Racer from behind, stock and with every part at level 3: bigger exhaust tips with blue nitro bands and a yellow ring on the tyre](docs/screenshots/upgrades-car.png) |
 
 ### Your ghost
 
@@ -1699,8 +1732,8 @@ behind it shows the new money, points and cars straight away.
 | `points <n>` / `points set <n>` | The same for career points (`points 200`, `points set 1000`) |
 | `car <name>` / `car all` | Gives you a car without paying (`car vortex`, names in any case), or every car. `car` alone lists the cars and their prices |
 | `buy <name>` | Buys a car with your money, as BUY on the car page does (`buy kestrel`) |
-| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`, `weight`, `brakes`, `suspension`, `wing`; the `supercharger` and the `aero` tune are fitted on the car page, with their trial) |
-| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10 (the supercharger 0 to 5 on engine 5 or above, the aero tune 0 to 5 on weight 5 or above, the brakes, the suspension and the wing 0 to 5), without paying (`upgrade dune tyres 7`, `upgrade dune super 3`, `upgrade dune aero 2`); `upgrade dune max` puts every part at its top (the supercharger, the aero tune, the brakes, the suspension and the wing at 5), `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
+| `buy <name> <part>` | Buys the next level of a part of a car you own with your money, as its chip on the car page does (`buy dune engine`; parts: `engine`, `tyres`, `nitro`, `loose`, `weight`, `brakes`, `suspension`, `wing`; the `supercharger`, the `aero` tune and the `nitrotune` are fitted on the car page, with their trial) |
+| `upgrade <name> <part> <level>` | Sets a part of a car you own to a level, 0 to 10 (the supercharger 0 to 5 on engine 5 or above, the aero tune 0 to 5 on weight 5 or above, the nitro tune 0 to 5 on nitro 5 or above, the brakes, the suspension and the wing 0 to 5), without paying (`upgrade dune tyres 7`, `upgrade dune super 3`, `upgrade dune aero 2`, `upgrade dune nitrotune 4`); `upgrade dune max` puts every part at its top (the supercharger, the aero tune, the brakes, the suspension, the wing and the nitro tune at 5), `upgrade dune stock` back to 0, `upgrade all max` / `upgrade all stock` every car you own; `upgrade dune` shows its levels and next prices, `upgrade` alone every car's |
 | `unlock all` | Every car is yours and every track is open, for good (`unlock cars` / `unlock tracks`: only those) |
 | `cup` / `cup <cup> <level> <place>` | Lists the trophy cabinet (your best place in each cup at each level) / records a place without racing and without pay (`cup rookie pro 1`: a gold in the Rookie Cup at Pro; place 0 takes it away). Cups: `rookie`, `asphalt`, `technical`, `dirt-snow`, `finale` |
 | `status` | Your money, points, the cars you own and their upgrades, how many medals you hold, how many tracks are open (and what opens the next one) and how many cup trophies you have |

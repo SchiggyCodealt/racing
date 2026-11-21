@@ -995,7 +995,7 @@ func _fleet_surfaces() -> void:
 func _fleet_upgrades() -> void:
 	t.section("FleetSim with upgraded cars (v6.11.0)")
 	var all3 := PackedInt32Array([3, 3, 3, 3, 3])
-	var all10 := PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5, 5, 5]) # (v6.16: ten levels; v6.34: the supercharger at 5)
+	var all10 := PackedInt32Array([10, 10, 10, 10, 10, 5, 5, 5, 5, 5, 5]) # (v6.16: ten levels; v6.34: the supercharger at 5)
 	# the trainer drives the spec it's given (only for its own car), stock otherwise
 	var tr_up := Trainer.new({tracks = [Tracks.build("rookie-oval")], population_size = 4, walls = "crash", native = false, car_id = "dune",
 		spec = Upgrades.spec("dune", all3)})
@@ -1013,7 +1013,7 @@ func _fleet_upgrades() -> void:
 	var differ: PackedStringArray = []
 	var levels_tried := 0
 	for id in Cars.ids():
-		for lv: PackedInt32Array in [all3, all10, PackedInt32Array([3, 0, 0, 0, 0]), PackedInt32Array([0, 2, 0, 3, 0]), PackedInt32Array([1, 3, 2, 1, 0]), PackedInt32Array([10, 4, 7, 10, 0]), PackedInt32Array([5, 2, 0, 3, 4, 5, 0]), PackedInt32Array([0, 0, 0, 0, 5, 0, 2, 4, 3, 2])]: # (v6.34: the supercharger; v6.35-6.36: the aero tune, the brakes)
+		for lv: PackedInt32Array in [all3, all10, PackedInt32Array([3, 0, 0, 0, 0]), PackedInt32Array([0, 2, 0, 3, 0]), PackedInt32Array([1, 3, 2, 1, 0]), PackedInt32Array([10, 4, 7, 10, 0]), PackedInt32Array([5, 2, 0, 3, 4, 5, 0]), PackedInt32Array([0, 0, 0, 0, 5, 0, 2, 4, 3, 2, 0])]: # (v6.34: the supercharger; v6.35-6.36: the aero tune, the brakes)
 			levels_tried += 1
 			var fs: Object = ClassDB.instantiate("FleetSim")
 			var sd := Trainer.spec_data(Upgrades.spec(id, lv))
@@ -1319,7 +1319,7 @@ func _opponents() -> void:
 		str(Opponents.level("expert").blurb).contains("about the author time, well inside gold"),
 		"the menu's level texts hold (v6.25: every level a step faster) with bronze at %s × the author time: Amateur between silver and bronze (%.3f × bronze at most), Pro between gold and silver, Expert within 5 %% of the author time and faster than gold, everywhere %s" % [
 			JsMath.num_to_js(float(Medals.FACTORS.bronze)), amateur_min, amateur_fast + pro_off + expert_off])
-	t.check(Opponents.spec("dune") == Upgrades.spec("dune", PackedInt32Array([3, 3, 3, 3, 3])) and Opponents.UPGRADES == PackedInt32Array([3, 3, 3, 3, 3, 0, 0, 0, 0, 0]) and
+	t.check(Opponents.spec("dune") == Upgrades.spec("dune", PackedInt32Array([3, 3, 3, 3, 3])) and Opponents.UPGRADES == PackedInt32Array([3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0]) and
 		Opponents.file_data("racer").get("upgrades") is Array and Upgrades.clean(Opponents.file_data("racer").upgrades) == Opponents.UPGRADES,
 		"the AI opponents drive their car with every part at upgrade level 3 (v6.25), and the files say so")
 	t.check(off.is_empty(), "each slowed level within 2 %% of its target (pace × author, at least %.2f × the level above) %s" % [Opponents.MIN_GAP, off])
