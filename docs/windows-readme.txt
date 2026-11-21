@@ -10,12 +10,17 @@ and upgrades. The tracks open one at a time: you start with Rookie Oval, and
 a bronze medal or better on a track, with any car, opens the next one for
 good.
 
-New in 6.40.0: the nitro tune, an eleventh upgrade part (key - on the car
-page). Once the nitro part is at level 5, five levels of 12 % more nitro
-push each, fitted with the trial of arrows like the supercharger: at level
-5 the cars reach 200 km/h on nitro 8-25 % quicker. The tank lasts as long.
+New in 6.41.0: looks for every car you own, free, on the car page's Looks
+row: 14 paints, five liveries (stripes, two-tone, sash, chequer, fade) and
+an underglow in seven colours. P, V and G pick the next one (Shift, or a
+right click on the button, the one before). Looks only: the car drives
+the same.
 
 Earlier versions, newest first:
+6.40.0  the nitro tune, an eleventh upgrade part (key - on the car page):
+        once the nitro part is at level 5, five levels of 12 % more nitro
+        push each, fitted with the trial of arrows; at level 5 the cars
+        reach 200 km/h on nitro 8-25 % quicker.
 6.39.0  tyre compounds: a Tyres row on the car page for the race's track
         (T / Shift+T): Soft grips 5 % more on asphalt but wears from 10 km,
         Medium is the stock tyre, Hard grips 3 % less and never wears, Rally

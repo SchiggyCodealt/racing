@@ -209,6 +209,8 @@ func _init() -> void:
 	car_page.upgrade.connect(func(part: String) -> void: upgrade.emit(part))
 	car_page.setup_picked.connect(func(key: String, value: int) -> void: # (v6.38) the wing per track, free
 		UiData.set_setup(UiData.picked_car(), car_page.track_id, key, value))
+	car_page.look_picked.connect(func(key: String, value: int) -> void: # (v6.41) the looks, per car, free
+		UiData.set_look(UiData.picked_car(), key, value))
 	car_page.car_picked.connect(func(id: String) -> void:
 		car_selected.emit(id)
 		refresh())

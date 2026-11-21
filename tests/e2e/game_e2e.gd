@@ -244,6 +244,8 @@ func _main() -> void:
 			await cones_run()
 		"cup":
 			await cup_run()
+		"looks":
+			await looks_run()
 		_:
 			check(false, "unknown scenario " + scenario)
 	print("E2E %s: %d passed, %d failed (%.1f s)" % [scenario, passed, failed, (Time.get_ticks_msec() - t0) / 1000.0])
@@ -344,6 +346,19 @@ func click(c: Control) -> void:
 		await frames(2)
 	if auto_start and not page_was and _car_page_open():
 		await key(KEY_ENTER) # (the car page's START)
+
+
+## (v6.41) A right click on the middle of a Control.
+func right_click(c: Control) -> void:
+	var p := c.get_screen_transform() * (c.size * 0.5)
+	for down: bool in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_RIGHT
+		e.pressed = down
+		e.position = p
+		e.global_position = p
+		Input.parse_input_event(e)
+		await frames(2)
 
 
 ## Scroll the ScrollContainer around `c` (if any) so that `c` shows.
@@ -2422,6 +2437,80 @@ func upgrades() -> void:
 	await key(KEY_ESCAPE)
 	await frames(6)
 	check(app.mode == app.menu_mode, "back on the menu")
+
+
+# ---------------------------------------------------------------- looks (v6.41.0)
+
+## (v6.41) The looks on the car page: P / V / G, a click and a right click change the picked car's paint,
+## livery and underglow, kept in the save for that car; its card wears them, and so does its car in the
+## race (the livery in the car shader, the underglow under it).
+func looks_run() -> void:
+	var menu: MainMenu = app.ui.menu
+	var page: CarScreen = menu.car_page
+	var tid := str(opts.get("track", "night-highway"))
+	var car := str(opts.get("car", "thunder"))
+	var cname := String(Cars.get_car(car).name)
+	# a few other cars dressed up already, for the card grid
+	for e: Array in [["racer", 9, 5], ["drifter", 3, 4], ["vortex", 13, 3], ["quadra", 11, 2], ["sarthe", 0, 1]]:
+		SaveData.set_look(e[0], "paint", e[1])
+		SaveData.set_look(e[0], "livery", e[2])
+	await pick(tid, car)
+	auto_start = false
+	await key(KEY_ENTER)
+	await frames(4)
+	var btns: Dictionary = page.look_btns
+	var pb: Button = btns.paint
+	var lb: Button = btns.livery
+	var gb: Button = btns.glow
+	check(page.is_open and pb.is_visible_in_tree() and pb.text == "Factory paint" and lb.text == "Factory livery" and gb.text == "No glow" and not pb.disabled,
+		"the car page for the %s: the Looks row reads Factory paint, Factory livery, No glow" % cname)
+	for i in 7:
+		await key(KEY_P)
+	await key(KEY_V)
+	await key(KEY_G)
+	await frames(2)
+	var lk := SaveData.get_looks(car)
+	check(int(lk.paint) == 7 and int(lk.livery) == 1 and int(lk.glow) == 1 and pb.text == "Blue paint" and lb.text == "Stripes livery" and gb.text == "Cyan glow",
+		"P seven times: Blue paint; V: Stripes livery; G: Cyan glow; kept in the save (%s)" % Looks.text(lk))
+	await key(KEY_P, true)
+	var back := int(SaveData.get_looks(car).paint) == 6 and pb.text == "Teal paint"
+	await key(KEY_P)
+	await click(lb)
+	var clicked := int(SaveData.get_looks(car).livery) == 2
+	await right_click(lb)
+	var right := int(SaveData.get_looks(car).livery) == 1
+	await right_click(gb)
+	var off := int(SaveData.get_looks(car).glow) == 0 and gb.text == "No glow"
+	await click(gb)
+	check(back and clicked and right and off and int(SaveData.get_looks(car).glow) == 1 and int(SaveData.get_looks(car).paint) == 7,
+		"Shift+P: the paint before (Teal); a click on the livery: the next (Two-tone), a right click: back (Stripes); a right click on the glow: off, a click: cyan again")
+	var cc: Control = menu.car_card()
+	check(cc.get("paint") is Color and (cc.get("paint") as Color).is_equal_approx(Looks.paint_color(car, 7)) and int(cc.get("livery")) == 1,
+		"the %s's card wears the blue paint and the stripes" % cname)
+	var win := Vector2(root.size)
+	var inside := true
+	for c: Control in [pb, lb, gb, page.start_btn]:
+		var r := c.get_global_rect()
+		inside = inside and r.position.x >= 0.0 and r.end.x <= win.x + 0.5 and r.end.y <= win.y + 0.5 and c.is_visible_in_tree()
+	check(inside, "1280 x 720: the looks buttons and START on screen")
+	await shot("looks_page")
+	await key(KEY_ENTER)
+	await frames(30)
+	var m: Node = app.mode
+	if not check(m != app.menu_mode and m.get("model") != null, "Enter starts the time trial"):
+		return
+	var model: CarModel = m.get("model")
+	var mat := model.get("_mat") as ShaderMaterial
+	check(int(model.looks.paint) == 7 and int(model.looks.livery) == 1 and int(model.looks.glow) == 1 and model.glow_light != null and model.glow_decal != null and \
+		mat != null and int(mat.get_shader_parameter("livery")) == 1,
+		"the %s in the race: blue, the stripes in its shader, a cyan underglow under it" % cname)
+	var md := Medals.medal_times(m.get("track"), car)
+	autopilot(float(md.run.aLat), float(md.run.lookK), false)
+	await game_seconds(float(opts.get("drive_s", "5")))
+	await shot("looks_race")
+	stop_autopilot()
+	await key(KEY_ESCAPE)
+	await frames(10)
 
 
 # ---------------------------------------------------------------- sound and music (v6.12.0)

@@ -19,6 +19,12 @@ uniform int seam_count = 0;
 uniform vec4 seam_a[12];
 uniform vec4 seam_b[12];
 uniform float seam_strength = 1.0; // 0: no panel lines (low quality)
+// (v6.41) the livery painted over the body (sim/looks.gd LIVERIES: 0 none, 1 stripes, 2 two-tone,
+// 3 sash, 4 chequer, 5 fade), laid out in the painted body's box (CarBuild.body_box: rear z, front z,
+// low y, high y) so it fits every car; trim: white on a dark paint, near-black on a light one
+uniform int livery = 0;
+uniform vec4 body_box = vec4(-2.3, 2.5, 0.15, 1.1);
+uniform vec3 trim : source_color = vec3(0.95, 0.95, 0.95);
 
 varying float v_kind;
 varying vec3 v_rest;
@@ -26,6 +32,29 @@ varying vec3 v_rest;
 void vertex() {
 	v_kind = UV2.x;
 	v_rest = vec3(UV.x, UV2.y, UV.y);
+}
+
+// The body colour at rest position p with the livery over it (linear colours).
+vec3 livery_paint(vec3 base, vec3 p) {
+	float u = clamp((p.z - body_box.x) / max(body_box.y - body_box.x, 0.1), 0.0, 1.0); // 0 tail .. 1 nose
+	float v = clamp((p.y - body_box.z) / max(body_box.w - body_box.z, 0.1), 0.0, 1.0); // 0 bottom .. 1 top
+	float ax = abs(p.x);
+	if (livery == 1) { // twin stripes over the car, nose to tail (and down the nose and the tail; the sides lie further out)
+		float s = step(0.07, ax) * step(ax, 0.21) * step(0.12, v);
+		return mix(base, trim, s);
+	} else if (livery == 2) { // the lower body in the accent
+		return mix(base, accent, step(v, 0.42));
+	} else if (livery == 3) { // a broad band rising towards the nose, edged in the accent
+		float d = abs((u - 0.5) - (v - 0.5) * 0.9);
+		return mix(mix(base, accent, step(d, 0.11)), trim, step(d, 0.085));
+	} else if (livery == 4) { // a chequered band along the sides (0.14 m squares)
+		float band = step(0.2, v) * step(v, 0.44);
+		float c = mod(floor(p.z / 0.14) + floor(p.y / 0.14), 2.0);
+		return mix(base, mix(vec3(0.85), vec3(0.015), c), band);
+	} else if (livery == 5) { // the paint fading into the accent towards the tail
+		return mix(base, accent, smoothstep(0.62, 0.12, u));
+	}
+	return base;
 }
 
 vec3 to_linear(vec3 c) {
@@ -40,7 +69,7 @@ void fragment() {
 	float coat = 0.0;
 	vec3 emit = vec3(0.0);
 	if (k == 0) {
-		alb = paint * alb; rough = 0.36; metal = 0.3; coat = 1.0;
+		alb = (livery > 0 ? livery_paint(paint, v_rest) : paint) * alb; rough = 0.36; metal = 0.3; coat = 1.0;
 	} else if (k == 1) {
 		alb = accent * alb; rough = 0.4; metal = 0.25; coat = 1.0;
 	} else if (k == 2) {
